@@ -14,6 +14,7 @@ using ComboBox = System.Windows.Controls.ComboBox;
 using ProgressBar = System.Windows.Controls.ProgressBar;
 using MessageBox = System.Windows.MessageBox;
 using NAudio.Wave;
+using System.Collections.Generic;
 
 namespace UGTLive
 {
@@ -80,6 +81,9 @@ namespace UGTLive
                 
                 // Set initialization flag to prevent saving during setup
                 _isInitializing = true;
+                
+                // Populate Whisper Language ComboBox
+                PopulateWhisperLanguageComboBox();
                 
                 // Make sure keyboard shortcuts work from this window too
                 PreviewKeyDown -= Application_KeyDown;
@@ -467,6 +471,25 @@ namespace UGTLive
             openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
             // Load Auto-translate for audio service
             audioServiceAutoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+
+            // Load Whisper source language
+            // Temporarily remove event handler
+            if (whisperSourceLanguageComboBox != null)
+            {
+                whisperSourceLanguageComboBox.SelectionChanged -= WhisperSourceLanguageComboBox_SelectionChanged;
+                string currentWhisperLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
+                foreach (ComboBoxItem item in whisperSourceLanguageComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), currentWhisperLanguage, StringComparison.OrdinalIgnoreCase))
+                    {
+                        whisperSourceLanguageComboBox.SelectedItem = item;
+                        Console.WriteLine($"SettingsWindow: Set Whisper source language from config to {currentWhisperLanguage}");
+                        break;
+                    }
+                }
+                // Re-attach event handler
+                whisperSourceLanguageComboBox.SelectionChanged += WhisperSourceLanguageComboBox_SelectionChanged;
+            }
         }
         
         // Language settings
@@ -1895,6 +1918,45 @@ namespace UGTLive
                     ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
                     Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
                 }
+            }
+        }
+
+        private void PopulateWhisperLanguageComboBox()
+        {
+            var languages = new List<(string Name, string Code)>
+            {
+                ("Auto", "Auto"), ("English", "en"), ("Japanese", "ja"), ("Chinese", "zh"),
+                ("Spanish", "es"), ("French", "fr"), ("German", "de"), ("Italian", "it"),
+                ("Korean", "ko"), ("Portuguese", "pt"), ("Russian", "ru"), ("Arabic", "ar"),
+                ("Hindi", "hi"), ("Turkish", "tr"), ("Dutch", "nl"), ("Polish", "pl"),
+                ("Swedish", "sv"), ("Norwegian", "no"), ("Danish", "da"), ("Finnish", "fi"),
+                ("Czech", "cs"), ("Hungarian", "hu"), ("Romanian", "ro"), ("Greek", "el"),
+                ("Thai", "th"), ("Vietnamese", "vi"), ("Indonesian", "id"), ("Malay", "ms"),
+                ("Hebrew", "he"), ("Ukrainian", "uk")
+                // Add more languages as needed
+            };
+
+            if (whisperSourceLanguageComboBox != null)
+            {
+                whisperSourceLanguageComboBox.Items.Clear();
+                foreach (var lang in languages)
+                {
+                    whisperSourceLanguageComboBox.Items.Add(new ComboBoxItem { Content = lang.Name, Tag = lang.Code });
+                }
+            }
+        }
+
+        // Whisper Source Language changed
+        private void WhisperSourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            if (whisperSourceLanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string languageCode = selectedItem.Tag?.ToString() ?? "Auto";
+                ConfigManager.Instance.SetWhisperSourceLanguage(languageCode);
+                Console.WriteLine($"Whisper source language set to: {languageCode}");
             }
         }
     }

@@ -80,6 +80,27 @@ namespace UGTLive
             //      • Enable server-side VAD so we do not have to manually commit
             //      • Disable automatic response generation (create_response = false)
             // ------------------------------------------------------------------
+            string whisperLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
+            object inputAudioTranscriptionConfig;
+
+            if (!string.IsNullOrEmpty(whisperLanguage) && !whisperLanguage.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                Log($"Configuring Whisper with language: {whisperLanguage}");
+                inputAudioTranscriptionConfig = new
+                {
+                    model = "whisper-1",
+                    language = whisperLanguage
+                };
+            }
+            else
+            {
+                Log("Configuring Whisper with auto language detection.");
+                inputAudioTranscriptionConfig = new
+                {
+                    model = "whisper-1"
+                };
+            }
+
             var sessionUpdate = new
             {
                 type = "session.update",
@@ -87,11 +108,7 @@ namespace UGTLive
                 {
                     // The default input format we are going to stream – 16-bit PCM @ 24 kHz mono
                     input_audio_format = "pcm16",
-                    input_audio_transcription = new
-                    {
-                        model = "whisper-1",   // Whisper is used to get text back
-                        //language = "ja" //leaving this blank means "auto detect source language"
-                    },
+                    input_audio_transcription = inputAudioTranscriptionConfig,
 
                     turn_detection = new
                     {

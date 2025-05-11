@@ -84,6 +84,9 @@ namespace UGTLive
         // Audio Input Device
         public const string AUDIO_INPUT_DEVICE_INDEX = "audio_input_device_index";
 
+        // Whisper specific settings
+        public const string WHISPER_SOURCE_LANGUAGE = "whisper_source_language";
+
         // Singleton instance
         public static ConfigManager Instance
         {
@@ -263,6 +266,9 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
+            
+            // Whisper default source language
+            _configValues[WHISPER_SOURCE_LANGUAGE] = "Auto"; // Default to Auto
             
             // Save the default configuration
             SaveConfig();
@@ -1471,6 +1477,22 @@ namespace UGTLive
             else
             {
                 Console.WriteLine($"Invalid audio input device index: {deviceIndex}. Must be non-negative.");
+            }
+        }
+
+        // Get/Set Whisper Source Language
+        public string GetWhisperSourceLanguage()
+        {
+            return GetValue(WHISPER_SOURCE_LANGUAGE, "Auto"); // Default to "Auto"
+        }
+
+        public void SetWhisperSourceLanguage(string language)
+        {
+            if (!string.IsNullOrWhiteSpace(language))
+            {
+                _configValues[WHISPER_SOURCE_LANGUAGE] = language;
+                SaveConfig();
+                Console.WriteLine($"Whisper source language set to: {language}");
             }
         }
     }
