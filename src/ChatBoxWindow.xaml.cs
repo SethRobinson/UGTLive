@@ -821,7 +821,6 @@ namespace UGTLive
                         if ((_displayMode == 0) && !string.IsNullOrEmpty(entry.TranslatedText))
                         {
                             para.Inlines.Add(new LineBreak());
-                            para.Inlines.Add(new LineBreak());
                         }
                     }
                     
