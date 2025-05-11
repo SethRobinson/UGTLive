@@ -470,6 +470,23 @@ namespace UGTLive
             audioProcessingProviderComboBox.SelectedIndex = 0; // Only one for now
             openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
             
+            // Load speech prompt
+            openAiSpeechPromptTextBox.Text = ConfigManager.Instance.GetOpenAISpeechPrompt();
+            
+            // Initialize OpenAI voice selection
+            openAiVoiceComboBox.SelectionChanged -= OpenAiVoiceComboBox_SelectionChanged;
+            string currentVoice = ConfigManager.Instance.GetOpenAIVoice();
+            foreach (ComboBoxItem item in openAiVoiceComboBox.Items)
+            {
+                if (string.Equals(item.Tag?.ToString(), currentVoice, StringComparison.OrdinalIgnoreCase))
+                {
+                    openAiVoiceComboBox.SelectedItem = item;
+                    Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
+                    break;
+                }
+            }
+            openAiVoiceComboBox.SelectionChanged += OpenAiVoiceComboBox_SelectionChanged;
+            
             // Set up audio translation type dropdown
             audioTranslationTypeComboBox.SelectionChanged -= AudioTranslationTypeComboBox_SelectionChanged;
             
@@ -2141,6 +2158,40 @@ namespace UGTLive
                     ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
                     Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
                 }
+            }
+        }
+
+        private void OpenAiSpeechPromptTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            string prompt = openAiSpeechPromptTextBox.Text.Trim();
+            if (!string.IsNullOrEmpty(prompt))
+            {
+                ConfigManager.Instance.SetOpenAISpeechPrompt(prompt);
+                Console.WriteLine("OpenAI speech prompt updated");
+            }
+        }
+
+        // Handle OpenAI voice selection change
+        private void OpenAiVoiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (openAiVoiceComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string voiceId = selectedItem.Tag?.ToString() ?? "echo";
+                    ConfigManager.Instance.SetOpenAIVoice(voiceId);
+                    Console.WriteLine($"OpenAI voice set to: {selectedItem.Content} (ID: {voiceId})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenAI voice: {ex.Message}");
             }
         }
     }

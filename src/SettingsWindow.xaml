@@ -635,6 +635,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Audio Processing Provider -->
@@ -676,19 +678,45 @@
                         <ComboBox x:Name="outputDeviceComboBox" Grid.Row="4" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
                         
+                        <!-- Voice Selection -->
+                        <TextBlock Text="AI Voice:" Grid.Row="5" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Select the voice for AI speech output"/>
+                        <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="5" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
+                            <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Default voice, balanced tone"/>
+                            <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
+                            <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
+                            <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
+                            <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
+                            <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
+                            <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
+                        </ComboBox>
+                        
+                        <!-- Speech Prompt -->
+                        <TextBlock Text="Speech Prompt:" Grid.Row="6" Grid.Column="0" 
+                                  VerticalAlignment="Top" Margin="0,8,10,0"
+                                  ToolTip="Instructions for how the AI should speak when reading translations"/>
+                        <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="6" Grid.Column="1" 
+                                Margin="0,5" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
+                                VerticalScrollBarVisibility="Auto" 
+                                LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
+                                ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
+                        
                         <!-- Whisper Language -->
-                        <TextBlock Text="Whisper Language:" Grid.Row="5" Grid.Column="0" 
+                        <TextBlock Text="Whisper Language:" Grid.Row="7" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Language for Whisper speech recognition (Auto to autodetect)"/>
-                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="5" Grid.Column="1" 
+                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="7" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
                         </ComboBox>
                         
                         <!-- Audio Translation Type -->
-                        <TextBlock Text="Audio Translation:" Grid.Row="6" Grid.Column="0" 
+                        <TextBlock Text="Audio Translation:" Grid.Row="8" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Method to translate audio transcriptions"/>
-                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="6" Grid.Column="1" 
+                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="8" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
                             <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
                             <ComboBoxItem Content="Google Translate" Tag="google"/>

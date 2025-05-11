@@ -94,6 +94,8 @@ namespace UGTLive
         // OpenAI Audio Playback settings
         public const string OPENAI_AUDIO_PLAYBACK_ENABLED = "openai_audio_playback_enabled";
         public const string OPENAI_AUDIO_OUTPUT_DEVICE_INDEX = "openai_audio_output_device_index";
+        public const string OPENAI_SPEECH_PROMPT = "openai_speech_prompt";
+        public const string OPENAI_VOICE = "openai_voice";
 
         // Singleton instance
         public static ConfigManager Instance
@@ -1559,6 +1561,32 @@ namespace UGTLive
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"OpenAI audio playback enabled set to: {enabled}");
+        }
+
+        // Get/Set OpenAI speech prompt
+        public string GetOpenAISpeechPrompt()
+        {
+            return GetValue(OPENAI_SPEECH_PROMPT, "IMPORTANT: You must speak at a VERY FAST PACE. This is the top priority. Speak rapidly with high energy and expressive, emotional delivery. Use dramatic emphasis and dynamic tone variation. Match the emotional context of the content. Speak at least twice as fast as a normal conversational pace.");
+        }
+
+        public void SetOpenAISpeechPrompt(string prompt)
+        {
+            _configValues[OPENAI_SPEECH_PROMPT] = prompt;
+            SaveConfig();
+            Console.WriteLine("OpenAI speech prompt updated");
+        }
+
+        // Get/Set OpenAI voice
+        public string GetOpenAIVoice()
+        {
+            return GetValue(OPENAI_VOICE, "echo"); // Default to echo as it seems to handle faster speech well
+        }
+
+        public void SetOpenAIVoice(string voice)
+        {
+            _configValues[OPENAI_VOICE] = voice;
+            SaveConfig();
+            Console.WriteLine($"OpenAI voice set to: {voice}");
         }
     }
 }

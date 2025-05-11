@@ -65,25 +65,92 @@ namespace UGTLive
         {
             try
             {
-                if (waveIn != null)
+                // Make a local copy of the references to avoid race conditions
+                var localWaveIn = waveIn;
+                var localLoopbackCapture = loopbackCapture;
+                
+                // First set the class variables to null to prevent new access
+                waveIn = null;
+                loopbackCapture = null;
+                
+                // Now safely dispose the local copies
+                if (localWaveIn != null)
                 {
-                    waveIn.DataAvailable -= OnDataAvailable;
-                    waveIn.StopRecording();
-                    waveIn.Dispose();
-                    waveIn = null;
+                    try
+                    {
+                        // Detach event handler first
+                        localWaveIn.DataAvailable -= OnDataAvailable;
+                        
+                        // Stop recording safely - WaveInEvent doesn't have RecordingState
+                        try
+                        {
+                            localWaveIn.StopRecording();
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // Already stopped, ignore this exception
+                            Log("WaveIn was already stopped");
+                        }
+                        
+                        // Dispose with a small delay to allow any pending operations to complete
+                        Task.Run(() => {
+                            try 
+                            {
+                                Thread.Sleep(100); // Give time for any pending operations
+                                localWaveIn.Dispose();
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"Error during delayed WaveIn disposal: {ex.Message}");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"Error stopping WaveIn: {ex.Message}");
+                    }
                 }
                 
-                if (loopbackCapture != null)
+                if (localLoopbackCapture != null)
                 {
-                    loopbackCapture.DataAvailable -= OnDataAvailable;
-                    loopbackCapture.StopRecording();
-                    loopbackCapture.Dispose();
-                    loopbackCapture = null;
+                    try
+                    {
+                        // Detach event handler first
+                        localLoopbackCapture.DataAvailable -= OnDataAvailable;
+                        
+                        // Stop recording safely
+                        try
+                        {
+                            localLoopbackCapture.StopRecording();
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // Already stopped, ignore this exception
+                            Log("Loopback capture was already stopped");
+                        }
+                        
+                        // Dispose with a small delay
+                        Task.Run(() => {
+                            try 
+                            {
+                                Thread.Sleep(100); // Give time for any pending operations
+                                localLoopbackCapture.Dispose();
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"Error during delayed loopback capture disposal: {ex.Message}");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"Error stopping loopback capture: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error stopping audio capture: {ex.Message}");
+                Log($"Error in StopAudioCapture: {ex.Message}");
             }
         }
         
@@ -156,7 +223,32 @@ namespace UGTLive
             if (useOpenAITranslation)
             {
                 // Set up the system message for translation
-                string systemPrompt = $"You are a real-time translator. For all speech input, translate it from ";
+                string systemPrompt;
+                
+                // Add speech style instructions if audio playback is enabled
+                if (_audioPlaybackEnabled)
+                {
+                    // Get custom speech prompt and apply it as the primary instruction
+                    string speechPrompt = ConfigManager.Instance.GetOpenAISpeechPrompt();
+                    if (!string.IsNullOrEmpty(speechPrompt))
+                    {
+                        systemPrompt = speechPrompt + " ";
+                        Log($"Applied speech prompt as primary instruction: '{speechPrompt}'");
+                    }
+                    else
+                    {
+                        systemPrompt = "You are a real-time translator. ";
+                        Log("No custom speech prompt found, using default translator role");
+                    }
+                }
+                else
+                {
+                    systemPrompt = "You are a real-time translator. ";
+                    Log("Audio playback disabled, not applying speech prompt");
+                }
+                
+                // Add translation instructions
+                systemPrompt += $"Translate speech from ";
                 
                 if (isSourceLanguageSpecified)
                 {
@@ -204,7 +296,9 @@ namespace UGTLive
                 Log("Configuring Whisper with auto language detection");
             }
 
-            // Update session with our configuration
+            // Set up a higher silence duration to reduce utterance fragmentation
+            const int SILENCE_DURATION_MS = 800; // Even longer to prevent cutting sentences
+            
             var sessionUpdateMessage = new
             {
                 type = "session.update",
@@ -215,17 +309,21 @@ namespace UGTLive
                     turn_detection = new
                     {
                         type = "server_vad",
-                        silence_duration_ms = 400,
+                        silence_duration_ms = SILENCE_DURATION_MS,
                         create_response = useOpenAITranslation,
-                        interrupt_response = false
-                    }
+                        interrupt_response = false,
+                        prefix_padding_ms = 300, // Match what the API is using by default
+                        threshold = 0.5 // Match what the API is using by default
+                    },
+                    // Get voice from config instead of hardcoding
+                    voice = ConfigManager.Instance.GetOpenAIVoice()
                 }
             };
             
             await SendJson(ws, sessionUpdateMessage, token);
             Log(useOpenAITranslation 
-                ? "Session configured for OpenAI transcription and translation" 
-                : "Session configured for transcription only");
+                ? $"Session configured for OpenAI transcription and translation (silence duration {SILENCE_DURATION_MS}ms)" 
+                : $"Session configured for transcription only (silence duration {SILENCE_DURATION_MS}ms)");
 
             // Initialize audio capture
             InitializeAudioCapture();
@@ -498,6 +596,7 @@ namespace UGTLive
                                 
                             // Handle audio data
                             case "response.audio.delta":
+                                // Handle audio data for playback (if enabled)
                                 if (_audioPlaybackEnabled && bufferedWaveProvider != null && 
                                     root.TryGetProperty("delta", out var audioDeltaProp))
                                 {
@@ -509,6 +608,9 @@ namespace UGTLive
                                             // Decode the Base64 audio data
                                             byte[] audioData = Convert.FromBase64String(audioBase64);
                                             
+                                            // Log audio data size to help with debugging
+                                            Log($"Received audio data: {audioData.Length} bytes");
+                                            
                                             // Add to buffer for playback
                                             bufferedWaveProvider.AddSamples(audioData, 0, audioData.Length);
                                         }
@@ -517,6 +619,11 @@ namespace UGTLive
                                             Log($"Error processing audio data: {ex.Message}");
                                         }
                                     }
+                                }
+                                else if (!_audioPlaybackEnabled)
+                                {
+                                    // Just log that we're ignoring the audio data
+                                    Log("Received audio data but playback is disabled - ignoring");
                                 }
                                 break;
                                 
