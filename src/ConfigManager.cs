@@ -1575,6 +1575,17 @@ namespace UGTLive
             SaveConfig();
             Console.WriteLine("OpenAI speech prompt updated");
         }
+        
+        // Reset OpenAI speech prompt to default
+        public void ResetOpenAISpeechPromptToDefault()
+        {
+            if (_configValues.ContainsKey(OPENAI_SPEECH_PROMPT))
+            {
+                _configValues.Remove(OPENAI_SPEECH_PROMPT);
+            }
+            SaveConfig();
+            Console.WriteLine("OpenAI speech prompt reset to default");
+        }
 
         // Get/Set OpenAI voice
         public string GetOpenAIVoice()

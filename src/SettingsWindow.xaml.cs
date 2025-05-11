@@ -2173,6 +2173,20 @@ namespace UGTLive
             }
         }
 
+        // Handle Set Default Speech Prompt button click
+        private void SetDefaultSpeechPromptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            // Reset to default prompt by calling the config method with a null or empty string
+            ConfigManager.Instance.ResetOpenAISpeechPromptToDefault();
+            
+            // Update the text box with the new default value
+            openAiSpeechPromptTextBox.Text = ConfigManager.Instance.GetOpenAISpeechPrompt();
+            
+            Console.WriteLine("OpenAI speech prompt reset to default");
+        }
+
         // Handle OpenAI voice selection change
         private void OpenAiVoiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

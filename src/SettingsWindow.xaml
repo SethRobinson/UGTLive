@@ -698,11 +698,23 @@
                         <TextBlock Text="Speech Prompt:" Grid.Row="6" Grid.Column="0" 
                                   VerticalAlignment="Top" Margin="0,8,10,0"
                                   ToolTip="Instructions for how the AI should speak when reading translations"/>
-                        <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="6" Grid.Column="1" 
-                                Margin="0,5" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
+                        
+                        <Grid Grid.Row="6" Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="0"
+                                Margin="0,5,0,0" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
                                 VerticalScrollBarVisibility="Auto" 
                                 LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
                                 ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
+                            <Button x:Name="setDefaultSpeechPromptButton" Grid.Row="1"
+                                Content="Set Default Prompt" 
+                                HorizontalAlignment="Left" Margin="0,3,0,5"
+                                Click="SetDefaultSpeechPromptButton_Click"
+                                ToolTip="Reset to the default speech prompt"/>
+                        </Grid>
                         
                         <!-- Whisper Language -->
                         <TextBlock Text="Whisper Language:" Grid.Row="7" Grid.Column="0" 
