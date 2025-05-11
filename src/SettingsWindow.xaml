@@ -637,6 +637,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Audio Processing Provider -->
@@ -724,11 +725,18 @@
                                  Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
                         </ComboBox>
                         
+                        <!-- OpenAI Silence Duration -->
+                        <TextBlock Text="Silence Duration (ms):" Grid.Row="8" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Duration of silence in milliseconds before an utterance is considered complete. Affects how quickly transcription/translation is finalized."/>
+                        <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="8" Grid.Column="1" 
+                                Margin="0,5" LostFocus="OpenAiSilenceDurationMsTextBox_LostFocus"/>
+                        
                         <!-- Audio Translation Type -->
-                        <TextBlock Text="Audio Translation:" Grid.Row="8" Grid.Column="0" 
+                        <TextBlock Text="Audio Translation:" Grid.Row="9" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Method to translate audio transcriptions"/>
-                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="8" Grid.Column="1" 
+                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="9" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
                             <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
                             <ComboBoxItem Content="Google Translate" Tag="google"/>

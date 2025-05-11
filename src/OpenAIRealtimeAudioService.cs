@@ -299,7 +299,7 @@ namespace UGTLive
             }
 
             // Set up a higher silence duration to reduce utterance fragmentation
-            const int SILENCE_DURATION_MS = 1000; // Increase to 1 second to avoid premature utterance breaks
+            int silenceDurationMs = ConfigManager.Instance.GetOpenAiSilenceDurationMs();
             
             var sessionUpdateMessage = new
             {
@@ -311,7 +311,7 @@ namespace UGTLive
                     turn_detection = new
                     {
                         type = "server_vad",
-                        silence_duration_ms = SILENCE_DURATION_MS,
+                        silence_duration_ms = silenceDurationMs,
                         create_response = useOpenAITranslation,
                         interrupt_response = false,
                         prefix_padding_ms = 500, // Increase from 300 to 500ms for better context
@@ -326,8 +326,8 @@ namespace UGTLive
             
             await SendJson(ws, sessionUpdateMessage, token);
             Log(useOpenAITranslation 
-                ? $"Session configured with instructions and for OpenAI transcription and translation (silence duration {SILENCE_DURATION_MS}ms)" 
-                : $"Session configured for transcription only (silence duration {SILENCE_DURATION_MS}ms)");
+                ? $"Session configured with instructions and for OpenAI transcription and translation (silence duration {silenceDurationMs}ms)" 
+                : $"Session configured for transcription only (silence duration {silenceDurationMs}ms)");
 
             // Initialize audio capture
             InitializeAudioCapture();

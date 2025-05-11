@@ -96,6 +96,7 @@ namespace UGTLive
         public const string OPENAI_AUDIO_OUTPUT_DEVICE_INDEX = "openai_audio_output_device_index";
         public const string OPENAI_SPEECH_PROMPT = "openai_speech_prompt";
         public const string OPENAI_VOICE = "openai_voice";
+        public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
 
         // Singleton instance
         public static ConfigManager Instance
@@ -276,6 +277,7 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
+            _configValues[OPENAI_SILENCE_DURATION_MS] = "400"; // Default silence duration
             
             // Save the default configuration
             SaveConfig();
@@ -563,7 +565,6 @@ namespace UGTLive
                 string defaultGeminiPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
                 string defaultOllamaPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
                 string defaultChatGptPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
-                string defaultGoogleTranslatePrompt = "You are a translator using Google Translate API. Translate the text from the source language to the target language accurately while maintaining the original meaning and context.";
                 
                 // Check and create Gemini config file
                 if (!File.Exists(_geminiConfigFilePath))
@@ -1598,6 +1599,31 @@ namespace UGTLive
             _configValues[OPENAI_VOICE] = voice;
             SaveConfig();
             Console.WriteLine($"OpenAI voice set to: {voice}");
+        }
+
+        // Get/Set OpenAI Silence Duration
+        public int GetOpenAiSilenceDurationMs()
+        {
+            string value = GetValue(OPENAI_SILENCE_DURATION_MS, "400"); 
+            if (int.TryParse(value, out int duration) && duration >= 0)
+            {
+                return duration;
+            }
+            return 400; // Default duration
+        }
+
+        public void SetOpenAiSilenceDurationMs(int duration)
+        {
+            if (duration >= 0)
+            {
+                _configValues[OPENAI_SILENCE_DURATION_MS] = duration.ToString();
+                SaveConfig();
+                Console.WriteLine($"OpenAI silence duration set to: {duration}ms");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid OpenAI silence duration: {duration}. Must be non-negative.");
+            }
         }
     }
 }

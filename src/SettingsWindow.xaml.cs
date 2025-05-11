@@ -469,6 +469,7 @@ namespace UGTLive
             LoadAudioInputDevices(); // Load and set audio input devices
             audioProcessingProviderComboBox.SelectedIndex = 0; // Only one for now
             openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
+            openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
             
             // Load speech prompt
             openAiSpeechPromptTextBox.Text = ConfigManager.Instance.GetOpenAISpeechPrompt();
@@ -2158,6 +2159,23 @@ namespace UGTLive
                     ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
                     Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
                 }
+            }
+        }
+
+        private void OpenAiSilenceDurationMsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+
+            if (int.TryParse(openAiSilenceDurationMsTextBox.Text, out int duration) && duration >= 0)
+            {
+                ConfigManager.Instance.SetOpenAiSilenceDurationMs(duration);
+                Console.WriteLine($"OpenAI Silence Duration set to: {duration}ms");
+            }
+            else
+            {
+                // Reset to current config value if input is invalid
+                openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
+                MessageBox.Show("Invalid silence duration. Please enter a non-negative number.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
