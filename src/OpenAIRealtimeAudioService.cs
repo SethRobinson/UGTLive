@@ -7,6 +7,7 @@ using NAudio.Wave;
 using System.IO;
 using System.Text.Json;
 using System.Collections.Generic;
+using NAudio.CoreAudioApi;
 
 namespace UGTLive
 {
@@ -15,12 +16,15 @@ namespace UGTLive
         private ClientWebSocket? ws;
         private CancellationTokenSource? cts;
         private WaveInEvent? waveIn;
+        private WasapiLoopbackCapture? loopbackCapture;
+        private bool useLoopback;
         private readonly List<byte> audioBuffer = new List<byte>();
         private readonly object bufferLock = new object();
         private int chunkSize;
 
-        public void StartRealtimeAudioService(Action<string, string> onResult)
+        public void StartRealtimeAudioService(Action<string, string> onResult, bool useLoopback = false)
         {
+            this.useLoopback = useLoopback;
             Stop();
             cts = new CancellationTokenSource();
             Task.Run(() => RunAsync(onResult, cts.Token), cts.Token);
@@ -35,11 +39,19 @@ namespace UGTLive
                 {
                     waveIn.DataAvailable -= OnDataAvailable;
                     waveIn.StopRecording();
+                    waveIn.Dispose();
+                }
+                if (loopbackCapture != null)
+                {
+                    loopbackCapture.DataAvailable -= OnDataAvailable;
+                    loopbackCapture.StopRecording();
+                    loopbackCapture.Dispose();
                 }
                 ws?.Dispose();
             }
             catch { }
             waveIn = null;
+            loopbackCapture = null;
             ws = null;
         }
 
@@ -95,14 +107,46 @@ namespace UGTLive
             // ------------------------------------------------------------------
             // 2)   Initialise microphone capture
             // ------------------------------------------------------------------
-            waveIn = new WaveInEvent();
-            waveIn.WaveFormat = new WaveFormat(24000, 16, 1); // 24 kHz, 16-bit mono PCM
+            // Initialise audio capture (mic or loopback)
+            if (useLoopback)
+            {
+                loopbackCapture = new WasapiLoopbackCapture();
+                loopbackCapture.DataAvailable += OnDataAvailable;
+                var format = loopbackCapture.WaveFormat;
+                chunkSize = format.AverageBytesPerSecond / 8;
+                loopbackCapture.StartRecording();
+            }
+            else
+            {
+                waveIn = new WaveInEvent();
 
-            chunkSize = waveIn.WaveFormat.AverageBytesPerSecond / 3;
+                int deviceIndex = ConfigManager.Instance.GetAudioInputDeviceIndex();
+                if (deviceIndex >= 0 && deviceIndex < WaveInEvent.DeviceCount)
+                {
+                    waveIn.DeviceNumber = deviceIndex;
+                    Log($"Using audio input device: {WaveInEvent.GetCapabilities(deviceIndex).ProductName} (Index: {deviceIndex})");
+                }
+                else
+                {
+                    waveIn.DeviceNumber = 0; // Default to device 0 if config is invalid or no devices
+                    if (WaveInEvent.DeviceCount > 0)
+                    {
+                        Log($"Warning: Invalid device index {deviceIndex}. Defaulting to device 0: {WaveInEvent.GetCapabilities(0).ProductName}");
+                    }
+                    else
+                    {
+                        Log("Warning: No audio input devices found. Defaulting to device 0 (which will likely fail).");
+                    }
+                }
 
-            audioBuffer.Clear();
-            waveIn.DataAvailable += OnDataAvailable;
-            waveIn.StartRecording();
+                waveIn.WaveFormat = new WaveFormat(24000, 16, 1); // 24 kHz, 16-bit mono PCM
+
+                chunkSize = waveIn.WaveFormat.AverageBytesPerSecond / 8;
+
+                audioBuffer.Clear();
+                waveIn.DataAvailable += OnDataAvailable;
+                waveIn.StartRecording();
+            }
 
             var buffer = new byte[8192];
             var messageBuffer = new MemoryStream();
@@ -331,7 +375,10 @@ namespace UGTLive
                 if (!ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled() || string.IsNullOrEmpty(text))
                     return string.Empty;
 
-                var service = TranslationServiceFactory.CreateService();
+                // When audio auto-translate is ON, explicitly use Google Translate.
+                var service = TranslationServiceFactory.CreateService("Google Translate");
+                Log("Audio auto-translate is ON. Using Google Translate for this transcription.");
+
                 // Prepare minimal JSON with one text block
                 var payload = new
                 {

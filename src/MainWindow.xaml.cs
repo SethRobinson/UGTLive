@@ -12,6 +12,7 @@ using System.Drawing.Drawing2D;
 using System.Diagnostics;
 using System.Text;
 using System.Windows.Shell;
+using MessageBox = System.Windows.MessageBox;
 
 
 namespace UGTLive
@@ -1360,9 +1361,18 @@ namespace UGTLive
                 isListening = true;
                 btn.Content = "Stop Listening";
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
+
+                // Show a message if ChatBox isn't visible
+                var chatBoxWin = ChatBoxWindow.Instance;
+                if (chatBoxWin == null || !chatBoxWin.IsVisible)
+                {
+                    MessageBox.Show(this, "The Listen button listens for audio and shows the detected dialog in the chatbox. Please open the chatbox window to see the detected dialog.", "ChatBox Not Visible", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+
                 if (openAIRealtimeAudioService == null)
                     openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
-                openAIRealtimeAudioService.StartRealtimeAudioService(OnOpenAITranscriptionReceived);
+                // Start the realtime audio service using loopback capture to record system audio
+                openAIRealtimeAudioService.StartRealtimeAudioService(OnOpenAITranscriptionReceived, false);
             }
         }
 
@@ -1371,7 +1381,15 @@ namespace UGTLive
             Dispatcher.Invoke(() =>
             {
 
-                //!Handle raw transcribed audio
+                //!Handle raw transcribed audio.  Oh, let's strip the spaces and newlines from the beginning and end of the text
+                text = text.Trim();
+                translatedText = translatedText.Trim();
+                // If the text is empty, don't add it to the history
+                if (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(translatedText))
+                {
+                    return;
+                }
+
                 AddTranslationToHistory(text, translatedText);
 
                 ChatBoxWindow.Instance?.OnTranslationWasAdded(text, translatedText);

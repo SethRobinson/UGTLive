@@ -81,6 +81,9 @@ namespace UGTLive
         public const string OPENAI_REALTIME_API_KEY = "openai_realtime_api_key";
         public const string AUDIO_SERVICE_AUTO_TRANSLATE = "audio_service_auto_translate";
 
+        // Audio Input Device
+        public const string AUDIO_INPUT_DEVICE_INDEX = "audio_input_device_index";
+
         // Singleton instance
         public static ConfigManager Instance
         {
@@ -257,6 +260,9 @@ namespace UGTLive
             _configValues[MIN_LINE_CONFIDENCE] = "0.1";
             _configValues[AUTO_TRANSLATE_ENABLED] = "true";
             _configValues[IGNORE_PHRASES] = "";
+            
+            // Audio Input Device default
+            _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
             
             // Save the default configuration
             SaveConfig();
@@ -1441,6 +1447,31 @@ namespace UGTLive
             _configValues[AUDIO_SERVICE_AUTO_TRANSLATE] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Audio service auto-translate enabled: {enabled}");
+        }
+
+        // Get/Set Audio Input Device Index
+        public int GetAudioInputDeviceIndex()
+        {
+            string value = GetValue(AUDIO_INPUT_DEVICE_INDEX, "0"); // Default to 0 if not set
+            if (int.TryParse(value, out int deviceIndex) && deviceIndex >= 0)
+            {
+                return deviceIndex;
+            }
+            return 0; // Default to device 0 if parsing fails or value is negative
+        }
+
+        public void SetAudioInputDeviceIndex(int deviceIndex)
+        {
+            if (deviceIndex >= 0)
+            {
+                _configValues[AUDIO_INPUT_DEVICE_INDEX] = deviceIndex.ToString();
+                SaveConfig();
+                Console.WriteLine($"Audio input device index set to: {deviceIndex}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid audio input device index: {deviceIndex}. Must be non-negative.");
+            }
         }
     }
 }
