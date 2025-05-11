@@ -655,7 +655,7 @@ namespace UGTLive
             var result = new List<string>();
             
             // Get access to MainWindow's translation history
-            var mainWindowHistory = MainWindow.Instance.GetTranslationHistory();
+            var mainWindowHistory = MainWindow.Instance.GetTranslationHistory(); // Now List<TranslationEntry>
             
             // If no history or count is zero, return empty list
             if (mainWindowHistory.Count == 0 || maxCount <= 0)
@@ -663,8 +663,8 @@ namespace UGTLive
                 return result;
             }
             
-            // Copy the queue to a list so we can access by index, most recent first
-            var historyList = mainWindowHistory.Reverse().ToList();
+            // Create a reversed copy of the history list (most recent first for processing)
+            var historyList = mainWindowHistory.AsEnumerable().Reverse().ToList();
             int collected = 0;
             
             // Collect entries until we have the requested number
@@ -680,7 +680,7 @@ namespace UGTLive
                 }
             }
             
-            // Reverse the list so older entries come first (chronological order)
+            // Reverse the collected results so older entries come first (chronological order for context)
             result.Reverse();
             
             return result;
@@ -777,10 +777,11 @@ namespace UGTLive
                 }
                 
                 // Get the history from MainWindow
-                var mainWindowHistory = MainWindow.Instance.GetTranslationHistory();
+                var mainWindowHistory = MainWindow.Instance.GetTranslationHistory(); // Now List<TranslationEntry>
                 
                 // Get only the most recent entries for display (based on _maxHistorySize)
-                var displayHistory = mainWindowHistory.Reverse().Take(_maxHistorySize).Reverse();
+                // This sequence is correct: get all, reverse (latest first), take N, reverse again (oldest of the N first for display)
+                var displayHistory = mainWindowHistory.AsEnumerable().Reverse().Take(_maxHistorySize).Reverse();
                 
                 // Get Min ChatBox Text Size setting
                 int minChatBoxTextSize = ConfigManager.Instance.GetChatBoxMinTextSize();

@@ -621,48 +621,79 @@
                 </GroupBox>
 
                 <!-- Audio Processing Settings -->
-                <GroupBox Header="Audio Processing Settings (experimental!)" Margin="0,0,0,15" Padding="10">
+                <GroupBox Header="Audio Processing Settings" Margin="0,0,0,15" Padding="10">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/><!-- Audio Input Device -->
-                            <RowDefinition Height="Auto"/><!-- Provider -->
-                            <RowDefinition Height="Auto"/><!-- OpenAI API Key -->
-                            <RowDefinition Height="Auto"/><!-- Whisper Source Language (New) -->
-                            <RowDefinition Height="Auto"/><!-- Auto translate checkbox -->
-                            <RowDefinition Height="Auto"/><!-- Warning Text -->
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
+                        
+                        <!-- Audio Processing Provider -->
+                        <TextBlock Text="Audio Processing Provider:" Grid.Row="0" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Provider for real-time audio processing"/>
+                        <ComboBox x:Name="audioProcessingProviderComboBox" Grid.Row="0" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="AudioProcessingProviderComboBox_SelectionChanged">
+                            <ComboBoxItem Content="OpenAI Realtime API" IsSelected="True"/>
+                        </ComboBox>
+                        
+                        <!-- OpenAI API Key -->
+                        <TextBlock Text="OpenAI Realtime API Key:" Grid.Row="1" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="API Key for OpenAI Realtime API"/>
+                        <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="1" Grid.Column="1" 
+                                    Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
+                        
                         <!-- Audio Input Device -->
-                        <TextBlock Text="Audio Input Device:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="inputDeviceComboBox" Grid.Row="0" Grid.Column="1" Margin="0,5"
-                                  SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
+                        <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Select the microphone or audio input device to use"/>
+                        <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
                         
-                        <TextBlock Text="Provider:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="audioProcessingProviderComboBox" Grid.Row="1" Grid.Column="1" Margin="0,5" SelectionChanged="AudioProcessingProviderComboBox_SelectionChanged">
-                            <ComboBoxItem Content="OpenAI Realtime API (Whisper)"/>
+                        <!-- Audio Output Device Settings -->
+                        <TextBlock Text="Audio Playback:" Grid.Row="3" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Enable or disable playback of AI-generated speech"/>
+                        <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="3" Grid.Column="1" 
+                                 Margin="0,5" Content="Enable audio playback" IsChecked="True"
+                                 Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
+                                 Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
+                        
+                        <!-- Audio Output Device Selection -->
+                        <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="4" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Select the speakers or audio output device to use"/>
+                        <ComboBox x:Name="outputDeviceComboBox" Grid.Row="4" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
+                        
+                        <!-- Whisper Language -->
+                        <TextBlock Text="Whisper Language:" Grid.Row="5" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Language for Whisper speech recognition (Auto to autodetect)"/>
+                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="5" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
                         </ComboBox>
-                        <TextBlock Text="OpenAI API Key:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
                         
-                        <!-- Whisper Source Language -->
-                        <TextBlock Text="Whisper Source Language:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip="Language for Whisper to expect. 'Auto' for automatic detection."/>
-                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="3" Grid.Column="1" Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged" ToolTip="Select the source language for Whisper. 'Auto' will attempt to detect the language automatically.">
-                            <!-- Languages will be populated from code-behind -->
+                        <!-- Audio Translation Type -->
+                        <TextBlock Text="Audio Translation:" Grid.Row="6" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Method to translate audio transcriptions"/>
+                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="6" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
+                            <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
+                            <ComboBoxItem Content="Google Translate" Tag="google"/>
+                            <ComboBoxItem Content="OpenAI Translation" Tag="openai" IsSelected="True"/>
                         </ComboBox>
-                        
-                        <CheckBox x:Name="audioServiceAutoTranslateCheckBox" Grid.Row="4" Grid.Column="1" Margin="0,5"
-                                 Content="Auto translate (using Google Translate)" 
-                                 Checked="AudioServiceAutoTranslateCheckBox_CheckedChanged"
-                                 Unchecked="AudioServiceAutoTranslateCheckBox_CheckedChanged"/>
-                        
-                        <!-- Warning Text -->
-                        <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" 
-                                   Text="(If Listen is active, you'll need to stop and restart it for changes to apply)" 
-                                   Foreground="Orange" FontWeight="Bold" Margin="0,5,0,0" TextWrapping="Wrap"/>
                     </Grid>
                 </GroupBox>
             </StackPanel>

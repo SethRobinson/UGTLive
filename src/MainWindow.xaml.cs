@@ -82,10 +82,10 @@ namespace UGTLive
         private bool _chatBoxEventsAttached = false;
         
         // Keep translation history even when ChatBox is closed
-        private Queue<TranslationEntry> _translationHistory = new Queue<TranslationEntry>();
+        private List<TranslationEntry> _translationHistory = new List<TranslationEntry>();
         
         // Accessor for ChatBoxWindow to get the translation history
-        public Queue<TranslationEntry> GetTranslationHistory()
+        public List<TranslationEntry> GetTranslationHistory()
         {
             return _translationHistory;
         }
@@ -1247,37 +1247,64 @@ namespace UGTLive
         
         public void AddTranslationToHistory(string originalText, string translatedText)
         {
-            // Check for duplicate with most recent entry
+            // Trim inputs once at the beginning
+            originalText = originalText.Trim();
+            translatedText = translatedText.Trim();
+
+            // If both are empty after trimming, nothing to do.
+            if (string.IsNullOrEmpty(originalText) && string.IsNullOrEmpty(translatedText))
+            {
+                return;
+            }
+
+            bool entryUpdated = false;
             if (_translationHistory.Count > 0)
             {
-                var lastEntry = _translationHistory.Last();
+                var lastEntry = _translationHistory[_translationHistory.Count - 1]; // More direct access with List
                 if (lastEntry.OriginalText == originalText)
                 {
-                    Console.WriteLine("Skipping duplicate translation entry");
-                    return;
+                    // Original text matches the last entry, update its translated text
+                    if (lastEntry.TranslatedText != translatedText)
+                    {
+                        lastEntry.TranslatedText = translatedText;
+                        Console.WriteLine($"Updated translation for '{originalText}' to '{translatedText}'");
+                        entryUpdated = true;
+                    }
+                    else
+                    {
+                        //Console.WriteLine($"Translation for '{originalText}' is already '{translatedText}'. No UI update triggered from here.");
+                        // No actual change in text, but we might still want to notify ChatBox if other logic depends on OnTranslationWasAdded always firing.
+                        // For now, consider it an update if original matches, to ensure ChatBox refreshes.
+                        entryUpdated = true; // Treat as update to ensure UI refresh for consistency, even if text is identical.
+                    }
                 }
             }
-            
-            // Create new entry
-            var entry = new TranslationEntry
+
+            if (!entryUpdated) // If not updated, it's a new entry or history was empty
             {
-                OriginalText = originalText,
-                TranslatedText = translatedText,
-                Timestamp = DateTime.Now
-            };
+                var entry = new TranslationEntry
+                {
+                    OriginalText = originalText,
+                    TranslatedText = translatedText,
+                    Timestamp = DateTime.Now
+                };
+                _translationHistory.Add(entry); // Use Add for List
+                Console.WriteLine($"Added new translation entry for '{originalText}'.");
+                entryUpdated = true; // Mark that we've handled this (new entry is a form of update to history)
+            }
 
-            // Add to history
-            _translationHistory.Enqueue(entry);
-
-            // Keep history size limited based on configuration
+            // Keep history size limited
             int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
             while (_translationHistory.Count > maxHistorySize)
             {
-                _translationHistory.Dequeue();
+                _translationHistory.RemoveAt(0); // Use RemoveAt for List
             }
 
-            //Console.WriteLine($"Translation added to history. History size: {_translationHistory.Count}");
-            ChatBoxWindow.Instance!.OnTranslationWasAdded(originalText, translatedText);
+            // Notify ChatBox to update its display if an update or new entry occurred
+            if (entryUpdated && ChatBoxWindow.Instance != null && ChatBoxWindow.Instance.IsVisible)
+            {
+               ChatBoxWindow.Instance.OnTranslationWasAdded(originalText, translatedText);
+            }
         }
         // Handle translation events from Logic
         private void Logic_TranslationCompleted(object? sender, TranslationEventArgs e)
@@ -1380,19 +1407,8 @@ namespace UGTLive
         {
             Dispatcher.Invoke(() =>
             {
-
-                //!Handle raw transcribed audio.  Oh, let's strip the spaces and newlines from the beginning and end of the text
-                text = text.Trim();
-                translatedText = translatedText.Trim();
-                // If the text is empty, don't add it to the history
-                if (string.IsNullOrEmpty(text) && string.IsNullOrEmpty(translatedText))
-                {
-                    return;
-                }
-
+                // AddTranslationToHistory will now handle trimming and actual adding/updating logic
                 AddTranslationToHistory(text, translatedText);
-
-                ChatBoxWindow.Instance?.OnTranslationWasAdded(text, translatedText);
             });
         }
     }

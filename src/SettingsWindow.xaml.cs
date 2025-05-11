@@ -469,8 +469,53 @@ namespace UGTLive
             LoadAudioInputDevices(); // Load and set audio input devices
             audioProcessingProviderComboBox.SelectedIndex = 0; // Only one for now
             openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
-            // Load Auto-translate for audio service
-            audioServiceAutoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+            
+            // Set up audio translation type dropdown
+            audioTranslationTypeComboBox.SelectionChanged -= AudioTranslationTypeComboBox_SelectionChanged;
+            
+            // Determine which option to select based on current settings
+            bool useGoogleTranslate = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+            bool useOpenAITranslation = ConfigManager.Instance.IsOpenAITranslationEnabled();
+            
+            if (useOpenAITranslation)
+            {
+                // Select OpenAI option
+                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), "openai", StringComparison.OrdinalIgnoreCase))
+                    {
+                        audioTranslationTypeComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+            else if (useGoogleTranslate)
+            {
+                // Select Google Translate option
+                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), "google", StringComparison.OrdinalIgnoreCase))
+                    {
+                        audioTranslationTypeComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // Select No translation option
+                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), "none", StringComparison.OrdinalIgnoreCase))
+                    {
+                        audioTranslationTypeComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+            
+            // Reattach the event handler
+            audioTranslationTypeComboBox.SelectionChanged += AudioTranslationTypeComboBox_SelectionChanged;
 
             // Load Whisper source language
             // Temporarily remove event handler
@@ -1855,69 +1900,159 @@ namespace UGTLive
             ConfigManager.Instance.SetOpenAiRealtimeApiKey(openAiRealtimeApiKeyPasswordBox.Password.Trim());
         }
 
-        // Handle Auto-translate checkbox change for audio service
-        private void AudioServiceAutoTranslateCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            bool enabled = audioServiceAutoTranslateCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(enabled);
-            Console.WriteLine($"Settings window: Audio service auto-translate set to {enabled}");
-        }
-
         // Method to load audio input devices into the ComboBox
         private void LoadAudioInputDevices()
         {
-            if (inputDeviceComboBox == null) return;
-
-            // Temporarily remove event handler
-            inputDeviceComboBox.SelectionChanged -= InputDeviceComboBox_SelectionChanged;
-
-            inputDeviceComboBox.Items.Clear();
             try
             {
+                // Store the currently selected device index
+                int currentDeviceIndex = ConfigManager.Instance.GetAudioInputDeviceIndex();
+                
+                // Clear previous items
+                inputDeviceComboBox.Items.Clear();
+                
+                // Get the number of available input devices
                 int deviceCount = WaveInEvent.DeviceCount;
+                
+                // Add a ComboBoxItem for each input device
                 for (int i = 0; i < deviceCount; i++)
                 {
-                    WaveInCapabilities deviceInfo = WaveInEvent.GetCapabilities(i);
-                    inputDeviceComboBox.Items.Add(new ComboBoxItem { Content = deviceInfo.ProductName, Tag = i });
+                    var deviceCapabilities = WaveInEvent.GetCapabilities(i);
+                    var item = new ComboBoxItem
+                    {
+                        Content = deviceCapabilities.ProductName,
+                        Tag = i
+                    };
+                    inputDeviceComboBox.Items.Add(item);
+                    
+                    // Select this item if it matches the currently selected device
+                    if (i == currentDeviceIndex)
+                    {
+                        inputDeviceComboBox.SelectedItem = item;
+                    }
                 }
-
-                int savedDeviceIndex = ConfigManager.Instance.GetAudioInputDeviceIndex();
-                if (savedDeviceIndex >= 0 && savedDeviceIndex < inputDeviceComboBox.Items.Count)
+                
+                // If no device was selected, default to the first one
+                if (inputDeviceComboBox.SelectedIndex < 0 && inputDeviceComboBox.Items.Count > 0)
                 {
-                    inputDeviceComboBox.SelectedIndex = savedDeviceIndex;
+                    inputDeviceComboBox.SelectedIndex = 0;
                 }
-                else if (inputDeviceComboBox.Items.Count > 0)
-                {
-                    inputDeviceComboBox.SelectedIndex = 0; // Default to first device if saved index is invalid
-                }
+                
+                // Load output devices too
+                LoadAudioOutputDevices();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading audio input devices: {ex.Message}");
-                // Add a default/error item if loading fails
-                inputDeviceComboBox.Items.Add(new ComboBoxItem { Content = "Error loading devices", Tag = -1 });
-                inputDeviceComboBox.SelectedIndex = 0;
-            }
-            finally
-            {
-                // Reattach event handler
-                inputDeviceComboBox.SelectionChanged += InputDeviceComboBox_SelectionChanged;
             }
         }
 
-        // Event handler for audio input device selection change
-        private void InputDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // Load audio output devices
+        private void LoadAudioOutputDevices()
         {
-            if (_isInitializing || inputDeviceComboBox == null || inputDeviceComboBox.SelectedItem == null)
-                return;
-
-            if (inputDeviceComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is int selectedIndex)
+            try
             {
-                if (selectedIndex >= 0) // Ensure it's a valid device index, not the error tag
+                // Store the currently selected device index
+                int currentDeviceIndex = ConfigManager.Instance.GetAudioOutputDeviceIndex();
+                
+                // Clear previous items
+                outputDeviceComboBox.Items.Clear();
+                
+                // Add system default option
+                var defaultItem = new ComboBoxItem
                 {
-                    ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
-                    Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
+                    Content = "System Default",
+                    Tag = -1
+                };
+                outputDeviceComboBox.Items.Add(defaultItem);
+                
+                // Get the number of available output devices
+                int deviceCount = WaveOut.DeviceCount;
+                
+                // Add a ComboBoxItem for each output device
+                for (int i = 0; i < deviceCount; i++)
+                {
+                    var deviceCapabilities = WaveOut.GetCapabilities(i);
+                    var item = new ComboBoxItem
+                    {
+                        Content = deviceCapabilities.ProductName,
+                        Tag = i
+                    };
+                    outputDeviceComboBox.Items.Add(item);
+                    
+                    // Select this item if it matches the currently selected device
+                    if (i == currentDeviceIndex)
+                    {
+                        outputDeviceComboBox.SelectedItem = item;
+                    }
                 }
+                
+                // If current device is -1 (default), select the default option
+                if (currentDeviceIndex == -1)
+                {
+                    outputDeviceComboBox.SelectedItem = defaultItem;
+                }
+                // If no device was selected, default to system default
+                else if (outputDeviceComboBox.SelectedIndex < 0)
+                {
+                    outputDeviceComboBox.SelectedItem = defaultItem;
+                }
+                
+                // Enable or disable output device controls based on audio playback setting
+                bool playbackEnabled = ConfigManager.Instance.IsOpenAIAudioPlaybackEnabled();
+                openAiAudioPlaybackCheckBox.IsChecked = playbackEnabled;
+                outputDeviceComboBox.IsEnabled = playbackEnabled;
+                outputDeviceLabel.IsEnabled = playbackEnabled;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading audio output devices: {ex.Message}");
+            }
+        }
+        
+        private void OutputDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (outputDeviceComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    int deviceIndex = (int)selectedItem.Tag;
+                    ConfigManager.Instance.SetAudioOutputDeviceIndex(deviceIndex);
+                    
+                    Console.WriteLine($"Audio output device set to: {selectedItem.Content} (Index: {deviceIndex})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating audio output device: {ex.Message}");
+            }
+        }
+        
+        private void OpenAiAudioPlaybackCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                bool isEnabled = openAiAudioPlaybackCheckBox.IsChecked ?? true;
+                
+                // Update UI
+                outputDeviceComboBox.IsEnabled = isEnabled;
+                outputDeviceLabel.IsEnabled = isEnabled;
+                
+                // Save to config
+                ConfigManager.Instance.SetOpenAIAudioPlaybackEnabled(isEnabled);
+                Console.WriteLine($"OpenAI audio playback enabled set to: {isEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenAI audio playback setting: {ex.Message}");
             }
         }
 
@@ -1957,6 +2092,55 @@ namespace UGTLive
                 string languageCode = selectedItem.Tag?.ToString() ?? "Auto";
                 ConfigManager.Instance.SetWhisperSourceLanguage(languageCode);
                 Console.WriteLine($"Whisper source language set to: {languageCode}");
+            }
+        }
+
+        // Event handler for audio translation type dropdown
+        private void AudioTranslationTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            if (audioTranslationTypeComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string tag = selectedItem.Tag?.ToString() ?? "none";
+                
+                // Update the configuration based on selection
+                switch (tag)
+                {
+                    case "none":
+                        // No translation
+                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(false);
+                        ConfigManager.Instance.SetOpenAITranslationEnabled(false);
+                        break;
+                    case "openai":
+                        // OpenAI translation
+                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(false);
+                        ConfigManager.Instance.SetOpenAITranslationEnabled(true);
+                        break;
+                    case "google":
+                        // Google Translate
+                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(true);
+                        ConfigManager.Instance.SetOpenAITranslationEnabled(false);
+                        break;
+                }
+                
+                Console.WriteLine($"Audio translation type set to: {tag}");
+            }
+        }
+
+        // Event handler for input device selection change
+        private void InputDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing || inputDeviceComboBox == null || inputDeviceComboBox.SelectedItem == null)
+                return;
+
+            if (inputDeviceComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is int selectedIndex)
+            {
+                if (selectedIndex >= 0) // Ensure it's a valid device index, not the error tag
+                {
+                    ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
+                    Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
+                }
             }
         }
     }

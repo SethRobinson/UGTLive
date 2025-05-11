@@ -87,6 +87,14 @@ namespace UGTLive
         // Whisper specific settings
         public const string WHISPER_SOURCE_LANGUAGE = "whisper_source_language";
 
+        // OpenAI Translation specific settings
+        public const string OPENAI_TRANSLATION_ENABLED = "openai_translation_enabled";
+        public const string OPENAI_TRANSLATION_TARGET_LANGUAGE = "openai_translation_target_language";
+        
+        // OpenAI Audio Playback settings
+        public const string OPENAI_AUDIO_PLAYBACK_ENABLED = "openai_audio_playback_enabled";
+        public const string OPENAI_AUDIO_OUTPUT_DEVICE_INDEX = "openai_audio_output_device_index";
+
         // Singleton instance
         public static ConfigManager Instance
         {
@@ -266,9 +274,6 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
-            
-            // Whisper default source language
-            _configValues[WHISPER_SOURCE_LANGUAGE] = "Auto"; // Default to Auto
             
             // Save the default configuration
             SaveConfig();
@@ -1494,6 +1499,66 @@ namespace UGTLive
                 SaveConfig();
                 Console.WriteLine($"Whisper source language set to: {language}");
             }
+        }
+
+        // Get/Set OpenAI Translation Enabled
+        public bool IsOpenAITranslationEnabled()
+        {
+            return GetBoolValue(OPENAI_TRANSLATION_ENABLED, false);
+        }
+
+        public void SetOpenAITranslationEnabled(bool enabled)
+        {
+            _configValues[OPENAI_TRANSLATION_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"OpenAI translation enabled set to: {enabled}");
+        }
+
+        // Get/Set OpenAI Translation Target Language
+        public string GetOpenAITranslationTargetLanguage()
+        {
+            return GetValue(OPENAI_TRANSLATION_TARGET_LANGUAGE, "English"); // Default to English
+        }
+
+        public void SetOpenAITranslationTargetLanguage(string language)
+        {
+            if (!string.IsNullOrWhiteSpace(language))
+            {
+                _configValues[OPENAI_TRANSLATION_TARGET_LANGUAGE] = language;
+                SaveConfig();
+                Console.WriteLine($"OpenAI translation target language set to: {language}");
+            }
+        }
+
+        // Get/Set Audio Output Device Index for OpenAI audio playback
+        public int GetAudioOutputDeviceIndex()
+        {
+            string value = GetValue(OPENAI_AUDIO_OUTPUT_DEVICE_INDEX, "-1"); // Default to -1 (system default)
+            if (int.TryParse(value, out int deviceIndex))
+            {
+                return deviceIndex;
+            }
+            return -1; // Default to system default if parsing fails
+        }
+
+        public void SetAudioOutputDeviceIndex(int deviceIndex)
+        {
+            _configValues[OPENAI_AUDIO_OUTPUT_DEVICE_INDEX] = deviceIndex.ToString();
+            SaveConfig();
+            Console.WriteLine($"Audio output device index set to: {deviceIndex}");
+        }
+
+        // Get/Set OpenAI audio playback enabled
+        public bool IsOpenAIAudioPlaybackEnabled()
+        {
+            return GetBoolValue(OPENAI_AUDIO_PLAYBACK_ENABLED, true);
+        }
+
+        public void SetOpenAIAudioPlaybackEnabled(bool enabled)
+        {
+            _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"OpenAI audio playback enabled set to: {enabled}");
         }
     }
 }
