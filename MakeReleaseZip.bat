@@ -12,6 +12,7 @@ copy app\win-x64\publish\*.exe tempbuild
 copy app\chatgpt_config.txt tempbuild
 copy app\gemini_config.txt tempbuild
 copy app\ollama_config.txt tempbuild
+copy README.md tempbuild
 copy media\readme.txt tempbuild
 
 :the server stuff too
