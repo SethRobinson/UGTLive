@@ -573,7 +573,7 @@ namespace UGTLive
                     else if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * 1.2))
                     {
                         startNewParagraph = true;
-                        Console.WriteLine("New paragraph: Line spacing exceeded threshold");
+                        //Console.WriteLine("New paragraph: Line spacing exceeded threshold");
                     }
                     
                     // Check indentation - significant indent may indicate new paragraph

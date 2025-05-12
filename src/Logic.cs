@@ -467,70 +467,106 @@ namespace UGTLive
                                 // Handle settle time if enabled
                                 double settleTime = ConfigManager.Instance.GetBlockDetectionSettleTime();
                                 double maxSettleTime = ConfigManager.Instance.GetBlockDetectionMaxSettleTime();
+                                
+                                // Debug outputs to track settling behavior
+                                bool isSettling = _settlingStartTime != DateTime.MinValue;
+                                double settlingElapsed = isSettling ? (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
+                                double lastChangeElapsed = _lastChangeTime != DateTime.MinValue ? (DateTime.Now - _lastChangeTime).TotalSeconds : 0;
+                                
+                                if (isSettling)
+                                {
+                                    Console.WriteLine($"Settling - Elapsed: {settlingElapsed:F2}s, MaxSettleTime: {maxSettleTime}s, LastChange: {lastChangeElapsed:F2}s, SettleTime: {settleTime}s");
+                                }
+
+                                // Initialize settling start time if it hasn't been set yet and settling is enabled
+                                if (_settlingStartTime == DateTime.MinValue && settleTime > 0)
+                                {
+                                    _settlingStartTime = DateTime.Now;
+                                    Console.WriteLine($"Settling started at: {_settlingStartTime:HH:mm:ss.fff}, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                }
+
                                 if (settleTime > 0)
                                 {
-                                    if (contentHash == _lastOcrHash)
+                                    // Check for max settle time first, regardless of hash match
+                                    bool maxSettleTimeExceeded = maxSettleTime > 0 && 
+                                                                _settlingStartTime != DateTime.MinValue &&
+                                                                (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime;
+                                    
+                                    if (maxSettleTimeExceeded)
                                     {
-                                        if (_lastChangeTime == DateTime.MinValue)
+                                        Console.WriteLine($"Max settle time exceeded ({maxSettleTime}s), forcing translation after {(DateTime.Now - _settlingStartTime).TotalSeconds:F2}s of settling.");
+                                        _lastChangeTime = DateTime.MinValue; // Indicate settle completed
+                                        _settlingStartTime = DateTime.MinValue; // Reset settling timer
+                                        bForceRender = true;
+                                    }
+                                    else if (contentHash == _lastOcrHash)
+                                    {
+                                        // Content is stable
+                                        if (_lastChangeTime == DateTime.MinValue) // Already settled and rendered
                                         {
-                                            OnFinishedThings(true);
-                                            return; // Already rendered it, just ignore until it changes again
+                                            // Reset settling start time as content is stable and has been processed or was empty.
+                                            _settlingStartTime = DateTime.MinValue; 
+                                            OnFinishedThings(true); // Reset status, hide "settling"
+                                            return; 
                                         }
                                         else
                                         {
-                                            // Check if max settle time exceeded
-                                            if (maxSettleTime > 0 && _settlingStartTime != DateTime.MinValue &&
-                                                (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime)
+                                            // Content is stable, check if normal settle time is reached
+                                            if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
                                             {
-                                                Console.WriteLine("Max settle time exceeded, forcing translation.");
-                                                _lastChangeTime = DateTime.MinValue;
+                                                Console.WriteLine($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s.");
+                                                _lastChangeTime = DateTime.MinValue; // Indicate settle completed
+                                                _settlingStartTime = DateTime.MinValue; // Reset settling timer
                                                 bForceRender = true;
                                             }
                                             else
                                             {
-                                                // Check if we are within the settling time
-                                                if ((DateTime.Now - _lastChangeTime).TotalSeconds < settleTime)
-                                                {
-                                                    return;
-                                                }
-                                                else
-                                                {
-                                                    // Settle time reached
-                                                    _lastChangeTime = DateTime.MinValue;
-                                                    bForceRender = true;
-                                                }
+                                                // Still within normal settle time, content is stable but waiting
+                                                double remainingSettleTime = settleTime - (DateTime.Now - _lastChangeTime).TotalSeconds;
+                                                Console.WriteLine($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more...");
+                                                MonitorWindow.Instance.ShowTranslationStatus(true); // Keep showing "Settling..."
+                                                ChatBoxWindow.Instance?.ShowTranslationStatus(true);
+                                                return; 
                                             }
                                         }
                                     }
-                                    else
+                                    else // contentHash != _lastOcrHash (text has changed)
                                     {
-                                        // Start or continue settling timer
-                                        if (_settlingStartTime == DateTime.MinValue)
+                                        // Content has changed
+                                        if (_lastOcrHash != string.Empty)
                                         {
-                                            _settlingStartTime = DateTime.Now;
+                                            Console.WriteLine($"Content changed! Old hash: {_lastOcrHash.Substring(0, Math.Min(20, _lastOcrHash.Length))}..., New hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
                                         }
-
+                                        
                                         _lastChangeTime = DateTime.Now;
                                         _lastOcrHash = contentHash;
 
-                                        //only run if translation is still active
                                         if (MainWindow.Instance.GetIsStarted())
                                         {
-
-                                            MonitorWindow.Instance.ShowTranslationStatus(true);
+                                            MonitorWindow.Instance.ShowTranslationStatus(true); // Show "Settling..."
                                             ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                         }
-
-                                        // Check if max settle time exceeded before returning
-                                        if (maxSettleTime > 0 && (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime)
+                                        
+                                        // Check again for max settle time to ensure it's enforced even with changing content
+                                        if (maxSettleTime > 0 && 
+                                            _settlingStartTime != DateTime.MinValue &&
+                                            (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime)
                                         {
-                                            Console.WriteLine("Max settle time exceeded during settling, proceeding to translation.");
-                                            // Do not return; continue to translation processing below.
+                                            Console.WriteLine($"Max settle time exceeded ({maxSettleTime}s) while content was changing, forcing translation.");
+                                            _lastChangeTime = DateTime.MinValue;
+                                            _settlingStartTime = DateTime.MinValue;
+                                            bForceRender = true;
+                                            // Don't return - continue to process the forced rendering
                                         }
                                         else
                                         {
-                                            OnFinishedThings(false);
-                                            return; // Sure, it's new, but we probably aren't ready to show it yet
+                                            // We return here to wait for either the content to stabilize or maxSettleTime to be hit
+                                            double elapsedSettlingTime = _settlingStartTime != DateTime.MinValue ? 
+                                                (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
+                                            double remainingMaxSettleTime = maxSettleTime - elapsedSettlingTime;
+                                            
+                                            Console.WriteLine($"Content unstable, settling for {elapsedSettlingTime:F2}s, max {remainingMaxSettleTime:F2}s remaining.");
+                                            return;
                                         }
                                     }
                                 }
