@@ -54,6 +54,16 @@ namespace UGTLive
         // Reference to our console window handle (set by MainWindow)
         private static IntPtr _consoleWindowHandle = IntPtr.Zero;
         
+        // NEW: Allow temporarily disabling all shortcut handling (for example while the Settings window is active)
+        private static bool _shortcutsEnabled = true;
+        // When true, ignore the next KeyDown raised via WPF (because we already handled it in low-level hook)
+        private static bool _skipNextKeyDown = false;
+        public static void SetShortcutsEnabled(bool enabled)
+        {
+            _shortcutsEnabled = enabled;
+            Console.WriteLine($"Keyboard shortcuts {(_shortcutsEnabled ? "enabled" : "disabled")}");
+        }
+        
         // Set up global keyboard hook
         public static void InitializeGlobalHook()
         {
@@ -93,6 +103,12 @@ namespace UGTLive
         {
             try
             {
+                // If shortcuts are disabled, simply pass the message to next hook
+                if (!_shortcutsEnabled)
+                {
+                    return CallNextHookEx(_hookID, nCode, (int)wParam, lParam);
+                }
+
                 if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
                 {
                     // Check if foreground window belongs to our application
@@ -113,11 +129,8 @@ namespace UGTLive
                             {
                                 // Only process if one of our app windows has focus (or console window)
                                 // Handle the shortcut
-                                if (HandleRawKeyDown(key, ModifierKeys.Shift))
-                                {
-                                    // If it was handled, prevent further processing
-                                    return (IntPtr)1;
-                                }
+                                HandleRawKeyDown(key, ModifierKeys.Shift);
+                                // Do NOT block the key from other global hooks or applications
                             }
                         }
                     }
@@ -172,6 +185,17 @@ namespace UGTLive
         {
             try
             {
+                // If a low-level hook already handled this physical key press, skip it once
+                if (_skipNextKeyDown)
+                {
+                    _skipNextKeyDown = false; // reset
+                    e.Handled = true; // consume the event so the key isn't typed
+                    return true;
+                }
+                if (!_shortcutsEnabled)
+                {
+                    return false;
+                }
                 // Shift+S: Start/Stop OCR
                 if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Shift)
                 {
@@ -239,42 +263,50 @@ namespace UGTLive
         {
             try
             {
+                if (!_shortcutsEnabled)
+                    return false;
                 if (modifiers != ModifierKeys.Shift)
                     return false;
                     
                 // Shift+S: Start/Stop OCR
                 if (key == Key.S)
                 {
+                    _skipNextKeyDown = true;
                     StartStopRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }
                 // Shift+M: Toggle Monitor Window
                 else if (key == Key.M)
                 {
+                    _skipNextKeyDown = true;
                     MonitorToggleRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }
                 // Shift+C: Toggle ChatBox
                 else if (key == Key.C)
                 {
+                    _skipNextKeyDown = true;
                     ChatBoxToggleRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }
                 // Shift+P: Toggle Settings
                 else if (key == Key.P)
                 {
+                    _skipNextKeyDown = true;
                     SettingsToggleRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }
                 // Shift+L: Toggle Log
                 else if (key == Key.L)
                 {
+                    _skipNextKeyDown = true;
                     LogToggleRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }
                 // Shift+H: Toggle Main Window Visibility
                 else if (key == Key.H)
                 {
+                    _skipNextKeyDown = true;
                     MainWindowVisibilityToggleRequested?.Invoke(null, EventArgs.Empty);
                     return true;
                 }

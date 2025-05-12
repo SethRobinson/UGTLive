@@ -705,6 +705,8 @@ namespace UGTLive
                 Console.WriteLine($"Saving settings position: {settingsWindowLeft}, {settingsWindowTop}");
                 
                 SettingsWindow.Instance.Hide();
+                // Re-enable global shortcuts now that the Settings window is hidden
+                KeyboardShortcuts.SetShortcutsEnabled(true);
                 Console.WriteLine("Settings window hidden");
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(176, 125, 69)); // Orange
             }
@@ -730,6 +732,8 @@ namespace UGTLive
                 }
                 
                 SettingsWindow.Instance.Show();
+                // Disable shortcuts while the Settings window is active so we can type normally
+                KeyboardShortcuts.SetShortcutsEnabled(false);
                 Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(69, 125, 176)); // Blue-ish
             }

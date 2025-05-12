@@ -59,11 +59,18 @@ namespace UGTLive
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
             
+            // Disable shortcuts while this window has focus so we can type freely
+            this.Activated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(false);
+            // Re-enable when focus leaves (but not yet hidden)
+            this.Deactivated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(true);
+            
             // Set up closing behavior (hide instead of close)
             this.Closing += (s, e) => 
             {
                 e.Cancel = true;  // Cancel the close
                 this.Hide();      // Just hide the window
+                // Re-enable shortcuts when settings window is hidden
+                KeyboardShortcuts.SetShortcutsEnabled(true);
             };
         }
         
