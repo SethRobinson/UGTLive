@@ -329,8 +329,8 @@ namespace UGTLive
                     },
                     // Get voice from config instead of hardcoding
                     voice = ConfigManager.Instance.GetOpenAIVoice(),
-                    // Add the system prompt as instructions here
-                    instructions = useOpenAITranslation && !string.IsNullOrEmpty(systemPrompt) ? systemPrompt : null 
+                    // Add instructions for translation, otherwise send empty string to satisfy API requirement
+                    instructions = useOpenAITranslation && !string.IsNullOrEmpty(systemPrompt) ? systemPrompt : "" 
                 }
             };
             
