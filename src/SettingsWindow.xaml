@@ -647,11 +647,22 @@
                         </ComboBox>
                         
                         <!-- OpenAI API Key -->
-                        <TextBlock Text="OpenAI Realtime API Key:" Grid.Row="1" Grid.Column="0" 
+                        <TextBlock Text="OpenAI API Key:" Grid.Row="1" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="API Key for OpenAI Realtime API"/>
-                        <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="1" Grid.Column="1" 
-                                    Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="0" 
+                                        Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
+                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                <Run>Get API key from </Run>
+                                <Hyperlink Click="OpenAiRealtimeApiLink_Click">https://platform.openai.com/account/api-keys</Hyperlink>
+                                <Run> (requires OpenAI account)</Run>
+                            </TextBlock>
+                        </Grid>
                         
                         <!-- Audio Input Device -->
                         <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 

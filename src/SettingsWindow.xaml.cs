@@ -2226,5 +2226,10 @@ namespace UGTLive
                 Console.WriteLine($"Error updating OpenAI voice: {ex.Message}");
             }
         }
+
+        private void OpenAiRealtimeApiLink_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://platform.openai.com/account/api-keys");
+        }
     }
 }

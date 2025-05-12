@@ -1405,10 +1405,14 @@ namespace UGTLive
 
         private void OnOpenAITranscriptionReceived(string text, string translatedText)
         {
+            // Prepend a microphone icon to indicate this text came from realtime audio listening
+            const string audioPrefix = "🎤 ";
             Dispatcher.Invoke(() =>
             {
-                // AddTranslationToHistory will now handle trimming and actual adding/updating logic
-                AddTranslationToHistory(text, translatedText);
+                // Add translation/history with audio icon prefix for easy identification in ChatBox
+                string originalWithIcon = string.IsNullOrWhiteSpace(text) ? string.Empty : audioPrefix + text;
+                string translatedWithIcon = string.IsNullOrWhiteSpace(translatedText) ? string.Empty : audioPrefix + translatedText;
+                AddTranslationToHistory(originalWithIcon, translatedWithIcon);
             });
         }
     }
