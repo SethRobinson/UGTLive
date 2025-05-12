@@ -611,6 +611,10 @@ namespace UGTLive
             if (translationStatusPanel != null)
             {
                 translationStatusPanel.Visibility = Visibility.Visible;
+                if (translationStatusText != null)
+                {
+                    translationStatusText.Text = bSettling ? "Settling..." : "Waiting for translation...";
+                }
                 
                 // Start the animation timer
                 if (_animationTimer != null && !_animationTimer.IsEnabled)

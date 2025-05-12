@@ -262,6 +262,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Block Power -->
@@ -279,6 +280,14 @@
                         <TextBox x:Name="settleTimeTextBox" Grid.Row="1" Grid.Column="1" 
                                 Margin="0,5" Text="0.5" LostFocus="SettleTimeTextBox_LostFocus"
                                 ToolTip="Time in seconds to wait for the text to settle before capturing"/>
+
+                        <!-- Max Settle Time -->
+                        <TextBlock Text="Max Settle Time (s):" Grid.Row="2" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Maximum time allowed for settling before translation is forced"/>
+                        <TextBox x:Name="maxSettleTimeTextBox" Grid.Row="2" Grid.Column="1" 
+                                Margin="0,5" Text="1.0" LostFocus="MaxSettleTimeTextBox_LostFocus"
+                                ToolTip="Maximum time allowed for settling before translation is forced"/>
                     </Grid>
                 </GroupBox>
                 

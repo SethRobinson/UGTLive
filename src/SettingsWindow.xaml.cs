@@ -262,6 +262,7 @@ namespace UGTLive
             minLineConfidenceTextBox.LostFocus -= MinLineConfidenceTextBox_LostFocus;
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
+            maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
             
             // Set context settings
             maxContextPiecesTextBox.Text = ConfigManager.Instance.GetMaxContextPieces().ToString();
@@ -363,10 +364,12 @@ namespace UGTLive
             // Temporarily remove event handlers to prevent triggering changes
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
+            maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
             
            
             blockDetectionPowerTextBox.Text = BlockDetectionManager.Instance.GetBlockDetectionScale().ToString("F2");
             settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
+            maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             
             Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
             Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
@@ -374,6 +377,7 @@ namespace UGTLive
             // Reattach event handlers
             blockDetectionPowerTextBox.LostFocus += BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus += SettleTimeTextBox_LostFocus;
+            maxSettleTimeTextBox.LostFocus += MaxSettleTimeTextBox_LostFocus;
             
             // Set translation service from config
             string currentService = ConfigManager.Instance.GetCurrentTranslationService();
@@ -2237,6 +2241,20 @@ namespace UGTLive
         private void OpenAiRealtimeApiLink_Click(object sender, RoutedEventArgs e)
         {
             OpenUrl("https://platform.openai.com/account/api-keys");
+        }
+
+        private void MaxSettleTimeTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (double.TryParse(maxSettleTimeTextBox.Text, out double maxSettleTime) && maxSettleTime >= 0)
+            {
+                ConfigManager.Instance.SetBlockDetectionMaxSettleTime(maxSettleTime);
+                Console.WriteLine($"Max settle time set to: {maxSettleTime}");
+            }
+            else
+            {
+                // If invalid, reset to current value from config
+                maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
+            }
         }
     }
 }

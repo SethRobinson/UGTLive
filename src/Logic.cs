@@ -29,6 +29,7 @@ namespace UGTLive
         private int _currentCaptureX;
         private int _currentCaptureY;
         private DateTime _lastChangeTime = DateTime.MinValue;
+        private DateTime _settlingStartTime = DateTime.MinValue;
    
         // Properties to expose to other classes
         public List<TextObject> TextObjects => _textObjects;
@@ -307,6 +308,7 @@ namespace UGTLive
         void OnFinishedThings(bool bResetTranslationStatus)
         {
             SetWaitingForTranslationToFinish(false);
+            _settlingStartTime = DateTime.MinValue;
             MonitorWindow.Instance.RefreshOverlays();
 
             // Hide translation status
@@ -464,6 +466,7 @@ namespace UGTLive
 
                                 // Handle settle time if enabled
                                 double settleTime = ConfigManager.Instance.GetBlockDetectionSettleTime();
+                                double maxSettleTime = ConfigManager.Instance.GetBlockDetectionMaxSettleTime();
                                 if (settleTime > 0)
                                 {
                                     if (contentHash == _lastOcrHash)
@@ -475,21 +478,38 @@ namespace UGTLive
                                         }
                                         else
                                         {
-                                            // Check if we are within the settling time
-                                            if ((DateTime.Now - _lastChangeTime).TotalSeconds < settleTime)
+                                            // Check if max settle time exceeded
+                                            if (maxSettleTime > 0 && _settlingStartTime != DateTime.MinValue &&
+                                                (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime)
                                             {
-                                                return;
+                                                Console.WriteLine("Max settle time exceeded, forcing translation.");
+                                                _lastChangeTime = DateTime.MinValue;
+                                                bForceRender = true;
                                             }
                                             else
                                             {
-                                                // Settle time reached
-                                                _lastChangeTime = DateTime.MinValue;
-                                                bForceRender = true;
+                                                // Check if we are within the settling time
+                                                if ((DateTime.Now - _lastChangeTime).TotalSeconds < settleTime)
+                                                {
+                                                    return;
+                                                }
+                                                else
+                                                {
+                                                    // Settle time reached
+                                                    _lastChangeTime = DateTime.MinValue;
+                                                    bForceRender = true;
+                                                }
                                             }
                                         }
                                     }
                                     else
                                     {
+                                        // Start or continue settling timer
+                                        if (_settlingStartTime == DateTime.MinValue)
+                                        {
+                                            _settlingStartTime = DateTime.Now;
+                                        }
+
                                         _lastChangeTime = DateTime.Now;
                                         _lastOcrHash = contentHash;
 
@@ -501,8 +521,17 @@ namespace UGTLive
                                             ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                         }
 
-                                        OnFinishedThings(false);
-                                        return; // Sure, it's new, but we probably aren't ready to show it yet
+                                        // Check if max settle time exceeded before returning
+                                        if (maxSettleTime > 0 && (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime)
+                                        {
+                                            Console.WriteLine("Max settle time exceeded during settling, proceeding to translation.");
+                                            // Do not return; continue to translation processing below.
+                                        }
+                                        else
+                                        {
+                                            OnFinishedThings(false);
+                                            return; // Sure, it's new, but we probably aren't ready to show it yet
+                                        }
                                     }
                                 }
 
