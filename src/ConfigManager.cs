@@ -278,6 +278,8 @@ namespace UGTLive
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
             _configValues[OPENAI_SILENCE_DURATION_MS] = "400"; // Default silence duration
+            // Ensure audio playback starts disabled by default
+            _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
             
             // Save the default configuration
             SaveConfig();
@@ -1554,7 +1556,8 @@ namespace UGTLive
         // Get/Set OpenAI audio playback enabled
         public bool IsOpenAIAudioPlaybackEnabled()
         {
-            return GetBoolValue(OPENAI_AUDIO_PLAYBACK_ENABLED, true);
+            // Default to false so audio playback is off unless explicitly enabled by the user
+            return GetBoolValue(OPENAI_AUDIO_PLAYBACK_ENABLED, false);
         }
 
         public void SetOpenAIAudioPlaybackEnabled(bool enabled)

@@ -668,7 +668,7 @@
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Enable or disable playback of AI-generated speech"/>
                         <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="3" Grid.Column="1" 
-                                 Margin="0,5" Content="Enable audio playback" IsChecked="True"
+                                 Margin="0,5" Content="(Don't use! Buggy due to how OpenAI turn-taking works)" IsChecked="False"
                                  Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
                                  Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
                         

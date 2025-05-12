@@ -316,6 +316,16 @@ namespace UGTLive
                         interrupt_response = false,
                         prefix_padding_ms = 500, // Increase from 300 to 500ms for better context
                         threshold = 0.6 // Increase threshold slightly for more definitive utterance detection
+
+
+                    //another method that didn't seem to work well:
+                    /*
+                         type = "semantic_vad",
+                        // The semantic VAD classifier determines turn-taking based on linguistic cues
+                        eagerness = "auto", // Can be low | medium | high | auto. Auto balances latency & completeness
+                        create_response = useOpenAITranslation,
+                        interrupt_response = false
+                    */
                     },
                     // Get voice from config instead of hardcoding
                     voice = ConfigManager.Instance.GetOpenAIVoice(),
