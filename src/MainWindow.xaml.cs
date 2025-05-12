@@ -1251,67 +1251,115 @@ namespace UGTLive
             }
         }
         
-        public void AddTranslationToHistory(string originalText, string translatedText)
+        // **** MODIFIED: Returns the ID of the added/updated entry ****
+        public string AddTranslationToHistory(string originalText, string translatedText)
         {
-            // Trim inputs once at the beginning
-            originalText = originalText.Trim();
-            translatedText = translatedText.Trim();
+            string entryId = string.Empty;
+            bool entryUpdated = false;
 
-            // If both are empty after trimming, nothing to do.
-            if (string.IsNullOrEmpty(originalText) && string.IsNullOrEmpty(translatedText))
+            try
             {
+                // Check if the new text is essentially the same as the last entry's original text
+                // and if the new translated text is non-empty (avoid overwriting translation with empty)
+                if (_translationHistory.Count > 0 && !string.IsNullOrEmpty(translatedText))
+                {
+                    var lastEntry = _translationHistory[_translationHistory.Count - 1]; // More direct access with List
+                    
+                    // Check if original texts match (case-insensitive, trimmed)
+                    if (string.Equals(lastEntry.OriginalText?.Trim(), originalText?.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Update existing entry ONLY if the new translation is different
+                        // This prevents unnecessary updates if only the transcript arrived
+                        if (!string.Equals(lastEntry.TranslatedText?.Trim(), translatedText?.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            lastEntry.TranslatedText = translatedText;
+                            lastEntry.Timestamp = DateTime.Now;
+                            Console.WriteLine($"Updated last translation entry ID: {lastEntry.Id}");
+                            entryId = lastEntry.Id;
+                            entryUpdated = true;
+                        }
+                        else
+                        {
+                             // Texts match, but translation is the same. Return existing ID but mark as not needing UI refresh yet.
+                             entryId = lastEntry.Id;
+                             // entryUpdated remains false - UI doesn't need immediate full refresh
+                             Console.WriteLine($"Skipping update, translation same for ID: {lastEntry.Id}");
+                        }
+                    }
+                }
+
+                if (!entryUpdated && !string.IsNullOrEmpty(originalText)) // If not updated, it's a new entry (and original text isn't empty)
+                {
+                    var entry = new TranslationEntry
+                    {
+                        Id = Guid.NewGuid().ToString(), // Assign new ID
+                        OriginalText = originalText,
+                        TranslatedText = translatedText,
+                        Timestamp = DateTime.Now
+                    };
+                    _translationHistory.Add(entry); // Use Add for List
+                    entryId = entry.Id; // Store the new ID
+                    entryUpdated = true; // Mark that we've handled this (new entry requires UI refresh)
+                    Console.WriteLine($"Added new translation entry ID: {entryId}");
+                }
+
+                // Keep history size limited
+                int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
+                while (_translationHistory.Count > maxHistorySize)
+                {
+                    _translationHistory.RemoveAt(0); // Remove oldest entry
+                }
+
+                // Update ChatBoxWindow if an entry was actually added or updated
+                if (entryUpdated)
+                {
+                    ChatBoxWindow.Instance?.UpdateChatHistory();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding/updating translation history: {ex.Message}");
+            }
+            
+            return entryId; // Return the ID of the added or updated entry
+        }
+        
+        // **** NEW: Method to update a specific entry by ID ****
+        public void UpdateTranslationInHistory(string id, string newTranslatedText)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                Console.WriteLine("UpdateTranslationInHistory called with empty ID.");
                 return;
             }
 
-            bool entryUpdated = false;
-            if (_translationHistory.Count > 0)
+            try
             {
-                var lastEntry = _translationHistory[_translationHistory.Count - 1]; // More direct access with List
-                if (lastEntry.OriginalText == originalText)
+                TranslationEntry? entryToUpdate = null;
+                // Use LINQ to find the entry efficiently
+                entryToUpdate = _translationHistory.FirstOrDefault(entry => entry.Id == id);
+
+                if (entryToUpdate != null)
                 {
-                    // Original text matches the last entry, update its translated text
-                    if (lastEntry.TranslatedText != translatedText)
-                    {
-                        lastEntry.TranslatedText = translatedText;
-                        Console.WriteLine($"Updated translation for '{originalText}' to '{translatedText}'");
-                        entryUpdated = true;
-                    }
-                    else
-                    {
-                        //Console.WriteLine($"Translation for '{originalText}' is already '{translatedText}'. No UI update triggered from here.");
-                        // No actual change in text, but we might still want to notify ChatBox if other logic depends on OnTranslationWasAdded always firing.
-                        // For now, consider it an update if original matches, to ensure ChatBox refreshes.
-                        entryUpdated = true; // Treat as update to ensure UI refresh for consistency, even if text is identical.
-                    }
+                    // Update the translation and timestamp
+                    entryToUpdate.TranslatedText = newTranslatedText;
+                    entryToUpdate.Timestamp = DateTime.Now; // Update timestamp on modification
+                    Console.WriteLine($"Updated translation for entry ID: {id}");
+
+                    // Refresh the ChatBox UI
+                    ChatBoxWindow.Instance?.UpdateChatHistory();
+                }
+                else
+                {
+                    Console.WriteLine($"Could not find translation entry with ID: {id} to update.");
                 }
             }
-
-            if (!entryUpdated) // If not updated, it's a new entry or history was empty
+            catch (Exception ex)
             {
-                var entry = new TranslationEntry
-                {
-                    OriginalText = originalText,
-                    TranslatedText = translatedText,
-                    Timestamp = DateTime.Now
-                };
-                _translationHistory.Add(entry); // Use Add for List
-                Console.WriteLine($"Added new translation entry for '{originalText}'.");
-                entryUpdated = true; // Mark that we've handled this (new entry is a form of update to history)
-            }
-
-            // Keep history size limited
-            int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
-            while (_translationHistory.Count > maxHistorySize)
-            {
-                _translationHistory.RemoveAt(0); // Use RemoveAt for List
-            }
-
-            // Notify ChatBox to update its display if an update or new entry occurred
-            if (entryUpdated && ChatBoxWindow.Instance != null && ChatBoxWindow.Instance.IsVisible)
-            {
-               ChatBoxWindow.Instance.OnTranslationWasAdded(originalText, translatedText);
+                 Console.WriteLine($"Error updating translation history by ID: {ex.Message}");
             }
         }
+
         // Handle translation events from Logic
         private void Logic_TranslationCompleted(object? sender, TranslationEventArgs e)
         {
@@ -1404,21 +1452,47 @@ namespace UGTLive
 
                 if (openAIRealtimeAudioService == null)
                     openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
+                
                 // Start the realtime audio service using loopback capture to record system audio
-                openAIRealtimeAudioService.StartRealtimeAudioService(OnOpenAITranscriptionReceived, false);
+                // **** MODIFIED: Pass new callbacks ****
+                openAIRealtimeAudioService.StartRealtimeAudioService(
+                    OnOpenAITranscriptReceived_Initial, 
+                    OnOpenAITranslationUpdate_WithId, 
+                    false); 
             }
         }
 
-        private void OnOpenAITranscriptionReceived(string text, string translatedText)
+        // **** MODIFIED: Renamed, now returns ID ****
+        private string OnOpenAITranscriptReceived_Initial(string text, string initialTranslation)
         {
-            // Prepend a microphone icon to indicate this text came from realtime audio listening
             const string audioPrefix = "🎤 ";
+            string idToReturn = string.Empty;
             Dispatcher.Invoke(() =>
             {
                 // Add translation/history with audio icon prefix for easy identification in ChatBox
                 string originalWithIcon = string.IsNullOrWhiteSpace(text) ? string.Empty : audioPrefix + text;
+                string translatedWithIcon = string.IsNullOrWhiteSpace(initialTranslation) ? string.Empty : audioPrefix + initialTranslation;
+                // **** Call modified method that returns ID ****
+                idToReturn = AddTranslationToHistory(originalWithIcon, translatedWithIcon);
+            });
+            return idToReturn; // Return the ID
+        }
+        
+        // **** NEW: Callback to handle translation updates via ID ****
+        private void OnOpenAITranslationUpdate_WithId(string lineId, string originalText, string translatedText)
+        {
+            if (string.IsNullOrEmpty(lineId))
+            {
+                Console.WriteLine("OnOpenAITranslationUpdate_WithId called with empty lineId.");
+                return; // Can't update if no ID
+            }
+
+            const string audioPrefix = "🎤 ";
+            Dispatcher.Invoke(() =>
+            {
                 string translatedWithIcon = string.IsNullOrWhiteSpace(translatedText) ? string.Empty : audioPrefix + translatedText;
-                AddTranslationToHistory(originalWithIcon, translatedWithIcon);
+                // Call new method to update the specific entry
+                UpdateTranslationInHistory(lineId, translatedWithIcon);
             });
         }
     }

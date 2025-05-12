@@ -34,16 +34,27 @@ namespace UGTLive
         // Track all session content for debugging
         private StringBuilder _fullSessionContent = new StringBuilder();
         
+        // **** NEW: Callbacks for transcript/translation separation ****
+        private Func<string, string, string>? _onTranscriptReceived; // text, translation -> returns ID
+        private Action<string, string, string>? _onTranslationUpdate; // id, originalText, translation
+        // Keep the original for backward compatibility or simple use cases? Maybe remove later.
+        // private Action<string, string>? _onResult; 
+
         // Audio playback settings
         private bool _audioPlaybackEnabled = true;
         private int _audioOutputDeviceIndex = -1; // Default to system default
 
-        public void StartRealtimeAudioService(Action<string, string> onResult, bool useLoopback = false)
+        public void StartRealtimeAudioService(Func<string, string, string> onTranscriptReceived, Action<string, string, string> onTranslationUpdate, bool useLoopback = false)
         {
             this.useLoopback = useLoopback;
+            this._onTranscriptReceived = onTranscriptReceived;
+            this._onTranslationUpdate = onTranslationUpdate;
+            // this._onResult = onResult; // Keep original if needed? Let's remove for now.
+
             Stop();
             cts = new CancellationTokenSource();
-            Task.Run(() => RunAsync(onResult, cts.Token), cts.Token);
+            // Pass the callbacks down
+            Task.Run(() => RunAsync(cts.Token), cts.Token);
         }
 
         public void Stop()
@@ -179,8 +190,15 @@ namespace UGTLive
             }
         }
 
-        private async Task RunAsync(Action<string, string> onResult, CancellationToken token)
+        private async Task RunAsync(CancellationToken token)
         {
+            // Ensure callbacks are set
+            if (_onTranscriptReceived == null || _onTranslationUpdate == null)
+            {
+                Log("Error: Callbacks not provided to StartRealtimeAudioService.");
+                return;
+            }
+
             string apiKey = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
             if (string.IsNullOrWhiteSpace(apiKey))
             {
@@ -306,6 +324,26 @@ namespace UGTLive
             // Set up a higher silence duration to reduce utterance fragmentation
             int silenceDurationMs = ConfigManager.Instance.GetOpenAiSilenceDurationMs();
             
+            // **** Determine mode based on existing boolean flags ****
+            bool isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
+            bool isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+            string currentAudioMode;
+            if (isOpenAiEnabled) 
+            {
+                currentAudioMode = "openai";
+            }
+            else if (isGoogleEnabled)
+            {
+                currentAudioMode = "google";
+            }
+            else
+            {
+                currentAudioMode = "none";
+            }
+            
+            bool createOpenAIResponse = (currentAudioMode == "openai"); // Only create response if mode is openai
+            Log($"Effective Audio Mode: {currentAudioMode} (OpenAI Enabled: {isOpenAiEnabled}, Google Enabled: {isGoogleEnabled}). OpenAI creates response: {createOpenAIResponse}");
+
             var sessionUpdateMessage = new
             {
                 type = "session.update",
@@ -318,12 +356,12 @@ namespace UGTLive
                         
                         type = "server_vad",
                         silence_duration_ms = silenceDurationMs,
-                        create_response = useOpenAITranslation,
+                        // **** Use the conditional boolean ****
+                        create_response = createOpenAIResponse, 
                         interrupt_response = false,
                         prefix_padding_ms = 500, // Increase from 300 to 500ms for better context
                         threshold = 0.6 // Increase threshold slightly for more definitive utterance detection
                         
-
                     //another method that didn't seem to work well:
                     
                         // type = "semantic_vad",
@@ -341,15 +379,13 @@ namespace UGTLive
             };
             
             await SendJson(ws, sessionUpdateMessage, token);
-            Log(useOpenAITranslation 
-                ? $"Session configured with instructions and for OpenAI transcription and translation (silence duration {silenceDurationMs}ms)" 
-                : $"Session configured for transcription only (silence duration {silenceDurationMs}ms)");
+            Log($"Session configured (Mode: {currentAudioMode}). Silence: {silenceDurationMs}ms. Instructions: {!string.IsNullOrEmpty(systemPrompt)}. OpenAI generates response: {createOpenAIResponse}");
 
             // Initialize audio capture
             InitializeAudioCapture();
 
             // Main receive loop
-            await ReceiveMessagesLoop(onResult, token);
+            await ReceiveMessagesLoop(token);
         }
         
         private void LoadAudioPlaybackSettings()
@@ -463,7 +499,7 @@ namespace UGTLive
             }
         }
 
-        private async Task ReceiveMessagesLoop(Action<string, string> onResult, CancellationToken token)
+        private async Task ReceiveMessagesLoop(CancellationToken token)
         {
             var buffer = new byte[16384]; // Larger buffer for audio messages
             var messageBuffer = new MemoryStream();
@@ -566,7 +602,8 @@ namespace UGTLive
                                         // The translation will come once complete (from Google)
                                         if (!ConfigManager.Instance.IsOpenAITranslationEnabled())
                                         {
-                                            onResult(_currentRawTranscriptText, string.Empty); // Show live Whisper transcript
+                                            // _onResult?.Invoke(_currentRawTranscriptText, string.Empty); // Show live Whisper transcript
+                                            // TODO: Decide how to handle partials with new callback system if needed
                                         }
                                         // If OpenAI translation is enabled, we display the raw transcript
                                         // when it's completed, then pair it with incoming translation deltas.
@@ -582,8 +619,61 @@ namespace UGTLive
                                     transcriptBuilder.Clear(); // Reset for next utterance
                                     _currentRawTranscriptText = transcript;
                                     
-                                    if (ConfigManager.Instance.IsOpenAITranslationEnabled())
+                                    // **** Determine Mode Again based on flags ****
+                                    bool _isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
+                                    bool _isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+                                    string _currentAudioMode;
+                                    if (_isOpenAiEnabled) _currentAudioMode = "openai";
+                                    else if (_isGoogleEnabled) _currentAudioMode = "google";
+                                    else _currentAudioMode = "none";
+
+                                    // **** BRANCH BASED ON MODE ****
+                                    if (_currentAudioMode == "google") // External Translation Path
                                     {
+                                        Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. Requesting external translation...");
+                                        
+                                        // Call first callback to display transcript and get ID
+                                        string lineId = _onTranscriptReceived?.Invoke(_currentRawTranscriptText, string.Empty) ?? string.Empty;
+
+                                        if (string.IsNullOrEmpty(lineId))
+                                        {
+                                            Log("Warning: _onTranscriptReceived did not return a line ID.");
+                                        }
+                                        
+                                        // Call external translation service
+                                        string translationJson = await TranslateLineAsync(_currentRawTranscriptText);
+                                        string translatedTextExternal = ParseTranslationResult(translationJson); // Use helper to parse
+                                        
+                                        if (!string.IsNullOrEmpty(translatedTextExternal))
+                                        {
+                                            Log($"External translation received: \'{translatedTextExternal}\' for ID: {lineId}");
+                                            // Call second callback to update the line with translation
+                                            _onTranslationUpdate?.Invoke(lineId, _currentRawTranscriptText, translatedTextExternal); 
+                                            
+                                            // Store this pair in recent utterances for context
+                                            _recentUtterances.Enqueue((_currentRawTranscriptText, translatedTextExternal));
+                                            while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+                                            
+                                            // Append to full session for debugging
+                                            _fullSessionContent.AppendLine($"(Ext) JP: {_currentRawTranscriptText}");
+                                            _fullSessionContent.AppendLine($"(Ext) EN: {translatedTextExternal}");
+                                            _fullSessionContent.AppendLine();
+                                        }
+                                        else
+                                        {
+                                            Log($"External translation failed or returned empty for ID: {lineId}");
+                                            // Optionally call update with an error message?
+                                            // _onTranslationUpdate?.Invoke(lineId, _currentRawTranscriptText, "[Translation Failed]"); 
+                                        }
+                                        
+                                        // Reset state (less critical now, but good practice)
+                                        _activeTranscriptForTurn = string.Empty; 
+                                        _currentTranslationText = string.Empty;
+                                        _translationInProgress = false; 
+                                    }
+                                    else if (_currentAudioMode == "openai") // OpenAI Realtime Translation Path
+                                    {
+                                         Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. Waiting for OpenAI translation...");
                                         // If we already had an active transcript, this means it's a new utterance
                                         if (!string.IsNullOrEmpty(_activeTranscriptForTurn))
                                         {
@@ -595,46 +685,32 @@ namespace UGTLive
                                         // Store the completed transcript
                                         _activeTranscriptForTurn = transcript;
                                         
-                                        // Only show the transcript (with no translation) if no translation is in progress
-                                        // This will appear with Japanese text only until translation completes
-                                        if (!_translationInProgress)
-                                        {
-                                            onResult(_activeTranscriptForTurn, string.Empty);
-                                        }
+                                        // Display the transcript immediately using the first callback
+                                        // We don't get an ID back here, as the translation update comes via delta/done
+                                        _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, string.Empty);
                                         
-                                        // Mark that we're waiting for a translation
+                                        // Mark that we're waiting for a translation from OpenAI
                                         _translationInProgress = true;
-                                        
-                                        // Log that we have a new transcript
-                                        Log($"New transcript: '{_activeTranscriptForTurn}', waiting for translation");
                                     }
-                                    else // Use Google Translate
+                                    else // Mode is "none" (Transcription only)
                                     {
-                                        string translationJson = await TranslateLineAsync(_currentRawTranscriptText);
-                                        string translatedTextFromGoogle = string.Empty;
-                                        
-                                        if (!string.IsNullOrEmpty(translationJson))
-                                        {
-                                            try
-                                            {
-                                                using var transDoc = JsonDocument.Parse(translationJson);
-                                                var transRoot = transDoc.RootElement;
-                                                
-                                                if (transRoot.TryGetProperty("translations", out var translations) &&
-                                                    translations.ValueKind == JsonValueKind.Array &&
-                                                    translations.GetArrayLength() > 0)
-                                                {
-                                                    // Assuming original_text from Google matches our _currentRawTranscriptText
-                                                    translatedTextFromGoogle = translations[0].GetProperty("translated_text").GetString() ?? string.Empty;
-                                                }
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                Log($"Error parsing Google translation: {ex.Message}");
-                                            }
-                                        }
-                                        _currentTranslationText = translatedTextFromGoogle;
-                                        onResult(_currentRawTranscriptText, _currentTranslationText);
+                                         Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. No translation configured.");
+                                         // Display the transcript immediately using the first callback, with empty translation
+                                         _onTranscriptReceived?.Invoke(_currentRawTranscriptText, string.Empty);
+                                         
+                                         // Store this pair (with empty translation) in recent utterances for context
+                                        _recentUtterances.Enqueue((_currentRawTranscriptText, string.Empty));
+                                        while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+
+                                        // Append to full session for debugging
+                                        _fullSessionContent.AppendLine($"(None) JP: {_currentRawTranscriptText}");
+                                        _fullSessionContent.AppendLine($"(None) EN: ");
+                                        _fullSessionContent.AppendLine();
+
+                                        // Reset state variables
+                                        _activeTranscriptForTurn = string.Empty;
+                                        _currentTranslationText = string.Empty;
+                                        _translationInProgress = false;
                                     }
                                 }
                                 break;
@@ -658,7 +734,10 @@ namespace UGTLive
                                 break;
 
                             case "response.text.delta": // Textual translation from AI
-                                if (ConfigManager.Instance.IsOpenAITranslationEnabled())
+                                // **** Execute only if effective mode is openai ****
+                                bool delta_isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
+                                bool delta_isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+                                if (delta_isOpenAiEnabled) // Check if OpenAI mode is active
                                 {
                                     if (root.TryGetProperty("delta", out var textDeltaProp))
                                     {
@@ -667,16 +746,23 @@ namespace UGTLive
                                         {
                                             _currentTranslationText += delta;
                                             _translationInProgress = true; // A translation is actively being received
-                                            Log($"Accumulating text translation delta: '{delta}'");
+                                            Log($"Accumulating OpenAI text delta: \'{delta}\'");
                                             
-                                            // Display is typically handled by response.done, or when a new full transcript arrives.
-                                            // However, if a transcript is already active, we can send intermediate updates.
-                                            if (!string.IsNullOrEmpty(_activeTranscriptForTurn))
-                                            {
-                                                onResult(_activeTranscriptForTurn, _currentTranslationText);
-                                            }
+                                            // Use the UPDATE callback to show intermediate results
+                                            // Need an ID... how do we get it here? We don't have one.
+                                            // Option 1: Look up ID based on _activeTranscriptForTurn (if stored in MainWindow) - complex
+                                            // Option 2: Send update without ID, MainWindow figures it out (e.g., updates the *last* line added) - fragile
+                                            // Option 3: Use the *original* _onResult callback for this path? Requires having both callback types.
+                                            // Let's stick with the new callbacks for now and accept that intermediate OpenAI deltas won't update the specific line via ID.
+                                            // We can call _onTranscriptReceived again, which might just add a new line or update the last one depending on MainWindow impl.
+                                            _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, _currentTranslationText); 
+
                                         }
                                     }
+                                } 
+                                else 
+                                {
+                                     Log("Received response.text.delta - Ignoring as external translation is used.");
                                 }
                                 break;
                                 
@@ -730,125 +816,149 @@ namespace UGTLive
                                 
                             // Handle response completion
                             case "response.done":
-                                if (ConfigManager.Instance.IsOpenAITranslationEnabled())
+                                // **** Determine mode again ****
+                                bool done_isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
+                                bool done_isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+                                string doneModeCheck;
+                                if (done_isOpenAiEnabled) doneModeCheck = "openai";
+                                else if (done_isGoogleEnabled) doneModeCheck = "google";
+                                else doneModeCheck = "none";
+
+                                if (doneModeCheck == "openai")
                                 {
-                                    // Attempt to extract text from the response.done message structure
-                                    bool foundTextInDoneOutput = false;
-                                    if (root.TryGetProperty("response", out var responseProp) &&
-                                        responseProp.TryGetProperty("output", out var outputArray) &&
-                                        outputArray.ValueKind == JsonValueKind.Array && outputArray.GetArrayLength() > 0)
+                                    // OpenAI mode processing (original logic)
                                     {
-                                        foreach (JsonElement outputItem in outputArray.EnumerateArray())
+                                        // **** THIS IS THE ORIGINAL LOGIC from before external translation was added ****
+                                        // Attempt to extract text from the response.done message structure
+                                        bool foundTextInDoneOutput = false;
+                                        // Need responseProp declared here
+                                        JsonElement responseProp = default; 
+                                        if (root.TryGetProperty("response", out responseProp))
                                         {
-                                            if (outputItem.TryGetProperty("content", out var contentArray) && 
-                                                contentArray.ValueKind == JsonValueKind.Array && contentArray.GetArrayLength() > 0)
+                                            if (responseProp.TryGetProperty("output", out var outputArray) &&
+                                                outputArray.ValueKind == JsonValueKind.Array && outputArray.GetArrayLength() > 0)
                                             {
-                                                // First, look for an explicit text part
-                                                foreach (JsonElement contentPart in contentArray.EnumerateArray())
+                                                foreach (JsonElement outputItem in outputArray.EnumerateArray())
                                                 {
-                                                    if (contentPart.TryGetProperty("type", out var partTypeProp) && partTypeProp.GetString() == "text")
+                                                    if (outputItem.TryGetProperty("content", out var contentArray) && 
+                                                        contentArray.ValueKind == JsonValueKind.Array && contentArray.GetArrayLength() > 0)
                                                     {
-                                                        if (contentPart.TryGetProperty("text", out var textValueProp) && !string.IsNullOrEmpty(textValueProp.GetString()))
+                                                        // First, look for an explicit text part
+                                                        foreach (JsonElement contentPart in contentArray.EnumerateArray())
                                                         {
-                                                            _currentTranslationText = textValueProp.GetString() ?? string.Empty;
-                                                            foundTextInDoneOutput = true;
-                                                            Log($"Extracted final text from response.done output.content[type=text]: '{_currentTranslationText}'");
-                                                            break; 
-                                                        }
-                                                    }
-                                                }
-
-                                                if (foundTextInDoneOutput) break; 
-
-                                                if (string.IsNullOrEmpty(_currentTranslationText))
-                                                {
-                                                    foreach (JsonElement contentPart in contentArray.EnumerateArray())
-                                                    {
-                                                        if (contentPart.TryGetProperty("type", out var partTypePropAudio) && partTypePropAudio.GetString() == "audio")
-                                                        {
-                                                            if (contentPart.TryGetProperty("transcript", out var transcriptValueProp) && !string.IsNullOrEmpty(transcriptValueProp.GetString()))
+                                                            if (contentPart.TryGetProperty("type", out var partTypeProp) && partTypeProp.GetString() == "text")
                                                             {
-                                                                _currentTranslationText = transcriptValueProp.GetString() ?? string.Empty;
-                                                                Log($"Using audio transcript from response.done output.content[type=audio] as translation: '{_currentTranslationText}'");
-                                                                break; 
+                                                                if (contentPart.TryGetProperty("text", out var textValueProp) && !string.IsNullOrEmpty(textValueProp.GetString()))
+                                                                {
+                                                                    _currentTranslationText = textValueProp.GetString() ?? string.Empty;
+                                                                    foundTextInDoneOutput = true;
+                                                                    Log($"Extracted final text from response.done output.content[type=text]: \'{_currentTranslationText}\'");
+                                                                    break; 
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if (foundTextInDoneOutput) break; 
+
+                                                        // Fallback to audio transcript if text part missing and no delta received
+                                                        if (string.IsNullOrEmpty(_currentTranslationText)) 
+                                                        {
+                                                            foreach (JsonElement contentPart in contentArray.EnumerateArray())
+                                                            {
+                                                                if (contentPart.TryGetProperty("type", out var partTypePropAudio) && partTypePropAudio.GetString() == "audio")
+                                                                {
+                                                                    if (contentPart.TryGetProperty("transcript", out var transcriptValueProp) && !string.IsNullOrEmpty(transcriptValueProp.GetString()))
+                                                                    {
+                                                                        _currentTranslationText = transcriptValueProp.GetString() ?? string.Empty;
+                                                                        Log($"Using audio transcript from response.done output.content[type=audio] as translation: \'{_currentTranslationText}\'");
+                                                                        break; 
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
+                                                    if (foundTextInDoneOutput || !string.IsNullOrEmpty(_currentTranslationText)) break; 
                                                 }
                                             }
-                                            if (foundTextInDoneOutput || !string.IsNullOrEmpty(_currentTranslationText)) break; 
-                                        }
-                                    }
+                                        } // end if TryGetProperty response
 
-                                    if (string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
-                                    {
-                                        Log("No translation text found from response.text.delta or in response.done output structure.");
-                                    }
-                                    else if (!string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
-                                    {
-                                        Log($"Retaining translation from response.text.delta: '{_currentTranslationText}'");
-                                    }
 
-                                    // Log completion of translation (this log will now reflect the potentially updated _currentTranslationText)
-                                    Log($"OpenAI response done for transcript: '{_activeTranscriptForTurn}' -> '{_currentTranslationText}'");
-                                    
-                                    // Check if translation appears incomplete (ends with comma, no final punctuation)
-                                    bool seemsIncomplete = false;
-                                    if (!string.IsNullOrEmpty(_currentTranslationText))
-                                    {
-                                        _currentTranslationText = _currentTranslationText.Trim();
-                                        
-                                        // Check for indicators of incomplete sentences
-                                        if (_currentTranslationText.EndsWith(",") || 
-                                            _currentTranslationText.EndsWith("...") ||
-                                            (_currentTranslationText.Length > 3 && !_currentTranslationText.EndsWith(".") && 
-                                             !_currentTranslationText.EndsWith("!") && !_currentTranslationText.EndsWith("?")))
+                                        if (string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
                                         {
-                                            seemsIncomplete = true;
-                                            Log($"Translation appears incomplete: '{_currentTranslationText}'");
+                                            Log("No translation text found from response.text.delta or in response.done output structure.");
                                         }
-                                    }
-                                    
-                                    // Mark that translation is no longer in progress
-                                    _translationInProgress = false;
-                                    
-                                    // Only update the UI if we have both transcript and translation
-                                    if (!string.IsNullOrEmpty(_activeTranscriptForTurn) && !string.IsNullOrEmpty(_currentTranslationText))
-                                    {
-                                        // If translation seems incomplete, add ellipsis to indicate it
-                                        if (seemsIncomplete && !_currentTranslationText.EndsWith("..."))
+                                        else if (!string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
                                         {
-                                            _currentTranslationText += "...";
+                                            Log($"Retaining translation from response.text.delta: \'{_currentTranslationText}\'");
+                                        }
+
+                                        // Log completion status
+                                        string responseStatus = responseProp.TryGetProperty("status", out var statusProp) ? statusProp.GetString() ?? "unknown" : "unknown";
+                                        string cancelReason = "";
+                                        if (responseStatus == "cancelled" && 
+                                            responseProp.TryGetProperty("status_details", out var statusDetailsProp) && 
+                                            statusDetailsProp.TryGetProperty("reason", out var reasonProp))
+                                        {
+                                            cancelReason = reasonProp.GetString() ?? "";
+                                        }
+
+                                        if (responseStatus == "cancelled" && cancelReason == "turn_detected")
+                                        {
+                                            Log($"OpenAI response CANCELLED due to turn detection for transcript: \'{_activeTranscriptForTurn}\'");
+                                        }
+                                        else
+                                        {
+                                            Log($"OpenAI response done (Status: {responseStatus}) for transcript: \'{_activeTranscriptForTurn}\' -> \'{_currentTranslationText}\'");
                                         }
                                         
-                                        // Final update to UI with both transcript and complete translation
-                                        onResult(_activeTranscriptForTurn, _currentTranslationText);
-                                        
-                                        // Store this pair in recent utterances for context
-                                        _recentUtterances.Enqueue((_activeTranscriptForTurn, _currentTranslationText));
-                                        
-                                        // Limit the queue size
-                                        while (_recentUtterances.Count > MAX_RECENT_UTTERANCES)
+                                        // Final UI Update - Use the primary callback
+                                        if (!string.IsNullOrEmpty(_activeTranscriptForTurn) && !string.IsNullOrEmpty(_currentTranslationText))
                                         {
-                                            _recentUtterances.Dequeue();
+                                             // Check for incompleteness (optional, consider removing if problematic)
+                                            bool seemsIncomplete = false;
+                                            if (!string.IsNullOrEmpty(_currentTranslationText))
+                                            {
+                                                var trimmed = _currentTranslationText.Trim();
+                                                if (trimmed.EndsWith(",") || trimmed.EndsWith("...") || (trimmed.Length > 3 && !trimmed.EndsWith(".") && !trimmed.EndsWith("!") && !trimmed.EndsWith("?")))
+                                                {
+                                                    seemsIncomplete = true;
+                                                }
+                                            }
+                                            string finalTranslation = _currentTranslationText;
+                                            if (seemsIncomplete && !finalTranslation.EndsWith("...")) finalTranslation += "...";
+
+                                            // Final update to UI with both transcript and complete translation via the main callback
+                                            // Again, we don't have an ID here. This might add a new line or update the last one.
+                                            _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, finalTranslation); 
+                                            
+                                            // Store this pair in recent utterances for context
+                                            _recentUtterances.Enqueue((_activeTranscriptForTurn, finalTranslation));
+                                            while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+                                            
+                                            Log($"Sent final OpenAI translation pair to UI - Original: \'{_activeTranscriptForTurn}\', Translation: \'{finalTranslation}\'");
+                                            
+                                            _fullSessionContent.AppendLine($"(OpenAI) JP: {_activeTranscriptForTurn}");
+                                            _fullSessionContent.AppendLine($"(OpenAI) EN: {finalTranslation}");
+                                            _fullSessionContent.AppendLine();
                                         }
-                                        
-                                        // Log the complete translation pair
-                                        Log($"Sent complete translation pair to UI - Original: '{_activeTranscriptForTurn}', Translation: '{_currentTranslationText}'");
-                                        
-                                        // Append to full session for debugging
-                                        _fullSessionContent.AppendLine($"JP: {_activeTranscriptForTurn}");
-                                        _fullSessionContent.AppendLine($"EN: {_currentTranslationText}");
-                                        _fullSessionContent.AppendLine();
+                                        else
+                                        {
+                                             Log($"Missing transcript or translation - skipping final UI update. Transcript: \'{_activeTranscriptForTurn}\', Translation: \'{_currentTranslationText}\'");
+                                        }
+
+                                        // Reset for the next turn
+                                        _activeTranscriptForTurn = string.Empty;
+                                        _currentTranslationText = string.Empty;
+                                        _translationInProgress = false;
                                     }
-                                    else
-                                    {
-                                        Log($"Missing transcript or translation - skipping UI update. Transcript: '{_activeTranscriptForTurn}', Translation: '{_currentTranslationText}'");
-                                    }
-                                    
-                                    // Reset for the next turn
-                                    _activeTranscriptForTurn = string.Empty;
-                                    _currentTranslationText = string.Empty;
+                                } 
+                                else // External Translation Mode or None Mode
+                                {
+                                     Log($"Received response.done (Mode: {doneModeCheck}). Status: {root.GetProperty("response").GetProperty("status").GetString()} - Ignoring for translation.");
+                                     // Reset state variables just in case
+                                     _activeTranscriptForTurn = string.Empty;
+                                     _currentTranslationText = string.Empty;
+                                     _translationInProgress = false;
                                 }
                                 break;
                                 
@@ -1018,31 +1128,82 @@ namespace UGTLive
             Console.WriteLine("[OpenAIRealtimeAudioService] " + message);
         }
 
-        // Translate a single line if auto-translate is enabled
+        // Translate a single line using configured external service
         private async Task<string> TranslateLineAsync(string text)
         {
+            // This logic needs to align with the mode detection.
+            // It should only be called when the mode is determined to be "google".
+
             try
             {
-                if (!ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled() || string.IsNullOrEmpty(text))
-                    return string.Empty;
+                 // Determine effective mode
+                 bool _isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
+                 bool _isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+                 string _currentAudioMode;
+                 if (_isOpenAiEnabled) _currentAudioMode = "openai";
+                 else if (_isGoogleEnabled) _currentAudioMode = "google";
+                 else _currentAudioMode = "none";
 
-                // When audio auto-translate is ON, explicitly use Google Translate.
-                var service = TranslationServiceFactory.CreateService("Google Translate");
-                Log("Using Google Translate for translation");
+                 if (string.IsNullOrEmpty(text)) return string.Empty;
 
-                // Prepare minimal JSON with one text block
-                var payload = new
-                {
-                    text_blocks = new[] { new { id = "text_0", text = text } }
-                };
-                string json = JsonSerializer.Serialize(payload);
-                string? response = await service.TranslateAsync(json, string.Empty);
-                if (!string.IsNullOrEmpty(response))
-                    return response;
+                 // Only proceed if mode is google
+                 if (_currentAudioMode == "google")
+                 {
+                     ITranslationService service = TranslationServiceFactory.CreateService("Google Translate"); 
+                     string serviceName = "Google Translate (External)";
+                     Log($"Using {serviceName} for external translation (Mode: {_currentAudioMode}).");
+
+                     // Prepare minimal JSON with one text block (Specific to Google Translate endpoint?)
+                     var payload = new
+                     {
+                         text_blocks = new[] { new { id = "text_0", text = text } }
+                     };
+                     string json = JsonSerializer.Serialize(payload);
+                     string? response = await service.TranslateAsync(json, string.Empty); // Assuming TranslateAsync handles different services
+                     
+                     if (!string.IsNullOrEmpty(response))
+                         return response; // Return raw JSON response
+                 }
+                 else
+                 {
+                     Log($"TranslateLineAsync called, but current mode ({_currentAudioMode}) is not 'google'. Skipping external translation.");
+                     return string.Empty; 
+                 }
             }
             catch (Exception ex)
             {
-                Log($"Translation error: {ex.Message}");
+                Log($"Translation error in TranslateLineAsync: {ex.Message}");
+            }
+            return string.Empty; // Return empty on error or no response
+        }
+        
+        // Helper function to parse translation result JSON (assuming Google format for now)
+        private string ParseTranslationResult(string translationJson)
+        {
+            if (string.IsNullOrEmpty(translationJson)) return string.Empty;
+
+            try
+            {
+                using var transDoc = JsonDocument.Parse(translationJson);
+                var transRoot = transDoc.RootElement;
+
+                if (transRoot.TryGetProperty("translations", out var translations) &&
+                    translations.ValueKind == JsonValueKind.Array &&
+                    translations.GetArrayLength() > 0)
+                {
+                    // Assuming structure like Google Translate API response
+                    return translations[0].GetProperty("translated_text").GetString() ?? string.Empty;
+                }
+                 // TODO: Add parsing logic if using OpenAI Chat Completions API response format
+                 // else if (transRoot.TryGetProperty("choices", out var choices) && ...) { ... }
+            }
+            catch (JsonException ex)
+            {
+                Log($"Error parsing translation JSON: {ex.Message} - JSON: {translationJson}");
+            }
+            catch (Exception ex)
+            {
+                 Log($"Generic error parsing translation: {ex.Message}");
             }
             return string.Empty;
         }

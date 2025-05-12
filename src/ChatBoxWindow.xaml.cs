@@ -861,6 +861,7 @@ namespace UGTLive
 
     public class TranslationEntry
     {
+        public string Id { get; set; } = string.Empty; // Add unique ID
         public string OriginalText { get; set; } = string.Empty;
         public string TranslatedText { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
