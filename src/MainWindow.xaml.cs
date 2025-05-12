@@ -573,6 +573,8 @@ namespace UGTLive
                 //erase any active text objects
                 Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.HideTranslationStatus();
+                // Also hide the ChatBox "Waiting for translation" indicator (if visible)
+                ChatBoxWindow.Instance?.HideTranslationStatus();
             }
             else
             {
