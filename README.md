@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.24-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-0.25-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
@@ -12,6 +12,7 @@ A complete rewrite of Universal Game Translator with the following features:
 * Powerful easy to use GUI; overlay a chat window where you want (good for lots of dialog like a visual novel) or translate the entire screen
 * By sending information on the game being translated and previous context, translations can be more accurate than other methods
 * Can speak sentences and create lesson plans
+* Has a "Listen" button to transcribe/translate audio (uses OpenAI's real-time API, requires OpenAI API key)
 
 License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
@@ -118,11 +119,11 @@ ChatGPT created the logo and the .ico file itself.  It also added the "Play" but
 
 ## Things that should be added/fixed someday ##
 
-* Use whisper to dynamically generate translated subtitles for spoken dialog
-* Figure out how to draw and capture the same part of the screen without ugly flashes
+* Figure out how to draw and capture the same part of the screen (I can do it with ugly flashes but.. yeah, not good)
 * Make the capture process faster, the "Monitor" window loses FPS on large areas, I haven't even tried to optimize this yet
 * I feel like the OCR (both EasyOCR and Windows OCR) should be better; does anybody know what settings/preprocessing I should tweak?
 * I've barely tested with anything besides Japanese to English, stuff is probably weird or broken with other languages
+* Integration with Google Vision to help create training data for custom EasyOCR models to improve OCR on older video games
 
 **Credits and links**
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
