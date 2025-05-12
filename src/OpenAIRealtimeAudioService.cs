@@ -214,7 +214,12 @@ namespace UGTLive
                 ws = new ClientWebSocket();
                 ws.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
                 ws.Options.SetRequestHeader("OpenAI-Beta", "realtime=v1");
-                await ws.ConnectAsync(new Uri("wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview"), token);
+                Uri serverToUse = new("wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview");
+
+
+
+                await ws.ConnectAsync(serverToUse, token);
+               
                 Log("Connected to OpenAI Realtime API");
             }
             catch (Exception ex)
@@ -270,7 +275,7 @@ namespace UGTLive
                 {
                     systemPrompt += $"the detected language to {targetLanguage}";
                 }
-                systemPrompt += ". Return only the translation, with no extra text. Always translate complete thoughts and preserve the full meaning of the original text. Wait for complete sentences before finalizing translations. Translate idioms naturally to maintain the intended meaning rather than translating them literally. Ensure each utterance is completely translated before sending it. Never cut off translations mid-sentence.";
+                systemPrompt += ". Return only the translation, with no extra text.";
                 Log($"Constructed system prompt for session instructions: {systemPrompt}");
             }
             else
@@ -310,22 +315,23 @@ namespace UGTLive
                     input_audio_transcription = transcriptionConfig,
                     turn_detection = new
                     {
+                        
                         type = "server_vad",
                         silence_duration_ms = silenceDurationMs,
                         create_response = useOpenAITranslation,
                         interrupt_response = false,
                         prefix_padding_ms = 500, // Increase from 300 to 500ms for better context
                         threshold = 0.6 // Increase threshold slightly for more definitive utterance detection
-
+                        
 
                     //another method that didn't seem to work well:
-                    /*
-                         type = "semantic_vad",
-                        // The semantic VAD classifier determines turn-taking based on linguistic cues
-                        eagerness = "auto", // Can be low | medium | high | auto. Auto balances latency & completeness
-                        create_response = useOpenAITranslation,
-                        interrupt_response = false
-                    */
+                    
+                        // type = "semantic_vad",
+                        //// The semantic VAD classifier determines turn-taking based on linguistic cues
+                        //eagerness = "auto", // Can be low | medium | high | auto. Auto balances latency & completeness
+                        //create_response = useOpenAITranslation,
+                        //interrupt_response = false
+                    
                     },
                     // Get voice from config instead of hardcoding
                     voice = ConfigManager.Instance.GetOpenAIVoice(),

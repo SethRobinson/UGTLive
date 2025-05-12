@@ -277,7 +277,7 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
-            _configValues[OPENAI_SILENCE_DURATION_MS] = "400"; // Default silence duration
+            _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Default silence duration
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
             
@@ -1607,7 +1607,7 @@ namespace UGTLive
         // Get/Set OpenAI Silence Duration
         public int GetOpenAiSilenceDurationMs()
         {
-            string value = GetValue(OPENAI_SILENCE_DURATION_MS, "400"); 
+            string value = GetValue(OPENAI_SILENCE_DURATION_MS, "250"); 
             if (int.TryParse(value, out int duration) && duration >= 0)
             {
                 return duration;

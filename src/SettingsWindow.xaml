@@ -621,16 +621,13 @@
                 </GroupBox>
 
                 <!-- Audio Processing Settings -->
-                <GroupBox Header="Audio Processing Settings" Margin="0,0,0,15" Padding="10">
+                <GroupBox Header="Audio Processing Settings (the Listen button)" Margin="0,0,0,15" Padding="10">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -663,85 +660,110 @@
                         <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
                         
-                        <!-- Audio Output Device Settings -->
-                        <TextBlock Text="Audio Playback:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Enable or disable playback of AI-generated speech"/>
-                        <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="3" Grid.Column="1" 
-                                 Margin="0,5" Content="(Don't use! Buggy due to how OpenAI turn-taking works)" IsChecked="False"
-                                 Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
-                                 Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
-                        
-                        <!-- Audio Output Device Selection -->
-                        <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Select the speakers or audio output device to use"/>
-                        <ComboBox x:Name="outputDeviceComboBox" Grid.Row="4" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
-                        
-                        <!-- Voice Selection -->
-                        <TextBlock Text="AI Voice:" Grid.Row="5" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Select the voice for AI speech output"/>
-                        <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="5" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
-                            <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Default voice, balanced tone"/>
-                            <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
-                            <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
-                            <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
-                            <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
-                            <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
-                            <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
-                        </ComboBox>
-                        
-                        <!-- Speech Prompt -->
-                        <TextBlock Text="Speech Prompt:" Grid.Row="6" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0"
-                                  ToolTip="Instructions for how the AI should speak when reading translations"/>
-                        
-                        <Grid Grid.Row="6" Grid.Column="1">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="0"
-                                Margin="0,5,0,0" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
-                                VerticalScrollBarVisibility="Auto" 
-                                LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
-                                ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
-                            <Button x:Name="setDefaultSpeechPromptButton" Grid.Row="1"
-                                Content="Set Default Prompt" 
-                                HorizontalAlignment="Left" Margin="0,3,0,5"
-                                Click="SetDefaultSpeechPromptButton_Click"
-                                ToolTip="Reset to the default speech prompt"/>
-                        </Grid>
-                        
                         <!-- Whisper Language -->
-                        <TextBlock Text="Whisper Language:" Grid.Row="7" Grid.Column="0" 
+                        <TextBlock Text="Whisper Language:" Grid.Row="3" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Language for Whisper speech recognition (Auto to autodetect)"/>
-                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="7" Grid.Column="1" 
+                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="3" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
                         </ComboBox>
                         
                         <!-- OpenAI Silence Duration -->
-                        <TextBlock Text="Silence Duration (ms):" Grid.Row="8" Grid.Column="0" 
+                        <TextBlock Text="Silence Duration (ms):" Grid.Row="4" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Duration of silence in milliseconds before an utterance is considered complete. Affects how quickly transcription/translation is finalized."/>
-                        <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="8" Grid.Column="1" 
+                        <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="4" Grid.Column="1" 
                                 Margin="0,5" LostFocus="OpenAiSilenceDurationMsTextBox_LostFocus"/>
                         
-                        <!-- Audio Translation Type -->
-                        <TextBlock Text="Audio Translation:" Grid.Row="9" Grid.Column="0" 
+                        <!-- Audio Translation Type (renamed to Mode) -->
+                        <TextBlock Text="Mode:" Grid.Row="5" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="Method to translate audio transcriptions"/>
-                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="9" Grid.Column="1" 
+                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="5" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
                             <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
                             <ComboBoxItem Content="Google Translate" Tag="google"/>
                             <ComboBoxItem Content="OpenAI Translation" Tag="openai" IsSelected="True"/>
                         </ComboBox>
+                        
+                        <!-- Experimental Speaking Features Sub-Area -->
+                        <GroupBox Header="Experimental Speaking Features (Currently Broken)" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" 
+                                 Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Warning message -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
+                                         Text="These features are experimental and currently don't work properly due to OpenAI turn-taking limitations. Seth is keeping them here for future development."
+                                         TextWrapping="Wrap" Margin="0,0,0,10" Foreground="DarkRed"/>
+                                
+                                <!-- Audio Playback -->
+                                <TextBlock Text="Audio Playback:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Enable or disable playback of AI-generated speech"/>
+                                <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="1" Grid.Column="1" 
+                                         Margin="0,5" Content="Enable AI speech playback (not recommended)" IsChecked="False"
+                                         Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
+                                         Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
+                                
+                                <!-- Audio Output Device Selection -->
+                                <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Select the speakers or audio output device to use"/>
+                                <ComboBox x:Name="outputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
+                                
+                                <!-- Voice Selection -->
+                                <TextBlock Text="AI Voice:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Select the voice for AI speech output"/>
+                                <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="3" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
+                                    <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Default voice, balanced tone"/>
+                                    <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
+                                    <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
+                                    <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
+                                    <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
+                                    <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
+                                    <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
+                                </ComboBox>
+                                
+                                <!-- Speech Prompt -->
+                                <TextBlock Text="Speech Prompt:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0"
+                                          ToolTip="Instructions for how the AI should speak when reading translations"/>
+                                
+                                <Grid Grid.Row="4" Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="0"
+                                        Margin="0,5,0,0" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
+                                        VerticalScrollBarVisibility="Auto" 
+                                        LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
+                                        ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
+                                    <Button x:Name="setDefaultSpeechPromptButton" Grid.Row="1"
+                                        Content="Set Default Prompt" 
+                                        HorizontalAlignment="Left" Margin="0,3,0,5"
+                                        Click="SetDefaultSpeechPromptButton_Click"
+                                        ToolTip="Reset to the default speech prompt"/>
+                                </Grid>
+                            </Grid>
+                        </GroupBox>
                     </Grid>
                 </GroupBox>
             </StackPanel>
