@@ -116,14 +116,18 @@ namespace UGTLive
                     {
                         int vkCode = Marshal.ReadInt32(lParam);
                         
-                        // Check if shift is pressed
-                        bool isShiftPressed = (Control.ModifierKeys & Keys.Shift) != 0;
-                        
-                        if (isShiftPressed)
+                        // Determine which modifiers are currently pressed
+                        Keys modifiers = Control.ModifierKeys;
+                        bool isShiftOnly = modifiers == Keys.Shift;
+
+                        // Also ignore if either Windows key is held down (not reported in Control.ModifierKeys)
+                        bool isWinPressed = Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin);
+
+                        if (isShiftOnly && !isWinPressed)
                         {
                             // Convert the virtual key code to a Key
                             Key key = KeyInterop.KeyFromVirtualKey(vkCode);
-                            
+
                             // Check if it's one of our shortcuts (S, M, C, P, L, H with Shift)
                             if (IsShortcutKey(key, ModifierKeys.Shift))
                             {
