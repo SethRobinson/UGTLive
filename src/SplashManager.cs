@@ -101,11 +101,24 @@ namespace UGTLive
                     HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
                 };
-                
+
+
+                System.Uri iconUri = new System.Uri("pack://application:,,,/media/Icon1.ico", UriKind.RelativeOrAbsolute);
+
+                IconBitmapDecoder decoder = new IconBitmapDecoder(
+                    iconUri,
+                    BitmapCreateOptions.None,
+                    BitmapCacheOption.OnLoad);
+
+                // grab the biggest slice (or pick an exact size)
+                BitmapSource bigFrame = decoder.Frames
+                    .OrderByDescending(f => f.PixelWidth)   // 256 × 256 first
+                    .First();
+
                 // Main icon
                 System.Windows.Controls.Image appIcon = new System.Windows.Controls.Image
                 {
-                    Source = new BitmapImage(new Uri("pack://application:,,,/media/Icon1.ico")),
+                    Source = bigFrame,
                     Width = 180,
                     Height = 180,
                     VerticalAlignment = VerticalAlignment.Center,
