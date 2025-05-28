@@ -4,6 +4,8 @@
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
+Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), the Chrome extension version for inline web translation!
+
 A complete rewrite of Universal Game Translator with the following features:
 
 * Runs EasyOCR locally via a Python server to facilitate live automatic translations
