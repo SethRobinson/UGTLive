@@ -37,7 +37,7 @@ del .\miniconda.exe
 
 * Note:  When running .bat files you might get an ugly "This is dangerous, don't run it" message - the .exe itself is signed by RTsoft, but bat files don't have a way to be signed so you'll have to just trust me and click "More info" and run it anyway.  This message only happens the first time per .bat file.
 
-* Conda is a thing that lets us install a bunch of python stuff without screwing up other python installs.  Let's do that now, double click *UGTLive/webserver/SetupServerCondaEnvNVidia.bat* and wait a long time while it installs a bunch of junk.  We need this for EasyOCR, the thing that we run locally to "look" at the screen.  Later, this server might also do more ML/AI work in future versions. (for example, doing subtitles of spoken dialog)
+* Conda is a thing that lets us install a bunch of python stuff without screwing up other python installs.  Let's do that now, double click *UGTLive/webserver/SetupServerCondaEnvNVidia.bat* and wait a long time while it installs a bunch of junk (including dependencies like the `requests` module).  We need this for EasyOCR, the thing that we run locally to "look" at the screen.  Later, this server might also do more ML/AI work in future versions. (for example, doing subtitles of spoken dialog)
 
 * Did that look like it installed ok?  It runs a self-test at the end.  If it did, you're now ready to run the server.
 

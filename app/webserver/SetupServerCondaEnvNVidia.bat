@@ -30,6 +30,8 @@ call conda install -y tqdm pyyaml requests
 REM Install EasyOCR via pip
 echo Installing EasyOCR...
 pip install easyocr
+REM Ensure the requests library is available
+pip install requests
 
 REM Download language models for EasyOCR (Japanese and English)
 echo Installing language models for EasyOCR...
@@ -44,3 +46,4 @@ python -c "import cv2; print('OpenCV Version:', cv2.__version__)"
 echo ===== Setup Complete =====
 echo If the above looks looks like the test worked, you can now double click "RunServer.bat" and it will load this conda env and run the python server.
 pause
+
