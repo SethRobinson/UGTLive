@@ -1,0 +1,252 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# UI/UX Patterns and Window Management Guide
+
+## Window Architecture
+
+### Window Types
+UGTLive uses several specialized windows, each with specific responsibilities:
+
+1. **Main Window** ([src/MainWindow.xaml](mdc:src/MainWindow.xaml))
+   - Central control panel
+   - Start/Stop translation
+   - Access to all other windows
+   - System tray integration
+
+2. **Monitor Window** ([src/MonitorWindow.xaml](mdc:src/MonitorWindow.xaml))
+   - Live preview of capture area
+   - Visual OCR feedback
+   - Resizable and movable
+
+3. **ChatBox Window** ([src/ChatBoxWindow.xaml](mdc:src/ChatBoxWindow.xaml))
+   - Translation display overlay
+   - Always-on-top option
+   - Customizable appearance
+
+4. **Settings Window** ([src/SettingsWindow.xaml](mdc:src/SettingsWindow.xaml))
+   - Tabbed interface for all settings
+   - API key management
+   - Service configuration
+
+## Keyboard Shortcuts ([src/KeyboardShortcuts.cs](mdc:src/KeyboardShortcuts.cs))
+
+### Global Shortcuts
+All shortcuts use Shift modifier for consistency:
+
+| Shortcut | Action | Method |
+|----------|--------|--------|
+| Shift+S | Start/Stop OCR | `ToggleOCR()` |
+| Shift+M | Show/Hide Monitor | `ToggleMonitorWindow()` |
+| Shift+C | Show/Hide ChatBox | `ToggleChatBox()` |
+| Shift+P | Show/Hide Settings | `ToggleSettingsWindow()` |
+| Shift+L | Show/Hide Log | `ToggleLogConsole()` |
+| Shift+H | Show/Hide Main Window | `ToggleMainWindow()` |
+
+### Implementation Pattern
+```csharp
+private void RegisterHotKey(Key key, Action action)
+{
+    // Register with Windows API
+    // Store in dictionary for management
+}
+```
+
+## UI Design Patterns
+
+### Window Lifecycle
+1. **Creation**: Windows created once at startup
+2. **Visibility**: Show/Hide instead of Create/Destroy
+3. **State Persistence**: Position and size saved
+4. **Cleanup**: Proper disposal on application exit
+
+### Common Window Properties
+```xml
+<!-- Standard window attributes -->
+WindowStyle="None"
+AllowsTransparency="True"
+ResizeMode="CanResize"
+Topmost="{Binding IsAlwaysOnTop}"
+```
+
+### Styling Conventions
+
+#### Colors and Themes
+- Dark theme by default
+- Configurable accent colors
+- Semi-transparent backgrounds
+- High contrast text
+
+#### Standard Controls
+```xml
+<!-- Button Style -->
+<Button Style="{StaticResource ModernButton}"
+        Background="#FF2D2D30"
+        Foreground="White"
+        BorderThickness="0"/>
+
+<!-- TextBox Style -->
+<TextBox Style="{StaticResource ModernTextBox}"
+         Background="#FF3F3F46"
+         Foreground="White"
+         BorderBrush="#FF007ACC"/>
+```
+
+## ChatBox Customization
+
+### Appearance Settings ([src/ChatBoxOptionsWindow.xaml](mdc:src/ChatBoxOptionsWindow.xaml))
+- Background color picker
+- Text color picker
+- Transparency slider (0-100%)
+- Font family and size
+- Border options
+
+### Layout Options
+- Auto-size to content
+- Maximum width/height
+- Text alignment
+- Padding configuration
+
+## Settings Organization
+
+### Tab Structure in Settings Window
+1. **General**: Basic app settings
+2. **OCR**: OCR service selection and config
+3. **Translation**: Service selection and API keys
+4. **ChatBox**: Display preferences
+5. **Advanced**: Debug and experimental features
+
+### Settings Pattern
+```csharp
+// Property in ConfigManager
+public string GetSetting() => _settings.SettingName;
+public void SetSetting(string value)
+{
+    _settings.SettingName = value;
+    SaveSettings();
+}
+
+// UI Binding in XAML
+<TextBox Text="{Binding SettingName, Mode=TwoWay}"/>
+```
+
+## Mouse Interaction ([src/MouseManager.cs](mdc:src/MouseManager.cs))
+
+### Region Selection
+- Click and drag to select area
+- Visual feedback during selection
+- Escape key to cancel
+- Double-click to confirm
+
+### Window Dragging
+- Custom title bar implementation
+- Drag from any empty area
+- Snap to screen edges
+
+## Notification Patterns
+
+### Status Messages
+- Displayed in main window status bar
+- Auto-fade after 3 seconds
+- Color-coded by type (info, warning, error)
+
+### Error Handling UI
+```csharp
+// Show error in UI
+Application.Current.Dispatcher.Invoke(() =>
+{
+    StatusText.Text = $"Error: {message}";
+    StatusText.Foreground = Brushes.Red;
+});
+```
+
+## Accessibility Considerations
+
+### Keyboard Navigation
+- Tab order properly set
+- All functions keyboard accessible
+- Tooltips for all controls
+- Keyboard shortcuts documented
+
+### Visual Accessibility
+- High contrast mode support
+- Configurable font sizes
+- Color customization
+- Clear visual feedback
+
+## Performance UI Guidelines
+
+### Responsive Design
+- Async operations for long tasks
+- Progress indicators
+- Non-blocking UI updates
+- Smooth animations
+
+### Update Patterns
+```csharp
+// UI updates from background thread
+Dispatcher.Invoke(() =>
+{
+    // Update UI elements
+}, DispatcherPriority.Background);
+```
+
+## Window State Management
+
+### Saving Window State
+```csharp
+// On window closing
+ConfigManager.Instance.SetWindowPosition(
+    this.Left, this.Top, 
+    this.Width, this.Height);
+
+// On window loading
+var pos = ConfigManager.Instance.GetWindowPosition();
+if (pos != null)
+{
+    this.Left = pos.X;
+    this.Top = pos.Y;
+}
+```
+
+### Multi-Monitor Support
+- Remember which monitor
+- Handle monitor disconnection
+- Validate window positions
+- Prevent off-screen windows
+
+## Custom Controls
+
+### Draggable Thumb Control
+Used for resizing regions and windows:
+```xml
+<Thumb DragDelta="Thumb_DragDelta"
+       Width="10" Height="10"
+       Cursor="SizeNWSE"/>
+```
+
+### Color Picker Integration
+- Uses standard WPF color dialog
+- Preview of selected color
+- Saves recent colors
+- Hex value display
+
+## Animation Guidelines
+
+### Fade Animations
+```xml
+<Storyboard x:Key="FadeIn">
+    <DoubleAnimation 
+        Storyboard.TargetProperty="Opacity"
+        From="0" To="1" Duration="0:0:0.3"/>
+</Storyboard>
+```
+
+### Smooth Transitions
+- 300ms standard duration
+- Ease-in-out timing function
+- Avoid jarring movements
+- Respect reduced motion preference
+

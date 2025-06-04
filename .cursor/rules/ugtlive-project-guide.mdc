@@ -1,0 +1,152 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Universal Game Translator Live - Project Guide
+
+## Overview
+Universal Game Translator Live (UGTLive) is a Windows WPF application that provides real-time screen translation using OCR and Large Language Models (LLMs). The application captures screen regions, performs OCR, and translates text using services like Gemini, ChatGPT, or Ollama.
+
+## Project Structure
+
+### Core Application Files
+- [src/App.xaml](mdc:src/App.xaml) - WPF application entry point
+- [src/MainWindow.xaml.cs](mdc:src/MainWindow.xaml.cs) - Main application window and control logic
+- [src/Logic.cs](mdc:src/Logic.cs) - Core translation and OCR processing logic
+- [src/ConfigManager.cs](mdc:src/ConfigManager.cs) - Settings and configuration management
+
+### UI Components
+- [src/MonitorWindow.xaml.cs](mdc:src/MonitorWindow.xaml.cs) - Screen capture preview window
+- [src/ChatBoxWindow.xaml.cs](mdc:src/ChatBoxWindow.xaml.cs) - Translation overlay/chat display
+- [src/SettingsWindow.xaml.cs](mdc:src/SettingsWindow.xaml.cs) - Application settings interface
+- [src/ChatBoxOptionsWindow.xaml.cs](mdc:src/ChatBoxOptionsWindow.xaml.cs) - ChatBox customization options
+- [src/ChatBoxSelectorWindow.xaml.cs](mdc:src/ChatBoxSelectorWindow.xaml.cs) - ChatBox region selector
+
+### OCR Services
+- [src/WindowsOCRManager.cs](mdc:src/WindowsOCRManager.cs) - Windows built-in OCR integration
+- [src/SocketManager.cs](mdc:src/SocketManager.cs) - Communication with Python EasyOCR server
+- [src/BlockDetectionManager.cs](mdc:src/BlockDetectionManager.cs) - Text block detection and grouping
+
+### Translation Services
+- [src/ITranslationService.cs](mdc:src/ITranslationService.cs) - Translation service interface
+- [src/GeminiTranslationService.cs](mdc:src/GeminiTranslationService.cs) - Google Gemini API integration
+- [src/ChatGptTranslationService.cs](mdc:src/ChatGptTranslationService.cs) - OpenAI ChatGPT integration
+- [src/OllamaTranslationService.cs](mdc:src/OllamaTranslationService.cs) - Local Ollama LLM integration
+- [src/GoogleTranslateService.cs](mdc:src/GoogleTranslateService.cs) - Google Translate integration
+- [src/TranslationServiceFactory.cs](mdc:src/TranslationServiceFactory.cs) - Factory for creating translation services
+
+### Audio Services
+- [src/GoogleTTSService.cs](mdc:src/GoogleTTSService.cs) - Google Text-to-Speech
+- [src/ElevenLabsService.cs](mdc:src/ElevenLabsService.cs) - ElevenLabs TTS integration
+- [src/OpenAIRealtimeAudioService.cs](mdc:src/OpenAIRealtimeAudioService.cs) - OpenAI real-time audio transcription
+
+### Utilities
+- [src/KeyboardShortcuts.cs](mdc:src/KeyboardShortcuts.cs) - Global keyboard shortcuts
+- [src/MouseManager.cs](mdc:src/MouseManager.cs) - Mouse input handling
+- [src/LogManager.cs](mdc:src/LogManager.cs) - Application logging
+- [src/SplashManager.cs](mdc:src/SplashManager.cs) - Splash screen management
+- [src/TextObject.cs](mdc:src/TextObject.cs) - Text region data structure
+
+### Python Server
+- `app/webserver/` - Python EasyOCR server directory
+- `app/webserver/server.py` - Main Python server file
+- `app/webserver/SetupServerCondaEnvNVidia.bat` - Server setup script
+- `app/webserver/RunServer.bat` - Server launch script
+
+## Key Architectural Patterns
+
+### Singleton Pattern
+The application uses singleton pattern for core managers:
+- `Logic.Instance` - Main application logic
+- `ConfigManager.Instance` - Configuration management
+- `BlockDetectionManager.Instance` - Text block detection
+- `LogManager.Instance` - Logging
+
+### Window Management
+Each window inherits from WPF Window class and follows these patterns:
+- Windows are typically created once and shown/hidden as needed
+- Settings are persisted through ConfigManager
+- Windows communicate through events and direct method calls on Logic.Instance
+
+### Translation Flow
+1. Screen capture → OCR (Windows OCR or EasyOCR) → Block Detection → Translation Service → Display
+2. Text blocks are grouped by BlockDetectionManager
+3. Translation includes context from previous translations
+4. Results are displayed in ChatBox or as overlay
+
+## Development Guidelines
+
+### Code Style (from [CLAUDE.md](mdc:CLAUDE.md))
+- **Naming**: PascalCase for public members, camelCase for private, underscore prefix for fields
+- **Layout**: 4-space indentation, Allman braces, System namespaces first
+- **Properties**: Use GetVariableName/SetVariableName pattern
+- **UI Properties**: Direct Get/Set to GUI elements when possible
+- **Error Handling**: Avoid try/catch blocks, check for null, log errors
+
+### Project Configuration
+- **Framework**: .NET 8.0 Windows
+- **Output**: `app/` directory
+- **Assembly**: `ugtlive.exe` (or `ugtlive_debug.exe` in Debug)
+- **Dependencies**: NAudio, Microsoft.Windows.CsWinRT
+
+### Key Features
+- Multiple OCR backends (Windows OCR, EasyOCR)
+- Multiple translation services (Gemini, ChatGPT, Ollama)
+- Real-time screen capture and translation
+- Customizable overlay windows
+- Audio transcription and TTS
+- Context-aware translations
+- Global keyboard shortcuts
+
+## Common Development Tasks
+
+### Adding a New Translation Service
+1. Create a new class implementing `ITranslationService`
+2. Add service configuration to `ConfigManager`
+3. Update `TranslationServiceFactory` to create instances
+4. Add UI controls in `SettingsWindow.xaml`
+
+### Adding New Settings
+1. Add property to `ConfigManager` with getter/setter
+2. Add UI controls to `SettingsWindow.xaml`
+3. Wire up events in `SettingsWindow.xaml.cs`
+4. Settings are automatically persisted
+
+### Debugging OCR Issues
+1. Check `LogManager` output for errors
+2. Use Monitor window to preview capture area
+3. Verify Python server is running (for EasyOCR)
+4. Check block detection settings
+
+## Version Management
+
+When incrementing the version number, you must update it in two places:
+
+1. **[src/SplashManager.cs](mdc:src/SplashManager.cs)** - Line 31
+   ```csharp
+   public const double CurrentVersion = 0.27;  // Update this value
+   ```
+
+2. **[media/latest_version_checker.json](mdc:media/latest_version_checker.json)** - Line 3
+   ```json
+   {
+       "name":"Universal Game Translator Live",
+       "latest_version":0.27,  // Update this value
+       "message":"Download V{VERSION_STRING} now from rtsoft.com?"
+   }
+   ```
+
+### Version Increment Rules
+- Default increment: **0.01** (e.g., 0.25 → 0.26)
+- Major features: **0.10** (e.g., 0.25 → 0.35)
+- Complete rewrites: **1.00** (e.g., 0.99 → 1.00)
+- Always update both files to keep them in sync
+- Version format is a double/float (e.g., 0.27, not "0.27")
+
+## Important Notes
+- Application is Windows-only due to WPF and Windows OCR dependencies
+- Python server runs locally on port 3928
+- First run downloads OCR language models
+- Settings stored in user's AppData folder
+- All web calls are for version checking only (privacy-focused)

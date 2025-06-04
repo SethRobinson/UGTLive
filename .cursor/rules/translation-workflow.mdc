@@ -1,0 +1,191 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Translation Workflow and API Integration Guide
+
+## Translation Pipeline Overview
+
+The translation process in UGTLive follows this pipeline:
+1. **Screen Capture** → 2. **OCR Processing** → 3. **Block Detection** → 4. **Translation** → 5. **Display**
+
+## Screen Capture
+
+### Monitor Window ([src/MonitorWindow.xaml.cs](mdc:src/MonitorWindow.xaml.cs))
+- Captures screen region at configurable FPS
+- Uses `System.Drawing` for bitmap operations
+- Sends captured images to OCR services
+- Provides visual feedback of capture area
+
+### Capture Methods
+```csharp
+// Main capture triggered by timer
+private void Timer_Tick(object sender, EventArgs e)
+// Captures bitmap from screen region
+private Bitmap CaptureScreen(int x, int y, int width, int height)
+```
+
+## OCR Processing
+
+### OCR Service Selection
+UGTLive supports two OCR backends configured in [src/ConfigManager.cs](mdc:src/ConfigManager.cs):
+
+1. **Windows OCR** ([src/WindowsOCRManager.cs](mdc:src/WindowsOCRManager.cs))
+   - Uses Windows.Media.Ocr API
+   - Faster but less accurate for some languages
+   - No external dependencies
+
+2. **EasyOCR** (via [src/SocketManager.cs](mdc:src/SocketManager.cs))
+   - Python server running locally
+   - Better accuracy for Asian languages
+   - Requires conda environment setup
+
+### OCR Data Flow
+```
+Bitmap → OCR Service → List<TextObject> → BlockDetectionManager
+```
+
+## Block Detection ([src/BlockDetectionManager.cs](mdc:src/BlockDetectionManager.cs))
+
+The BlockDetectionManager groups individual characters into meaningful text blocks:
+
+### Key Parameters
+- **Block Power**: Controls grouping aggressiveness (0.0 - 1.0)
+- **Min Context Size**: Minimum characters for context inclusion
+- **Max Distance**: Maximum pixel distance for grouping
+
+### Grouping Algorithm
+1. Sorts text objects by position
+2. Groups based on proximity and alignment
+3. Merges overlapping blocks
+4. Filters by minimum size
+
+## Translation Services
+
+### Service Interface ([src/ITranslationService.cs](mdc:src/ITranslationService.cs))
+```csharp
+public interface ITranslationService
+{
+    Task<TranslationResult> TranslateAsync(
+        string sourceText, 
+        string targetLanguage, 
+        string context);
+}
+```
+
+### Available Services
+
+#### Gemini ([src/GeminiTranslationService.cs](mdc:src/GeminiTranslationService.cs))
+- Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+- Models: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash
+- Supports custom prompts and context
+
+#### ChatGPT ([src/ChatGptTranslationService.cs](mdc:src/ChatGptTranslationService.cs))
+- Endpoint: `https://api.openai.com/v1/chat/completions`
+- Models: gpt-4o, gpt-4o-mini, o1-preview, o1-mini
+- Supports streaming responses
+
+#### Ollama ([src/OllamaTranslationService.cs](mdc:src/OllamaTranslationService.cs))
+- Local endpoint: `http://localhost:11434/api/generate`
+- Models: Various local models (llama, gemma, etc.)
+- Privacy-focused, no cloud dependency
+
+### Translation Request Format
+All services receive:
+- Source text with position data
+- Target language
+- Previous context (configurable length)
+- Game name for context
+- Custom prompt template
+
+## Display Systems
+
+### ChatBox Window ([src/ChatBoxWindow.xaml.cs](mdc:src/ChatBoxWindow.xaml.cs))
+- Overlay window for displaying translations
+- Customizable appearance (color, transparency, font)
+- Auto-scroll and history management
+- Can be positioned anywhere on screen
+
+### Text Rendering
+- Uses WPF TextBlock with formatting
+- Supports multiple fonts and sizes
+- Color-coded by translation service
+- Maintains translation history
+
+## API Key Management
+
+API keys are stored securely in [src/ConfigManager.cs](mdc:src/ConfigManager.cs):
+- Encrypted in user settings
+- Never logged or transmitted except to services
+- Validated on settings save
+
+## Context Management
+
+### Previous Context System
+- Stores recent translations for context
+- Configurable maximum context length
+- Filters small UI elements (buttons, menus)
+- Improves translation accuracy
+
+### Context Flow
+```
+Previous Translations → Context Buffer → Translation Request → LLM
+```
+
+## Audio Features
+
+### Text-to-Speech Services
+- **Google TTS** ([src/GoogleTTSService.cs](mdc:src/GoogleTTSService.cs))
+- **ElevenLabs** ([src/ElevenLabsService.cs](mdc:src/ElevenLabsService.cs))
+
+### Real-time Audio Transcription
+- Uses OpenAI Realtime API ([src/OpenAIRealtimeAudioService.cs](mdc:src/OpenAIRealtimeAudioService.cs))
+- WebSocket connection for streaming
+- Supports voice activity detection
+
+## Error Handling
+
+### Common Error Points
+1. **OCR Failures**: Logged, skips frame
+2. **Translation API Errors**: Displays error in ChatBox
+3. **Network Issues**: Retries with exponential backoff
+4. **Invalid API Keys**: Shows settings prompt
+
+### Logging
+All errors logged via [src/LogManager.cs](mdc:src/LogManager.cs):
+```csharp
+LogManager.Instance.LogError("Error description", exception);
+```
+
+## Performance Considerations
+
+### OCR Optimization
+- Configurable capture FPS
+- Region-based capture (not full screen)
+- Caching of unchanged regions
+
+### Translation Optimization
+- Batches small text blocks
+- Caches recent translations
+- Parallel processing where possible
+
+### Memory Management
+- Disposes bitmaps after use
+- Limits translation history size
+- Clears old context periodically
+
+## Testing Translation Services
+
+### Manual Testing
+1. Set API key in settings
+2. Select service and model
+3. Use Monitor window to capture text
+4. Check ChatBox for results
+5. Review logs for errors
+
+### Common Issues
+- **Empty translations**: Check OCR output
+- **Wrong language**: Verify language settings
+- **Slow performance**: Reduce capture area/FPS
+- **API errors**: Validate API key and quota
