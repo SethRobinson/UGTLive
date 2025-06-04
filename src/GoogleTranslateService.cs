@@ -458,6 +458,8 @@ namespace UGTLive
                 "hindi" or "hi" => "hi",
                 "indonesian" or "id" => "id",
                 "polish" or "pl" => "pl",
+                "arabic" or "ar" => "ar",
+                "turkish" or "tr" => "tr",
                 _ => language
             };
         }

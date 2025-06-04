@@ -64,6 +64,8 @@
                                 <ComboBoxItem Content="hi"/>
                                 <ComboBoxItem Content="ko"/>
                                 <ComboBoxItem Content="vi"/>
+                                <ComboBoxItem Content="ar"/>
+                                <ComboBoxItem Content="tr"/>
                             </ComboBox>
                             <ComboBox x:Name="targetLanguageComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed"
                                       WindowChrome.IsHitTestVisibleInChrome="True"
@@ -81,6 +83,8 @@
                                 <ComboBoxItem Content="hi"/>
                                 <ComboBoxItem Content="ko"/>
                                 <ComboBoxItem Content="vi"/>
+                                <ComboBoxItem Content="ar"/>
+                                <ComboBoxItem Content="tr"/>
                             </ComboBox>
                             <!-- Monitor Toggle Button -->
                             <Button x:Name="monitorButton" Content="Monitor" Padding="8,3" Margin="5,0"
