@@ -319,48 +319,18 @@ namespace UGTLive
         // add method for show/hide the main window
         private void ToggleMainWindowVisibility()
         {
-            if (MainBorder.Visibility == System.Windows.Visibility.Visible)
+            if (MainBorder.Visibility == Visibility.Visible)
             {
-                MainBorder.Visibility = System.Windows.Visibility.Collapsed;
-                
-                // add "Show" button if it doesn't exist yet
-                if (FindName("showButton") == null)
-                {
-                    var showBtn = new System.Windows.Controls.Button
-                    {
-                        Name = "showButton",
-                        Content = "Show",
-                        Width = 30,
-                        Height = 20,
-                        Margin = new System.Windows.Thickness(10),
-                        HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                        VerticalAlignment = System.Windows.VerticalAlignment.Top
-                    };
-                    
-                    showBtn.Click += (s, e) => ToggleMainWindowVisibility();
-                    
-                    var grid = Content as System.Windows.Controls.Grid;
-                    if (grid != null)
-                    {
-                        grid.Children.Add(showBtn);
-                        System.Windows.Controls.Panel.SetZIndex(showBtn, 1000);
-                    }
-                }
-                else
-                {
-                    var showBtn = FindName("showButton") as System.Windows.Controls.Button;
-                    if (showBtn != null)
-                        showBtn.Visibility = System.Windows.Visibility.Visible;
-                }
+                HideButton_Click(hideButton, new RoutedEventArgs());
             }
             else
             {
-                MainBorder.Visibility = System.Windows.Visibility.Visible;
-                
-                var showBtn = FindName("showButton") as System.Windows.Controls.Button;
-                if (showBtn != null)
-                    showBtn.Visibility = System.Windows.Visibility.Collapsed;
+                if (showButton != null)
+                {
+                    ShowButton_Click(showButton, new RoutedEventArgs());
+                }
             }
+
         }
 
         public void SetStatus(string text)
