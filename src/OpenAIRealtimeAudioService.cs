@@ -232,7 +232,7 @@ namespace UGTLive
                 ws = new ClientWebSocket();
                 ws.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
                 ws.Options.SetRequestHeader("OpenAI-Beta", "realtime=v1");
-                Uri serverToUse = new("wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview");
+                Uri serverToUse = new("wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03");
 
 
 
