@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Build & Run (Debug)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "${workspaceFolder}/BuildAndRun.bat",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Build & Run (Release)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "${workspaceFolder}/BuildAndRunRelease.bat",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+} 

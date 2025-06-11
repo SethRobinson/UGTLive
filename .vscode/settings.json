@@ -1,0 +1,10 @@
+{
+  "dotnet.defaultSolution": "UGTLive.sln",
+  "omnisharp.enableRoslynAnalyzers": true,
+  "omnisharp.enableEditorConfigSupport": true,
+  "csharp.debug.console": "internalConsole",
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  }
+} 
