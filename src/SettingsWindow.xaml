@@ -48,6 +48,7 @@
                             <ComboBoxItem Content="vi"/>
                             <ComboBoxItem Content="ar"/>
                             <ComboBoxItem Content="tr"/>
+                            <ComboBoxItem Content="nl"/>
                         </ComboBox>
                         
                         <!-- Swap Languages Button placed between source and target in its own column -->
@@ -77,6 +78,7 @@
                             <ComboBoxItem Content="vi"/>
                             <ComboBoxItem Content="ar"/>
                             <ComboBoxItem Content="tr"/>
+                            <ComboBoxItem Content="nl"/>
                         </ComboBox>
                     </Grid>
                 </GroupBox>
