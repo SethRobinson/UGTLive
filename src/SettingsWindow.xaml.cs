@@ -689,6 +689,12 @@ namespace UGTLive
                     
                     // Clear any existing text objects
                     Logic.Instance.ClearAllTextObjects();
+                    
+                    // Force OCR to run again
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    
+                    // Refresh overlays
+                    MonitorWindow.Instance.RefreshOverlays();
                 }
             }
         }
