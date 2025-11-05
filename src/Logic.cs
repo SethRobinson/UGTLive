@@ -1284,9 +1284,16 @@ namespace UGTLive
                     // Get the source language from MainWindow
                     string sourceLanguage = GetSourceLanguage()!;
                     
-                    Console.WriteLine($"Processing screenshot with EasyOCR character-level OCR, language: {sourceLanguage}");
+                    // Map OCR method to server implementation parameter
+                    string implementation = "easyocr"; // Default
+                    if (ocrMethod == "Manga OCR")
+                    {
+                        implementation = "mangaocr";
+                    }
                     
-                    // Check socket connection for EasyOCR
+                    Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    
+                    // Check socket connection
                     if (!SocketManager.Instance.IsConnected)
                     {
                         Console.WriteLine("Socket not connected, attempting to reconnect...");
@@ -1300,7 +1307,7 @@ namespace UGTLive
                         // Check if reconnection succeeded
                         if (!reconnected || !SocketManager.Instance.IsConnected)
                         {
-                            Console.WriteLine("Reconnection failed, cannot perform OCR with EasyOCR");
+                            Console.WriteLine($"Reconnection failed, cannot perform OCR with {ocrMethod}");
                             
                             // Make sure the reconnect timer is running to keep trying
                             if (!_reconnectTimer.IsEnabled)
@@ -1321,7 +1328,7 @@ namespace UGTLive
                     }
                     
                     // If we got here, socket is connected - explicitly request character-level OCR
-                    await SocketManager.Instance.SendDataAsync($"read_image|{sourceLanguage}|easyocr|char_level");
+                    await SocketManager.Instance.SendDataAsync($"read_image|{sourceLanguage}|{implementation}|char_level");
                 }
             }
             catch (Exception ex)

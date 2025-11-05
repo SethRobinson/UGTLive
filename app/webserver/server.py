@@ -6,7 +6,9 @@ import os
 import time
 
 # Import EasyOCR implementation
-from process_image_easyocr import process_image
+from process_image_easyocr import process_image as process_image_easyocr
+# Import Manga OCR implementation
+from process_image_mangaocr import process_image as process_image_mangaocr
 
 # Configure logging
 logging.basicConfig(
@@ -50,24 +52,31 @@ def handle_client_connection(conn, addr):
                 
                 # Parse parameters if provided
                 lang = 'japan'  # Default language
-                implementation = 'easyocr'  # Now only supporting EasyOCR
+                implementation = 'easyocr'  # Default to EasyOCR
                 
                 if "|" in command:
                     parts = command.split("|")
                     if len(parts) > 1 and parts[1]:
                         lang = parts[1]
-                    # Still parse implementation for future extensibility
+                    # Parse implementation parameter
                     if len(parts) > 2 and parts[2]:
                         implementation = parts[2].lower()
                 
                 # Check if character-level OCR is requested
                 char_level = True  # Default to character-level
                 
-                # Log the OCR engine and language being used
-                logger.info(f"Using EasyOCR with language: {lang}, character-level: {char_level}")
-                
-                # Process image with EasyOCR
-                result = process_image("image_to_process.png", lang=lang, char_level=char_level)
+                # Process image based on the selected implementation
+                if implementation == 'mangaocr' or implementation == 'manga-ocr' or implementation == 'manga_ocr':
+                    # Log the OCR engine being used
+                    logger.info(f"Using Manga OCR with language: {lang}, character-level: {char_level}")
+                    # Process image with Manga OCR
+                    result = process_image_mangaocr("image_to_process.png", lang=lang, char_level=char_level)
+                else:
+                    # Default to EasyOCR
+                    # Log the OCR engine and language being used
+                    logger.info(f"Using EasyOCR with language: {lang}, character-level: {char_level}")
+                    # Process image with EasyOCR
+                    result = process_image_easyocr("image_to_process.png", lang=lang, char_level=char_level)
                 
                 # Send results back to client as JSON
                 # Set ensure_ascii=False to keep Japanese characters as they are

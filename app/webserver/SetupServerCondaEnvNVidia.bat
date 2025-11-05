@@ -73,12 +73,28 @@ REM Install EasyOCR via pip
 echo Installing EasyOCR...
 pip install easyocr || goto :FailInstallEasyOCR
 
+REM Install Manga OCR
+echo Installing Manga OCR...
+pip install manga-ocr || goto :FailInstallMangaOCR
+
+REM Install CRAFT Text Detector dependencies manually (craft-text-detector has outdated deps)
+echo Installing CRAFT Text Detector (with compatible dependencies)...
+REM Install the specific dependencies CRAFT needs with compatible versions
+pip install scikit-image gdown || goto :FailInstallCRAFT
+REM Now install craft-text-detector without dependency checking (we already have compatible versions)
+pip install craft-text-detector --no-deps || goto :FailInstallCRAFT
+echo CRAFT Text Detector installed successfully (using already-installed torch, torchvision, opencv)
+
 REM Ensure the requests library is available
 pip install requests || goto :FailInstallRequests
 
 REM Download language models for EasyOCR (Japanese and English)
 echo Installing language models for EasyOCR...
 python -c "import easyocr; reader = easyocr.Reader(['ja', 'en'])"
+
+REM Initialize Manga OCR (download model on first use)
+echo Initializing Manga OCR...
+python -c "from manga_ocr import MangaOcr; ocr = MangaOcr()"
 
 REM Verify installations
 echo Verifying installations...
@@ -132,5 +148,15 @@ exit /b 1
 
 :FailInstallRequests
 echo ERROR: Failed to install requests!
+pause
+exit /b 1
+
+:FailInstallMangaOCR
+echo ERROR: Failed to install Manga OCR!
+pause
+exit /b 1
+
+:FailInstallCRAFT
+echo ERROR: Failed to install CRAFT Text Detector!
 pause
 exit /b 1

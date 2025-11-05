@@ -192,6 +192,10 @@ namespace UGTLive
                 {
                     SetStatus("Using Windows OCR (built-in)");
                 }
+                else if (method == "Manga OCR")
+                {
+                    SetStatus("Using Manga OCR");
+                }
                 else
                 {
                     SetStatus("Using EasyOCR");
@@ -208,6 +212,38 @@ namespace UGTLive
                 if (method == "Windows OCR")
                 {
                     SetStatus("Using Windows OCR (built-in)");
+                }
+                else if (method == "Manga OCR")
+                {
+                    SetStatus("Using Manga OCR");
+                    
+                    // Ensure we're connected when switching to Manga OCR
+                    if (!SocketManager.Instance.IsConnected)
+                    {
+                        Console.WriteLine("Socket not connected when switching to Manga OCR");
+                        _ = Task.Run(async () => {
+                            try {
+                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
+                                
+                                if (!reconnected || !SocketManager.Instance.IsConnected)
+                                {
+                                    // Only show an error message if explicitly requested by user action
+                                    Console.WriteLine("Failed to connect to socket server - Manga OCR will not be available");
+                                }
+
+                                
+                            }
+                            catch (Exception ex) {
+                                Console.WriteLine($"Error reconnecting: {ex.Message}");
+                                
+                                // Show an error message
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
+                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                });
+                            }
+                        });
+                    }
                 }
                 else
                 {
@@ -893,6 +929,19 @@ namespace UGTLive
                         // Using Windows OCR, no need for socket connection
                         SocketManager.Instance.Disconnect();
                         SetStatus("Using Windows OCR (built-in)");
+                    }
+                    else if (ocrMethod == "Manga OCR")
+                    {
+                        // Using Manga OCR, try to connect to the socket server
+                        if (!SocketManager.Instance.IsConnected)
+                        {
+                            _ = SocketManager.Instance.TryReconnectAsync();
+                            SetStatus("Connecting to Python backend for Manga OCR...");
+                        }
+                        else
+                        {
+                            SetStatus("Using Manga OCR");
+                        }
                     }
                     else
                     {

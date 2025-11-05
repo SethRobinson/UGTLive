@@ -547,7 +547,7 @@ namespace UGTLive
         public void SetOcrMethod(string method)
         {
             Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
-            if (method == "Windows OCR" || method == "EasyOCR")
+            if (method == "Windows OCR" || method == "EasyOCR" || method == "Manga OCR")
             {
                 _configValues[OCR_METHOD] = method;
                 SaveConfig();
@@ -555,7 +555,7 @@ namespace UGTLive
             }
             else
             {
-                Console.WriteLine($"WARNING: Invalid OCR method: {method}. Must be 'Windows OCR' or 'EasyOCR'");
+                Console.WriteLine($"WARNING: Invalid OCR method: {method}. Must be 'Windows OCR', 'EasyOCR', or 'Manga OCR'");
             }
         }
         
