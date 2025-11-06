@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,6 +11,8 @@ using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
 using Clipboard = System.Windows.Forms.Clipboard;
@@ -31,8 +35,24 @@ namespace UGTLive
         public SolidColorBrush TextColor { get; set; }
         public SolidColorBrush BackgroundColor { get; set; }
         public UIElement? UIElement { get; set; }
-        public TextBlock TextBlock { get; private set; } = null!;  // Will be initialized in CreateUIElement
-        public Border Border { get; private set; } = new Border();  // Initialize with a new Border
+        public TextBlock? TextBlock { get; private set; }
+        public WebView2? WebView { get; private set; }
+        public Border Border { get; private set; } = new Border();
+
+        public event EventHandler? TextCopied;
+
+        private readonly bool _useWebViewOverlay;
+        private bool _webViewInitialized;
+        private string? _pendingWebViewHtml;
+        private string? _lastRenderedHtml;
+        private double _currentFontSize = DefaultFontSize;
+
+        private const double WebViewMinFontSize = 12;
+        private const double WebViewMaxFontSize = 64;
+        private const double WebViewLineHeightFactor = 1.25;
+        private const double WebViewColumnGapFactor = 0.12; // Relative to font size
+
+        private const double DefaultFontSize = 24;
         
         // Store the original capture position
         public double CaptureX { get; set; }
@@ -66,6 +86,8 @@ namespace UGTLive
             // Initialize sound player if not already initialized
             _soundPlayer ??= new SoundPlayer();
 
+            _useWebViewOverlay = ConfigManager.Instance.IsWebViewOverlayEnabled();
+
             // Create the UI element that will be added to the overlay
             //UIElement = CreateUIElement();
         }
@@ -74,116 +96,638 @@ namespace UGTLive
         // Public so it can be used by MonitorWindow
         public UIElement CreateUIElement(bool useRelativePosition = true)
         {
-            // Create a border for the background
-            Border = new Border()
+            Border = new Border
             {
                 Background = BackgroundColor,
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(2),
-                Padding = new Thickness(0, 0, 0, 0),
+                Padding = new Thickness(0),
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
-                Cursor = Cursors.Hand  // Change cursor to hand to indicate clickable
+                Cursor = Cursors.Hand,
+                SnapsToDevicePixels = true
             };
             
-            // Position based on useRelativePosition parameter
             if (useRelativePosition)
             {
-                // Use Margin for positioning in the parent container
                 Border.Margin = new Thickness(X, Y, 0, 0);
             }
 
-            // Create the text block with adjusted properties for better horizontal fill
-            TextBlock = new TextBlock()
+            ApplySizeConstraints();
+
+            if (_useWebViewOverlay)
             {
-                Text = this.Text,
-                Foreground = this.TextColor,
+                CreateWebViewChild();
+            }
+            else
+            {
+                CreateTextBlockChild();
+            }
+
+            Border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
+            Border.ContextMenu = CreateContextMenu();
+
+            if (_useWebViewOverlay)
+            {
+                Border.Loaded += async (s, e) =>
+                {
+                    await EnsureWebViewReadyAsync();
+                    await UpdateWebViewContentAsync();
+                };
+            }
+            else if (TextBlock != null)
+            {
+                Border.Loaded += (s, e) => AdjustFontSize(Border, TextBlock);
+            }
+
+            UIElement = Border;
+            return Border;
+        }
+
+        private void CreateTextBlockChild()
+        {
+            WebView = null;
+            TextBlock = new TextBlock
+            {
+                Text = Text,
+                Foreground = TextColor,
                 FontWeight = FontWeights.Normal,
-                FontSize = 24, // Increased from 18 to 24 for better initial size
+                FontSize = DefaultFontSize,
                 TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Left, // Changed from Justify for better readability of merged blocks
-                FontStretch = FontStretches.Normal, // Changed from Expanded for better readability
+                TextAlignment = TextAlignment.Left,
+                FontStretch = FontStretches.Normal,
                 FontFamily = new FontFamily("Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial"),
-                Margin = new Thickness(0), // Increased margin for better text display
-                TextTrimming = TextTrimming.None // Prevent text trimming for wrapped text
+                Margin = new Thickness(0),
+                TextTrimming = TextTrimming.None
             };
 
-            // Set explicit width and height if provided
             if (Width > 0)
             {
                 TextBlock.MaxWidth = Width;
-                Border.MaxWidth = Width + 20; // Increased padding for word wrap
+                Border.MaxWidth = Width + 20;
+            }
+            else
+            {
+                TextBlock.ClearValue(TextBlock.MaxWidthProperty);
+                Border.ClearValue(Border.MaxWidthProperty);
             }
 
             if (Height > 0)
             {
                 Border.Height = Height;
             }
+            else
+            {
+                Border.ClearValue(Border.HeightProperty);
+            }
 
-            // Add the text block to the border
             Border.Child = TextBlock;
+            _currentFontSize = DefaultFontSize;
+        }
 
-            // Add click event handler
-            Border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
-            
-            // Add context menu for right-click options
-            Border.ContextMenu = CreateContextMenu();
+        private void CreateWebViewChild()
+        {
+            TextBlock = null;
+            WebView = new WebView2
+            {
+                Margin = new Thickness(0),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                VerticalAlignment = System.Windows.VerticalAlignment.Stretch
+            };
 
-            // Scale font if needed after rendering
-            Border.Loaded += (s, e) => AdjustFontSize(Border, TextBlock);
+            WebView.Loaded += async (s, e) =>
+            {
+                await EnsureWebViewReadyAsync();
+                await UpdateWebViewContentAsync();
+            };
 
-            return Border;
+            Border.Child = WebView;
+        }
+
+        private void ApplySizeConstraints()
+        {
+            if (Width > 0)
+            {
+                Border.Width = Width;
+                Border.MaxWidth = Width;
+            }
+            else
+            {
+                Border.ClearValue(Border.WidthProperty);
+                Border.ClearValue(Border.MaxWidthProperty);
+            }
+
+            if (Height > 0)
+            {
+                Border.Height = Height;
+                Border.MaxHeight = Height;
+            }
+            else
+            {
+                Border.ClearValue(Border.HeightProperty);
+                Border.ClearValue(Border.MaxHeightProperty);
+            }
+        }
+
+        private async Task EnsureWebViewReadyAsync()
+        {
+            if (!_useWebViewOverlay || WebView == null)
+            {
+                return;
+            }
+
+            if (_webViewInitialized && WebView.CoreWebView2 != null)
+            {
+                return;
+            }
+
+            try
+            {
+                await WebView.EnsureCoreWebView2Async();
+
+                if (WebView.CoreWebView2 != null)
+                {
+                    WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0, 0, 0, 0);
+                    WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+
+                    WebView.CoreWebView2.WebMessageReceived -= WebView_WebMessageReceived;
+                    WebView.CoreWebView2.WebMessageReceived += WebView_WebMessageReceived;
+
+                    WebView.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
+                    WebView.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
+                }
+
+                _webViewInitialized = true;
+
+                if (!string.IsNullOrEmpty(_pendingWebViewHtml) && WebView.CoreWebView2 != null)
+                {
+                    WebView.CoreWebView2.NavigateToString(_pendingWebViewHtml);
+                    _pendingWebViewHtml = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing WebView2: {ex.Message}");
+            }
+        }
+
+        private async Task UpdateWebViewContentAsync()
+        {
+            if (!_useWebViewOverlay || WebView == null)
+            {
+                return;
+            }
+
+            try
+            {
+                string textToRender = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+                string normalized = NormalizeContent(textToRender);
+                string encoded = EncodeContentForHtml(normalized);
+                string textColorCss = BrushToCss(TextColor);
+                string html = BuildWebViewDocument(encoded, textColorCss, _currentFontSize);
+
+                if (!_webViewInitialized || WebView.CoreWebView2 == null)
+                {
+                    _pendingWebViewHtml = html;
+                    _lastRenderedHtml = html;
+                    await EnsureWebViewReadyAsync();
+                    return;
+                }
+
+                if (string.Equals(html, _lastRenderedHtml, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _lastRenderedHtml = html;
+
+                WebView.CoreWebView2.NavigateToString(html);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating WebView2 content: {ex.Message}");
+            }
+        }
+
+        private static string NormalizeContent(string content)
+        {
+            string normalized = content?.Replace("\r\n", "\n").Replace("\r", "\n") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                normalized = "\u00A0"; // Non-breaking space to preserve height
+            }
+
+            return normalized;
+        }
+
+        private static string EncodeContentForHtml(string normalized)
+        {
+            return System.Web.HttpUtility.HtmlEncode(normalized).Replace("\n", "<br/>");
+        }
+
+        private string BuildWebViewDocument(string encodedContent, string textColorCss, double fontSize)
+        {
+            if (string.IsNullOrWhiteSpace(encodedContent))
+            {
+                encodedContent = "&nbsp;";
+            }
+
+            string fontSizeCss = fontSize.ToString(CultureInfo.InvariantCulture);
+
+            var builder = new StringBuilder();
+            builder.AppendLine("<!DOCTYPE html>");
+            builder.AppendLine("<html>");
+            builder.AppendLine("<head>");
+            builder.AppendLine("<meta charset=\"utf-8\" />");
+            builder.AppendLine("<style>");
+            builder.AppendLine("html, body {");
+            builder.AppendLine("  margin: 0;");
+            builder.AppendLine("  padding: 0;");
+            builder.AppendLine("  background: transparent;");
+            builder.AppendLine("  width: 100%;");
+            builder.AppendLine("  height: 100%;");
+            builder.AppendLine("  overflow: hidden;");
+            builder.AppendLine($"  color: {textColorCss};");
+            builder.AppendLine("}");
+            builder.AppendLine("#container {");
+            builder.AppendLine("  position: relative;");
+            builder.AppendLine("  width: 100%;");
+            builder.AppendLine("  height: 100%;");
+            builder.AppendLine("  overflow: hidden;");
+            builder.AppendLine("}");
+            builder.AppendLine("#content {");
+            builder.AppendLine("  writing-mode: vertical-rl;");
+            builder.AppendLine("  text-orientation: upright;");
+            builder.AppendLine("  font-family: \"Yu Mincho\", \"Yu Gothic\", \"Noto Serif JP\", \"Noto Sans JP\", \"MS PGothic\", serif;");
+            builder.AppendLine($"  font-size: {fontSizeCss}px;");
+            builder.AppendLine("  line-height: 1.25;");
+            builder.AppendLine("  letter-spacing: 0.08em;");
+            builder.AppendLine("  column-gap: 0.12em;");
+            builder.AppendLine("  column-fill: auto;");
+            builder.AppendLine("  white-space: pre-wrap;");
+            builder.AppendLine("  box-sizing: border-box;");
+            builder.AppendLine("  padding: 0;");
+            builder.AppendLine("  position: absolute;");
+            builder.AppendLine("  top: 0;");
+            builder.AppendLine("  right: 0;");
+            builder.AppendLine("  width: auto;");
+            builder.AppendLine("  height: auto;");
+            builder.AppendLine("  max-width: 100%;");
+            builder.AppendLine("  max-height: 100%;");
+            builder.AppendLine($"  color: {textColorCss};");
+            builder.AppendLine("}");
+            builder.AppendLine("body {");
+            builder.AppendLine("  user-select: text;");
+            builder.AppendLine("}");
+            builder.AppendLine("</style>");
+            builder.AppendLine("<script>");
+            builder.AppendLine("function fits(container, content) {");
+            builder.AppendLine("    return content.scrollWidth <= container.clientWidth + 0.5 && content.scrollHeight <= container.clientHeight + 0.5;");
+            builder.AppendLine("}");
+
+            builder.AppendLine("function fitContent() {");
+            builder.AppendLine("    const container = document.getElementById('container');");
+            builder.AppendLine("    const content = document.getElementById('content');");
+            builder.AppendLine("    if (!container || !content) { return; }");
+
+            builder.AppendLine("    const baseFont = parseFloat(content.dataset.baseFontSize || '24');");
+            builder.AppendLine("    let minSize = Math.max(8, baseFont * 0.4);");
+            builder.AppendLine("    let maxSize = Math.min(220, baseFont * 4);");
+            builder.AppendLine("    let bestSize = minSize;");
+            builder.AppendLine("    let foundFit = false;");
+
+            builder.AppendLine("    while (maxSize - minSize > 0.25) {");
+            builder.AppendLine("        const testSize = (minSize + maxSize) / 2;");
+        builder.AppendLine("        content.style.fontSize = testSize + 'px';");
+            builder.AppendLine("        if (fits(container, content)) {");
+            builder.AppendLine("            bestSize = testSize;");
+            builder.AppendLine("            minSize = testSize;");
+            builder.AppendLine("            foundFit = true;");
+            builder.AppendLine("        } else {");
+            builder.AppendLine("            maxSize = testSize;");
+            builder.AppendLine("        }");
+            builder.AppendLine("    }");
+
+            builder.AppendLine("    if (!foundFit) {");
+            builder.AppendLine("        content.style.fontSize = maxSize + 'px';");
+            builder.AppendLine("    } else {");
+            builder.AppendLine("        content.style.fontSize = bestSize + 'px';");
+            builder.AppendLine("        content.dataset.lastComputedFontSize = bestSize.toFixed(2);");
+            builder.AppendLine("    }");
+            builder.AppendLine("}");
+            builder.AppendLine("window.addEventListener('pointerup', function(event) {");
+            builder.AppendLine("    try {");
+            builder.AppendLine("        const selection = window.getSelection();");
+            builder.AppendLine("        if (selection && selection.toString().trim().length > 0) {");
+            builder.AppendLine("            return;");
+            builder.AppendLine("        }");
+            builder.AppendLine("        if (window.chrome && window.chrome.webview) {");
+            builder.AppendLine("            window.chrome.webview.postMessage('copy');");
+            builder.AppendLine("        }");
+            builder.AppendLine("    } catch (error) {");
+            builder.AppendLine("        console.error(error);");
+            builder.AppendLine("    }");
+            builder.AppendLine("});");
+            builder.AppendLine("window.addEventListener('load', function() {");
+            builder.AppendLine("    fitContent();");
+            builder.AppendLine("    setTimeout(fitContent, 0);");
+            builder.AppendLine("});");
+            builder.AppendLine("window.addEventListener('resize', fitContent);");
+            builder.AppendLine("if (window.ResizeObserver) {");
+            builder.AppendLine("    const resizeObserver = new ResizeObserver(fitContent);");
+            builder.AppendLine("    resizeObserver.observe(document.body);");
+            builder.AppendLine("}");
+            builder.AppendLine("if (document.fonts && document.fonts.ready) {");
+            builder.AppendLine("    document.fonts.ready.then(fitContent);");
+            builder.AppendLine("}");
+            builder.AppendLine("</script>");
+            builder.AppendLine("</head>");
+            builder.AppendLine("<body>");
+            builder.AppendLine($"<div id=\"container\"><div id=\"content\" data-base-font-size=\"{fontSizeCss}\">{encodedContent}</div></div>");
+            builder.AppendLine("</body>");
+            builder.AppendLine("</html>");
+
+            return builder.ToString();
+        }
+
+        private double CalculateWebViewFontSize(string text)
+        {
+            try
+            {
+                if (Height <= 0)
+                {
+                    return DefaultFontSize;
+                }
+
+                double availableWidth = Width > 0 ? Width : double.MaxValue;
+                double availableHeight = Height;
+
+                if (double.IsInfinity(availableWidth) || double.IsInfinity(availableHeight) ||
+                    double.IsNaN(availableWidth) || double.IsNaN(availableHeight) ||
+                    availableWidth <= 0 || availableHeight <= 0)
+                {
+                    return DefaultFontSize;
+                }
+
+                string normalized = NormalizeContent(text);
+                if (string.IsNullOrWhiteSpace(normalized) || normalized == "\u00A0")
+                {
+                    return DefaultFontSize;
+                }
+
+                double minSize = WebViewMinFontSize;
+                double maxSize = Math.Min(WebViewMaxFontSize, availableHeight);
+                double bestSize = minSize;
+
+                for (int i = 0; i < 12; i++)
+                {
+                    double testSize = (minSize + maxSize) / 2.0;
+                    if (DoesFontFit(testSize, normalized, availableWidth, availableHeight))
+                    {
+                        bestSize = testSize;
+                        minSize = testSize;
+                    }
+                    else
+                    {
+                        maxSize = testSize;
+                    }
+
+                    if (Math.Abs(maxSize - minSize) < 0.5)
+                    {
+                        break;
+                    }
+                }
+
+                return Math.Max(WebViewMinFontSize, Math.Min(WebViewMaxFontSize, bestSize));
+            }
+            catch
+            {
+                return DefaultFontSize;
+            }
+        }
+
+        private bool DoesFontFit(double fontSize, string normalizedText, double availableWidth, double availableHeight)
+        {
+            double charHeight = fontSize * WebViewLineHeightFactor;
+            if (charHeight <= 0)
+            {
+                return false;
+            }
+
+            int charsPerColumn = Math.Max(1, (int)Math.Floor(availableHeight / charHeight));
+            if (charsPerColumn <= 0)
+            {
+                return false;
+            }
+
+            string[] segments = normalizedText.Split('\n');
+            int columnsNeeded = 0;
+
+            foreach (string segment in segments)
+            {
+                int length = Math.Max(1, segment.Length);
+                columnsNeeded += (int)Math.Ceiling(length / (double)charsPerColumn);
+            }
+
+            if (columnsNeeded <= 0)
+            {
+                columnsNeeded = 1;
+            }
+
+            double columnWidth = fontSize;
+            double columnGap = fontSize * WebViewColumnGapFactor;
+            double totalWidth = columnsNeeded * columnWidth + (columnsNeeded - 1) * columnGap;
+
+            return totalWidth <= availableWidth;
+        }
+
+        private static string BrushToCss(SolidColorBrush brush)
+        {
+            Color color = brush.Color;
+            if (color.A >= 255)
+            {
+                return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+            }
+
+            double alpha = color.A / 255.0;
+            return $"rgba({color.R}, {color.G}, {color.B}, {alpha.ToString(CultureInfo.InvariantCulture)})";
+        }
+
+        private void WebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                string message = e.TryGetWebMessageAsString();
+                if (string.Equals(message, "copy", StringComparison.OrdinalIgnoreCase))
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(CopySourceToClipboard);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling WebView2 message: {ex.Message}");
+            }
+        }
+
+        private void CoreWebView2_ContextMenuRequested(object? sender, CoreWebView2ContextMenuRequestedEventArgs e)
+        {
+            try
+            {
+                e.Handled = true;
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Border.ContextMenu != null)
+                    {
+                        Border.ContextMenu.PlacementTarget = Border;
+                        Border.ContextMenu.IsOpen = true;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error showing WebView2 context menu: {ex.Message}");
+            }
+        }
+
+        private void CopySourceToClipboard()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(Text))
+                {
+                    Clipboard.SetText(Text);
+                    PlayClickSound();
+
+                    if (Border != null)
+                    {
+                        AnimateBorderOnClick(Border);
+                    }
+
+                    TextCopied?.Invoke(this, EventArgs.Empty);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error copying text to clipboard: {ex.Message}");
+            }
+        }
+
+        public void SetFontSize(double fontSize)
+        {
+            if (fontSize <= 0)
+            {
+                return;
+            }
+
+            if (_useWebViewOverlay)
+            {
+                double clamped = Math.Max(WebViewMinFontSize, Math.Min(WebViewMaxFontSize, fontSize));
+                if (Math.Abs(_currentFontSize - clamped) > 0.1)
+                {
+                    _currentFontSize = clamped;
+                }
+                _ = UpdateWebViewContentAsync();
+            }
+            else if (TextBlock != null)
+            {
+                TextBlock.FontSize = fontSize;
+            }
         }
 
         // Update the UI element with current properties
         public void UpdateUIElement()
         {
-            // Check if we need to run on the UI thread
             if (!System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => UpdateUIElement());
+                System.Windows.Application.Current.Dispatcher.Invoke(UpdateUIElement);
                 return;
             }
 
-            //if TextBox is null, create a new one
-            if (TextBlock == null)
+            if (Border == null || Border.Child == null)
             {
                 CreateUIElement();
             }
 
-
-            if (TextBlock != null && Border != null)
+            Border? border = Border;
+            if (border == null)
             {
-                if (this.TextTranslated != null && this.TextTranslated.Length > 0)
+                return;
+            }
+
+            ApplySizeConstraints();
+
+            border.Background = BackgroundColor;
+            border.Margin = new Thickness(X, Y, 0, 0);
+
+            if (_useWebViewOverlay)
+            {
+                string textForRender = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+
+                if (ConfigManager.Instance.IsAutoSizeTextBlocksEnabled())
                 {
-                    // Use translated text if available
-                    TextBlock.Text = this.TextTranslated;
+                    double calculatedSize = CalculateWebViewFontSize(textForRender);
+                    if (!double.IsNaN(calculatedSize) && Math.Abs(calculatedSize - _currentFontSize) > 0.1)
+                    {
+                        _currentFontSize = calculatedSize;
+                    }
                 }
-                else
+
+                if (WebView != null)
                 {
-                    // Use original text
-                    TextBlock.Text = this.Text;
+                    if (Width > 0)
+                    {
+                        WebView.Width = Width;
+                    }
+                    else
+                    {
+                        WebView.ClearValue(FrameworkElement.WidthProperty);
+                    }
+
+                    if (Height > 0)
+                    {
+                        WebView.Height = Height;
+                    }
+                    else
+                    {
+                        WebView.ClearValue(FrameworkElement.HeightProperty);
+                    }
                 }
-                TextBlock.Foreground = this.TextColor;
-                Border.Background = this.BackgroundColor;
-                // Position at the upper left of the rectangle
-                Border.Margin = new Thickness(X, Y, 0, 0);
+
+                _ = UpdateWebViewContentAsync();
+                return;
+            }
+
+            if (TextBlock == null)
+            {
+                return;
+            }
+
+            TextBlock.Text = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+            TextBlock.Foreground = TextColor;
 
                 if (Width > 0)
                 {
                     TextBlock.MaxWidth = Width;
-                    Border.MaxWidth = Width + 20; // Increased padding for word wrap
+                border.MaxWidth = Width + 20;
+            }
+            else
+            {
+                TextBlock.ClearValue(TextBlock.MaxWidthProperty);
+                border.ClearValue(Border.MaxWidthProperty);
                 }
 
                 if (Height > 0)
                 {
-                    Border.Height = Height;
-                }
-
-                // Reset font size to default and then adjust if needed
-                TextBlock.FontSize = 24; // Increased from 18 to 24 for better initial size
-                AdjustFontSize(Border, TextBlock);
+                border.Height = Height;
             }
+            else
+            {
+                border.ClearValue(Border.HeightProperty);
+            }
+
+            TextBlock.FontSize = DefaultFontSize;
+            AdjustFontSize(border, TextBlock);
         }
 
         // Static cache for font size calculations
@@ -275,6 +819,7 @@ namespace UGTLive
                 double finalSize = Math.Max(minSize, Math.Min(maxSize, currentSize));
                 textBlock.FontSize = finalSize;
                 textBlock.LayoutTransform = Transform.Identity;
+                _currentFontSize = finalSize;
                 
                 // Cache the result for future use
                 if (_fontSizeCache.Count > 100) // Limit cache size
@@ -297,14 +842,8 @@ namespace UGTLive
         {
             if (sender is Border border)
             {
-                // Copy text to clipboard
-                Clipboard.SetText(Text);
-
-                // Play sound
-                PlayClickSound();
-
-                // Animate the border to provide visual feedback
-                AnimateBorderOnClick(border);
+                // Copy text to clipboard using shared helper
+                CopySourceToClipboard();
 
                 e.Handled = true;
             }
@@ -371,8 +910,7 @@ namespace UGTLive
         // Click handler for Copy Source menu item
         private void CopySourceMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            Clipboard.SetText(this.Text);
-            PlayClickSound();
+            CopySourceToClipboard();
         }
         
         // Click handler for Copy Translated menu item

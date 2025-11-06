@@ -1013,10 +1013,7 @@ namespace UGTLive
                 textObject.ID = "text_"+GetNextTextID();
 
                 // Adjust font size
-                if (textObject.UIElement is Border border && border.Child is TextBlock textBlock)
-                {
-                    textBlock.FontSize = fontSize;
-                }
+                textObject.SetFontSize(fontSize);
                 
                 // Add to our collection
                 _textObjects.Add(textObject);

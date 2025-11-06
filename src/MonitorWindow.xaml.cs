@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -14,6 +15,7 @@ namespace UGTLive
         private double currentZoom = 1.0;
         private const double zoomIncrement = 0.1;
         private string lastImagePath = string.Empty;
+        private readonly Dictionary<string, Border> _overlayElements = new();
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -568,27 +570,41 @@ namespace UGTLive
                 
                 // We need to create a NEW UI element with positioning appropriate for Canvas
                 // but we'll use the existing Border and TextBlock references so updates work
-                if (textObject.Border != null)
+                Border? border = textObject.Border;
+                if (border == null || border.Child == null)
                 {
-                    // Reset margin to zero - we'll position with Canvas instead
-                    textObject.Border.Margin = new Thickness(0);
-                    
-                    // Position the element on the canvas using Canvas.SetLeft/Top
-                    Canvas.SetLeft(textObject.Border, textObject.X);
-                    Canvas.SetTop(textObject.Border, textObject.Y);
-                    
-                    // Add to canvas
-                    textOverlayCanvas.Children.Add(textObject.Border);
-                    
-                    // Add additional status update when text is copied
-                    textObject.Border.MouseLeftButtonDown += (s, e) => {
-                        UpdateStatus("Text copied to clipboard");
-                    };
+                    textObject.CreateUIElement(useRelativePosition: false);
+                    border = textObject.Border;
                 }
-                else
+
+                if (border == null)
                 {
                     Console.WriteLine("Warning: TextObject.Border is null");
+                    return;
                 }
+
+                border.Margin = new Thickness(0);
+
+                textObject.TextCopied -= TextObject_TextCopied;
+                textObject.TextCopied += TextObject_TextCopied;
+
+                if (!_overlayElements.TryGetValue(textObject.ID, out Border? existingBorder) || existingBorder != border)
+                {
+                    if (existingBorder != null)
+                    {
+                        textOverlayCanvas.Children.Remove(existingBorder);
+                    }
+
+                    if (!textOverlayCanvas.Children.Contains(border))
+                    {
+                        textOverlayCanvas.Children.Add(border);
+                    }
+
+                    _overlayElements[textObject.ID] = border;
+                }
+
+                Canvas.SetLeft(border, textObject.X);
+                Canvas.SetTop(border, textObject.Y);
             }
             catch (Exception ex)
             {
@@ -597,6 +613,11 @@ namespace UGTLive
             }
         }
         
+        private void TextObject_TextCopied(object? sender, EventArgs e)
+        {
+            UpdateStatus("Text copied to clipboard");
+        }
+
         // Zoom controls
         private void ZoomInButton_Click(object sender, RoutedEventArgs e)
         {
@@ -649,9 +670,8 @@ namespace UGTLive
                 
                 // Now we're on the UI thread, safe to update UI elements
                 
-                // Clear canvas
-                textOverlayCanvas.Children.Clear();
-                
+                var remainingIds = new HashSet<string>(_overlayElements.Keys);
+
                 // Check if Logic is initialized
                 if (Logic.Instance == null)
                 {
@@ -673,6 +693,16 @@ namespace UGTLive
                     {
                         // Call our OnTextObjectAdded method to add it to the canvas
                         CreateMonitorOverlayFromTextObject(this, textObj);
+                        remainingIds.Remove(textObj.ID);
+                    }
+                }
+
+                foreach (string id in remainingIds)
+                {
+                    if (_overlayElements.TryGetValue(id, out Border? border))
+                    {
+                        textOverlayCanvas.Children.Remove(border);
+                        _overlayElements.Remove(id);
                     }
                 }
                 
