@@ -34,7 +34,7 @@ echo.
 echo IMPORTANT NEXT STEPS:
 echo   1. CLOSE this Command Prompt window
 echo   2. Open a NEW Command Prompt window
-echo   3. Run the setup script again (SetupServerCondaEnvNVidia.bat or SetupServerCondaEnvNvidia5090.bat)
+echo   3. Run the setup script again (SetupServerCondaEnvNVidia.bat)
 echo.
 echo The new Command Prompt window is needed so that conda is available in your PATH.
 echo.

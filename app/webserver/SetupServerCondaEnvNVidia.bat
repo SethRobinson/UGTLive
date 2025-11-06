@@ -1,17 +1,189 @@
 @echo off
-echo ===== Setting up an EasyOCR with NVidia GPU Support Conda Env =====
-echo.
-echo This is something you only have to do once, it creates (or recreates) a Conda environment called "ocrstuff".
-echo This can take quite a long time to setup.  It's for NVidia cards, you'll have to hack this script up or do it
-echo manually for other card types.
+setlocal ENABLEDELAYEDEXPANSION
+
+echo =============================================================
+echo   Setting up UGTLive OCR environment (EasyOCR + MangaOCR)
+echo -------------------------------------------------------------
+echo   This creates (or recreates) the "ocrstuff" Conda environment
+echo   with GPU acceleration, Foreground/Background color analysis,
+echo   and Manga109 YOLO region detection assets.
+echo =============================================================
 echo.
 
-REM Check if conda is installed
+set "SCRIPT_DIR=%~dp0"
+set "MODEL_DIR=%SCRIPT_DIR%models\manga109_yolo"
+set "MODEL_FILE=%MODEL_DIR%\model.pt"
+set "LABELS_FILE=%MODEL_DIR%\labels.json"
+set "MODEL_URL=https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/model.pt"
+set "LABELS_URL=https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/labels.json"
+
+REM -----------------------------------------------------------------
+REM Validate conda availability
+REM -----------------------------------------------------------------
 where conda >nul 2>nul || goto :NoConda
 
 echo Conda detected successfully!
 echo.
-goto :AfterCondaCheck
+
+REM -----------------------------------------------------------------
+REM Detect GPU model to choose CUDA toolchain
+REM -----------------------------------------------------------------
+set "GPU_NAME="
+for /f "usebackq skip=1 tokens=* delims=" %%i in (`nvidia-smi --query-gpu=name --format=csv 2^>nul`) do (
+    if not defined GPU_NAME set "GPU_NAME=%%i"
+)
+if not defined GPU_NAME (
+    for /f "usebackq tokens=* delims=" %%i in (`nvidia-smi --query-gpu=name --format=csv,noheader 2^>nul`) do (
+        if not defined GPU_NAME set "GPU_NAME=%%i"
+    )
+)
+if defined GPU_NAME (
+    echo !GPU_NAME! | findstr /I /B /C:"ERROR" >nul 2>&1 && set "GPU_NAME="
+)
+
+set "IS_5090=0"
+if defined GPU_NAME (
+    echo Detected NVIDIA GPU: !GPU_NAME!
+    echo !GPU_NAME! | find "5090" >nul 2>&1 && set "IS_5090=1"
+) else (
+    echo WARNING: Unable to query GPU name via nvidia-smi; assuming non-RTX 5090 configuration.
+)
+echo.
+
+if "!IS_5090!"=="1" (
+    echo RTX 5090 detected - using CUDA 12.x / PyTorch nightly installation path.
+    set "PYTHON_VERSION=3.11"
+    set "CUPY_PACKAGE=cupy-cuda12x"
+) else (
+    echo Using standard CUDA 11.x configuration.
+    set "PYTHON_VERSION=3.9"
+    set "CUPY_PACKAGE=cupy-cuda11x"
+)
+echo.
+
+REM -----------------------------------------------------------------
+REM Activate base environment and update conda
+REM -----------------------------------------------------------------
+echo Activating conda base environment...
+call conda activate base || goto :FailActivateBase
+
+echo Updating conda...
+call conda update -y conda || goto :WarnUpdateConda
+
+:ContinueAfterUpdate
+echo Configuring conda channels...
+call conda config --add channels conda-forge
+call conda config --set channel_priority strict
+
+REM -----------------------------------------------------------------
+REM Recreate environment
+REM -----------------------------------------------------------------
+echo Removing existing ocrstuff environment if it exists...
+call conda env remove -n ocrstuff -y
+
+echo Creating new conda environment (python=!PYTHON_VERSION!)...
+call conda create -y --name ocrstuff python=!PYTHON_VERSION! || goto :FailCreateEnv
+
+echo Activating ocrstuff environment...
+call conda activate ocrstuff || goto :FailActivateOcrstuff
+
+if "!IS_5090!"=="1" (
+    set "KMP_DUPLICATE_LIB_OK=TRUE"
+)
+
+echo Upgrading pip...
+python -m pip install --upgrade pip || goto :FailPipUpgrade
+
+REM -----------------------------------------------------------------
+REM GPU toolchain and core dependencies
+REM -----------------------------------------------------------------
+if "!IS_5090!"=="1" (
+    echo Installing PyTorch nightly with CUDA 12.x support...
+    python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 || goto :FailInstallPyTorch
+
+    echo Installing base scientific Python dependencies via pip...
+    python -m pip install opencv-python pillow matplotlib scipy || goto :FailInstallBaseDeps
+    python -m pip install tqdm pyyaml requests numpy || goto :FailInstallAdditionalDeps
+) else (
+    echo Installing PyTorch with CUDA 11.8 support via conda...
+    call conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia || goto :FailInstallPyTorch
+
+    echo Installing conda-forge dependencies...
+    call conda install -y -c conda-forge opencv pillow matplotlib scipy || goto :FailInstallCondaForge
+
+    echo Installing additional conda dependencies...
+    call conda install -y tqdm pyyaml requests || goto :FailInstallCondaDeps
+)
+
+REM -----------------------------------------------------------------
+REM OCR and detection dependencies (pip for consistency)
+REM -----------------------------------------------------------------
+echo Installing EasyOCR...
+python -m pip install easyocr || goto :FailInstallEasyOCR
+
+echo Installing Manga OCR...
+python -m pip install manga-ocr || goto :FailInstallMangaOCR
+
+echo Installing CRAFT Text Detector (with compatible dependencies)...
+python -m pip install scikit-image gdown || goto :FailInstallCRAFT
+python -m pip install craft-text-detector --no-deps || goto :FailInstallCRAFT
+
+echo Installing MareArts XColor with GPU support...
+python -m pip install "marearts-xcolor[gpu]" !CUPY_PACKAGE! || goto :FailInstallXColor
+
+echo Installing Ultralytics YOLO + FastAPI helpers...
+python -m pip install "ultralytics==8.2.100" fastapi "uvicorn[standard]" python-multipart || goto :FailInstallUltralytics
+
+REM -----------------------------------------------------------------
+REM Pre-download OCR models
+REM -----------------------------------------------------------------
+echo Pre-downloading EasyOCR language models (ja + en)...
+python -c "import easyocr; easyocr.Reader(['ja','en'])" || goto :FailWarmEasyOCR
+
+echo Initializing Manga OCR (downloads model on first use)...
+python -c "from manga_ocr import MangaOcr; MangaOcr()" || goto :FailWarmManga
+
+REM -----------------------------------------------------------------
+REM Download Manga109 YOLO model + labels
+REM -----------------------------------------------------------------
+if not exist "%MODEL_DIR%" (
+    echo Creating Manga109 YOLO model directory at "%MODEL_DIR%"...
+    mkdir "%MODEL_DIR%" || goto :FailCreateModelDir
+)
+
+if exist "%MODEL_FILE%" (
+    echo Manga109 YOLO model already present; skipping download.
+) else (
+    echo Downloading Manga109 YOLO model weights...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%MODEL_URL%' -OutFile '%MODEL_FILE%' -UseBasicParsing" || goto :FailDownloadModel
+)
+
+if exist "%LABELS_FILE%" (
+    echo Manga109 YOLO labels already present; skipping download.
+) else (
+    echo Downloading Manga109 YOLO label metadata...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%LABELS_URL%' -OutFile '%LABELS_FILE%' -UseBasicParsing" || goto :FailDownloadLabels
+)
+
+REM -----------------------------------------------------------------
+REM Environment verification
+REM -----------------------------------------------------------------
+echo Verifying installations...
+python -c "import torch; print('PyTorch Version:', torch.__version__); print('CUDA Version:', torch.version.cuda); print('CUDA Available:', torch.cuda.is_available()); print('GPU Count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)" || goto :FailVerify
+python -c "import easyocr; print('EasyOCR imported successfully')" || goto :FailVerify
+python -c "import cv2; print('OpenCV Version:', cv2.__version__)" || goto :FailVerify
+python -c "import ultralytics; print('Ultralytics version:', ultralytics.__version__)" || goto :FailVerify
+
+echo.
+echo =============================================================
+echo   Setup complete!
+echo   The ocrstuff environment now includes EasyOCR, Manga OCR,
+echo   Manga109 YOLO detection, and color extraction helpers.
+echo   Use RunServer.bat to start the OCR socket server.
+echo =============================================================
+echo.
+pause
+goto :eof
 
 :NoConda
 echo.
@@ -36,77 +208,6 @@ echo.
 pause
 exit /b 1
 
-:AfterCondaCheck
-REM Activating base environment
-echo Activating conda base environment...
-call conda activate base || goto :FailActivateBase
-
-echo Updating conda...
-call conda update -y conda || goto :WarnUpdateConda
-
-:ContinueAfterUpdate
-echo Configuring conda channels...
-call conda config --add channels conda-forge
-call conda config --set channel_priority strict
-
-echo Removing existing ocrstuff environment if it exists...
-call conda env remove -n ocrstuff -y
-
-echo Creating and setting up new Conda environment...
-call conda create -y --name ocrstuff python=3.9 || goto :FailCreateEnv
-
-echo Activating ocrstuff environment...
-call conda activate ocrstuff || goto :FailActivateOcrstuff
-
-REM Install PyTorch with GPU support (includes correct CUDA and cuDNN versions)
-echo Installing PyTorch with GPU support...
-call conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia || goto :FailInstallPyTorch
-
-REM Install additional dependencies
-echo Installing conda-forge dependencies...
-call conda install -y -c conda-forge opencv pillow matplotlib scipy || goto :FailInstallCondaForge
-
-echo Installing additional conda dependencies...
-call conda install -y tqdm pyyaml requests || goto :FailInstallCondaDeps
-
-REM Install EasyOCR via pip
-echo Installing EasyOCR...
-pip install easyocr || goto :FailInstallEasyOCR
-
-REM Install Manga OCR
-echo Installing Manga OCR...
-pip install manga-ocr || goto :FailInstallMangaOCR
-
-REM Install CRAFT Text Detector dependencies manually (craft-text-detector has outdated deps)
-echo Installing CRAFT Text Detector (with compatible dependencies)...
-REM Install the specific dependencies CRAFT needs with compatible versions
-pip install scikit-image gdown || goto :FailInstallCRAFT
-REM Now install craft-text-detector without dependency checking (we already have compatible versions)
-pip install craft-text-detector --no-deps || goto :FailInstallCRAFT
-echo CRAFT Text Detector installed successfully (using already-installed torch, torchvision, opencv)
-
-REM Ensure the requests library is available
-pip install requests || goto :FailInstallRequests
-
-REM Download language models for EasyOCR (Japanese and English)
-echo Installing language models for EasyOCR...
-python -c "import easyocr; reader = easyocr.Reader(['ja', 'en'])"
-
-REM Initialize Manga OCR (download model on first use)
-echo Initializing Manga OCR...
-python -c "from manga_ocr import MangaOcr; ocr = MangaOcr()"
-
-REM Verify installations
-echo Verifying installations...
-python -c "import torch; print('PyTorch Version:', torch.__version__); print('CUDA Version:', torch.version.cuda); print('CUDA Available:', torch.cuda.is_available()); print('GPU Count:', torch.cuda.device_count() if torch.cuda.is_available() else 0)"
-python -c "import easyocr; print('EasyOCR imported successfully')"
-python -c "import cv2; print('OpenCV Version:', cv2.__version__)"
-
-echo ===== Setup Complete =====
-echo If the above looks looks like the test worked, you can now double click "RunServer.bat" and it will load this conda env and run the python server.
-pause
-goto :eof
-
 :FailActivateBase
 echo ERROR: Failed to activate conda base environment!
 pause
@@ -126,6 +227,11 @@ echo ERROR: Failed to activate ocrstuff environment!
 pause
 exit /b 1
 
+:FailPipUpgrade
+echo ERROR: Failed to upgrade pip!
+pause
+exit /b 1
+
 :FailInstallPyTorch
 echo ERROR: Failed to install PyTorch!
 pause
@@ -141,13 +247,18 @@ echo ERROR: Failed to install additional conda dependencies!
 pause
 exit /b 1
 
-:FailInstallEasyOCR
-echo ERROR: Failed to install EasyOCR!
+:FailInstallBaseDeps
+echo ERROR: Failed to install base pip dependencies!
 pause
 exit /b 1
 
-:FailInstallRequests
-echo ERROR: Failed to install requests!
+:FailInstallAdditionalDeps
+echo ERROR: Failed to install additional pip dependencies!
+pause
+exit /b 1
+
+:FailInstallEasyOCR
+echo ERROR: Failed to install EasyOCR!
 pause
 exit /b 1
 
@@ -158,5 +269,46 @@ exit /b 1
 
 :FailInstallCRAFT
 echo ERROR: Failed to install CRAFT Text Detector!
+pause
+exit /b 1
+
+:FailInstallXColor
+echo ERROR: Failed to install MareArts XColor with GPU support!
+pause
+exit /b 1
+
+:FailInstallUltralytics
+echo ERROR: Failed to install Ultralytics / FastAPI dependencies!
+pause
+exit /b 1
+
+:FailWarmEasyOCR
+echo ERROR: Failed while initializing EasyOCR models!
+pause
+exit /b 1
+
+:FailWarmManga
+echo ERROR: Failed while initializing Manga OCR model!
+pause
+exit /b 1
+
+:FailCreateModelDir
+echo ERROR: Failed to create Manga109 YOLO model directory!
+pause
+exit /b 1
+
+:FailDownloadModel
+echo ERROR: Failed to download Manga109 YOLO model weights!
+pause
+exit /b 1
+
+:FailDownloadLabels
+echo WARNING: Failed to download Manga109 YOLO labels metadata.
+echo You can rerun this script later to try again.
+pause
+goto :eof
+
+:FailVerify
+echo ERROR: Environment verification failed!
 pause
 exit /b 1

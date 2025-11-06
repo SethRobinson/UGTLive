@@ -6,6 +6,11 @@ from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
 import torch
 
+from color_analysis import (
+    attach_color_info,
+    extract_foreground_background_colors,
+)
+
 # Import the shared manga YOLO detector
 from manga_yolo_detector import detect_regions_from_path, render_debug_image, ModelNotFoundError
 
@@ -120,8 +125,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Start timing the OCR process
         start_time = time.time()
         
-        # Open the image using PIL
-        image = Image.open(image_path)
+        # Open the image once for both OCR processing and color analysis
+        color_image = Image.open(image_path).convert('RGB')
+        image = color_image
         
         # Store original size for coordinate scaling later
         original_width, original_height = image.size
@@ -209,7 +215,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
             
             # Use the polygon if available, otherwise create from bbox
             if polygon:
-                box_native = polygon
+                box_native = [
+                    [float(point[0]), float(point[1])] for point in polygon
+                ]
             else:
                 box_native = [
                     [float(x_min), float(y_min)],
@@ -217,19 +225,25 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                     [float(x_max), float(y_max)],
                     [float(x_min), float(y_max)]
                 ]
+
+            color_info = extract_foreground_background_colors(color_image, box_native)
             
             # Split into characters if requested
             if char_level and len(text) > 1:
                 char_results = split_into_characters(text, box_native, detection_confidence)
+                for char_entry in char_results:
+                    attach_color_info(char_entry, color_info)
                 ocr_results.extend(char_results)
             else:
-                ocr_results.append({
+                result_entry = {
                     "rect": box_native,
                     "text": text,
                     "confidence": detection_confidence,
                     "is_character": False,
                     "text_orientation": "vertical"
-                })
+                }
+                attach_color_info(result_entry, color_info)
+                ocr_results.append(result_entry)
         
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -249,7 +263,10 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         print(f"Manga109 YOLO model not found: {e}")
         return {
             "status": "error",
-            "message": f"Manga109 YOLO model not found. Please run SetupMangaStuff.bat first. Error: {str(e)}"
+            "message": (
+                "Manga109 YOLO model not found. Please rerun SetupServerCondaEnvNVidia.bat "
+                f"to download the required assets. Error: {str(e)}"
+            )
         }
     
     except Exception as e:

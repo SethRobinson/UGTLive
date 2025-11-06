@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import importlib
 import os
-import subprocess
-import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from types import ModuleType
@@ -32,45 +30,37 @@ class ModelNotFoundError(FileNotFoundError):
     """Raised when the expected YOLO model file is missing."""
 
 
-def _import_ultralytics() -> None:
-    """Ensure ultralytics is available and patched with required modules."""
+class _GitWrapper:
+    """Minimal helper that mimics the parts of ultralytics.utils.GIT we rely on."""
 
-    global _ULTRA_BLOCK, _YOLO_CLASS, _UPGRADE_ATTEMPTED
+    def __init__(self) -> None:
+        self.is_repo = False
 
-    if _ULTRA_BLOCK is not None and _YOLO_CLASS is not None:
+    def __getattr__(self, item: str) -> Any:  # pragma: no cover - defensive
+        if item == "is_repo":
+            return False
+        raise AttributeError(item)
+
+
+def _ensure_utils_git() -> None:
+    """Ensure ultralytics.utils exposes the GIT attribute expected by newer callbacks."""
+
+    try:
+        utils_mod = importlib.import_module("ultralytics.utils")
+    except ImportError:  # pragma: no cover - defensive guard
         return
 
-    ultralytics = importlib.import_module("ultralytics")  # type: ignore
+    if not hasattr(utils_mod, "GIT"):
+        _debug("Injecting stub GIT metadata into ultralytics.utils")
+        setattr(utils_mod, "GIT", _GitWrapper())
+        all_attr = getattr(utils_mod, "__all__", None)
+        if isinstance(all_attr, list) and "GIT" not in all_attr:
+            all_attr.append("GIT")
 
-    block_mod = importlib.import_module("ultralytics.nn.modules.block")
-    block = block_mod
-    _debug(f"Loaded detector helper from: {__file__}")
-    _debug(f"ultralytics version: {getattr(ultralytics, '__version__', 'unknown')}")
-    _debug(f"block module path: {getattr(block, '__file__', 'n/a')}")
-    _debug(f"Initial block exports: {[name for name in dir(block) if name.startswith('C3')]}")
 
-    needs_upgrade = not hasattr(block, "C3k") or not hasattr(block, "PSABlock")
+def _inject_block_fallbacks(block: ModuleType) -> None:
+    """Provide lightweight stand-ins for modules missing in older ultralytics builds."""
 
-    if needs_upgrade and not _UPGRADE_ATTEMPTED:
-        _UPGRADE_ATTEMPTED = True
-        target = "ultralytics>=8.3.23"
-        _debug(f"Required modules missing; attempting pip install {target}")
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", target])
-        except Exception as exc:  # pragma: no cover - installation issues
-            _debug(f"pip install failed: {exc}")
-        else:
-            importlib.invalidate_caches()
-            module = importlib.import_module("ultralytics")  # type: ignore
-            module = importlib.reload(module)  # type: ignore[arg-type]
-            block_mod = importlib.import_module("ultralytics.nn.modules.block")
-            block = importlib.reload(block_mod)
-            _debug(
-                "After upgrade, block exports: %s"
-                % [name for name in dir(block) if name.startswith("C3")]
-            )
-
-    # Provide fallbacks if features are still absent
     if not hasattr(block, "C3k") and hasattr(block, "C3"):
         _debug("Injecting fallback implementation for C3k using base C3")
 
@@ -103,6 +93,37 @@ def _import_ultralytics() -> None:
         if hasattr(block, "__all__") and isinstance(block.__all__, list):
             block.__all__.append("C3k2")
 
+    if not hasattr(block, "PSABlock"):
+        try:
+            import torch.nn as nn  # type: ignore
+        except ImportError:  # pragma: no cover - defensive
+            nn = None
+
+        if nn is not None and hasattr(block, "PSA"):
+            _debug("Injecting fallback implementation for PSABlock")
+
+            class PSABlock(nn.Module):  # type: ignore[assignment]
+                def __init__(
+                    self,
+                    c: int,
+                    attn_ratio: float = 0.5,
+                    num_heads: int = 4,
+                    shortcut: bool = True,
+                ) -> None:
+                    super().__init__()
+                    self.attn = block.PSA(c, c, e=attn_ratio)
+                    self.shortcut = shortcut
+
+                def forward(self, x):  # type: ignore[override]
+                    y = self.attn(x)
+                    return x + y if self.shortcut else y
+
+            setattr(block, "PSABlock", PSABlock)
+            if hasattr(block, "__all__") and isinstance(block.__all__, list):
+                block.__all__.append("PSABlock")
+        else:
+            _debug("PSABlock fallback unavailable (missing torch.nn or block.PSA)")
+
     if not hasattr(block, "C2PSA") and hasattr(block, "C2f") and hasattr(block, "PSA"):
         _debug("Injecting fallback implementation for C2PSA")
 
@@ -118,6 +139,31 @@ def _import_ultralytics() -> None:
         setattr(block, "C2PSA", C2PSA)
         if hasattr(block, "__all__") and isinstance(block.__all__, list):
             block.__all__.append("C2PSA")
+
+
+def _import_ultralytics() -> None:
+    """Ensure ultralytics is available and patched with required modules."""
+
+    global _ULTRA_BLOCK, _YOLO_CLASS, _UPGRADE_ATTEMPTED
+
+    if _ULTRA_BLOCK is not None and _YOLO_CLASS is not None:
+        return
+
+    ultralytics = importlib.import_module("ultralytics")  # type: ignore
+    _ensure_utils_git()
+
+    block_mod = importlib.import_module("ultralytics.nn.modules.block")
+    block = block_mod
+    _inject_block_fallbacks(block)
+    _debug(f"Loaded detector helper from: {__file__}")
+    _debug(f"ultralytics version: {getattr(ultralytics, '__version__', 'unknown')}")
+    _debug(f"block module path: {getattr(block, '__file__', 'n/a')}")
+    _debug(f"Initial block exports: {[name for name in dir(block) if name.startswith('C3')]}")
+
+    needs_upgrade = not hasattr(block, "C3k") or not hasattr(block, "PSABlock")
+    if needs_upgrade and not _UPGRADE_ATTEMPTED:
+        _UPGRADE_ATTEMPTED = True
+        _debug("Required Ultralytics modules still missing; consider upgrading Ultralytics manually if issues persist.")
 
     _debug(
         "Post-shim C3k? %s | C3k2? %s | C2PSA? %s | PSABlock? %s"
@@ -152,8 +198,8 @@ def _ensure_model() -> Any:
 
         if not _MODEL_PATH.exists():
             raise ModelNotFoundError(
-                "Could not find manga109 YOLO model at "
-                f"'{_MODEL_PATH}'. Please run SetupMangaStuff.bat first."
+                "Could not find Manga109 YOLO model at "
+                f"'{_MODEL_PATH}'. Please rerun SetupServerCondaEnvNVidia.bat to download the assets."
             )
 
         _debug(f"About to load model from {_MODEL_PATH}")
@@ -230,138 +276,82 @@ def detect_regions_from_bytes(
         try:
             os.remove(temp_path)
         except OSError:
-            pass
+            _debug(f"Failed to remove temporary file: {temp_path}")
+
+
+def render_debug_image(image_path: str, detections: List[Dict[str, Any]], output_path: Path) -> None:
+    """Render detection boxes for debugging purposes."""
+
+    base_image = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(base_image)
+
+    for idx, detection in enumerate(detections):
+        polygon = detection.get("polygon")
+        if polygon:
+            draw.polygon([tuple(point) for point in polygon], outline="red", width=3)
+        else:
+            bbox = detection.get("bbox")
+            if bbox:
+                draw.rectangle([
+                    (bbox["x_min"], bbox["y_min"]),
+                    (bbox["x_max"], bbox["y_max"])
+                ], outline="red", width=3)
+        label = detection.get("label", "text")
+        confidence = detection.get("confidence", 0.0)
+        draw.text((detection.get("bbox", {}).get("x_min", 0), detection.get("bbox", {}).get("y_min", 0) - 12),
+                  f"{label}: {confidence:.2f}", fill="yellow")
+
+    base_image.save(output_path)
 
 
 def _guess_extension(source_name: Optional[str]) -> str:
-    if not source_name:
-        return ".png"
-
-    suffix = Path(source_name).suffix
-    return suffix if suffix else ".png"
+    if source_name and "." in source_name:
+        return source_name[source_name.rfind(".") :]
+    return ".png"
 
 
 def _format_result(result: Any) -> Dict[str, Any]:
-    image_height, image_width = result.orig_shape[:2]
-    names = result.names
+    detections = []
+    image_size = getattr(result, "orig_img", None)
+    width: Optional[int] = None
+    height: Optional[int] = None
 
-    detections: List[Dict[str, Any]] = []
+    if image_size is not None:
+        try:
+            height, width = image_size.shape[:2]
+        except AttributeError:
+            pass
 
     for box in result.boxes:
-        xyxy = box.xyxy[0].tolist()
-        x1, y1, x2, y2 = map(float, xyxy)
-
-        confidence = float(box.conf[0]) if box.conf is not None else None
-        class_id = int(box.cls[0]) if box.cls is not None else None
-
-        label = None
-        if class_id is not None:
-            if isinstance(names, dict):
-                label = names.get(class_id, f"class_{class_id}")
-            elif isinstance(names, list) and class_id < len(names):
-                label = names[class_id]
-            else:
-                label = f"class_{class_id}"
-
+        bbox_tensor = box.xyxy[0]
+        x_min, y_min, x_max, y_max = [float(value) for value in bbox_tensor.tolist()]
         polygon = [
-            [x1, y1],
-            [x2, y1],
-            [x2, y2],
-            [x1, y2],
+            [x_min, y_min],
+            [x_max, y_min],
+            [x_max, y_max],
+            [x_min, y_max],
         ]
-
         detections.append(
             {
-                "label": label,
-                "class_id": class_id,
-                "confidence": confidence,
                 "bbox": {
-                    "x_min": x1,
-                    "y_min": y1,
-                    "x_max": x2,
-                    "y_max": y2,
-                    "width": x2 - x1,
-                    "height": y2 - y1,
+                    "x_min": x_min,
+                    "y_min": y_min,
+                    "x_max": x_max,
+                    "y_max": y_max,
                 },
                 "polygon": polygon,
+                "confidence": float(box.conf[0].item()) if hasattr(box.conf[0], "item") else float(box.conf[0]),
+                "label": result.names[int(box.cls[0].item())] if hasattr(box.cls[0], "item") else result.names[int(box.cls[0])],
             }
         )
 
     return {
-        "image_size": {"width": int(image_width), "height": int(image_height)},
+        "image_size": {
+            "width": width,
+            "height": height,
+        } if width is not None and height is not None else None,
         "detections": detections,
     }
-
-
-def render_debug_image(image_path: Union[str, Path], detections: List[Dict[str, Any]], output_path: Path) -> None:
-    """Render detection polygons into an image and save the debug visualization."""
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    image = Image.open(image_path).convert("RGB")
-    draw = ImageDraw.Draw(image, "RGBA")
-
-    try:
-        font = ImageFont.truetype("arial.ttf", size=16)
-    except OSError:
-        font = ImageFont.load_default()
-
-    color_cycle = {
-        "body": (255, 0, 0, 120),
-        "face": (0, 128, 255, 120),
-        "text": (0, 255, 0, 120),
-        "frame": (255, 215, 0, 120),
-    }
-
-    outline_cycle = {
-        "body": (255, 0, 0, 255),
-        "face": (30, 144, 255, 255),
-        "text": (34, 139, 34, 255),
-        "frame": (255, 140, 0, 255),
-    }
-
-    for det in detections:
-        label = det.get("label") or "unknown"
-        polygon = det.get("polygon")
-        bbox = det.get("bbox")
-        confidence = det.get("confidence")
-
-        if polygon:
-            points = [tuple(point) for point in polygon]
-        elif bbox:
-            points = [
-                (bbox["x_min"], bbox["y_min"]),
-                (bbox["x_max"], bbox["y_min"]),
-                (bbox["x_max"], bbox["y_max"]),
-                (bbox["x_min"], bbox["y_max"]),
-            ]
-        else:
-            continue
-
-        fill_color = color_cycle.get(label, (255, 255, 255, 80))
-        outline_color = outline_cycle.get(label, (255, 255, 255, 200))
-
-        draw.polygon(points, outline=outline_color, fill=fill_color)
-
-        if confidence is not None:
-            text = f"{label} ({confidence:.2f})"
-        else:
-            text = label
-
-        text_position = points[0]
-        text_bbox = draw.textbbox(text_position, text, font=font)
-        padding = 4
-        bg_bbox = (
-            text_bbox[0] - padding,
-            text_bbox[1] - padding,
-            text_bbox[2] + padding,
-            text_bbox[3] + padding,
-        )
-        draw.rectangle(bg_bbox, fill=(0, 0, 0, 170))
-        draw.text((text_bbox[0], text_bbox[1]), text, font=font, fill=(255, 255, 255, 255))
-
-    image.save(output_path)
-    _debug(f"Wrote debug image to {output_path}")
 
 
 __all__ = [

@@ -19,7 +19,7 @@ if model_path.exists():
     print(f"✓ Manga109 YOLO model found at: {model_path}")
 else:
     print(f"✗ Manga109 YOLO model NOT found at: {model_path}")
-    print("  Please run SetupMangaStuff.bat to download the model")
+    print("  Please rerun SetupServerCondaEnvNVidia.bat to download the model")
     sys.exit(1)
 
 # Test if image_to_process.png exists (the file the socket server expects)
@@ -72,7 +72,7 @@ try:
         
 except ModelNotFoundError as e:
     print(f"✗ Model not found: {e}")
-    print("  Please run SetupMangaStuff.bat to download the model")
+    print("  Please rerun SetupServerCondaEnvNVidia.bat to download the model")
     sys.exit(1)
     
 except Exception as e:
