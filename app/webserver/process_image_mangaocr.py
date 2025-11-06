@@ -2,13 +2,15 @@ import os
 import json
 import time
 import numpy as np
+from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
 import torch
-import easyocr
+
+# Import the shared manga YOLO detector
+from manga_yolo_detector import detect_regions_from_path, render_debug_image, ModelNotFoundError
 
 # Global variables to manage OCR engines
 MANGA_OCR_ENGINE = None
-EASYOCR_DETECTOR = None
 
 def initialize_manga_ocr():
     """
@@ -42,30 +44,6 @@ def initialize_manga_ocr():
 
     return MANGA_OCR_ENGINE
 
-def initialize_easyocr_detector():
-    """
-    Initialize or return the existing EasyOCR detector for text detection.
-    We use EasyOCR's detection capability to find text regions, then use Manga OCR for recognition.
-    
-    Returns:
-        easyocr.Reader: Initialized detector
-    """
-    global EASYOCR_DETECTOR
-
-    if EASYOCR_DETECTOR is None:
-        print(f"Initializing EasyOCR detector for text region detection...")
-        start_time = time.time()
-        
-        # Initialize EasyOCR with Japanese language for detection
-        # We'll use it for detection only, not recognition
-        EASYOCR_DETECTOR = easyocr.Reader(['ja', 'en'], gpu=torch.cuda.is_available())
-        
-        initialization_time = time.time() - start_time
-        print(f"EasyOCR detector initialization completed in {initialization_time:.2f} seconds")
-    else:
-        print(f"Using existing EasyOCR detector")
-
-    return EASYOCR_DETECTOR
 
 def preprocess_image(image):
     """
@@ -117,11 +95,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                   preprocess_images=False, upscale_if_needed=False, char_level=True):
     """
     Process an image using a hybrid approach:
-    1. Use EasyOCR to detect text regions (bounding boxes)
+    1. Use Manga109 YOLO model to detect text regions (bounding boxes)
     2. Use Manga OCR to recognize text in each detected region
     
-    This gives us the best of both worlds: reliable text detection from EasyOCR
-    and better Japanese manga text recognition from Manga OCR.
+    This gives us the best of both worlds: accurate text region detection from YOLO
+    and excellent Japanese manga text recognition from Manga OCR.
     
     Args:
         image_path (str): Path to the image to process.
@@ -148,26 +126,28 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Store original size for coordinate scaling later
         original_width, original_height = image.size
         
-        # Preprocess image if the flag is set
-        if preprocess_images:
-            print("Preprocessing image...")
-            image = preprocess_image(image)
+        # Step 1: Use Manga109 YOLO to detect text regions
+        print("Step 1: Detecting text regions with Manga109 YOLO...")
         
-        # Upscale image if the flag is set, and get the scale factor
-        scale = 1.0
-        if upscale_if_needed:
-            print("Checking if upscaling is needed...")
-            image, scale = upscale_image(image)
+        # Set up debug output path
+        debug_output_path = None
+        debug_dir = Path(__file__).resolve().parent / "debug_outputs"
+        if True:  # Always enable debug for socket server
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            image_stem = Path(image_path).stem
+            image_suffix = Path(image_path).suffix or ".png"
+            debug_output_path = debug_dir / f"{image_stem}_mangaocr_debug{image_suffix}"
         
-        # Step 1: Use EasyOCR to detect text regions
-        print("Step 1: Detecting text regions with EasyOCR...")
-        detector = initialize_easyocr_detector()
-        img_array = np.array(image)
+        # Run YOLO detection
+        detection_result = detect_regions_from_path(
+            image_path,
+            conf_threshold=0.25,
+            iou_threshold=0.45,
+            debug_output_path=debug_output_path
+        )
         
-        # Use EasyOCR to detect text regions
-        # We'll use the detection results but replace the text with Manga OCR
-        detection_results = detector.readtext(img_array, detail=1, paragraph=False)
-        print(f"Found {len(detection_results)} text regions")
+        detections = detection_result.get("detections", [])
+        print(f"Found {len(detections)} text regions")
         
         # Step 2: Initialize Manga OCR for recognition
         manga_ocr = initialize_manga_ocr()
@@ -175,46 +155,38 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Step 3: Process each detected region with Manga OCR
         ocr_results = []
         
-        for idx, detection in enumerate(detection_results):
-            # EasyOCR format: [[[x1,y1],[x2,y2],[x3,y3],[x4,y4]], text, confidence]
-            box = detection[0]
-            easyocr_text = detection[1]  # We'll replace this with manga-ocr result
-            detection_confidence = float(detection[2])
+        for idx, detection in enumerate(detections):
+            # Get the bounding box and polygon
+            bbox = detection.get("bbox")
+            polygon = detection.get("polygon")
+            detection_confidence = detection.get("confidence", 1.0)
+            label = detection.get("label", "unknown")
             
-            # Convert box format if needed
-            if isinstance(box[0], (int, float)):
-                box = [
-                    [box[0], box[1]],
-                    [box[2], box[3]],
-                    [box[4], box[5]],
-                    [box[6], box[7]]
-                ]
+            # Only process "text" regions (ignore body, face, frame)
+            if label != "text":
+                print(f"Region {idx+1}: Skipping non-text region (label: {label})")
+                continue
             
-            # Convert coordinates back to the original image scale if upscaled
-            if scale != 1.0:
-                box = [[coord / scale for coord in point] for point in box]
+            if not bbox:
+                print(f"Region {idx+1}: No bbox found")
+                continue
             
-            # Convert all NumPy types to native Python types for JSON serialization
-            box_native = [[float(coord) for coord in point] for point in box]
-            
-            # Extract the bounding box coordinates to crop the region
-            # Get min/max coordinates from the four corners
-            xs = [point[0] for point in box]
-            ys = [point[1] for point in box]
-            x_min, x_max = int(min(xs)), int(max(xs))
-            y_min, y_max = int(min(ys)), int(max(ys))
-            
-            # Add some padding to improve recognition (5 pixels on each side)
-            padding = 5
-            x_min = max(0, x_min - padding)
-            y_min = max(0, y_min - padding)
-            x_max = min(image.width, x_max + padding)
-            y_max = min(image.height, y_max + padding)
+            # Extract bounding box coordinates
+            x_min = int(bbox["x_min"])
+            y_min = int(bbox["y_min"])
+            x_max = int(bbox["x_max"])
+            y_max = int(bbox["y_max"])
             
             # Skip regions that are too small (likely noise)
             if (x_max - x_min) < 10 or (y_max - y_min) < 10:
                 print(f"Region {idx+1}: Skipping (too small)")
                 continue
+            
+            # Ensure coordinates are within image bounds
+            x_min = max(0, x_min)
+            y_min = max(0, y_min)
+            x_max = min(original_width, x_max)
+            y_max = min(original_height, y_max)
             
             # Crop the region from the image
             try:
@@ -222,21 +194,29 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 
                 # Use Manga OCR to recognize text in this region
                 manga_text = manga_ocr(cropped_region)
-                
-                # Use manga-ocr result if it's not empty, otherwise fall back to EasyOCR
-                text = manga_text.strip() if manga_text.strip() else easyocr_text
+                text = manga_text.strip()
                 
                 # Skip if no text detected
                 if not text:
-                    print(f"Region {idx+1}: No text detected")
+                    print(f"Region {idx+1}: No text detected by MangaOCR")
                     continue
                 
-                print(f"Region {idx+1}: EasyOCR='{easyocr_text}', MangaOCR='{manga_text}', Using='{text}'")
+                print(f"Region {idx+1}: MangaOCR='{text}' (confidence: {detection_confidence:.2f})")
                 
             except Exception as e:
                 print(f"Error processing region {idx+1} with Manga OCR: {e}")
-                # Fall back to EasyOCR text if Manga OCR fails
-                text = easyocr_text
+                continue
+            
+            # Use the polygon if available, otherwise create from bbox
+            if polygon:
+                box_native = polygon
+            else:
+                box_native = [
+                    [float(x_min), float(y_min)],
+                    [float(x_max), float(y_min)],
+                    [float(x_max), float(y_max)],
+                    [float(x_min), float(y_max)]
+                ]
             
             # Split into characters if requested
             if char_level and len(text) > 1:
@@ -254,12 +234,21 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         processing_time = time.time() - start_time
         
         print(f"Manga OCR completed: {len(ocr_results)} results in {processing_time:.2f}s")
+        if debug_output_path:
+            print(f"Debug image saved to: {debug_output_path}")
         
         return {
             "status": "success",
             "results": ocr_results,
             "processing_time_seconds": float(processing_time),
             "char_level": char_level
+        }
+    
+    except ModelNotFoundError as e:
+        print(f"Manga109 YOLO model not found: {e}")
+        return {
+            "status": "error",
+            "message": f"Manga109 YOLO model not found. Please run SetupMangaStuff.bat first. Error: {str(e)}"
         }
     
     except Exception as e:
