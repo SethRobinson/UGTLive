@@ -1,8 +1,10 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
@@ -46,6 +48,7 @@ namespace UGTLive
         private bool _webViewInitialized;
         private string? _pendingWebViewHtml;
         private string? _lastRenderedHtml;
+        private string? _currentSelectionText;
         private double _currentFontSize = DefaultFontSize;
 
         private const double WebViewMinFontSize = 12;
@@ -439,6 +442,7 @@ namespace UGTLive
             builder.AppendLine("}");
             builder.AppendLine("window.addEventListener('pointerup', function(event) {");
             builder.AppendLine("    try {");
+            builder.AppendLine("        if (event.button !== 0) { return; }");
             builder.AppendLine("        const selection = window.getSelection();");
             builder.AppendLine("        if (selection && selection.toString().trim().length > 0) {");
             builder.AppendLine("            return;");
@@ -446,6 +450,23 @@ namespace UGTLive
             builder.AppendLine("        if (window.chrome && window.chrome.webview) {");
             builder.AppendLine("            window.chrome.webview.postMessage('copy');");
             builder.AppendLine("        }");
+            builder.AppendLine("    } catch (error) {");
+            builder.AppendLine("        console.error(error);");
+            builder.AppendLine("    }");
+            builder.AppendLine("});");
+            builder.AppendLine("document.addEventListener('contextmenu', function(event) {");
+            builder.AppendLine("    try {");
+            builder.AppendLine("        const selection = window.getSelection();");
+            builder.AppendLine("        const message = {");
+            builder.AppendLine("            kind: 'contextmenu',");
+            builder.AppendLine("            x: event.clientX,");
+            builder.AppendLine("            y: event.clientY,");
+            builder.AppendLine("            selection: selection ? selection.toString() : ''");
+            builder.AppendLine("        };");
+            builder.AppendLine("        if (window.chrome && window.chrome.webview) {");
+            builder.AppendLine("            window.chrome.webview.postMessage(JSON.stringify(message));");
+            builder.AppendLine("        }");
+            builder.AppendLine("        event.preventDefault();");
             builder.AppendLine("    } catch (error) {");
             builder.AppendLine("        console.error(error);");
             builder.AppendLine("    }");
@@ -583,6 +604,33 @@ namespace UGTLive
                 if (string.Equals(message, "copy", StringComparison.OrdinalIgnoreCase))
                 {
                     System.Windows.Application.Current.Dispatcher.Invoke(CopySourceToClipboard);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return;
+                }
+
+                try
+                {
+                    using JsonDocument document = JsonDocument.Parse(message);
+                    JsonElement root = document.RootElement;
+                    if (root.TryGetProperty("kind", out JsonElement kindElement) &&
+                        kindElement.GetString() == "contextmenu")
+                    {
+                        double x = root.TryGetProperty("x", out JsonElement xElement) ? xElement.GetDouble() : 0;
+                        double y = root.TryGetProperty("y", out JsonElement yElement) ? yElement.GetDouble() : 0;
+                        string selection = root.TryGetProperty("selection", out JsonElement selectionElement)
+                            ? selectionElement.GetString() ?? string.Empty
+                            : string.Empty;
+
+                        ShowContextMenuFromWebView(x, y, selection);
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    Console.WriteLine($"Error parsing WebView message: {jsonEx.Message}");
                 }
             }
             catch (Exception ex)
@@ -596,18 +644,10 @@ namespace UGTLive
             try
             {
                 e.Handled = true;
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    if (Border.ContextMenu != null)
-                    {
-                        Border.ContextMenu.PlacementTarget = Border;
-                        Border.ContextMenu.IsOpen = true;
-                    }
-                });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error showing WebView2 context menu: {ex.Message}");
+                Console.WriteLine($"Error suppressing default WebView2 context menu: {ex.Message}");
             }
         }
 
@@ -924,6 +964,8 @@ namespace UGTLive
             contextMenu.Opened += (s, e) => {
                 copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(this.TextTranslated);
             };
+
+            contextMenu.Closed += ContextMenu_Closed;
             
             return contextMenu;
         }
@@ -949,21 +991,21 @@ namespace UGTLive
         {
             try
             {
-                if (!string.IsNullOrEmpty(this.Text))
+                string textToLearn = GetPrimarySourceText();
+
+                if (!string.IsNullOrEmpty(textToLearn))
                 {
-                    // Construct the ChatGPT URL with the selected text and instructions
-                    string chatGptPrompt = $"Create a lesson to help me learn about this text and its translation: {this.Text}";
+                    string chatGptPrompt = $"Create a lesson to help me learn about this text and its translation: {textToLearn}";
                     string encodedPrompt = System.Web.HttpUtility.UrlEncode(chatGptPrompt);
                     string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
-                    
-                    // Open in default browser
+
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = chatGptUrl,
                         UseShellExecute = true
                     });
-                    
-                    Console.WriteLine($"Opening ChatGPT with text: {this.Text.Substring(0, Math.Min(50, this.Text.Length))}...");
+
+                    Console.WriteLine($"Opening ChatGPT with text: {textToLearn.Substring(0, Math.Min(50, textToLearn.Length))}...");
                 }
                 else
                 {
@@ -981,9 +1023,11 @@ namespace UGTLive
         {
             try
             {
-                if (!string.IsNullOrEmpty(this.Text))
+                string textToSpeak = GetPrimarySourceText();
+
+                if (!string.IsNullOrEmpty(textToSpeak))
                 {
-                    string text = this.Text.Trim();
+                    string text = textToSpeak.Trim();
                     Console.WriteLine($"Speak function called with text: {text.Substring(0, Math.Min(50, text.Length))}...");
                     
                     // Check if TTS is enabled in config
@@ -1041,6 +1085,73 @@ namespace UGTLive
                 Console.WriteLine($"Error in Speak function: {ex.Message}");
                 System.Windows.MessageBox.Show($"Error: {ex.Message}", "Text-to-Speech Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private string GetPrimarySourceText()
+        {
+            string? selection = _currentSelectionText;
+            if (!string.IsNullOrWhiteSpace(selection))
+            {
+                return selection.Trim();
+            }
+
+            return string.IsNullOrWhiteSpace(Text) ? string.Empty : Text.Trim();
+        }
+
+        private void ContextMenu_Closed(object? sender, RoutedEventArgs e)
+        {
+            _currentSelectionText = null;
+        }
+
+        private void ShowContextMenuFromWebView(double clientX, double clientY, string? selection)
+        {
+            try
+            {
+                if (Border.ContextMenu == null || WebView == null)
+                {
+                    return;
+                }
+
+                string trimmedSelection = string.IsNullOrWhiteSpace(selection) ? string.Empty : selection.Trim();
+                _currentSelectionText = string.IsNullOrEmpty(trimmedSelection) ? null : trimmedSelection;
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Border.ContextMenu == null || WebView == null)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        Point contentPoint = new Point(clientX, clientY);
+                        Point relativeToBorder = WebView.TranslatePoint(contentPoint, Border);
+
+                        Console.WriteLine($"Opening custom context menu at ({relativeToBorder.X},{relativeToBorder.Y}) with selection length {(_currentSelectionText?.Length ?? 0)}");
+
+                        var menu = Border.ContextMenu;
+                        menu.PlacementTarget = Border;
+                        menu.Placement = PlacementMode.RelativePoint;
+                        menu.HorizontalOffset = relativeToBorder.X;
+                        menu.VerticalOffset = relativeToBorder.Y;
+
+                        if (menu.IsOpen)
+                        {
+                            menu.IsOpen = false;
+                        }
+
+                        menu.IsOpen = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error opening custom context menu: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error preparing custom context menu: {ex.Message}");
             }
         }
         
