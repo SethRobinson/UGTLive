@@ -55,6 +55,21 @@ namespace UGTLive
         public const string MIN_LINE_CONFIDENCE = "min_line_confidence";
         public const string AUTO_TRANSLATE_ENABLED = "auto_translate_enabled";
         public const string IGNORE_PHRASES = "ignore_phrases";
+
+        // Supported OCR methods
+        private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
+        {
+            "EasyOCR",
+            "Manga OCR",
+            "Windows OCR"
+        };
+
+        public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;
+
+        public static bool IsSupportedOcrMethod(string method)
+        {
+            return !string.IsNullOrWhiteSpace(method) && _supportedOcrMethods.Any(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase));
+        }
         
         // Text-to-Speech configuration keys
         public const string TTS_ENABLED = "tts_enabled";
@@ -549,15 +564,16 @@ namespace UGTLive
         public void SetOcrMethod(string method)
         {
             Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
-            if (method == "Windows OCR" || method == "EasyOCR" || method == "Manga OCR")
+            if (IsSupportedOcrMethod(method))
             {
-                _configValues[OCR_METHOD] = method;
+                var normalized = _supportedOcrMethods.First(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase));
+                _configValues[OCR_METHOD] = normalized;
                 SaveConfig();
-                Console.WriteLine($"OCR method set to {method} and saved to config");
+                Console.WriteLine($"OCR method set to {normalized} and saved to config");
             }
             else
             {
-                Console.WriteLine($"WARNING: Invalid OCR method: {method}. Must be 'Windows OCR', 'EasyOCR', or 'Manga OCR'");
+                Console.WriteLine($"WARNING: Invalid OCR method: {method}. Supported methods: {string.Join(", ", _supportedOcrMethods)}");
             }
         }
         

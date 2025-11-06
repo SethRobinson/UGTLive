@@ -415,9 +415,7 @@ namespace UGTLive
                 }
             }
             
-            // Initialize the Logic
-            Logic.Instance.Init();
-            
+           
             // Load OCR method from config
             string savedOcrMethod = ConfigManager.Instance.GetOcrMethod();
             Console.WriteLine($"MainWindow_Loaded: Loading OCR method from config: '{savedOcrMethod}'");
@@ -455,7 +453,10 @@ namespace UGTLive
             string configOcrMethod = ConfigManager.Instance.GetOcrMethod();
             Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
             ConfigManager.Instance.SetOcrMethod(configOcrMethod);
-            
+
+            // Initialize the Logic
+            Logic.Instance.Init();
+
             // Load language settings from config
             LoadLanguageSettingsFromConfig();
             

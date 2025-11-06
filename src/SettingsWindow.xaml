@@ -101,11 +101,7 @@
                         <TextBlock Text="OCR Method:" Grid.Row="0" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <ComboBox x:Name="ocrMethodComboBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" SelectedIndex="2" SelectionChanged="OcrMethodComboBox_SelectionChanged">
-                            <ComboBoxItem Content="EasyOCR"/>
-                            <ComboBoxItem Content="Manga OCR"/>
-                            <ComboBoxItem Content="Windows OCR"/>
-                        </ComboBox>
+                                 Margin="0,5" SelectionChanged="OcrMethodComboBox_SelectionChanged"/>
                         
                         <!-- Auto Translate -->
                         <TextBlock Text="Auto Translate:" Grid.Row="1" Grid.Column="0" 

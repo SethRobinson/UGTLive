@@ -73,6 +73,19 @@ namespace UGTLive
                 KeyboardShortcuts.SetShortcutsEnabled(true);
             };
         }
+
+        private void PopulateOcrMethodOptions()
+        {
+            ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
+            ocrMethodComboBox.Items.Clear();
+
+            foreach (string method in ConfigManager.SupportedOcrMethods)
+            {
+                ocrMethodComboBox.Items.Add(new ComboBoxItem { Content = method });
+            }
+
+            ocrMethodComboBox.SelectionChanged += OcrMethodComboBox_SelectionChanged;
+        }
         
         // Flag to prevent saving during initialization
         private static bool _isInitializing = true;
@@ -91,6 +104,9 @@ namespace UGTLive
                 
                 // Populate Whisper Language ComboBox
                 PopulateWhisperLanguageComboBox();
+
+                // Populate OCR method options from shared configuration
+                PopulateOcrMethodOptions();
                 
                 // Make sure keyboard shortcuts work from this window too
                 PreviewKeyDown -= Application_KeyDown;

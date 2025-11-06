@@ -30,10 +30,7 @@
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
             
             <!-- Hidden controls for settings synchronization -->
-            <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" SelectedIndex="1">
-                <ComboBoxItem Content="EasyOCR"/>
-                <ComboBoxItem Content="Windows OCR"/>
-            </ComboBox>
+            <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" />
             
             <CheckBox x:Name="autoTranslateCheckBox" IsChecked="True" Visibility="Collapsed"/>
             

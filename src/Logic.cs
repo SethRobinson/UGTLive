@@ -127,8 +127,9 @@ namespace UGTLive
                 // Load force cursor visible setting
                 // Force cursor visibility is now handled by MouseManager
                 
-                // Only connect to socket server if using EasyOCR
-                if (MainWindow.Instance.GetSelectedOcrMethod() == "EasyOCR")
+                // Only connect to socket server if using EasyOCR or Manga OCR
+                string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+                if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR")
                 {
                     await ConnectToSocketServerAsync();
                 }
@@ -194,8 +195,9 @@ namespace UGTLive
         // Reconnect timer tick event
         private async void ReconnectTimer_Tick(object? sender, EventArgs e)
         {
-            // Only try to reconnect if we're using EasyOCR
-            if (MainWindow.Instance.GetSelectedOcrMethod() != "EasyOCR")
+            // Only try to reconnect if we're using EasyOCR or Manga OCR
+            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR")
             {
                 _reconnectTimer.Stop();
                 _reconnectAttempts = 0;
@@ -288,8 +290,9 @@ namespace UGTLive
         // Socket connection changed event handler
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
         {
-            // If not connected and we're using EasyOCR, start the reconnect timer
-            if (!isConnected && MainWindow.Instance.GetSelectedOcrMethod() == "EasyOCR")
+            // If not connected and we're using EasyOCR or Manga OCR, start the reconnect timer
+            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+            if (!isConnected && (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR"))
             {
                 Console.WriteLine("Connection status changed to disconnected. Starting reconnect timer.");
                 SocketManager.Instance._isConnected = false;
@@ -361,7 +364,7 @@ namespace UGTLive
                                     matchingTextObj.TextTranslated = translatedText;
 
                                     // Check if we need to change orientation for the translated text
-                                    if (matchingTextObj.TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                    if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                     {
                                         matchingTextObj.TextOrientation = "horizontal";
                                         // Swap width and height
@@ -381,7 +384,7 @@ namespace UGTLive
                                         _textObjects[index].TextTranslated = translatedText;
 
                                         // Check if we need to change orientation for the translated text
-                                        if (_textObjects[index].TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                        if (_textObjects[index].TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                         {
                                             _textObjects[index].TextOrientation = "horizontal";
                                             // Swap width and height
@@ -1526,7 +1529,7 @@ namespace UGTLive
                                     matchingTextObj.TextTranslated = translatedText;
 
                                     // Check if we need to change orientation for the translated text
-                                    if (matchingTextObj.TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                    if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                     {
                                         matchingTextObj.TextOrientation = "horizontal";
                                         // Swap width and height
@@ -1903,7 +1906,7 @@ namespace UGTLive
             return new List<string>();
         }
 
-        private bool ShouldUseHorizontalLayout(string language)
+        private bool LanguageCanOnlyBeDrawnHorizontally(string language)
         {
             switch (language.ToLower())
             {

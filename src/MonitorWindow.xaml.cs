@@ -42,6 +42,12 @@ namespace UGTLive
             InitializeComponent();
             
             Console.WriteLine("MonitorWindow constructor started");
+
+            PopulateOcrMethodOptions();
+            if (ocrMethodComboBox.Items.Count > 0)
+            {
+                ocrMethodComboBox.SelectedIndex = 0;
+            }
             
             // Subscribe to TextObject events from Logic
             //Logic.Instance.TextObjectAdded += CreateMonitorOverlayFromTextObject;
@@ -80,6 +86,16 @@ namespace UGTLive
             this.PreviewKeyDown += Application_KeyDown;
 
             Console.WriteLine("MonitorWindow constructor completed");
+        }
+
+        private void PopulateOcrMethodOptions()
+        {
+            ocrMethodComboBox.Items.Clear();
+
+            foreach (string method in ConfigManager.SupportedOcrMethods)
+            {
+                ocrMethodComboBox.Items.Add(new ComboBoxItem { Content = method });
+            }
         }
 
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
@@ -146,7 +162,7 @@ namespace UGTLive
                 _ = Task.Run(async () => 
                 {
                    
-                        Console.WriteLine("Switching to EasyOCR, checking socket connection...");
+                        Console.WriteLine("Checking local socket connection...");
 
                         // If already connected, we're good to go
                         if (SocketManager.Instance.IsConnected)
