@@ -365,10 +365,27 @@ namespace UGTLive
             {
                 builder.AppendLine("  writing-mode: vertical-rl;");
                 builder.AppendLine("  text-orientation: upright;");
+                builder.AppendLine("  white-space: pre-wrap;");
+                builder.AppendLine("  position: absolute;");
+                builder.AppendLine("  top: 0;");
+                builder.AppendLine("  right: 0;");
+                builder.AppendLine("  width: auto;");
+                builder.AppendLine("  height: auto;");
+                builder.AppendLine("  max-width: 100%;");
+                builder.AppendLine("  max-height: 100%;");
             }
             else
             {
                 builder.AppendLine("  writing-mode: horizontal-tb;");
+                builder.AppendLine("  white-space: normal;");
+                builder.AppendLine("  text-align: left;");
+                builder.AppendLine("  position: absolute;");
+                builder.AppendLine("  top: 50%;");
+                builder.AppendLine("  left: 0;");
+                builder.AppendLine("  transform: translateY(-50%);");
+                builder.AppendLine("  width: 100%;");
+                builder.AppendLine("  max-height: 100%;");
+                builder.AppendLine("  overflow-wrap: break-word;");
             }
 
             builder.AppendLine("  font-family: \"Yu Mincho\", \"Yu Gothic\", \"Noto Serif JP\", \"Noto Sans JP\", \"MS PGothic\", serif;");
@@ -377,16 +394,8 @@ namespace UGTLive
             builder.AppendLine("  letter-spacing: 0.08em;");
             builder.AppendLine("  column-gap: 0.12em;");
             builder.AppendLine("  column-fill: auto;");
-            builder.AppendLine("  white-space: pre-wrap;");
             builder.AppendLine("  box-sizing: border-box;");
             builder.AppendLine("  padding: 0;");
-            builder.AppendLine("  position: absolute;");
-            builder.AppendLine("  top: 0;");
-            builder.AppendLine("  right: 0;");
-            builder.AppendLine("  width: auto;");
-            builder.AppendLine("  height: auto;");
-            builder.AppendLine("  max-width: 100%;");
-            builder.AppendLine("  max-height: 100%;");
             builder.AppendLine($"  color: {textColorCss};");
             builder.AppendLine("}");
             builder.AppendLine("body {");

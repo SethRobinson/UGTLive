@@ -359,6 +359,15 @@ namespace UGTLive
                                 {
                                     // Cập nhật text object với bản dịch
                                     matchingTextObj.TextTranslated = translatedText;
+
+                                    // Check if we need to change orientation for the translated text
+                                    if (matchingTextObj.TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                    {
+                                        matchingTextObj.TextOrientation = "horizontal";
+                                        // Swap width and height
+                                        (matchingTextObj.Width, matchingTextObj.Height) = (matchingTextObj.Height, matchingTextObj.Width);
+                                    }
+
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with Google translation");
                                 }
@@ -370,8 +379,17 @@ namespace UGTLive
                                     {
                                         // Cập nhật theo index nếu ID khớp định dạng
                                         _textObjects[index].TextTranslated = translatedText;
+
+                                        // Check if we need to change orientation for the translated text
+                                        if (_textObjects[index].TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                        {
+                                            _textObjects[index].TextOrientation = "horizontal";
+                                            // Swap width and height
+                                            (_textObjects[index].Width, _textObjects[index].Height) = (_textObjects[index].Height, _textObjects[index].Width);
+                                        }
+
                                         _textObjects[index].UpdateUIElement();
-                                        Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                         Console.WriteLine($"Updated text object at index {index} with Google translation");
                                     }
                                     else
                                     {
@@ -1506,6 +1524,15 @@ namespace UGTLive
                                 {
                                     // Update the corresponding text object
                                     matchingTextObj.TextTranslated = translatedText;
+
+                                    // Check if we need to change orientation for the translated text
+                                    if (matchingTextObj.TextOrientation == "vertical" && ShouldUseHorizontalLayout(GetTargetLanguage()))
+                                    {
+                                        matchingTextObj.TextOrientation = "horizontal";
+                                        // Swap width and height
+                                        (matchingTextObj.Width, matchingTextObj.Height) = (matchingTextObj.Height, matchingTextObj.Width);
+                                    }
+
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with translation");
                                 }
@@ -1874,6 +1901,20 @@ namespace UGTLive
             }
             
             return new List<string>();
+        }
+
+        private bool ShouldUseHorizontalLayout(string language)
+        {
+            switch (language.ToLower())
+            {
+                case "ja": //japanese
+                case "ko": //korean
+                case "vi": //vietnamese
+                case "ch_sim": //chinese
+                    return false;
+                default:
+                    return true;
+            }
         }
     }
 }
