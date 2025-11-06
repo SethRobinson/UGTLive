@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.IO;
 
 namespace UGTLive
@@ -186,7 +186,13 @@ namespace UGTLive
                 {
                     isCharacter = isCharElement.GetBoolean();
                 }
-                
+
+                string textOrientation = "unknown";
+                if (item.TryGetProperty("text_orientation", out JsonElement textOrientationElement))
+                {
+                    textOrientation = textOrientationElement.GetString() ?? "unknown";
+                }
+
                 // Skip empty text
                 if (string.IsNullOrEmpty(text))
                 {
@@ -224,7 +230,8 @@ namespace UGTLive
                     IsCharacter = isCharacter,
                     IsProcessed = !isCharacter, // Mark non-characters as already processed
                     OriginalItem = item,
-                    ElementType = isCharacter ? ElementType.Character : ElementType.Other
+                    ElementType = isCharacter ? ElementType.Character : ElementType.Other,
+                    TextOrientation = textOrientation
                 };
                 
                 characters.Add(element);
@@ -302,7 +309,8 @@ namespace UGTLive
                             LineIndex = lineIndex,
                             ElementType = ElementType.Word,
                             Children = new List<TextElement> { character },
-                            CenterY = character.CenterY
+                            CenterY = character.CenterY,
+                            TextOrientation = character.TextOrientation
                         };
                     }
                     else
@@ -343,7 +351,8 @@ namespace UGTLive
                                 LineIndex = lineIndex,
                                 ElementType = ElementType.Word,
                                 Children = new List<TextElement> { character },
-                                CenterY = character.CenterY
+                                CenterY = character.CenterY,
+                                TextOrientation = character.TextOrientation
                             };
                         }
                     }
@@ -466,6 +475,11 @@ namespace UGTLive
                         Children = segment.ToList()
                     };
                     
+                    if (segment.Any())
+                    {
+                        line.TextOrientation = segment.First().TextOrientation;
+                    }
+
                     // Set line bounds based on segment words
                     double minX = segment.Min(w => w.Bounds.X);
                     double minY = segment.Min(w => w.Bounds.Y);
@@ -537,7 +551,8 @@ namespace UGTLive
                         Bounds = line.Bounds.Clone(),
                         Children = new List<TextElement> { line },
                         Text = line.Text,
-                        Confidence = line.Confidence
+                        Confidence = line.Confidence,
+                        TextOrientation = line.TextOrientation
                     };
                 }
                 else
@@ -613,7 +628,8 @@ namespace UGTLive
                             Bounds = line.Bounds.Clone(),
                             Children = new List<TextElement> { line },
                             Text = line.Text,
-                            Confidence = line.Confidence
+                            Confidence = line.Confidence,
+                            TextOrientation = line.TextOrientation
                         };
                     }
                     else
@@ -699,7 +715,8 @@ namespace UGTLive
                         // Write paragraph text and confidence
                         writer.WriteString("text", paragraph.Text);
                         writer.WriteNumber("confidence", paragraph.Confidence);
-                        
+                        writer.WriteString("text_orientation", paragraph.TextOrientation);
+
                         // Write bounding box rectangle as a polygon with 4 corners
                         writer.WriteStartArray("rect");
                         
@@ -815,7 +832,8 @@ namespace UGTLive
             public double Confidence { get; set; }
             public Rect Bounds { get; set; } = new Rect(0, 0, 0, 0);
             public List<Point> Points { get; set; } = new List<Point>();
-            
+            public string TextOrientation { get; set; } = "unknown";
+
             // Type and state
             public ElementType ElementType { get; set; } = ElementType.Other;
             public bool IsCharacter { get; set; }

@@ -879,7 +879,13 @@ namespace UGTLive
                             {
                                 continue;
                             }
-                            
+
+                            string textOrientation = "horizontal";
+                            if (item.TryGetProperty("text_orientation", out JsonElement textOrientationElement))
+                            {
+                                textOrientation = textOrientationElement.GetString() ?? "horizontal";
+                            }
+
                             // Note: We no longer need to filter ignore phrases here
                             // as it's now done earlier in ProcessReceivedTextJsonData before hash generation
 
@@ -929,7 +935,7 @@ namespace UGTLive
                             }
                          
                             // Create text object with bounding box coordinates
-                            CreateTextObjectAtPosition(text, x, y, width, height, confidence);
+                            CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation);
                         }
                     }
                 }
@@ -942,7 +948,7 @@ namespace UGTLive
         }
         
         // Create a text object at the specified position with confidence info
-        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence)
+        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal")
         {
 
             try
@@ -952,7 +958,7 @@ namespace UGTLive
                 {
                     // Run on UI thread to ensure STA compliance
                     Application.Current.Dispatcher.Invoke(() => 
-                        CreateTextObjectAtPosition(text, x, y, width, height, confidence));
+                        CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation));
                     return;
                 }
                 
@@ -1008,7 +1014,8 @@ namespace UGTLive
                     x, y, width, height,
                     textColor,
                     bgColor,
-                    captureX, captureY  // Store original capture coordinates
+                    captureX, captureY,  // Store original capture coordinates
+                    textOrientation
                 );
                 textObject.ID = "text_"+GetNextTextID();
 

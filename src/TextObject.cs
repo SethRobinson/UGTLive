@@ -28,6 +28,7 @@ namespace UGTLive
         public string Text { get; set; }
         public string ID { get; set; } = Guid.NewGuid().ToString();  // Initialize with a unique ID
         public string TextTranslated { get; set; } = string.Empty;  // Initialize with empty string
+        public string TextOrientation { get; set; } = "horizontal";
         public double X { get; set; }
         public double Y { get; set; }
         public double Width { get; set; }
@@ -71,7 +72,8 @@ namespace UGTLive
             SolidColorBrush? textColor = null,
             SolidColorBrush? backgroundColor = null,
             double captureX = 0,
-            double captureY = 0)
+            double captureY = 0,
+            string textOrientation = "horizontal")
         {
             Text = text;
             X = x;
@@ -82,6 +84,7 @@ namespace UGTLive
             BackgroundColor = backgroundColor ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)); // Half-transparent black
             CaptureX = captureX;
             CaptureY = captureY;
+            TextOrientation = textOrientation;
 
             // Initialize sound player if not already initialized
             _soundPlayer ??= new SoundPlayer();
@@ -357,8 +360,17 @@ namespace UGTLive
             builder.AppendLine("  overflow: hidden;");
             builder.AppendLine("}");
             builder.AppendLine("#content {");
-            builder.AppendLine("  writing-mode: vertical-rl;");
-            builder.AppendLine("  text-orientation: upright;");
+
+            if (TextOrientation == "vertical")
+            {
+                builder.AppendLine("  writing-mode: vertical-rl;");
+                builder.AppendLine("  text-orientation: upright;");
+            }
+            else
+            {
+                builder.AppendLine("  writing-mode: horizontal-tb;");
+            }
+
             builder.AppendLine("  font-family: \"Yu Mincho\", \"Yu Gothic\", \"Noto Serif JP\", \"Noto Sans JP\", \"MS PGothic\", serif;");
             builder.AppendLine($"  font-size: {fontSizeCss}px;");
             builder.AppendLine("  line-height: 1.25;");

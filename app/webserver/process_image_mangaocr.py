@@ -227,7 +227,8 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                     "rect": box_native,
                     "text": text,
                     "confidence": detection_confidence,
-                    "is_character": False
+                    "is_character": False,
+                    "text_orientation": "vertical"
                 })
         
         # Calculate processing time
@@ -276,7 +277,8 @@ def split_into_characters(text, box, confidence):
             "rect": box,
             "text": text,
             "confidence": confidence,
-            "is_character": True
+            "is_character": True,
+            "text_orientation": "vertical"
         }]
     
     char_results = []
@@ -330,7 +332,8 @@ def split_into_characters(text, box, confidence):
             "rect": char_box,
             "text": char,
             "confidence": confidence,
-            "is_character": True
+            "is_character": True,
+            "text_orientation": "vertical"
         })
     
     return char_results
