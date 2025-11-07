@@ -130,7 +130,6 @@ namespace UGTLive
                 CreateTextBlockChild();
             }
 
-            Border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
             Border.ContextMenu = CreateContextMenu();
 
             if (_useWebViewOverlay)
@@ -440,20 +439,6 @@ namespace UGTLive
             builder.AppendLine("        content.dataset.lastComputedFontSize = bestSize.toFixed(2);");
             builder.AppendLine("    }");
             builder.AppendLine("}");
-            builder.AppendLine("window.addEventListener('pointerup', function(event) {");
-            builder.AppendLine("    try {");
-            builder.AppendLine("        if (event.button !== 0) { return; }");
-            builder.AppendLine("        const selection = window.getSelection();");
-            builder.AppendLine("        if (selection && selection.toString().trim().length > 0) {");
-            builder.AppendLine("            return;");
-            builder.AppendLine("        }");
-            builder.AppendLine("        if (window.chrome && window.chrome.webview) {");
-            builder.AppendLine("            window.chrome.webview.postMessage('copy');");
-            builder.AppendLine("        }");
-            builder.AppendLine("    } catch (error) {");
-            builder.AppendLine("        console.error(error);");
-            builder.AppendLine("    }");
-            builder.AppendLine("});");
             builder.AppendLine("document.addEventListener('contextmenu', function(event) {");
             builder.AppendLine("    try {");
             builder.AppendLine("        const selection = window.getSelection();");
@@ -895,18 +880,6 @@ namespace UGTLive
                 // Reset to defaults in case of any exception
                 textBlock.FontSize = 24; // Increased from 18 to 24 for better initial size
                 textBlock.LayoutTransform = Transform.Identity;
-            }
-        }
-
-        // Handle click event
-        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is Border border)
-            {
-                // Copy text to clipboard using shared helper
-                CopySourceToClipboard();
-
-                e.Handled = true;
             }
         }
 
