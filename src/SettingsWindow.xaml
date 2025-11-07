@@ -147,6 +147,64 @@
                     </Grid>
                 </GroupBox>
                 
+                <!-- Monitor Window Settings -->
+                <GroupBox Header="Monitor Window Settings" Margin="0,0,0,15" Padding="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Override BG Color Checkbox -->
+                        <CheckBox x:Name="overrideBgColorCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,5" IsChecked="False" 
+                                 Checked="OverrideBgColorCheckBox_CheckedChanged" 
+                                 Unchecked="OverrideBgColorCheckBox_CheckedChanged"
+                                 Content="Override BG Color"
+                                 ToolTip="Override the background color for text overlays in the Monitor window"/>
+                        
+                        <!-- BG Color Picker -->
+                        <TextBlock Text="BG Color:" Grid.Row="1" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="20,5,10,5"/>
+                        <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
+                            <Button x:Name="overrideBgColorButton" 
+                                    Width="30" Height="20" 
+                                    Margin="0,0,5,0"
+                                    Click="OverrideBgColorButton_Click"/>
+                            <TextBlock x:Name="overrideBgColorText" 
+                                       Text="#FF000000" 
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                        
+                        <!-- Override Font Color Checkbox -->
+                        <CheckBox x:Name="overrideFontColorCheckBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,5" IsChecked="False" 
+                                 Checked="OverrideFontColorCheckBox_CheckedChanged" 
+                                 Unchecked="OverrideFontColorCheckBox_CheckedChanged"
+                                 Content="Override Font Color"
+                                 ToolTip="Override the font color for text overlays in the Monitor window"/>
+                        
+                        <!-- Font Color Picker -->
+                        <TextBlock Text="Font Color:" Grid.Row="3" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="20,5,10,5"/>
+                        <DockPanel Grid.Row="3" Grid.Column="1" Margin="0,5">
+                            <Button x:Name="overrideFontColorButton" 
+                                    Width="30" Height="20" 
+                                    Margin="0,0,5,0"
+                                    Click="OverrideFontColorButton_Click"/>
+                            <TextBlock x:Name="overrideFontColorText" 
+                                       Text="#FFFFFFFF" 
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Grid>
+                </GroupBox>
+                
                 <!-- Translation Context Settings -->
                 <GroupBox Header="Translation Context Settings" Margin="0,0,0,15" Padding="10">
                     <Grid>

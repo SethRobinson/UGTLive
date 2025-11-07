@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Color = System.Windows.Media.Color;
 
 
 namespace UGTLive
@@ -584,6 +585,24 @@ namespace UGTLive
                     return;
                 }
                 
+                // Apply override colors if enabled
+                SolidColorBrush? originalBgColor = null;
+                SolidColorBrush? originalTextColor = null;
+                
+                if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                {
+                    originalBgColor = textObject.BackgroundColor;
+                    Color overrideBgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                    textObject.BackgroundColor = new SolidColorBrush(overrideBgColor);
+                }
+                
+                if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                {
+                    originalTextColor = textObject.TextColor;
+                    Color overrideFontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                    textObject.TextColor = new SolidColorBrush(overrideFontColor);
+                }
+                
                 // We need to create a NEW UI element with positioning appropriate for Canvas
                 // but we'll use the existing Border and TextBlock references so updates work
                 Border? border = textObject.Border;
@@ -591,6 +610,25 @@ namespace UGTLive
                 {
                     textObject.CreateUIElement(useRelativePosition: false);
                     border = textObject.Border;
+                }
+                else
+                {
+                    // Update existing UI element with override colors if needed
+                    if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                    {
+                        border.Background = textObject.BackgroundColor;
+                    }
+                    
+                    if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                    {
+                        // Update text color in TextBlock or WebView
+                        if (textObject.TextBlock != null)
+                        {
+                            textObject.TextBlock.Foreground = textObject.TextColor;
+                        }
+                        // For WebView, we need to update the content
+                        textObject.UpdateUIElement();
+                    }
                 }
 
                 if (border == null)

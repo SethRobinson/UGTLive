@@ -15,6 +15,8 @@ using ProgressBar = System.Windows.Controls.ProgressBar;
 using MessageBox = System.Windows.MessageBox;
 using NAudio.Wave;
 using System.Collections.Generic;
+using System.Windows.Forms;
+using Color = System.Windows.Media.Color;
 
 namespace UGTLive
 {
@@ -375,6 +377,20 @@ namespace UGTLive
             
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
+            
+            // Load Monitor Window Override Color settings
+            overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
+            overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
+            
+            // Load colors and update UI
+            Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+            Color fontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+            
+            overrideBgColorButton.Background = new SolidColorBrush(bgColor);
+            overrideBgColorText.Text = ColorToHexString(bgColor);
+            
+            overrideFontColorButton.Background = new SolidColorBrush(fontColor);
+            overrideFontColorText.Text = ColorToHexString(fontColor);
             
             // Set block detection settings directly from BlockDetectionManager
             // Temporarily remove event handlers to prevent triggering changes
@@ -746,6 +762,127 @@ namespace UGTLive
             bool isEnabled = leaveTranslationOnscreenCheckBox.IsChecked ?? false;
             ConfigManager.Instance.SetLeaveTranslationOnscreenEnabled(isEnabled);
             Console.WriteLine($"Leave translation onscreen enabled: {isEnabled}");
+        }
+
+        // Monitor Window Override Color handlers
+        
+        private void OverrideBgColorCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool isEnabled = overrideBgColorCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetMonitorOverrideBgColorEnabled(isEnabled);
+            Console.WriteLine($"Monitor override BG color enabled: {isEnabled}");
+            
+            // Refresh overlays if enabled
+            if (isEnabled)
+            {
+                MonitorWindow.Instance.RefreshOverlays();
+            }
+        }
+
+        private void OverrideFontColorCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool isEnabled = overrideFontColorCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetMonitorOverrideFontColorEnabled(isEnabled);
+            Console.WriteLine($"Monitor override font color enabled: {isEnabled}");
+            
+            // Refresh overlays if enabled
+            if (isEnabled)
+            {
+                MonitorWindow.Instance.RefreshOverlays();
+            }
+        }
+
+        private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Create color dialog
+            var colorDialog = new ColorDialog();
+            
+            // Get current color from config
+            Color currentColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+            
+            // Set the initial color (ignore alpha, we handle that separately)
+            colorDialog.Color = System.Drawing.Color.FromArgb(
+                255, 
+                currentColor.R, 
+                currentColor.G, 
+                currentColor.B);
+            
+            // Show dialog
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                // Get selected color (fully opaque)
+                Color selectedColor = Color.FromArgb(
+                    255, 
+                    colorDialog.Color.R,
+                    colorDialog.Color.G,
+                    colorDialog.Color.B);
+                
+                // Save to config
+                ConfigManager.Instance.SetMonitorOverrideBgColor(selectedColor);
+                
+                // Update UI
+                overrideBgColorButton.Background = new SolidColorBrush(selectedColor);
+                overrideBgColorText.Text = ColorToHexString(selectedColor);
+                
+                // Refresh overlays if override is enabled
+                if (overrideBgColorCheckBox.IsChecked == true)
+                {
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+            }
+        }
+
+        private void OverrideFontColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Create color dialog
+            var colorDialog = new ColorDialog();
+            
+            // Get current color from config
+            Color currentColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+            
+            // Set the initial color
+            colorDialog.Color = System.Drawing.Color.FromArgb(
+                255, 
+                currentColor.R, 
+                currentColor.G, 
+                currentColor.B);
+            
+            // Show dialog
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                // Get selected color (fully opaque)
+                Color selectedColor = Color.FromArgb(
+                    255, 
+                    colorDialog.Color.R,
+                    colorDialog.Color.G,
+                    colorDialog.Color.B);
+                
+                // Save to config
+                ConfigManager.Instance.SetMonitorOverrideFontColor(selectedColor);
+                
+                // Update UI
+                overrideFontColorButton.Background = new SolidColorBrush(selectedColor);
+                overrideFontColorText.Text = ColorToHexString(selectedColor);
+                
+                // Refresh overlays if override is enabled
+                if (overrideFontColorCheckBox.IsChecked == true)
+                {
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+            }
+        }
+
+        private string ColorToHexString(Color color)
+        {
+            return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
         }
         
         // Language swap button handler

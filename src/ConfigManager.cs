@@ -115,6 +115,12 @@ namespace UGTLive
         public const string OPENAI_VOICE = "openai_voice";
         public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
 
+        // Monitor Window Override Color Settings
+        public const string MONITOR_OVERRIDE_BG_COLOR_ENABLED = "monitor_override_bg_color_enabled";
+        public const string MONITOR_OVERRIDE_BG_COLOR = "monitor_override_bg_color";
+        public const string MONITOR_OVERRIDE_FONT_COLOR_ENABLED = "monitor_override_font_color_enabled";
+        public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
+
         // Singleton instance
         public static ConfigManager Instance
         {
@@ -299,6 +305,12 @@ namespace UGTLive
             _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Default silence duration
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
+            
+            // Monitor Window Override Color defaults
+            _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = "false";
+            _configValues[MONITOR_OVERRIDE_BG_COLOR] = "#FF000000"; // Black
+            _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = "false";
+            _configValues[MONITOR_OVERRIDE_FONT_COLOR] = "#FFFFFFFF"; // White
             
             // Save the default configuration
             SaveConfig();
@@ -1674,6 +1686,118 @@ namespace UGTLive
             {
                 Console.WriteLine($"Invalid OpenAI silence duration: {duration}. Must be non-negative.");
             }
+        }
+
+        // Monitor Window Override Color methods
+        
+        // Get/Set Monitor Override BG Color Enabled
+        public bool IsMonitorOverrideBgColorEnabled()
+        {
+            return GetBoolValue(MONITOR_OVERRIDE_BG_COLOR_ENABLED, false);
+        }
+
+        public void SetMonitorOverrideBgColorEnabled(bool enabled)
+        {
+            _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Monitor override BG color enabled: {enabled}");
+        }
+
+        // Get/Set Monitor Override BG Color
+        public System.Windows.Media.Color GetMonitorOverrideBgColor()
+        {
+            string value = GetValue(MONITOR_OVERRIDE_BG_COLOR, "#FF000000"); // Default: Black
+            try
+            {
+                if (value.StartsWith("#") && value.Length >= 7)
+                {
+                    byte a = 255; // Default alpha is fully opaque
+                    
+                    // Parse alpha if provided (#AARRGGBB format)
+                    if (value.Length >= 9)
+                    {
+                        a = byte.Parse(value.Substring(1, 2), System.Globalization.NumberStyles.HexNumber);
+                    }
+                    
+                    // Parse RGB values
+                    int offset = value.Length >= 9 ? 3 : 1;
+                    byte r = byte.Parse(value.Substring(offset, 2), System.Globalization.NumberStyles.HexNumber);
+                    byte g = byte.Parse(value.Substring(offset + 2, 2), System.Globalization.NumberStyles.HexNumber);
+                    byte b = byte.Parse(value.Substring(offset + 4, 2), System.Globalization.NumberStyles.HexNumber);
+                    
+                    return System.Windows.Media.Color.FromArgb(a, r, g, b);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing Monitor override BG color: {ex.Message}");
+            }
+            
+            // Return default color if parsing fails
+            return System.Windows.Media.Colors.Black;
+        }
+
+        public void SetMonitorOverrideBgColor(System.Windows.Media.Color color)
+        {
+            string hexColor = $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+            _configValues[MONITOR_OVERRIDE_BG_COLOR] = hexColor;
+            SaveConfig();
+            Console.WriteLine($"Monitor override BG color set to: {hexColor}");
+        }
+
+        // Get/Set Monitor Override Font Color Enabled
+        public bool IsMonitorOverrideFontColorEnabled()
+        {
+            return GetBoolValue(MONITOR_OVERRIDE_FONT_COLOR_ENABLED, false);
+        }
+
+        public void SetMonitorOverrideFontColorEnabled(bool enabled)
+        {
+            _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Monitor override font color enabled: {enabled}");
+        }
+
+        // Get/Set Monitor Override Font Color
+        public System.Windows.Media.Color GetMonitorOverrideFontColor()
+        {
+            string value = GetValue(MONITOR_OVERRIDE_FONT_COLOR, "#FFFFFFFF"); // Default: White
+            try
+            {
+                if (value.StartsWith("#") && value.Length >= 7)
+                {
+                    byte a = 255; // Default alpha is fully opaque
+                    
+                    // Parse alpha if provided (#AARRGGBB format)
+                    if (value.Length >= 9)
+                    {
+                        a = byte.Parse(value.Substring(1, 2), System.Globalization.NumberStyles.HexNumber);
+                    }
+                    
+                    // Parse RGB values
+                    int offset = value.Length >= 9 ? 3 : 1;
+                    byte r = byte.Parse(value.Substring(offset, 2), System.Globalization.NumberStyles.HexNumber);
+                    byte g = byte.Parse(value.Substring(offset + 2, 2), System.Globalization.NumberStyles.HexNumber);
+                    byte b = byte.Parse(value.Substring(offset + 4, 2), System.Globalization.NumberStyles.HexNumber);
+                    
+                    return System.Windows.Media.Color.FromArgb(a, r, g, b);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing Monitor override font color: {ex.Message}");
+            }
+            
+            // Return default color if parsing fails
+            return System.Windows.Media.Colors.White;
+        }
+
+        public void SetMonitorOverrideFontColor(System.Windows.Media.Color color)
+        {
+            string hexColor = $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+            _configValues[MONITOR_OVERRIDE_FONT_COLOR] = hexColor;
+            SaveConfig();
+            Console.WriteLine($"Monitor override font color set to: {hexColor}");
         }
     }
 }
