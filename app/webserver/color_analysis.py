@@ -70,10 +70,6 @@ def _format_color_entry(color: Dict[str, object]) -> Dict[str, object]:
     }
 
 
-def _squared_color_distance(rgb_a: Sequence[float], rgb_b: Sequence[float]) -> float:
-    return sum((float(a) - float(b)) ** 2 for a, b in zip(rgb_a, rgb_b))
-
-
 def extract_foreground_background_colors(
     image: Image.Image,
     polygon: Iterable[Sequence[float]],
@@ -152,37 +148,19 @@ def extract_foreground_background_colors(
 
     colors.sort(key=lambda c: float(c.get("percentage", 0.0)), reverse=True)
     background = colors[0]
-
-    # Get RGB values - swap if in BGR format
-    background_rgb_raw = background.get("rgb", [0, 0, 0])  # type: ignore[arg-type]
-    if len(background_rgb_raw) == 3:
-        background_rgb: Sequence[float] = [background_rgb_raw[2], background_rgb_raw[1], background_rgb_raw[0]]  # BGR -> RGB
-    else:
-        background_rgb = background_rgb_raw
     
-    foreground = None
-    min_contrast_sq = min_contrast ** 2
+    # Simple approach: most common = background, second most common = foreground
+    if len(colors) > 1:
+        foreground = colors[1]
+    else:
+        foreground = colors[0]
 
-    for candidate in colors[1:]:
-        candidate_rgb_raw = candidate.get("rgb", [])  # type: ignore[assignment]
-        if len(candidate_rgb_raw) == 3:
-            # Swap BGR to RGB for contrast calculation
-            candidate_rgb: Sequence[float] = [candidate_rgb_raw[2], candidate_rgb_raw[1], candidate_rgb_raw[0]]
-        else:
-            candidate_rgb = candidate_rgb_raw
-            
-        if len(candidate_rgb) == 3 and _squared_color_distance(
-            candidate_rgb, background_rgb
-        ) >= min_contrast_sq:
-            foreground = candidate
-            break
-
-    if foreground is None:
-        foreground = colors[-1] if len(colors) > 1 else colors[0]
-
+    foreground_formatted = _format_color_entry(foreground)
+    background_formatted = _format_color_entry(background)
+    
     return {
-        "background_color": _format_color_entry(background),
-        "foreground_color": _format_color_entry(foreground),
+        "background_color": background_formatted,
+        "foreground_color": foreground_formatted,
         "color_source": "marearts_xcolor",
     }
 
