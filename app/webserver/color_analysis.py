@@ -44,8 +44,7 @@ def _get_color_extractor() -> Optional["ColorExtractor"]:
 
 def _format_color_entry(color: Dict[str, object]) -> Dict[str, object]:
     """Normalize the color entry to include hex, rgb, and percentage."""
-
-    rgb = color.get("rgb") or []
+    rgb = color.get("rgb") or color.get("color") or []
     if isinstance(rgb, Sequence):
         rgb_values = [int(max(0, min(255, int(c)))) for c in rgb]  # clamp to 0-255
     else:
