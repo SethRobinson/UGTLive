@@ -11,6 +11,8 @@ using System.Runtime.InteropServices;
 using System.Windows.Input;
 using Microsoft.Web.WebView2.Wpf;
 using Color = System.Windows.Media.Color;
+using System.Diagnostics;
+using System.Text;
 
 
 namespace UGTLive
@@ -745,6 +747,227 @@ namespace UGTLive
             ApplyZoom();
         }
         
+        // View in Browser button handler
+        private void ViewInBrowserButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportToBrowser();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error exporting to browser: {ex.Message}");
+                UpdateStatus($"Export failed: {ex.Message}");
+            }
+        }
+        
+        // Export current view to browser
+        private void ExportToBrowser()
+        {
+            // Check if we have an image to export
+            if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
+            {
+                UpdateStatus("No image to export");
+                return;
+            }
+            
+            // Create temp directory
+            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+            Directory.CreateDirectory(tempDir);
+            
+            // Generate filenames with timestamp to avoid conflicts
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string imagePath = Path.Combine(tempDir, $"monitor_image_{timestamp}.png");
+            string htmlPath = Path.Combine(tempDir, $"monitor_view_{timestamp}.html");
+            
+            // Save the image with zoom applied
+            SaveImageWithZoom(bitmapSource, imagePath);
+            
+            // Generate HTML
+            string html = GenerateHtml(imagePath, bitmapSource.PixelWidth, bitmapSource.PixelHeight);
+            
+            // Save HTML
+            File.WriteAllText(htmlPath, html);
+            
+            // Open in browser
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = htmlPath,
+                UseShellExecute = true
+            });
+            
+            UpdateStatus($"Exported to browser: {Path.GetFileName(htmlPath)}");
+        }
+        
+        private void SaveImageWithZoom(BitmapSource source, string path)
+        {
+            // Create a new bitmap with zoom applied
+            int width = (int)(source.PixelWidth * currentZoom);
+            int height = (int)(source.PixelHeight * currentZoom);
+            
+            // Create a DrawingVisual to render the zoomed image
+            DrawingVisual visual = new DrawingVisual();
+            using (DrawingContext context = visual.RenderOpen())
+            {
+                context.DrawImage(source, new Rect(0, 0, width, height));
+            }
+            
+            // Render to bitmap
+            RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
+                width, height, 96, 96, PixelFormats.Pbgra32);
+            renderBitmap.Render(visual);
+            
+            // Save as PNG
+            PngBitmapEncoder encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+            
+            using (FileStream stream = new FileStream(path, FileMode.Create))
+            {
+                encoder.Save(stream);
+            }
+        }
+        
+        private string GenerateHtml(string imagePath, int originalWidth, int originalHeight)
+        {
+            StringBuilder html = new StringBuilder();
+            
+            // Get relative path for the image
+            string imageFileName = Path.GetFileName(imagePath);
+            
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset=\"UTF-8\">");
+            html.AppendLine("<title>UGTLive Monitor View</title>");
+            html.AppendLine("<style>");
+            
+            // CSS styles
+            html.AppendLine("body { margin: 0; padding: 0; background-color: #000; font-family: Arial, sans-serif; }");
+            html.AppendLine(".container { position: relative; display: inline-block; }");
+            html.AppendLine(".monitor-image { display: block; }");
+            html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: hidden; }");
+            html.AppendLine(".controls { position: fixed; top: 10px; right: 10px; z-index: 1000; }");
+            html.AppendLine(".controls button { padding: 10px 20px; font-size: 16px; cursor: pointer; }");
+            html.AppendLine(".footer { position: fixed; bottom: 0; left: 0; right: 0; background-color: rgba(0,0,0,0.8); color: white; padding: 10px; text-align: center; font-size: 14px; }");
+            html.AppendLine(".footer a { color: #00aaff; text-decoration: none; }");
+            html.AppendLine(".footer a:hover { text-decoration: underline; }");
+            
+            // Add font imports if needed
+            html.AppendLine("</style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            
+            // Controls
+            html.AppendLine("<div class=\"controls\">");
+            html.AppendLine("<button onclick=\"toggleOverlays()\">Hide overlay</button>");
+            html.AppendLine("</div>");
+            
+            // Container with image
+            html.AppendLine("<div class=\"container\">");
+            html.AppendLine($"<img class=\"monitor-image\" src=\"{imageFileName}\" width=\"{(int)(originalWidth * currentZoom)}\" height=\"{(int)(originalHeight * currentZoom)}\">");
+            
+            // Add text overlays
+            foreach (var kvp in _overlayElements)
+            {
+                string textObjectId = kvp.Key;
+                Border border = kvp.Value;
+                
+                // Get the corresponding TextObject
+                TextObject? textObj = Logic.Instance.GetTextObjects().FirstOrDefault(t => t.ID == textObjectId);
+                if (textObj == null) continue;
+                
+                // Get position with zoom applied
+                double left = Canvas.GetLeft(border) * currentZoom;
+                double top = Canvas.GetTop(border) * currentZoom;
+                double width = border.ActualWidth * currentZoom;
+                double height = border.ActualHeight * currentZoom;
+                
+                // Get colors
+                string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
+                string textColor = ColorToHex(textObj.TextColor?.Color ?? Colors.White);
+                
+                // Determine font settings based on translation state
+                bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
+                string fontFamily = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                bool isBold = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                    : ConfigManager.Instance.GetSourceLanguageFontBold();
+                
+                // Get the text content
+                string text = isTranslated ? textObj.TextTranslated : textObj.Text;
+                string escapedText = System.Web.HttpUtility.HtmlEncode(text).Replace("\n", "<br>");
+                
+                // Calculate font size with zoom
+                double fontSize = 24 * currentZoom; // Default font size with zoom
+                if (textObj.TextBlock != null)
+                {
+                    fontSize = textObj.TextBlock.FontSize * currentZoom;
+                }
+                
+                // Generate overlay div
+                html.AppendLine($"<div class=\"text-overlay\" style=\"");
+                html.AppendLine($"  left: {left}px;");
+                html.AppendLine($"  top: {top}px;");
+                html.AppendLine($"  width: {width}px;");
+                html.AppendLine($"  height: {height}px;");
+                html.AppendLine($"  background-color: {bgColor};");
+                html.AppendLine($"  color: {textColor};");
+                html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
+                html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
+                html.AppendLine($"  font-size: {fontSize}px;");
+                html.AppendLine($"  padding: 10px;");
+                html.AppendLine($"  line-height: 1.2;");
+                
+                // Add vertical text support
+                if (textObj.TextOrientation == "vertical")
+                {
+                    html.AppendLine($"  writing-mode: vertical-rl;");
+                    html.AppendLine($"  text-orientation: upright;");
+                    html.AppendLine($"  display: flex;");
+                    html.AppendLine($"  align-items: center;");
+                    html.AppendLine($"  justify-content: center;");
+                }
+                
+                html.AppendLine($"\">");
+                html.AppendLine(escapedText);
+                html.AppendLine("</div>");
+            }
+            
+            html.AppendLine("</div>"); // End container
+            
+            // Footer
+            html.AppendLine("<div class=\"footer\">");
+            html.AppendLine("Generated by UGTLive - Created by Seth A. Robinson | ");
+            html.AppendLine("<a href=\"https://github.com/SethRobinson/UGTLive\" target=\"_blank\">https://github.com/SethRobinson/UGTLive</a>");
+            html.AppendLine("</div>");
+            
+            // JavaScript
+            html.AppendLine("<script>");
+            html.AppendLine("let overlaysVisible = true;");
+            html.AppendLine("function toggleOverlays() {");
+            html.AppendLine("  overlaysVisible = !overlaysVisible;");
+            html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
+            html.AppendLine("  const button = document.querySelector('.controls button');");
+            html.AppendLine("  for (let overlay of overlays) {");
+            html.AppendLine("    overlay.style.display = overlaysVisible ? 'block' : 'none';");
+            html.AppendLine("  }");
+            html.AppendLine("  button.textContent = overlaysVisible ? 'Hide overlay' : 'Show overlay';");
+            html.AppendLine("}");
+            html.AppendLine("</script>");
+            
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+            
+            return html.ToString();
+        }
+        
+        private string ColorToHex(Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+        
         // Removed ResetZoomButton_Click as it's no longer needed with the TextBox
         
         private void ApplyZoom(System.Windows.Point? mousePosition = null)
@@ -1170,39 +1393,39 @@ namespace UGTLive
         private const int WH_MOUSE_LL = 14;
         private const int WM_MOUSEWHEEL_LL = 0x020A;
 
-        [DllImport("user32.dll")]
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern short GetKeyState(int nVirtKey);
 
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
 
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         private static extern bool UnhookWindowsHookEx(IntPtr hhk);
 
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [DllImport("user32.dll")]
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern IntPtr WindowFromPoint(POINT Point);
 
-        [DllImport("user32.dll")]
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern IntPtr GetParent(IntPtr hWnd);
 
-        [DllImport("user32.dll")]
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
 
-        [StructLayout(LayoutKind.Sequential)]
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
         private struct POINT
         {
             public int x;
             public int y;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
         private struct MSLLHOOKSTRUCT
         {
             public POINT pt;

@@ -26,6 +26,11 @@
                     Click="ZoomInButton_Click" Background="#404040" Foreground="White"/>
             <TextBox x:Name="zoomTextBox" Width="60" Margin="2" Text="100" TextAlignment="Center"
                      VerticalContentAlignment="Center" Background="#404040" Foreground="White" BorderBrush="#606060"/>
+            
+            <!-- View in Browser Button -->
+            <Button x:Name="viewInBrowserButton" Content="View in browser" Margin="10,2,2,2" 
+                    Click="ViewInBrowserButton_Click" Background="#404040" Foreground="White"
+                    Padding="8,2"/>
                     
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
