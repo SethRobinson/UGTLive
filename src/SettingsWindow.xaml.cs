@@ -783,11 +783,8 @@ namespace UGTLive
             ConfigManager.Instance.SetMonitorOverrideBgColorEnabled(isEnabled);
             Console.WriteLine($"Monitor override BG color enabled: {isEnabled}");
             
-            // Refresh overlays if enabled
-            if (isEnabled)
-            {
-                MonitorWindow.Instance.RefreshOverlays();
-            }
+            // Refresh overlays to apply changes immediately
+            MonitorWindow.Instance.RefreshOverlays();
         }
 
         private void OverrideFontColorCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -800,11 +797,8 @@ namespace UGTLive
             ConfigManager.Instance.SetMonitorOverrideFontColorEnabled(isEnabled);
             Console.WriteLine($"Monitor override font color enabled: {isEnabled}");
             
-            // Refresh overlays if enabled
-            if (isEnabled)
-            {
-                MonitorWindow.Instance.RefreshOverlays();
-            }
+            // Refresh overlays to apply changes immediately
+            MonitorWindow.Instance.RefreshOverlays();
         }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)

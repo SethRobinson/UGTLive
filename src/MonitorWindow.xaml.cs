@@ -17,6 +17,7 @@ namespace UGTLive
         private const double zoomIncrement = 0.1;
         private string lastImagePath = string.Empty;
         private readonly Dictionary<string, Border> _overlayElements = new();
+        private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -585,22 +586,39 @@ namespace UGTLive
                     return;
                 }
                 
-                // Apply override colors if enabled
-                SolidColorBrush? originalBgColor = null;
-                SolidColorBrush? originalTextColor = null;
+                // Store original colors if not already stored
+                if (!_originalColors.ContainsKey(textObject.ID))
+                {
+                    _originalColors[textObject.ID] = (
+                        textObject.BackgroundColor?.Clone() ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)),
+                        textObject.TextColor?.Clone() ?? new SolidColorBrush(Colors.White)
+                    );
+                }
                 
+                // Get original colors
+                var (originalBgColor, originalTextColor) = _originalColors[textObject.ID];
+                
+                // Apply override colors if enabled, otherwise restore originals
                 if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
                 {
-                    originalBgColor = textObject.BackgroundColor;
                     Color overrideBgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
                     textObject.BackgroundColor = new SolidColorBrush(overrideBgColor);
+                }
+                else
+                {
+                    // Restore original background color
+                    textObject.BackgroundColor = originalBgColor.Clone();
                 }
                 
                 if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
                 {
-                    originalTextColor = textObject.TextColor;
                     Color overrideFontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
                     textObject.TextColor = new SolidColorBrush(overrideFontColor);
+                }
+                else
+                {
+                    // Restore original text color
+                    textObject.TextColor = originalTextColor.Clone();
                 }
                 
                 // We need to create a NEW UI element with positioning appropriate for Canvas
@@ -613,22 +631,16 @@ namespace UGTLive
                 }
                 else
                 {
-                    // Update existing UI element with override colors if needed
-                    if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
-                    {
-                        border.Background = textObject.BackgroundColor;
-                    }
+                    // Update existing UI element with current colors (override or original)
+                    border.Background = textObject.BackgroundColor;
                     
-                    if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                    // Update text color in TextBlock or WebView
+                    if (textObject.TextBlock != null)
                     {
-                        // Update text color in TextBlock or WebView
-                        if (textObject.TextBlock != null)
-                        {
-                            textObject.TextBlock.Foreground = textObject.TextColor;
-                        }
-                        // For WebView, we need to update the content
-                        textObject.UpdateUIElement();
+                        textObject.TextBlock.Foreground = textObject.TextColor;
                     }
+                    // For WebView, we need to update the content
+                    textObject.UpdateUIElement();
                 }
 
                 if (border == null)
@@ -758,6 +770,8 @@ namespace UGTLive
                         textOverlayCanvas.Children.Remove(border);
                         _overlayElements.Remove(id);
                     }
+                    // Clean up stored original colors
+                    _originalColors.Remove(id);
                 }
                 
                 //UpdateStatus("Text overlays refreshed");
