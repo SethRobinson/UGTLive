@@ -747,14 +747,49 @@ namespace UGTLive
         
         // Removed ResetZoomButton_Click as it's no longer needed with the TextBox
         
-        private void ApplyZoom()
+        private void ApplyZoom(System.Windows.Point? mousePosition = null)
         {
+            // Store old zoom for scroll calculation
+            double oldZoom = imageContainer.LayoutTransform is ScaleTransform oldTransform 
+                ? oldTransform.ScaleX 
+                : 1.0;
+
             // Set the transform on the container to scale both image and overlays together
             ScaleTransform scaleTransform = new ScaleTransform(currentZoom, currentZoom);
             imageContainer.LayoutTransform = scaleTransform;
             
             // Make sure scroll bars are correctly shown after zoom change
             UpdateScrollViewerSettings();
+            
+            // Adjust scroll position to zoom towards mouse cursor if position provided
+            if (mousePosition.HasValue && oldZoom > 0)
+            {
+                try
+                {
+                    // Get mouse position relative to ScrollViewer
+                    System.Windows.Point mouseInScrollViewer = imageScrollViewer.PointFromScreen(mousePosition.Value);
+                    
+                    // Calculate the content point under the mouse before zoom
+                    double contentX = (imageScrollViewer.HorizontalOffset + mouseInScrollViewer.X) / oldZoom;
+                    double contentY = (imageScrollViewer.VerticalOffset + mouseInScrollViewer.Y) / oldZoom;
+                    
+                    // Calculate new scroll offsets to keep the same content point under the mouse
+                    double newHorizontalOffset = (contentX * currentZoom) - mouseInScrollViewer.X;
+                    double newVerticalOffset = (contentY * currentZoom) - mouseInScrollViewer.Y;
+                    
+                    // Clamp to valid scroll ranges
+                    newHorizontalOffset = Math.Max(0, Math.Min(newHorizontalOffset, imageScrollViewer.ScrollableWidth));
+                    newVerticalOffset = Math.Max(0, Math.Min(newVerticalOffset, imageScrollViewer.ScrollableHeight));
+                    
+                    // Apply the new scroll position
+                    imageScrollViewer.ScrollToHorizontalOffset(newHorizontalOffset);
+                    imageScrollViewer.ScrollToVerticalOffset(newVerticalOffset);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error adjusting scroll position during zoom: {ex.Message}");
+                }
+            }
             
             // Update zoom textbox
             zoomTextBox.Text = ((int)(currentZoom * 100)).ToString();
@@ -1001,16 +1036,16 @@ namespace UGTLive
                                             scrollViewerPoint.X <= imageScrollViewer.ActualWidth &&
                                             scrollViewerPoint.Y <= imageScrollViewer.ActualHeight)
                                         {
-                                            // Perform zoom
+                                            // Perform zoom towards mouse cursor
                                             if (delta > 0)
                                             {
                                                 currentZoom += zoomIncrement;
-                                                ApplyZoom();
+                                                ApplyZoom(screenPoint);
                                             }
                                             else
                                             {
                                                 currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
-                                                ApplyZoom();
+                                                ApplyZoom(screenPoint);
                                             }
                                         }
                                     }
@@ -1224,18 +1259,18 @@ namespace UGTLive
                             // and always perform zoom, regardless of what's under the mouse
                             handled = true;
                             
-                            // Zoom in or out based on wheel direction
+                            // Zoom in or out based on wheel direction, towards mouse cursor
                             if (delta > 0)
                             {
                                 // Zoom in
                                 currentZoom += zoomIncrement;
-                                ApplyZoom();
+                                ApplyZoom(screenPoint);
                             }
                             else
                             {
                                 // Zoom out
                                 currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
-                                ApplyZoom();
+                                ApplyZoom(screenPoint);
                             }
                             
                             return IntPtr.Zero;
@@ -1310,18 +1345,21 @@ namespace UGTLive
                     // Prevent default scrolling/zooming behavior (including WebView2 font scaling)
                     e.Handled = true;
                     
-                    // Zoom in or out based on wheel direction
+                    // Get mouse position in screen coordinates for zoom centering
+                    System.Windows.Point screenPoint = this.PointToScreen(e.GetPosition(this));
+                    
+                    // Zoom in or out based on wheel direction, towards mouse cursor
                     if (e.Delta > 0)
                     {
                         // Zoom in
                         currentZoom += zoomIncrement;
-                        ApplyZoom();
+                        ApplyZoom(screenPoint);
                     }
                     else
                     {
                         // Zoom out
                         currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
-                        ApplyZoom();
+                        ApplyZoom(screenPoint);
                     }
                 }
             }
