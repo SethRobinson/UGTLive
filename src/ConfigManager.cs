@@ -318,11 +318,11 @@ namespace UGTLive
             _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = "#FFFFFFFF"; // White
             
-            // Font Settings defaults - matching previous font settings
-            _configValues[SOURCE_LANGUAGE_FONT_FAMILY] = "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial";
-            _configValues[SOURCE_LANGUAGE_FONT_BOLD] = "false";
-            _configValues[TARGET_LANGUAGE_FONT_FAMILY] = "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial";
-            _configValues[TARGET_LANGUAGE_FONT_BOLD] = "false";
+            // Font Settings defaults
+            _configValues[SOURCE_LANGUAGE_FONT_FAMILY] = "MS Gothic";
+            _configValues[SOURCE_LANGUAGE_FONT_BOLD] = "true";
+            _configValues[TARGET_LANGUAGE_FONT_FAMILY] = "Comic Sans MS";
+            _configValues[TARGET_LANGUAGE_FONT_BOLD] = "true";
             
             // Save the default configuration
             SaveConfig();
@@ -1817,7 +1817,7 @@ namespace UGTLive
         // Get/Set Source Language Font Family
         public string GetSourceLanguageFontFamily()
         {
-            return GetValue(SOURCE_LANGUAGE_FONT_FAMILY, "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial");
+            return GetValue(SOURCE_LANGUAGE_FONT_FAMILY, "MS Gothic");
         }
 
         public void SetSourceLanguageFontFamily(string fontFamily)
@@ -1833,7 +1833,7 @@ namespace UGTLive
         // Get/Set Source Language Font Bold
         public bool GetSourceLanguageFontBold()
         {
-            return GetBoolValue(SOURCE_LANGUAGE_FONT_BOLD, false);
+            return GetBoolValue(SOURCE_LANGUAGE_FONT_BOLD, true);
         }
 
         public void SetSourceLanguageFontBold(bool bold)
@@ -1846,7 +1846,7 @@ namespace UGTLive
         // Get/Set Target Language Font Family
         public string GetTargetLanguageFontFamily()
         {
-            return GetValue(TARGET_LANGUAGE_FONT_FAMILY, "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial");
+            return GetValue(TARGET_LANGUAGE_FONT_FAMILY, "Comic Sans MS");
         }
 
         public void SetTargetLanguageFontFamily(string fontFamily)
@@ -1862,7 +1862,7 @@ namespace UGTLive
         // Get/Set Target Language Font Bold
         public bool GetTargetLanguageFontBold()
         {
-            return GetBoolValue(TARGET_LANGUAGE_FONT_BOLD, false);
+            return GetBoolValue(TARGET_LANGUAGE_FONT_BOLD, true);
         }
 
         public void SetTargetLanguageFontBold(bool bold)
