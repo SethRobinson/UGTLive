@@ -396,6 +396,16 @@ namespace UGTLive
             overrideFontColorButton.Background = new SolidColorBrush(fontColor);
             overrideFontColorText.Text = ColorToHexString(fontColor);
             
+            // Load Text Area Size Expansion settings
+            textAreaExpansionWidthTextBox.LostFocus -= TextAreaExpansionWidthTextBox_LostFocus;
+            textAreaExpansionHeightTextBox.LostFocus -= TextAreaExpansionHeightTextBox_LostFocus;
+            
+            textAreaExpansionWidthTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionWidth().ToString();
+            textAreaExpansionHeightTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionHeight().ToString();
+            
+            textAreaExpansionWidthTextBox.LostFocus += TextAreaExpansionWidthTextBox_LostFocus;
+            textAreaExpansionHeightTextBox.LostFocus += TextAreaExpansionHeightTextBox_LostFocus;
+            
             // Load Font Settings
             LoadFontSettings();
             
@@ -1869,6 +1879,56 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating minimum line confidence: {ex.Message}");
+            }
+        }
+        
+        private void TextAreaExpansionWidthTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (int.TryParse(textAreaExpansionWidthTextBox.Text, out int width) && width >= 0)
+                {
+                    ConfigManager.Instance.SetMonitorTextAreaExpansionWidth(width);
+                    Console.WriteLine($"Text area expansion width set to: {width}");
+                }
+                else
+                {
+                    // Reset to current value from config if invalid
+                    textAreaExpansionWidthTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionWidth().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating text area expansion width: {ex.Message}");
+            }
+        }
+        
+        private void TextAreaExpansionHeightTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (int.TryParse(textAreaExpansionHeightTextBox.Text, out int height) && height >= 0)
+                {
+                    ConfigManager.Instance.SetMonitorTextAreaExpansionHeight(height);
+                    Console.WriteLine($"Text area expansion height set to: {height}");
+                }
+                else
+                {
+                    // Reset to current value from config if invalid
+                    textAreaExpansionHeightTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionHeight().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating text area expansion height: {ex.Message}");
             }
         }
         

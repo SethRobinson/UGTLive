@@ -929,6 +929,20 @@ namespace UGTLive
                                     y = minY;
                                     width = maxX - minX;
                                     height = maxY - minY;
+                                    
+                                    // Apply text area size expansion
+                                    int expansionWidth = ConfigManager.Instance.GetMonitorTextAreaExpansionWidth();
+                                    int expansionHeight = ConfigManager.Instance.GetMonitorTextAreaExpansionHeight();
+                                    
+                                    // Expand width symmetrically (add expansionWidth/2 to each side)
+                                    double expansionWidthHalf = expansionWidth / 2.0;
+                                    x = minX - expansionWidthHalf;
+                                    width = width + expansionWidth;
+                                    
+                                    // Expand height symmetrically (add expansionHeight/2 to top and bottom)
+                                    double expansionHeightHalf = expansionHeight / 2.0;
+                                    y = minY - expansionHeightHalf;
+                                    height = height + expansionHeight;
                                 }
                                 catch (Exception ex)
                                 {

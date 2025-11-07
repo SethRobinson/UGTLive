@@ -120,6 +120,8 @@ namespace UGTLive
         public const string MONITOR_OVERRIDE_BG_COLOR = "monitor_override_bg_color";
         public const string MONITOR_OVERRIDE_FONT_COLOR_ENABLED = "monitor_override_font_color_enabled";
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
+        public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
+        public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
 
         // Font Settings for Source and Target Languages
         public const string SOURCE_LANGUAGE_FONT_FAMILY = "source_language_font_family";
@@ -323,6 +325,10 @@ namespace UGTLive
             _configValues[SOURCE_LANGUAGE_FONT_BOLD] = "true";
             _configValues[TARGET_LANGUAGE_FONT_FAMILY] = "Comic Sans MS";
             _configValues[TARGET_LANGUAGE_FONT_BOLD] = "true";
+            
+            // Text Area Size Expansion defaults
+            _configValues[MONITOR_TEXT_AREA_EXPANSION_WIDTH] = "6";
+            _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = "2";
             
             // Save the default configuration
             SaveConfig();
@@ -1810,6 +1816,42 @@ namespace UGTLive
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = hexColor;
             SaveConfig();
             Console.WriteLine($"Monitor override font color set to: {hexColor}");
+        }
+
+        // Get/Set Monitor Text Area Expansion Width
+        public int GetMonitorTextAreaExpansionWidth()
+        {
+            string value = GetValue(MONITOR_TEXT_AREA_EXPANSION_WIDTH, "6");
+            if (int.TryParse(value, out int width) && width >= 0)
+            {
+                return width;
+            }
+            return 6; // Default: 6 pixels
+        }
+
+        public void SetMonitorTextAreaExpansionWidth(int width)
+        {
+            _configValues[MONITOR_TEXT_AREA_EXPANSION_WIDTH] = width.ToString();
+            SaveConfig();
+            Console.WriteLine($"Monitor text area expansion width set to: {width}");
+        }
+
+        // Get/Set Monitor Text Area Expansion Height
+        public int GetMonitorTextAreaExpansionHeight()
+        {
+            string value = GetValue(MONITOR_TEXT_AREA_EXPANSION_HEIGHT, "2");
+            if (int.TryParse(value, out int height) && height >= 0)
+            {
+                return height;
+            }
+            return 2; // Default: 2 pixels
+        }
+
+        public void SetMonitorTextAreaExpansionHeight(int height)
+        {
+            _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = height.ToString();
+            SaveConfig();
+            Console.WriteLine($"Monitor text area expansion height set to: {height}");
         }
 
         // Font Settings methods
