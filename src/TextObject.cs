@@ -133,6 +133,10 @@ namespace UGTLive
 
             Border.ContextMenu = CreateContextMenu();
 
+            // Intercept Ctrl+Mouse wheel to prevent WebView2 from scaling fonts
+            // Let the event bubble up to MonitorWindow for zoom handling
+            Border.PreviewMouseWheel += Border_PreviewMouseWheel;
+
             if (_useWebViewOverlay)
             {
                 Border.Loaded += async (s, e) =>
@@ -266,6 +270,8 @@ namespace UGTLive
                     WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0, 0, 0, 0);
                     WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                    // Disable zoom control to prevent WebView2 from handling Ctrl+MouseWheel
+                    WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
 
                     WebView.CoreWebView2.WebMessageReceived -= WebView_WebMessageReceived;
                     WebView.CoreWebView2.WebMessageReceived += WebView_WebMessageReceived;
@@ -502,6 +508,14 @@ namespace UGTLive
             builder.AppendLine("if (document.fonts && document.fonts.ready) {");
             builder.AppendLine("    document.fonts.ready.then(fitContent);");
             builder.AppendLine("}");
+            // Prevent Ctrl+wheel zoom in WebView2 - let MonitorWindow handle zoom instead
+            builder.AppendLine("document.addEventListener('wheel', function(event) {");
+            builder.AppendLine("    if (event.ctrlKey) {");
+            builder.AppendLine("        event.preventDefault();");
+            builder.AppendLine("        event.stopPropagation();");
+            builder.AppendLine("        return false;");
+            builder.AppendLine("    }");
+            builder.AppendLine("}, { passive: false, capture: true });");
             builder.AppendLine("</script>");
             builder.AppendLine("</head>");
             builder.AppendLine("<body>");
@@ -667,6 +681,29 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error suppressing default WebView2 context menu: {ex.Message}");
+            }
+        }
+
+        // Intercept Ctrl+Mouse wheel to prevent WebView2 from scaling fonts
+        // The event will bubble up to MonitorWindow for zoom handling
+        private void Border_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // If Ctrl is pressed, prevent WebView2 from handling the event
+            // Let it bubble up to MonitorWindow for zoom handling
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
+            }
+        }
+
+        // Intercept Ctrl+Mouse wheel directly on WebView2 to prevent font scaling
+        private void WebView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // If Ctrl is pressed, prevent WebView2 from handling the event
+            // Let it bubble up to MonitorWindow for zoom handling
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
             }
         }
 

@@ -9,7 +9,8 @@
         WindowStyle="SingleBorderWindow"
         AllowsTransparency="False"
         Background="Black"
-        Icon="/media/Icon1.ico">
+        Icon="/media/Icon1.ico"
+        PreviewMouseWheel="Window_PreviewMouseWheel">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
