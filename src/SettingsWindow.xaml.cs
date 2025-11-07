@@ -1407,12 +1407,12 @@ namespace UGTLive
                 // Handle both dropdown selection and manually typed values
                 if (geminiModelComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    model = selectedItem.Content?.ToString() ?? "gemini-2.0-flash";
+                    model = selectedItem.Content?.ToString() ?? "gemini-2.5-flash";
                 }
                 else
                 {
                     // For manually entered text
-                    model = geminiModelComboBox.Text?.Trim() ?? "gemini-2.0-flash";
+                    model = geminiModelComboBox.Text?.Trim() ?? "gemini-2.5-flash";
                 }
                 
                 if (!string.IsNullOrWhiteSpace(model))
@@ -1552,7 +1552,7 @@ namespace UGTLive
         
         private void ElevenLabsApiLink_Click(object sender, RoutedEventArgs e)
         {
-            OpenUrl("https://elevenlabs.io/app/api-key");
+            OpenUrl("https://elevenlabs.io/app/developers/api-keys");
         }
         
         private void GoogleTtsApiLink_Click(object sender, RoutedEventArgs e)

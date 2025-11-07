@@ -466,11 +466,9 @@
                                     SelectionChanged="GeminiModelComboBox_SelectionChanged"
                                     LostFocus="GeminiModelComboBox_LostFocus"
                                     IsEditable="True">
-                                <ComboBoxItem Content="gemini-1.5-flash"/>
-                                <ComboBoxItem Content="gemini-1.5-pro"/>
-                                <ComboBoxItem Content="gemini-2.0-flash"/>
-                                <ComboBoxItem Content="gemini-2.5-pro-preview-06-05"/>
-                                <ComboBoxItem Content="gemini-2.5-flash-preview-05-20"/>
+                                <ComboBoxItem Content="gemini-2.5-pro"/>
+                                <ComboBoxItem Content="gemini-2.5-flash"/>
+                                <ComboBoxItem Content="gemini-2.5-flash-lite"/>
                             </ComboBox>
                             <Button x:Name="viewGeminiModelsButton" Content="View Models" Grid.Column="1"
                                    Margin="5,0,0,0" Padding="5,0" Click="ViewGeminiModelsButton_Click"
@@ -667,8 +665,8 @@
                                      PasswordChanged="ElevenLabsApiKeyPasswordBox_PasswordChanged"/>
                             <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" x:Name="elevenLabsApiKeyHelpText">
                                 <Run>Get API key from </Run>
-                                <Hyperlink Click="ElevenLabsApiLink_Click">https://elevenlabs.io/app/api-key</Hyperlink>
-                                <Run> (free tier available)</Run>
+                                <Hyperlink Click="ElevenLabsApiLink_Click">https://elevenlabs.io/app/developers/api-keys</Hyperlink>
+                                
                             </TextBlock>
                         </Grid>
                         
@@ -677,6 +675,9 @@
                                   VerticalAlignment="Center" Margin="0,5,10,0"/>
                         <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="3" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="ElevenLabsVoiceComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Kanata" Tag="gt4GHSXYxdkWrtuD6uJ6"/>
+
+                            
                             <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
                             <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
                             <ComboBoxItem Content="Bella" Tag="EXAVITQu4vr4xnSDxMaL"/>
