@@ -231,10 +231,10 @@ namespace UGTLive
                                      "The server window should remain open while using UGTLive with EasyOCR.\n\n" +
                                      "Alternatively, you can switch to Windows OCR in the settings (no server needed).";
                     
-                    MessageBoxResult result = MessageBox.Show(message + "\n\nAttempt to start server using RunServer.bat?", 
-                                              "Server Connection Error", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+                    MessageBoxResult result = MessageBox.Show(message + "\n\nStart server using RunServer.bat?", 
+                                              "Server Connection Error", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
                     
-                    if (result == MessageBoxResult.Yes)
+                    if (result == MessageBoxResult.OK)
                     {
                         try
                         {
@@ -250,21 +250,6 @@ namespace UGTLive
                         {
                             Console.WriteLine($"Failed to start server: {ex.Message}");
                             MessageBox.Show($"Failed to start server: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        }
-                    }
-                    else if (result == MessageBoxResult.Cancel)
-                    {
-                        try
-                        {
-                            System.Diagnostics.Process.Start(new ProcessStartInfo
-                            {
-                                FileName = "https://github.com/SethRobinson/UGTLive",
-                                UseShellExecute = true
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Failed to open browser: {ex.Message}");
                         }
                     }
                 }
