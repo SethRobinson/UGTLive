@@ -367,8 +367,6 @@ namespace UGTLive
                                     if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                     {
                                         matchingTextObj.TextOrientation = "horizontal";
-                                        // Swap width and height
-                                        (matchingTextObj.Width, matchingTextObj.Height) = (matchingTextObj.Height, matchingTextObj.Width);
                                     }
 
                                     matchingTextObj.UpdateUIElement();
@@ -387,8 +385,6 @@ namespace UGTLive
                                         if (_textObjects[index].TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                         {
                                             _textObjects[index].TextOrientation = "horizontal";
-                                            // Swap width and height
-                                            (_textObjects[index].Width, _textObjects[index].Height) = (_textObjects[index].Height, _textObjects[index].Width);
                                         }
 
                                         _textObjects[index].UpdateUIElement();
@@ -1657,8 +1653,6 @@ namespace UGTLive
                                     if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
                                     {
                                         matchingTextObj.TextOrientation = "horizontal";
-                                        // Swap width and height
-                                        (matchingTextObj.Width, matchingTextObj.Height) = (matchingTextObj.Height, matchingTextObj.Width);
                                     }
 
                                     matchingTextObj.UpdateUIElement();
