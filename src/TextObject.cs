@@ -366,32 +366,41 @@ namespace UGTLive
             builder.AppendLine("  overflow: hidden;");
             builder.AppendLine($"  color: {textColorCss};");
             builder.AppendLine("}");
-            builder.AppendLine("#container {");
-            builder.AppendLine("  position: relative;");
-            builder.AppendLine("  width: 100%;");
-            builder.AppendLine("  height: 100%;");
-            builder.AppendLine("  overflow: hidden;");
-            builder.AppendLine("}");
-            builder.AppendLine("#content {");
-
             if (TextOrientation == "vertical")
             {
+                builder.AppendLine("#container {");
+                builder.AppendLine("  position: relative;");
+                builder.AppendLine("  width: 100%;");
+                builder.AppendLine("  height: 100%;");
+                builder.AppendLine("  overflow: hidden;");
+                builder.AppendLine("  display: flex;");
+                builder.AppendLine("  align-items: center;");
+                builder.AppendLine("  justify-content: center;");
+                builder.AppendLine("  flex-direction: row;");
+                builder.AppendLine("}");
+                builder.AppendLine("#content {");
                 builder.AppendLine("  writing-mode: vertical-rl;");
                 builder.AppendLine("  text-orientation: upright;");
                 builder.AppendLine("  white-space: pre-wrap;");
-                builder.AppendLine("  position: absolute;");
-                builder.AppendLine("  top: 0;");
-                builder.AppendLine("  right: 0;");
+                builder.AppendLine("  position: relative;");
                 builder.AppendLine("  width: auto;");
                 builder.AppendLine("  height: auto;");
                 builder.AppendLine("  max-width: 100%;");
                 builder.AppendLine("  max-height: 100%;");
+                builder.AppendLine("  flex-shrink: 0;");
             }
             else
             {
+                builder.AppendLine("#container {");
+                builder.AppendLine("  position: relative;");
+                builder.AppendLine("  width: 100%;");
+                builder.AppendLine("  height: 100%;");
+                builder.AppendLine("  overflow: hidden;");
+                builder.AppendLine("}");
+                builder.AppendLine("#content {");
                 builder.AppendLine("  writing-mode: horizontal-tb;");
                 builder.AppendLine("  white-space: normal;");
-                builder.AppendLine("  text-align: left;");
+                builder.AppendLine("  text-align: center;");
                 builder.AppendLine("  position: absolute;");
                 builder.AppendLine("  top: 50%;");
                 builder.AppendLine("  left: 0;");
