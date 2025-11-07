@@ -12,6 +12,7 @@ using System.Media;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -152,16 +153,26 @@ namespace UGTLive
         private void CreateTextBlockChild()
         {
             WebView = null;
+            
+            // Determine if we're showing source or target text
+            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
+            string fontFamily = isTranslated 
+                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                : ConfigManager.Instance.GetSourceLanguageFontFamily();
+            FontWeight fontWeight = isTranslated
+                ? (ConfigManager.Instance.GetTargetLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal)
+                : (ConfigManager.Instance.GetSourceLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal);
+            
             TextBlock = new TextBlock
             {
                 Text = Text,
                 Foreground = TextColor,
-                FontWeight = FontWeights.Normal,
+                FontWeight = fontWeight,
                 FontSize = DefaultFontSize,
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Left,
                 FontStretch = FontStretches.Normal,
-                FontFamily = new FontFamily("Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial"),
+                FontFamily = new FontFamily(fontFamily),
                 Margin = new Thickness(0),
                 TextTrimming = TextTrimming.None
             };
@@ -390,7 +401,21 @@ namespace UGTLive
                 builder.AppendLine("  overflow-wrap: break-word;");
             }
 
-            builder.AppendLine("  font-family: \"Yu Mincho\", \"Yu Gothic\", \"Noto Serif JP\", \"Noto Sans JP\", \"MS PGothic\", serif;");
+            // Determine if we're showing source or target text
+            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
+            string fontFamily = isTranslated 
+                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                : ConfigManager.Instance.GetSourceLanguageFontFamily();
+            bool isBold = isTranslated
+                ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                : ConfigManager.Instance.GetSourceLanguageFontBold();
+            
+            // Escape font family names for CSS (handle comma-separated lists)
+            string fontFamilyCss = string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""));
+            string fontWeightCss = isBold ? "bold" : "normal";
+            
+            builder.AppendLine($"  font-family: {fontFamilyCss};");
+            builder.AppendLine($"  font-weight: {fontWeightCss};");
             builder.AppendLine($"  font-size: {fontSizeCss}px;");
             builder.AppendLine("  line-height: 1.25;");
             builder.AppendLine("  letter-spacing: 0.08em;");
@@ -754,6 +779,18 @@ namespace UGTLive
 
             TextBlock.Text = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
             TextBlock.Foreground = TextColor;
+            
+            // Update font family and weight based on whether text is translated
+            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
+            string fontFamily = isTranslated 
+                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                : ConfigManager.Instance.GetSourceLanguageFontFamily();
+            FontWeight fontWeight = isTranslated
+                ? (ConfigManager.Instance.GetTargetLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal)
+                : (ConfigManager.Instance.GetSourceLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal);
+            
+            TextBlock.FontFamily = new FontFamily(fontFamily);
+            TextBlock.FontWeight = fontWeight;
 
                 if (Width > 0)
                 {

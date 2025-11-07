@@ -17,6 +17,7 @@ using NAudio.Wave;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using Color = System.Windows.Media.Color;
+using FontFamily = System.Windows.Media.FontFamily;
 
 namespace UGTLive
 {
@@ -109,6 +110,9 @@ namespace UGTLive
 
                 // Populate OCR method options from shared configuration
                 PopulateOcrMethodOptions();
+                
+                // Populate font family combo boxes
+                PopulateFontFamilyComboBoxes();
                 
                 // Make sure keyboard shortcuts work from this window too
                 PreviewKeyDown -= Application_KeyDown;
@@ -391,6 +395,9 @@ namespace UGTLive
             
             overrideFontColorButton.Background = new SolidColorBrush(fontColor);
             overrideFontColorText.Text = ColorToHexString(fontColor);
+            
+            // Load Font Settings
+            LoadFontSettings();
             
             // Set block detection settings directly from BlockDetectionManager
             // Temporarily remove event handlers to prevent triggering changes
@@ -2266,6 +2273,245 @@ namespace UGTLive
                 {
                     whisperSourceLanguageComboBox.Items.Add(new ComboBoxItem { Content = lang.Name, Tag = lang.Code });
                 }
+            }
+        }
+
+        private void PopulateFontFamilyComboBoxes()
+        {
+            try
+            {
+                // Get all font families
+                var fontFamilies = Fonts.SystemFontFamilies.OrderBy(f => f.Source);
+                
+                // Populate source language font combo box
+                if (sourceLanguageFontFamilyComboBox != null)
+                {
+                    sourceLanguageFontFamilyComboBox.ItemsSource = fontFamilies;
+                    sourceLanguageFontFamilyComboBox.DisplayMemberPath = "Source";
+                }
+                
+                // Populate target language font combo box
+                if (targetLanguageFontFamilyComboBox != null)
+                {
+                    targetLanguageFontFamilyComboBox.ItemsSource = fontFamilies;
+                    targetLanguageFontFamilyComboBox.DisplayMemberPath = "Source";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error populating font family combo boxes: {ex.Message}");
+            }
+        }
+
+        private void LoadFontSettings()
+        {
+            try
+            {
+                // Temporarily remove event handlers to prevent triggering changes during initialization
+                sourceLanguageFontFamilyComboBox.SelectionChanged -= SourceLanguageFontFamilyComboBox_SelectionChanged;
+                targetLanguageFontFamilyComboBox.SelectionChanged -= TargetLanguageFontFamilyComboBox_SelectionChanged;
+                sourceLanguageFontBoldCheckBox.Checked -= SourceLanguageFontBoldCheckBox_CheckedChanged;
+                sourceLanguageFontBoldCheckBox.Unchecked -= SourceLanguageFontBoldCheckBox_CheckedChanged;
+                targetLanguageFontBoldCheckBox.Checked -= TargetLanguageFontBoldCheckBox_CheckedChanged;
+                targetLanguageFontBoldCheckBox.Unchecked -= TargetLanguageFontBoldCheckBox_CheckedChanged;
+                
+                // Load source language font family
+                string sourceFontFamily = ConfigManager.Instance.GetSourceLanguageFontFamily();
+                if (sourceLanguageFontFamilyComboBox != null)
+                {
+                    // Try to find matching font family
+                    var matchingFont = sourceLanguageFontFamilyComboBox.Items.Cast<FontFamily>()
+                        .FirstOrDefault(f => f.Source == sourceFontFamily || f.Source.Contains(sourceFontFamily.Split(',')[0].Trim()));
+                    if (matchingFont != null)
+                    {
+                        sourceLanguageFontFamilyComboBox.SelectedItem = matchingFont;
+                    }
+                    else
+                    {
+                        // If not found, add as a text item (for custom font strings)
+                        sourceLanguageFontFamilyComboBox.Text = sourceFontFamily;
+                    }
+                }
+                
+                // Load source language font bold
+                sourceLanguageFontBoldCheckBox.IsChecked = ConfigManager.Instance.GetSourceLanguageFontBold();
+                
+                // Load target language font family
+                string targetFontFamily = ConfigManager.Instance.GetTargetLanguageFontFamily();
+                if (targetLanguageFontFamilyComboBox != null)
+                {
+                    // Try to find matching font family
+                    var matchingFont = targetLanguageFontFamilyComboBox.Items.Cast<FontFamily>()
+                        .FirstOrDefault(f => f.Source == targetFontFamily || f.Source.Contains(targetFontFamily.Split(',')[0].Trim()));
+                    if (matchingFont != null)
+                    {
+                        targetLanguageFontFamilyComboBox.SelectedItem = matchingFont;
+                    }
+                    else
+                    {
+                        // If not found, add as a text item (for custom font strings)
+                        targetLanguageFontFamilyComboBox.Text = targetFontFamily;
+                    }
+                }
+                
+                // Load target language font bold
+                targetLanguageFontBoldCheckBox.IsChecked = ConfigManager.Instance.GetTargetLanguageFontBold();
+                
+                // Reattach event handlers
+                sourceLanguageFontFamilyComboBox.SelectionChanged += SourceLanguageFontFamilyComboBox_SelectionChanged;
+                targetLanguageFontFamilyComboBox.SelectionChanged += TargetLanguageFontFamilyComboBox_SelectionChanged;
+                sourceLanguageFontBoldCheckBox.Checked += SourceLanguageFontBoldCheckBox_CheckedChanged;
+                sourceLanguageFontBoldCheckBox.Unchecked += SourceLanguageFontBoldCheckBox_CheckedChanged;
+                targetLanguageFontBoldCheckBox.Checked += TargetLanguageFontBoldCheckBox_CheckedChanged;
+                targetLanguageFontBoldCheckBox.Unchecked += TargetLanguageFontBoldCheckBox_CheckedChanged;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading font settings: {ex.Message}");
+            }
+        }
+
+        // Source Language Font Family changed
+        private void SourceLanguageFontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            try
+            {
+                if (sourceLanguageFontFamilyComboBox.SelectedItem is FontFamily selectedFont)
+                {
+                    ConfigManager.Instance.SetSourceLanguageFontFamily(selectedFont.Source);
+                    Console.WriteLine($"Source language font family set to: {selectedFont.Source}");
+                    
+                    // Refresh text objects to apply new font
+                    RefreshTextObjectsWithNewFont();
+                }
+                else if (!string.IsNullOrWhiteSpace(sourceLanguageFontFamilyComboBox.Text))
+                {
+                    // Handle custom font string (comma-separated list)
+                    ConfigManager.Instance.SetSourceLanguageFontFamily(sourceLanguageFontFamilyComboBox.Text);
+                    Console.WriteLine($"Source language font family set to custom: {sourceLanguageFontFamilyComboBox.Text}");
+                    
+                    // Refresh text objects to apply new font
+                    RefreshTextObjectsWithNewFont();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating source language font family: {ex.Message}");
+            }
+        }
+
+        // Source Language Font Bold changed
+        private void SourceLanguageFontBoldCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            try
+            {
+                bool isBold = sourceLanguageFontBoldCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetSourceLanguageFontBold(isBold);
+                Console.WriteLine($"Source language font bold set to: {isBold}");
+                
+                // Refresh text objects to apply new font
+                RefreshTextObjectsWithNewFont();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating source language font bold: {ex.Message}");
+            }
+        }
+
+        // Target Language Font Family changed
+        private void TargetLanguageFontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            try
+            {
+                if (targetLanguageFontFamilyComboBox.SelectedItem is FontFamily selectedFont)
+                {
+                    ConfigManager.Instance.SetTargetLanguageFontFamily(selectedFont.Source);
+                    Console.WriteLine($"Target language font family set to: {selectedFont.Source}");
+                    
+                    // Refresh text objects and chat box to apply new font
+                    RefreshTextObjectsWithNewFont();
+                    if (ChatBoxWindow.Instance != null)
+                    {
+                        ChatBoxWindow.Instance.UpdateChatHistory();
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(targetLanguageFontFamilyComboBox.Text))
+                {
+                    // Handle custom font string (comma-separated list)
+                    ConfigManager.Instance.SetTargetLanguageFontFamily(targetLanguageFontFamilyComboBox.Text);
+                    Console.WriteLine($"Target language font family set to custom: {targetLanguageFontFamilyComboBox.Text}");
+                    
+                    // Refresh text objects and chat box to apply new font
+                    RefreshTextObjectsWithNewFont();
+                    if (ChatBoxWindow.Instance != null)
+                    {
+                        ChatBoxWindow.Instance.UpdateChatHistory();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating target language font family: {ex.Message}");
+            }
+        }
+
+        // Target Language Font Bold changed
+        private void TargetLanguageFontBoldCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            try
+            {
+                bool isBold = targetLanguageFontBoldCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTargetLanguageFontBold(isBold);
+                Console.WriteLine($"Target language font bold set to: {isBold}");
+                
+                // Refresh text objects and chat box to apply new font
+                RefreshTextObjectsWithNewFont();
+                if (ChatBoxWindow.Instance != null)
+                {
+                    ChatBoxWindow.Instance.UpdateChatHistory();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating target language font bold: {ex.Message}");
+            }
+        }
+
+        // Helper method to refresh all text objects with new font settings
+        private void RefreshTextObjectsWithNewFont()
+        {
+            try
+            {
+                var textObjects = Logic.Instance.GetTextObjects();
+                foreach (var textObj in textObjects)
+                {
+                    if (textObj != null)
+                    {
+                        textObj.UpdateUIElement();
+                    }
+                }
+                
+                // Refresh monitor window overlays
+                if (MonitorWindow.Instance != null)
+                {
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error refreshing text objects: {ex.Message}");
             }
         }
 

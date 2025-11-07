@@ -147,6 +147,50 @@
                     </Grid>
                 </GroupBox>
                 
+                <!-- Font Settings -->
+                <GroupBox Header="Font Settings" Margin="0,0,0,15" Padding="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Source Language Font Family -->
+                        <TextBlock Text="Source Language Font:" Grid.Row="0" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox x:Name="sourceLanguageFontFamilyComboBox" Grid.Row="0" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="SourceLanguageFontFamilyComboBox_SelectionChanged"/>
+                        
+                        <!-- Source Language Font Bold -->
+                        <TextBlock Text="Source Language Bold:" Grid.Row="1" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="sourceLanguageFontBoldCheckBox" Grid.Row="1" Grid.Column="1" 
+                                 Margin="0,5" VerticalAlignment="Center"
+                                 Checked="SourceLanguageFontBoldCheckBox_CheckedChanged" 
+                                 Unchecked="SourceLanguageFontBoldCheckBox_CheckedChanged"/>
+                        
+                        <!-- Target Language Font Family -->
+                        <TextBlock Text="Target Language Font:" Grid.Row="2" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox x:Name="targetLanguageFontFamilyComboBox" Grid.Row="2" Grid.Column="1" 
+                                 Margin="0,5" SelectionChanged="TargetLanguageFontFamilyComboBox_SelectionChanged"/>
+                        
+                        <!-- Target Language Font Bold -->
+                        <TextBlock Text="Target Language Bold:" Grid.Row="3" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="targetLanguageFontBoldCheckBox" Grid.Row="3" Grid.Column="1" 
+                                 Margin="0,5" VerticalAlignment="Center"
+                                 Checked="TargetLanguageFontBoldCheckBox_CheckedChanged" 
+                                 Unchecked="TargetLanguageFontBoldCheckBox_CheckedChanged"/>
+                    </Grid>
+                </GroupBox>
+                
                 <!-- Monitor Window Settings -->
                 <GroupBox Header="Monitor Window Settings" Margin="0,0,0,15" Padding="10">
                     <Grid>

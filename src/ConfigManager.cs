@@ -121,6 +121,12 @@ namespace UGTLive
         public const string MONITOR_OVERRIDE_FONT_COLOR_ENABLED = "monitor_override_font_color_enabled";
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
 
+        // Font Settings for Source and Target Languages
+        public const string SOURCE_LANGUAGE_FONT_FAMILY = "source_language_font_family";
+        public const string SOURCE_LANGUAGE_FONT_BOLD = "source_language_font_bold";
+        public const string TARGET_LANGUAGE_FONT_FAMILY = "target_language_font_family";
+        public const string TARGET_LANGUAGE_FONT_BOLD = "target_language_font_bold";
+
         // Singleton instance
         public static ConfigManager Instance
         {
@@ -311,6 +317,12 @@ namespace UGTLive
             _configValues[MONITOR_OVERRIDE_BG_COLOR] = "#FF000000"; // Black
             _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = "#FFFFFFFF"; // White
+            
+            // Font Settings defaults - matching previous font settings
+            _configValues[SOURCE_LANGUAGE_FONT_FAMILY] = "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial";
+            _configValues[SOURCE_LANGUAGE_FONT_BOLD] = "false";
+            _configValues[TARGET_LANGUAGE_FONT_FAMILY] = "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial";
+            _configValues[TARGET_LANGUAGE_FONT_BOLD] = "false";
             
             // Save the default configuration
             SaveConfig();
@@ -1798,6 +1810,66 @@ namespace UGTLive
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = hexColor;
             SaveConfig();
             Console.WriteLine($"Monitor override font color set to: {hexColor}");
+        }
+
+        // Font Settings methods
+        
+        // Get/Set Source Language Font Family
+        public string GetSourceLanguageFontFamily()
+        {
+            return GetValue(SOURCE_LANGUAGE_FONT_FAMILY, "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial");
+        }
+
+        public void SetSourceLanguageFontFamily(string fontFamily)
+        {
+            if (!string.IsNullOrWhiteSpace(fontFamily))
+            {
+                _configValues[SOURCE_LANGUAGE_FONT_FAMILY] = fontFamily;
+                SaveConfig();
+                Console.WriteLine($"Source language font family set to: {fontFamily}");
+            }
+        }
+
+        // Get/Set Source Language Font Bold
+        public bool GetSourceLanguageFontBold()
+        {
+            return GetBoolValue(SOURCE_LANGUAGE_FONT_BOLD, false);
+        }
+
+        public void SetSourceLanguageFontBold(bool bold)
+        {
+            _configValues[SOURCE_LANGUAGE_FONT_BOLD] = bold.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Source language font bold set to: {bold}");
+        }
+
+        // Get/Set Target Language Font Family
+        public string GetTargetLanguageFontFamily()
+        {
+            return GetValue(TARGET_LANGUAGE_FONT_FAMILY, "Noto Sans JP, MS Gothic, Yu Gothic, Microsoft YaHei, Arial Unicode MS, Arial");
+        }
+
+        public void SetTargetLanguageFontFamily(string fontFamily)
+        {
+            if (!string.IsNullOrWhiteSpace(fontFamily))
+            {
+                _configValues[TARGET_LANGUAGE_FONT_FAMILY] = fontFamily;
+                SaveConfig();
+                Console.WriteLine($"Target language font family set to: {fontFamily}");
+            }
+        }
+
+        // Get/Set Target Language Font Bold
+        public bool GetTargetLanguageFontBold()
+        {
+            return GetBoolValue(TARGET_LANGUAGE_FONT_BOLD, false);
+        }
+
+        public void SetTargetLanguageFontBold(bool bold)
+        {
+            _configValues[TARGET_LANGUAGE_FONT_BOLD] = bold.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Target language font bold set to: {bold}");
         }
     }
 }
