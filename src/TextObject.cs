@@ -640,9 +640,12 @@ namespace UGTLive
         {
             try
             {
-                if (!string.IsNullOrEmpty(Text))
+                // Check if there's a selection first, otherwise copy all text
+                string textToCopy = GetPrimarySourceText();
+                
+                if (!string.IsNullOrEmpty(textToCopy))
                 {
-                    Clipboard.SetText(Text);
+                    Clipboard.SetText(textToCopy);
                     PlayClickSound();
 
                     if (Border != null)
