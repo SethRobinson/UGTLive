@@ -47,6 +47,9 @@ def _format_color_entry(color: Dict[str, object]) -> Dict[str, object]:
     rgb = color.get("rgb") or color.get("color") or []
     if isinstance(rgb, Sequence):
         rgb_values = [int(max(0, min(255, int(c)))) for c in rgb]  # clamp to 0-255
+        # marearts_xcolor may return colors in BGR format, swap R and B to convert to RGB
+        if len(rgb_values) == 3:
+            rgb_values = [rgb_values[2], rgb_values[1], rgb_values[0]]  # BGR -> RGB
     else:
         rgb_values = []
 
@@ -150,12 +153,24 @@ def extract_foreground_background_colors(
     colors.sort(key=lambda c: float(c.get("percentage", 0.0)), reverse=True)
     background = colors[0]
 
-    background_rgb: Sequence[float] = background.get("rgb", [0, 0, 0])  # type: ignore[arg-type]
+    # Get RGB values - swap if in BGR format
+    background_rgb_raw = background.get("rgb", [0, 0, 0])  # type: ignore[arg-type]
+    if len(background_rgb_raw) == 3:
+        background_rgb: Sequence[float] = [background_rgb_raw[2], background_rgb_raw[1], background_rgb_raw[0]]  # BGR -> RGB
+    else:
+        background_rgb = background_rgb_raw
+    
     foreground = None
     min_contrast_sq = min_contrast ** 2
 
     for candidate in colors[1:]:
-        candidate_rgb = candidate.get("rgb", [])  # type: ignore[assignment]
+        candidate_rgb_raw = candidate.get("rgb", [])  # type: ignore[assignment]
+        if len(candidate_rgb_raw) == 3:
+            # Swap BGR to RGB for contrast calculation
+            candidate_rgb: Sequence[float] = [candidate_rgb_raw[2], candidate_rgb_raw[1], candidate_rgb_raw[0]]
+        else:
+            candidate_rgb = candidate_rgb_raw
+            
         if len(candidate_rgb) == 3 and _squared_color_distance(
             candidate_rgb, background_rgb
         ) >= min_contrast_sq:

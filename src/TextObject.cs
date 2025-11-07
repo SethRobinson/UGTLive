@@ -84,7 +84,7 @@ namespace UGTLive
             Width = width;
             Height = height;
             TextColor = textColor ?? new SolidColorBrush(Colors.White);
-            BackgroundColor = backgroundColor ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)); // Half-transparent black
+            BackgroundColor = backgroundColor ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)); // Fully opaque black
             CaptureX = captureX;
             CaptureY = captureY;
             TextOrientation = textOrientation;

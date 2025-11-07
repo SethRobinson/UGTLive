@@ -955,8 +955,42 @@ namespace UGTLive
                                 }
                             }
                          
-                            // Create text object with bounding box coordinates
-                            CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation);
+                            // Extract colors from JSON if available
+                            SolidColorBrush? foregroundColor = null;
+                            SolidColorBrush? backgroundColor = null;
+                            
+                            if (item.TryGetProperty("foreground_color", out JsonElement foregroundColorElement))
+                            {
+                                foregroundColor = ParseColorFromJson(foregroundColorElement, isBackground: false);
+                                
+                                // Debug: Log the RGB values we're parsing
+                                if (foregroundColorElement.TryGetProperty("rgb", out JsonElement fgRgb) && 
+                                    fgRgb.ValueKind == JsonValueKind.Array && fgRgb.GetArrayLength() >= 3)
+                                {
+                                    int r = fgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)fgRgb[0].GetDouble();
+                                    int g = fgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)fgRgb[1].GetDouble();
+                                    int b = fgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)fgRgb[2].GetDouble();
+                                    Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                }
+                            }
+                            
+                            if (item.TryGetProperty("background_color", out JsonElement backgroundColorElement))
+                            {
+                                backgroundColor = ParseColorFromJson(backgroundColorElement, isBackground: true);
+                                
+                                // Debug: Log the RGB values we're parsing
+                                if (backgroundColorElement.TryGetProperty("rgb", out JsonElement bgRgb) && 
+                                    bgRgb.ValueKind == JsonValueKind.Array && bgRgb.GetArrayLength() >= 3)
+                                {
+                                    int r = bgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)bgRgb[0].GetDouble();
+                                    int g = bgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)bgRgb[1].GetDouble();
+                                    int b = bgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)bgRgb[2].GetDouble();
+                                    Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                }
+                            }
+                         
+                            // Create text object with bounding box coordinates and colors
+                            CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor);
                         }
                     }
                 }
@@ -968,8 +1002,93 @@ namespace UGTLive
             }
         }
         
+        // Helper method to parse color from JSON element
+        private SolidColorBrush? ParseColorFromJson(JsonElement colorElement, bool isBackground = false)
+        {
+            try
+            {
+                // Try to get RGB array first
+                if (colorElement.TryGetProperty("rgb", out JsonElement rgbElement) && 
+                    rgbElement.ValueKind == JsonValueKind.Array && 
+                    rgbElement.GetArrayLength() >= 3)
+                {
+                    // Extract RGB values - handle both int and double
+                    int r, g, b;
+                    if (rgbElement[0].ValueKind == JsonValueKind.Number)
+                    {
+                        // Try int first, fall back to double if needed
+                        if (rgbElement[0].TryGetInt32(out int rInt))
+                        {
+                            r = rInt;
+                        }
+                        else
+                        {
+                            r = (int)Math.Round(rgbElement[0].GetDouble());
+                        }
+                        
+                        if (rgbElement[1].TryGetInt32(out int gInt))
+                        {
+                            g = gInt;
+                        }
+                        else
+                        {
+                            g = (int)Math.Round(rgbElement[1].GetDouble());
+                        }
+                        
+                        if (rgbElement[2].TryGetInt32(out int bInt))
+                        {
+                            b = bInt;
+                        }
+                        else
+                        {
+                            b = (int)Math.Round(rgbElement[2].GetDouble());
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: RGB values are not numbers in color JSON");
+                        return null;
+                    }
+                    
+                    // Clamp to 0-255
+                    r = Math.Max(0, Math.Min(255, r));
+                    g = Math.Max(0, Math.Min(255, g));
+                    b = Math.Max(0, Math.Min(255, b));
+                    
+                    // Use fully opaque (alpha 255) for both foreground and background
+                    byte alpha = (byte)255;
+                    
+                    return new SolidColorBrush(Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b));
+                }
+                
+                // Fallback: try hex value if RGB is not available
+                if (colorElement.TryGetProperty("hex", out JsonElement hexElement))
+                {
+                    string hex = hexElement.GetString() ?? "";
+                    if (!string.IsNullOrEmpty(hex) && hex.StartsWith("#") && hex.Length == 7)
+                    {
+                        // Parse hex color (#RRGGBB)
+                        int r = Convert.ToInt32(hex.Substring(1, 2), 16);
+                        int g = Convert.ToInt32(hex.Substring(3, 2), 16);
+                        int b = Convert.ToInt32(hex.Substring(5, 2), 16);
+                        
+                        // Use fully opaque (alpha 255) for both foreground and background
+                        byte alpha = (byte)255;
+                        return new SolidColorBrush(Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b));
+                    }
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing color from JSON: {ex.Message}");
+            }
+            
+            return null; // Return null to indicate fallback to defaults
+        }
+        
         // Create a text object at the specified position with confidence info
-        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal")
+        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal", SolidColorBrush? foregroundColor = null, SolidColorBrush? backgroundColor = null)
         {
 
             try
@@ -979,7 +1098,7 @@ namespace UGTLive
                 {
                     // Run on UI thread to ensure STA compliance
                     Application.Current.Dispatcher.Invoke(() => 
-                        CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation));
+                        CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor));
                     return;
                 }
                 
@@ -1025,9 +1144,15 @@ namespace UGTLive
                     fontSize = Math.Max(10, Math.Min(36, (int)(height * 0.9)));
                 }
                 
-                // Create text object with white text on semi-transparent black background
-                SolidColorBrush textColor = new SolidColorBrush(Colors.White);
-                SolidColorBrush bgColor = new SolidColorBrush(Color.FromArgb(190, 0, 0, 0));
+                // Use provided colors or fall back to defaults (white text on fully opaque black background)
+                SolidColorBrush textColor = foregroundColor ?? new SolidColorBrush(Colors.White);
+                SolidColorBrush bgColor = backgroundColor ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
+                
+                // Debug: Log final colors being used
+                if (foregroundColor != null || backgroundColor != null)
+                {
+                    Console.WriteLine($"Creating TextObject '{text.Substring(0, Math.Min(20, text.Length))}...' - TextColor: {textColor.Color}, BackgroundColor: {bgColor.Color}");
+                }
                 
                 // Add the text object to the UI
                 TextObject textObject = new TextObject(

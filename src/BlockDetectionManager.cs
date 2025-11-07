@@ -688,6 +688,152 @@ namespace UGTLive
         #region Json Output Creation
         
         /// <summary>
+        /// Write an averaged color to JSON, weighted by confidence
+        /// Uses the most common color if all colors are identical, otherwise averages
+        /// </summary>
+        private void WriteAveragedColor(Utf8JsonWriter writer, List<(JsonElement color, double confidence)> colors)
+        {
+            if (colors.Count == 0)
+                return;
+            
+            // If only one color, just write it directly
+            if (colors.Count == 1)
+            {
+                colors[0].color.WriteTo(writer);
+                return;
+            }
+            
+            // Check if all colors are identical (common case when characters come from same word)
+            bool allIdentical = true;
+            string? firstHex = null;
+            JsonElement firstColor = colors[0].color;
+            
+            foreach (var (color, _) in colors)
+            {
+                // Compare RGB values
+                if (firstColor.TryGetProperty("rgb", out JsonElement firstRgb) &&
+                    color.TryGetProperty("rgb", out JsonElement rgb) &&
+                    firstRgb.ValueKind == JsonValueKind.Array && rgb.ValueKind == JsonValueKind.Array &&
+                    firstRgb.GetArrayLength() >= 3 && rgb.GetArrayLength() >= 3)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        double firstVal = firstRgb[i].ValueKind == JsonValueKind.Number ? 
+                            (firstRgb[i].TryGetInt32(out int firstInt) ? firstInt : (int)firstRgb[i].GetDouble()) : 0;
+                        double val = rgb[i].ValueKind == JsonValueKind.Number ? 
+                            (rgb[i].TryGetInt32(out int valInt) ? valInt : (int)rgb[i].GetDouble()) : 0;
+                        
+                        if (Math.Abs(firstVal - val) > 0.5) // Allow small floating point differences
+                        {
+                            allIdentical = false;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    allIdentical = false;
+                }
+                
+                if (!allIdentical) break;
+            }
+            
+            // If all colors are identical, just use the first one
+            if (allIdentical)
+            {
+                colors[0].color.WriteTo(writer);
+                return;
+            }
+            
+            // Otherwise, calculate weighted average of RGB values
+            double totalWeight = 0;
+            double rSum = 0, gSum = 0, bSum = 0;
+            string? hexValue = null;
+            double totalPercentage = 0;
+            
+            foreach (var (color, confidence) in colors)
+            {
+                double weight = Math.Max(0.1, confidence); // Ensure minimum weight
+                totalWeight += weight;
+                
+                // Try to get RGB array
+                if (color.TryGetProperty("rgb", out JsonElement rgbElement) && 
+                    rgbElement.ValueKind == JsonValueKind.Array && 
+                    rgbElement.GetArrayLength() >= 3)
+                {
+                    double r = 0, g = 0, b = 0;
+                    
+                    if (rgbElement[0].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[0].TryGetInt32(out int rInt))
+                            r = rInt;
+                        else
+                            r = rgbElement[0].GetDouble();
+                    }
+                    
+                    if (rgbElement[1].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[1].TryGetInt32(out int gInt))
+                            g = gInt;
+                        else
+                            g = rgbElement[1].GetDouble();
+                    }
+                    
+                    if (rgbElement[2].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[2].TryGetInt32(out int bInt))
+                            b = bInt;
+                        else
+                            b = rgbElement[2].GetDouble();
+                    }
+                    
+                    rSum += r * weight;
+                    gSum += g * weight;
+                    bSum += b * weight;
+                }
+                
+                // Try to get hex value (use first one found)
+                if (hexValue == null && color.TryGetProperty("hex", out JsonElement hexElement))
+                {
+                    hexValue = hexElement.GetString();
+                }
+                
+                // Sum up percentage
+                if (color.TryGetProperty("percentage", out JsonElement percElement))
+                {
+                    if (percElement.ValueKind == JsonValueKind.Number)
+                    {
+                        totalPercentage += percElement.GetDouble() * weight;
+                    }
+                }
+            }
+            
+            // Calculate averages
+            int avgR = (int)Math.Round(Math.Max(0, Math.Min(255, rSum / totalWeight)));
+            int avgG = (int)Math.Round(Math.Max(0, Math.Min(255, gSum / totalWeight)));
+            int avgB = (int)Math.Round(Math.Max(0, Math.Min(255, bSum / totalWeight)));
+            
+            // Generate hex if not found
+            if (hexValue == null)
+            {
+                hexValue = $"#{avgR:X2}{avgG:X2}{avgB:X2}";
+            }
+            
+            double avgPercentage = totalPercentage / totalWeight;
+            
+            // Write the averaged color object
+            writer.WriteStartObject();
+            writer.WriteStartArray("rgb");
+            writer.WriteNumberValue(avgR);
+            writer.WriteNumberValue(avgG);
+            writer.WriteNumberValue(avgB);
+            writer.WriteEndArray();
+            writer.WriteString("hex", hexValue);
+            writer.WriteNumber("percentage", avgPercentage);
+            writer.WriteEndObject();
+        }
+        
+        /// <summary>
         /// Create JSON output from processed paragraphs
         /// </summary>
         private JsonElement CreateJsonOutput(List<TextElement> paragraphs, List<TextElement> nonCharacters)
@@ -745,6 +891,50 @@ namespace UGTLive
                         writer.WriteEndArray();
                         
                         writer.WriteEndArray(); // End rect
+                        
+                        // Preserve color information from original items
+                        // Average colors from all characters weighted by confidence
+                        List<(JsonElement color, double confidence)> foregroundColors = new List<(JsonElement, double)>();
+                        List<(JsonElement color, double confidence)> backgroundColors = new List<(JsonElement, double)>();
+                        
+                        foreach (var line in paragraph.Children)
+                        {
+                            foreach (var word in line.Children)
+                            {
+                                foreach (var character in word.Children)
+                                {
+                                    if (character.OriginalItem.ValueKind != JsonValueKind.Undefined)
+                                    {
+                                        if (character.OriginalItem.TryGetProperty("foreground_color", out JsonElement fgColor))
+                                        {
+                                            foregroundColors.Add((fgColor, character.Confidence));
+                                        }
+                                        if (character.OriginalItem.TryGetProperty("background_color", out JsonElement bgColor))
+                                        {
+                                            backgroundColors.Add((bgColor, character.Confidence));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Debug: Log color collection for diagnosis
+                        if (foregroundColors.Count > 0 || backgroundColors.Count > 0)
+                        {
+                            Console.WriteLine($"Paragraph '{paragraph.Text.Substring(0, Math.Min(20, paragraph.Text.Length))}...' - Found {foregroundColors.Count} foreground colors, {backgroundColors.Count} background colors");
+                        }
+                        
+                        // Write averaged color information if found
+                        if (foregroundColors.Count > 0)
+                        {
+                            writer.WritePropertyName("foreground_color");
+                            WriteAveragedColor(writer, foregroundColors);
+                        }
+                        if (backgroundColors.Count > 0)
+                        {
+                            writer.WritePropertyName("background_color");
+                            WriteAveragedColor(writer, backgroundColors);
+                        }
                         
                         // Add metadata
                         writer.WriteNumber("line_count", paragraph.Children.Count);
