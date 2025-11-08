@@ -135,7 +135,7 @@ echo Installing CuPy for GPU color extraction...
 python -m pip install !CUPY_PACKAGE! || goto :FailInstallCuPy
 
 echo Installing Ultralytics YOLO + FastAPI helpers...
-python -m pip install "ultralytics==8.2.100" fastapi "uvicorn[standard]" python-multipart || goto :FailInstallUltralytics
+python -m pip install "ultralytics>=8.3.0" fastapi "uvicorn[standard]" python-multipart || goto :FailInstallUltralytics
 
 REM -----------------------------------------------------------------
 REM Pre-download OCR models
