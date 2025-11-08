@@ -564,11 +564,17 @@ def _get_color_extractor() -> Optional["_GPUColorExtractor"]:
                 use_gpu="auto",
             )
 
-            backend_msg = _COLOR_EXTRACTOR.backend_status()
-            gpu_name = _COLOR_EXTRACTOR.gpu_name
-            suffix = f" ({gpu_name})" if gpu_name and "GPU" in backend_msg else ""
+            # Check actual CuPy availability for initialization message
+            if CUPY_AVAILABLE:
+                gpu_name = _COLOR_EXTRACTOR.gpu_name
+                if gpu_name:
+                    backend_msg = f"GPU ({gpu_name})"
+                else:
+                    backend_msg = "GPU (CUDA)"
+            else:
+                backend_msg = "CPU (CuPy not available)"
             print(
-                f"UGT CuPy Color Extractor initialized - {backend_msg}{suffix}"
+                f"UGT CuPy Color Extractor initialized - {backend_msg}"
             )
     return _COLOR_EXTRACTOR
 
