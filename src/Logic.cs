@@ -223,13 +223,12 @@ namespace UGTLive
                     _hasShownConnectionErrorMessage = true;
                     string serverUrl = $"localhost:{SocketManager.Instance.GetPort()}";
                     
-                    string message = $"Connection Error: AI server not running at {serverUrl}\n\n" +
+                    string message = $"Connection Error: UGTLive AI backend server not running at {serverUrl}\n\n" +
                                      "To fix this problem:\n\n" +
                                      "1. Navigate to the 'app/webserver' folder in your UGTLive installation\n" +
                                      "2. Run \"SetupServerCondaEnv.bat\" (only need to do this once during initial setup)\n" +
-                                     "3. Run \"RunServer.bat\" to start the EasyOCR server\n\n" +
-                                     "The server window should remain open while using UGTLive with EasyOCR.\n\n" +
-                                     "Alternatively, you can switch to Windows OCR in the settings (no server needed).";
+                                     "3. Run \"RunServer.bat\" to start the backend server, this handles the local GPU AI stuff.\n\n" +
+                                     "The server window should remain open while using UGTLive.\n\n";
                     
                     MessageBoxResult result = MessageBox.Show(message + "\n\nStart server using RunServer.bat?", 
                                               "Server Connection Error", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
