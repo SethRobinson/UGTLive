@@ -169,6 +169,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         
         # Prepare the results
         ocr_results = []
+        
+        # Track color detection timing
+        total_color_time_ms = 0.0
+        color_detection_count = 0
+        
         if result and len(result) > 0:
             for detection in result:
                 # EasyOCR format: [[[x1,y1],[x2,y2],[x3,y3],[x4,y4]], text, confidence]
@@ -195,7 +200,13 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 text = detection[1]
                 confidence = float(detection[2])
                 
+                # Time color detection
+                color_start_time = time.perf_counter()
                 color_info = extract_foreground_background_colors(color_image, box_native)
+                color_time_ms = (time.perf_counter() - color_start_time) * 1000
+                if color_info:
+                    total_color_time_ms += color_time_ms
+                    color_detection_count += 1
                 if char_level and len(text) > 1:
                     # Estimate character positions - EasyOCR doesn't natively provide char-level boxes
                     char_results = split_into_characters(text, box_native, confidence)
@@ -213,6 +224,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                     }
                     attach_color_info(result_entry, color_info)
                     ocr_results.append(result_entry)
+        
+        # Print color detection summary
+        if color_detection_count > 0:
+            total_color_time_sec = total_color_time_ms / 1000.0
+            print(f"MareArts XColor VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
         
         return {
             "status": "success",

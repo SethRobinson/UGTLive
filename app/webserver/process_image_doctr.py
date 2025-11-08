@@ -58,7 +58,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
     
     Args:
         image_path (str): Path to the image to process.
-        lang (str): Language to use for OCR (docTR models are multilingual).
+        lang (str): Language hint (currently not used by docTR - the crnn_mobilenet_v3_large 
+                   model is multilingual and automatically supports Japanese, English, and other 
+                   languages without explicit language specification).
         font_path (str): Path to font file (not used by docTR).
         preprocess_images (bool): Flag to determine whether to preprocess the image (not used).
         upscale_if_needed (bool): Flag to determine whether to upscale the image (not used).
@@ -66,6 +68,12 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
     
     Returns:
         dict: JSON-serializable dictionary with OCR results.
+    
+    Note:
+        docTR's default crnn_mobilenet_v3_large recognition model is multilingual and supports
+        Japanese automatically. No special language mode configuration is needed (unlike EasyOCR
+        which requires language specification). The lang parameter is accepted for API consistency
+        but does not affect docTR's behavior.
     """
     # Check if image exists
     if not os.path.exists(image_path):
@@ -99,6 +107,10 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         exported_data = result_doc.export()
         
         ocr_results = []
+        
+        # Track color detection timing
+        total_color_time_ms = 0.0
+        color_detection_count = 0
         
         # docTR export format: pages -> blocks -> lines -> words
         # Use line-level geometry to create separate blocks for each text blob
@@ -178,7 +190,12 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                             continue
                         
                         # Extract color information for the line
+                        color_start_time = time.perf_counter()
                         color_info = extract_foreground_background_colors(color_image, box_native)
+                        color_time_ms = (time.perf_counter() - color_start_time) * 1000
+                        if color_info:
+                            total_color_time_ms += color_time_ms
+                            color_detection_count += 1
                         
                         # Return line-level block - each line is a separate text blob
                         result_entry = {
@@ -190,6 +207,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                         }
                         attach_color_info(result_entry, color_info)
                         ocr_results.append(result_entry)
+        
+        # Print color detection summary
+        if color_detection_count > 0:
+            total_color_time_sec = total_color_time_ms / 1000.0
+            print(f"MareArts XColor VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
         
         print(f"docTR completed: {len(ocr_results)} results in {processing_time:.2f}s")
         

@@ -92,7 +92,6 @@ def handle_client_connection(conn, addr):
                 # First send the size of the response
                 response_size = len(response)
                 size_header = str(response_size).encode('utf-8') + b'\r\n'
-                logger.info(f"Sending response size: {response_size}")
                 
                 # Clear socket buffers before sending
                 conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -104,7 +103,6 @@ def handle_client_connection(conn, addr):
                 time.sleep(0.01)
                 
                 # Then send the actual response
-                logger.info(f"Sending response with actual length: {len(response)}")
                 conn.sendall(response)
                 
                 # Calculate time taken and log it

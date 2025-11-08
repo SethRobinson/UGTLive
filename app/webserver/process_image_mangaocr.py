@@ -161,6 +161,10 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Step 3: Process each detected region with Manga OCR
         ocr_results = []
         
+        # Track color detection timing
+        total_color_time_ms = 0.0
+        color_detection_count = 0
+        
         for idx, detection in enumerate(detections):
             # Get the bounding box and polygon
             bbox = detection.get("bbox")
@@ -226,7 +230,13 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                     [float(x_min), float(y_max)]
                 ]
 
+            # Time color detection
+            color_start_time = time.perf_counter()
             color_info = extract_foreground_background_colors(color_image, box_native)
+            color_time_ms = (time.perf_counter() - color_start_time) * 1000
+            if color_info:
+                total_color_time_ms += color_time_ms
+                color_detection_count += 1
             
             # Split into characters if requested
             if char_level and len(text) > 1:
@@ -247,6 +257,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         
         # Calculate processing time
         processing_time = time.time() - start_time
+        
+        # Print color detection summary
+        if color_detection_count > 0:
+            total_color_time_sec = total_color_time_ms / 1000.0
+            print(f"MareArts XColor VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
         
         print(f"Manga OCR completed: {len(ocr_results)} results in {processing_time:.2f}s")
         if debug_output_path:
