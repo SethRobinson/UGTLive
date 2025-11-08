@@ -147,7 +147,7 @@ echo Initializing Manga OCR (downloads model on first use)...
 python -c "from manga_ocr import MangaOcr; MangaOcr()" || goto :FailWarmManga
 
 echo Initializing docTR (downloads models on first use)...
-python -c "from doctr.models import ocr_predictor; ocr_predictor(det_arch='db_resnet50', reco_arch='crnn_mobilenet_v3_large', pretrained=True)" || goto :FailWarmDocTR
+python -c "from doctr.models import ocr_predictor; ocr_predictor(det_arch='db_resnet50', reco_arch='master', pretrained=True)" || goto :FailWarmDocTR
 
 REM -----------------------------------------------------------------
 REM Download Manga109 YOLO model + labels

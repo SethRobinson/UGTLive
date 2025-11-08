@@ -17,35 +17,104 @@ DOCTR_PREDICTOR = None
 def initialize_doctr():
     """
     Initialize or return the existing docTR OCR predictor.
-    Uses db_resnet50 for text detection and crnn_mobilenet_v3_large for text recognition.
+    Uses db_resnet50 for text detection and master for text recognition.
+    
+    Note: docTR does NOT support Japanese text recognition. For Japanese OCR, use EasyOCR
+    (with lang='japan') or MangaOCR instead.
+    
+    Automatically downloads missing models on first use.
+    Explicitly configures GPU usage and verifies it's working.
     
     Returns:
         OCRPredictor: Initialized docTR predictor
+        
+    Raises:
+        Exception: If model initialization or download fails
     """
     global DOCTR_PREDICTOR
 
     if DOCTR_PREDICTOR is None:
-        # Check for GPU availability using PyTorch
-        if torch.cuda.is_available():
+        # Determine device (GPU or CPU)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
+        if device == 'cuda':
             device_name = torch.cuda.get_device_name(0)
-            print(f"GPU is available: {device_name}. Using GPU for docTR.")
+            print(f"GPU is available: {device_name}. Configuring docTR to use GPU.")
         else:
             print("GPU is not available. docTR will use CPU.")
 
-        print(f"Initializing docTR OCR predictor...")
+        print(f"Initializing docTR OCR predictor with master recognition model...")
+        print("Note: Missing models will be automatically downloaded on first use.")
+        print("WARNING: docTR does NOT support Japanese text. Use EasyOCR or MangaOCR for Japanese.")
         start_time = time.time()
 
-        # Import and initialize docTR
-        from doctr.models import ocr_predictor
-        
-        DOCTR_PREDICTOR = ocr_predictor(
-            det_arch='db_resnet50',
-            reco_arch='crnn_mobilenet_v3_large',
-            pretrained=True
-        )
-        
-        initialization_time = time.time() - start_time
-        print(f"docTR initialization completed in {initialization_time:.2f} seconds")
+        try:
+            # Import and initialize docTR
+            from doctr.models import ocr_predictor
+            
+            # Use master model for better English recognition
+            # Explicitly set device parameter to ensure GPU is used
+            # pretrained=True will automatically download models if they don't exist
+            print(f"Checking for docTR models (db_resnet50 detection, master recognition) on {device}...")
+            DOCTR_PREDICTOR = ocr_predictor(
+                det_arch='db_resnet50',
+                reco_arch='master',
+                pretrained=True,
+                assume_straight_pages=True
+            )
+            
+            # Verify GPU usage by checking model device
+            try:
+                if device == 'cuda':
+                    # Check detection model device
+                    det_model = DOCTR_PREDICTOR.det_predictor.model
+                    reco_model = DOCTR_PREDICTOR.reco_predictor.model
+                    
+                    # Get device of first parameter (all parameters should be on same device)
+                    det_device = next(det_model.parameters()).device
+                    reco_device = next(reco_model.parameters()).device
+                    
+                    print(f"Detection model device: {det_device}")
+                    print(f"Recognition model device: {reco_device}")
+                    
+                    if str(det_device) == 'cpu' or str(reco_device) == 'cpu':
+                        print(f"WARNING: Models are on CPU instead of GPU!")
+                        print(f"Attempting to move models to GPU...")
+                        det_model.to('cuda')
+                        reco_model.to('cuda')
+                        # Verify again
+                        det_device = next(det_model.parameters()).device
+                        reco_device = next(reco_model.parameters()).device
+                        print(f"After move - Detection model device: {det_device}")
+                        print(f"After move - Recognition model device: {reco_device}")
+                    else:
+                        print(f"✓ Verified: Both models are on GPU ({device_name})")
+                else:
+                    print(f"Using CPU (GPU not available)")
+            except Exception as e:
+                print(f"Warning: Could not verify GPU usage: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            initialization_time = time.time() - start_time
+            print(f"docTR initialization completed in {initialization_time:.2f} seconds")
+            
+        except Exception as e:
+            error_msg = str(e)
+            initialization_time = time.time() - start_time
+            
+            # Check if it's a model download/network error
+            if 'download' in error_msg.lower() or 'network' in error_msg.lower() or 'connection' in error_msg.lower():
+                print(f"ERROR: Failed to download docTR models after {initialization_time:.2f} seconds")
+                print(f"Error details: {error_msg}")
+                print("Please check your internet connection and try again.")
+                print("Models will be downloaded automatically on next attempt.")
+            else:
+                print(f"ERROR: Failed to initialize docTR after {initialization_time:.2f} seconds")
+                print(f"Error details: {error_msg}")
+            
+            # Re-raise the exception so the caller can handle it
+            raise
     else:
         print(f"Using existing docTR predictor")
 
@@ -58,9 +127,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
     
     Args:
         image_path (str): Path to the image to process.
-        lang (str): Language hint (currently not used by docTR - the crnn_mobilenet_v3_large 
-                   model is multilingual and automatically supports Japanese, English, and other 
-                   languages without explicit language specification).
+        lang (str): Language hint (currently not used by docTR - docTR models do not support
+                   explicit language configuration. The master model provides better English recognition
+                   but does NOT support Japanese).
         font_path (str): Path to font file (not used by docTR).
         preprocess_images (bool): Flag to determine whether to preprocess the image (not used).
         upscale_if_needed (bool): Flag to determine whether to upscale the image (not used).
@@ -70,10 +139,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         dict: JSON-serializable dictionary with OCR results.
     
     Note:
-        docTR's default crnn_mobilenet_v3_large recognition model is multilingual and supports
-        Japanese automatically. No special language mode configuration is needed (unlike EasyOCR
-        which requires language specification). The lang parameter is accepted for API consistency
-        but does not affect docTR's behavior.
+        docTR does NOT support Japanese text recognition. For Japanese OCR, use EasyOCR
+        (with lang='japan') or MangaOCR instead. The lang parameter is accepted for API
+        consistency but does not affect docTR's behavior.
     """
     # Check if image exists
     if not os.path.exists(image_path):
@@ -89,8 +157,17 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Store original size for coordinate conversion
         original_width, original_height = color_image.size
         
-        # Initialize docTR predictor
-        predictor = initialize_doctr()
+        # Initialize docTR predictor (will download models if missing)
+        try:
+            predictor = initialize_doctr()
+        except Exception as e:
+            error_msg = str(e)
+            return {
+                "status": "error",
+                "message": f"Failed to initialize docTR: {error_msg}. "
+                          f"Models will be downloaded automatically on first use. "
+                          f"If this error persists, check your internet connection."
+            }
         
         # Convert PIL Image to numpy array for docTR
         img_array = np.array(color_image)
