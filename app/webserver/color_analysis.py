@@ -11,8 +11,13 @@ from PIL import Image, ImageDraw
 
 try:
     from marearts_xcolor import ColorExtractor  # type: ignore
+    try:
+        from marearts_xcolor.gpu_utils import get_gpu_info  # type: ignore
+    except ImportError:
+        get_gpu_info = None  # type: ignore
 except ImportError:  # pragma: no cover - handled gracefully at runtime
     ColorExtractor = None  # type: ignore
+    get_gpu_info = None  # type: ignore
 
 
 _COLOR_EXTRACTOR_LOCK = threading.Lock()
@@ -34,11 +39,88 @@ def _get_color_extractor() -> Optional["ColorExtractor"]:
                 "lab_space": True,
                 "preprocessing": False,
             }
+            
+            # Check GPU info before initialization
+            gpu_device = None
+            cupy_available = False
+            
+            # First try marearts_xcolor's gpu_utils
+            if get_gpu_info is not None:
+                try:
+                    gpu_info = get_gpu_info()
+                    if gpu_info and isinstance(gpu_info, dict):
+                        gpu_device = gpu_info.get("device_name") or gpu_info.get("name")
+                except Exception:
+                    pass
+            
+            # Try PyTorch to get GPU name (commonly available in this codebase)
+            if gpu_device is None:
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        gpu_device = torch.cuda.get_device_name(0)
+                except ImportError:
+                    pass
+                except Exception:
+                    pass
+            
+            # Check if CuPy is available (required for GPU acceleration)
+            try:
+                import cupy as cp  # type: ignore
+                cupy_available = True
+                if gpu_device is None:
+                    try:
+                        # Try to get GPU device name from CuPy
+                        device = cp.cuda.Device(0)
+                        device.use()
+                        # CuPy doesn't directly expose device name, but we can check if it's working
+                        gpu_device = "CUDA Device (via CuPy)"
+                    except Exception:
+                        gpu_device = "CUDA Device"
+            except ImportError:
+                cupy_available = False
+            
             try:
                 _COLOR_EXTRACTOR = ColorExtractor(use_gpu="auto", **kwargs)  # type: ignore[arg-type]
+                
+                # Try to detect if GPU is actually being used
+                is_using_gpu = False
+                gpu_status_msg = "CPU"
+                
+                # Check various ways the ColorExtractor might indicate GPU usage
+                if hasattr(_COLOR_EXTRACTOR, 'device'):
+                    device = getattr(_COLOR_EXTRACTOR, 'device', None)
+                    if device and ('cuda' in str(device).lower() or 'gpu' in str(device).lower()):
+                        is_using_gpu = True
+                        gpu_status_msg = f"GPU ({gpu_device or 'CUDA'})"
+                elif hasattr(_COLOR_EXTRACTOR, '_device'):
+                    device = getattr(_COLOR_EXTRACTOR, '_device', None)
+                    if device and ('cuda' in str(device).lower() or 'gpu' in str(device).lower()):
+                        is_using_gpu = True
+                        gpu_status_msg = f"GPU ({gpu_device or 'CUDA'})"
+                elif hasattr(_COLOR_EXTRACTOR, 'use_gpu'):
+                    if getattr(_COLOR_EXTRACTOR, 'use_gpu', False):
+                        is_using_gpu = True
+                        gpu_status_msg = f"GPU ({gpu_device or 'CUDA'})"
+                elif cupy_available and gpu_device:
+                    # CuPy is available, so GPU acceleration is likely enabled
+                    gpu_status_msg = f"GPU ({gpu_device})"
+                    is_using_gpu = True
+                elif gpu_device:
+                    # GPU detected but CuPy not available - likely CPU fallback
+                    gpu_status_msg = f"CPU (GPU {gpu_device} available but CuPy not installed)"
+                else:
+                    gpu_status_msg = "CPU"
+                
+                print(f"MareArts XColor initialized - Using {gpu_status_msg} for color extraction")
+                
             except TypeError:
                 # Older releases (<0.0.8) do not accept use_gpu; fall back quietly.
                 _COLOR_EXTRACTOR = ColorExtractor(**kwargs)
+                if gpu_device:
+                    print(f"MareArts XColor initialized (old version) - GPU status unknown, GPU available: {gpu_device}")
+                else:
+                    print("MareArts XColor initialized (old version) - Using CPU (GPU status unknown)")
     return _COLOR_EXTRACTOR
 
 
