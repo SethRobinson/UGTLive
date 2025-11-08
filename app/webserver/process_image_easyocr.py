@@ -228,7 +228,7 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Print color detection summary
         if color_detection_count > 0:
             total_color_time_sec = total_color_time_ms / 1000.0
-            print(f"MareArts XColor VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
+            print(f"UGT CuPy Color VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
         
         return {
             "status": "success",

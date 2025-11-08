@@ -131,8 +131,8 @@ echo Installing CRAFT Text Detector (with compatible dependencies)...
 python -m pip install scikit-image gdown || goto :FailInstallCRAFT
 python -m pip install craft-text-detector --no-deps || goto :FailInstallCRAFT
 
-echo Installing MareArts XColor with GPU support...
-python -m pip install "marearts-xcolor[gpu]" !CUPY_PACKAGE! || goto :FailInstallXColor
+echo Installing CuPy for GPU color extraction...
+python -m pip install !CUPY_PACKAGE! || goto :FailInstallCuPy
 
 echo Installing Ultralytics YOLO + FastAPI helpers...
 python -m pip install "ultralytics==8.2.100" fastapi "uvicorn[standard]" python-multipart || goto :FailInstallUltralytics
@@ -278,8 +278,8 @@ echo ERROR: Failed to install CRAFT Text Detector!
 pause
 exit /b 1
 
-:FailInstallXColor
-echo ERROR: Failed to install MareArts XColor with GPU support!
+:FailInstallCuPy
+echo ERROR: Failed to install CuPy for GPU color extraction!
 pause
 exit /b 1
 
