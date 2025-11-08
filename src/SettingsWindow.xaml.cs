@@ -382,6 +382,9 @@ namespace UGTLive
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
             
+            // Set glue docTR lines setting
+            glueDoctrLinesCheckBox.IsChecked = ConfigManager.Instance.GetGlueDocTRLinesEnabled();
+            
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
@@ -779,6 +782,24 @@ namespace UGTLive
             bool isEnabled = leaveTranslationOnscreenCheckBox.IsChecked ?? false;
             ConfigManager.Instance.SetLeaveTranslationOnscreenEnabled(isEnabled);
             Console.WriteLine($"Leave translation onscreen enabled: {isEnabled}");
+        }
+        
+        // Glue docTR lines checkbox changed
+        private void GlueDoctrLinesCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool enabled = glueDoctrLinesCheckBox.IsChecked ?? true;
+            ConfigManager.Instance.SetGlueDocTRLinesEnabled(enabled);
+            Console.WriteLine($"Glue docTR lines enabled: {enabled}");
+            
+            // Force refresh to apply immediately
+            Logic.Instance.ResetHash();
+            Logic.Instance.ClearAllTextObjects();
+            MainWindow.Instance.SetOCRCheckIsWanted(true);
+            MonitorWindow.Instance.RefreshOverlays();
         }
 
         // Monitor Window Override Color handlers

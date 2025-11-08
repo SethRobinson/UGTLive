@@ -123,6 +123,9 @@ namespace UGTLive
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
         public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
         public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
+        
+        // docTR-specific glue toggle
+        public const string GLUE_DOCTR_LINES = "glue_doctr_lines";
 
         // Font Settings for Source and Target Languages
         public const string SOURCE_LANGUAGE_FONT_FAMILY = "source_language_font_family";
@@ -330,6 +333,9 @@ namespace UGTLive
             // Text Area Size Expansion defaults
             _configValues[MONITOR_TEXT_AREA_EXPANSION_WIDTH] = "6";
             _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = "2";
+            
+            // Glue docTR lines into paragraphs by default
+            _configValues[GLUE_DOCTR_LINES] = "true";
             
             // Save the default configuration
             SaveConfig();
@@ -1384,6 +1390,19 @@ namespace UGTLive
                 SaveConfig();
                 Console.WriteLine($"Block detection max settle time set to: {seconds:F2} seconds");
             }
+        }
+        
+        // Get/Set: Glue docTR lines into paragraphs
+        public bool GetGlueDocTRLinesEnabled()
+        {
+            return GetBoolValue(GLUE_DOCTR_LINES, true);
+        }
+        
+        public void SetGlueDocTRLinesEnabled(bool enabled)
+        {
+            _configValues[GLUE_DOCTR_LINES] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Glue docTR lines into paragraphs: {enabled}");
         }
 
         // Get all ignore phrases as a list of tuples (phrase, exactMatch)

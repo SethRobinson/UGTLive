@@ -139,7 +139,64 @@ namespace UGTLive
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 Console.WriteLine($"Filtered out {lowConfidenceLineCount} lines with confidence < {minLineConfidence}");
                 
-                // PHASE 4: Group lines into paragraphs
+                // If there are NO character-level elements but we do have non-character items
+                // (e.g., docTR returns line-level rectangles), treat those non-character items
+                // as lines and glue them into paragraphs.
+                if (characters.Count == 0 && nonCharacters.Count > 0
+                    && ConfigManager.Instance.GetGlueDocTRLinesEnabled())
+                {
+                    Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    
+                    // Map non-character elements into line elements
+                    var fallbackLines = new List<TextElement>();
+                    foreach (var nc in nonCharacters)
+                    {
+                        // Skip empty text just in case
+                        if (string.IsNullOrWhiteSpace(nc.Text))
+                        {
+                            continue;
+                        }
+                        
+                        // Construct a line element from the non-character item
+                        var lineFromNonChar = new TextElement
+                        {
+                            ElementType = ElementType.Line,
+                            Bounds = nc.Bounds.Clone(),
+                            Text = nc.Text,
+                            Confidence = nc.Confidence,
+                            TextOrientation = string.IsNullOrEmpty(nc.TextOrientation) ? "horizontal" : nc.TextOrientation,
+                            OriginalItem = nc.OriginalItem,
+                            Children = new List<TextElement>()
+                        };
+                        
+                        fallbackLines.Add(lineFromNonChar);
+                    }
+                    
+                    // Apply minimum line confidence filter
+                    fallbackLines = fallbackLines.Where(l => l.Confidence >= minLineConfidence).ToList();
+                    
+                    // Group lines into vertical columns by horizontal overlap before paragraph gluing,
+                    // so we don't interleave separate speech bubbles/columns.
+                    var columnGroups = GroupLinesIntoColumnsByHorizontalOverlap(fallbackLines);
+                    Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    
+                    // PHASE 4 (fallback): For each column, group lines into paragraphs
+                    var gluedParagraphs = new List<TextElement>();
+                    foreach (var group in columnGroups)
+                    {
+                        // Be more permissive when starting from pre-made lines (docTR); increase block power.
+                        var groupParagraphs = GroupLinesIntoParagraphs(group.OrderBy(l => l.Bounds.Y).ToList(), Math.Max(blockPower * 2.5, blockPower + 1.0));
+                        gluedParagraphs.AddRange(groupParagraphs);
+                    }
+                    
+                    Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    
+                    // Return ONLY the glued paragraphs; do not append original non-character items
+                    // to avoid duplicate overlays.
+                    return CreateJsonOutput(gluedParagraphs, new List<TextElement>());
+                }
+                
+                // PHASE 4 (normal): Group lines into paragraphs
                 var paragraphs = GroupLinesIntoParagraphs(lines, blockPower);
                 //Console.WriteLine($"Grouped lines into {paragraphs.Count} paragraphs");
                 
@@ -562,6 +619,18 @@ namespace UGTLive
                     // Get the last line in the paragraph to properly calculate gaps
                     var lastLine = currentParagraph.Children.Last();
                     
+                    // Calculate horizontal overlap ratio to ensure lines belong to the same column/bubble
+                    double lastLeft = lastLine.Bounds.X;
+                    double lastRight = lastLine.Bounds.X + lastLine.Bounds.Width;
+                    double currLeft = line.Bounds.X;
+                    double currRight = line.Bounds.X + line.Bounds.Width;
+                    double overlapWidth = Math.Max(0, Math.Min(lastRight, currRight) - Math.Max(lastLeft, currLeft));
+                    double minWidth = Math.Max(1.0, Math.Min(lastLine.Bounds.Width, line.Bounds.Width));
+                    double horizontalOverlapRatio = overlapWidth / minWidth;
+                    
+                    // Require a minimum horizontal overlap so we don't glue distant columns/bubbles
+                    double minHorizontalOverlapRequired = 0.35; // 35% of the narrower width must overlap
+                    
                     // Calculate vertical distance between line centers instead of using bounding boxes
                     // This handles overlapping character descenders/ascenders better
                     double lastLineCenterY = lastLine.Bounds.Y + (lastLine.Bounds.Height * 0.5);
@@ -578,17 +647,44 @@ namespace UGTLive
                     // Log for debugging
                     //Console.WriteLine($"Line vertical gap (adjusted): {verticalGap:F1}px, Center distance: {centerDistance:F1}px, Normal spacing: {normalLineSpacing:F1}px, Threshold: {lineVerticalGapThreshold:F1}px");
                     
+                    // First, if columns don't horizontally overlap enough, split paragraphs
+                    if (horizontalOverlapRatio < minHorizontalOverlapRequired)
+                    {
+                        startNewParagraph = true;
+                        //Console.WriteLine($"New paragraph: insufficient horizontal overlap ({horizontalOverlapRatio:F2})");
+                    }
+                    
                     // Large center distance indicates paragraph break
-                    if (centerDistance > (averageHeight * 1.5) + paragraphBreakThreshold)
+                    // Make the spacing multiplier adaptive to block power so higher block power is more permissive
+                    double spacingMultiplierForBreak = 1.2 + Math.Min(0.8, Math.Max(0.0, (blockPower - 1.0) * 0.1));
+                    
+                    // If these lines look like fallback docTR lines (no word children) and overlap well horizontally,
+                    // be more tolerant to vertical spacing to better join multi-line bubbles.
+                    bool isDocTrFallbackLike = (lastLine.Children == null || lastLine.Children.Count == 0) &&
+                                               (line.Children == null || line.Children.Count == 0);
+                    if (isDocTrFallbackLike && horizontalOverlapRatio >= 0.6)
+                    {
+                        spacingMultiplierForBreak += 0.35;
+                    }
+                    
+                    if (centerDistance > (averageHeight * spacingMultiplierForBreak) + paragraphBreakThreshold)
                     {
                         startNewParagraph = true;
                         Console.WriteLine("New paragraph: Large gap detected");
                     }
                     // Moderate gap more than normal line spacing threshold indicates line break
-                    else if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * 1.2))
+                    else
+                    {
+                        double spacingMultiplierForLine = 1.1 + Math.Min(0.6, Math.Max(0.0, (blockPower - 1.0) * 0.08));
+                        if (isDocTrFallbackLike && horizontalOverlapRatio >= 0.6)
+                        {
+                            spacingMultiplierForLine += 0.25;
+                        }
+                        if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * spacingMultiplierForLine))
                     {
                         startNewParagraph = true;
                         //Console.WriteLine("New paragraph: Line spacing exceeded threshold");
+                    }
                     }
                     
                     // Check indentation - significant indent may indicate new paragraph
@@ -686,6 +782,63 @@ namespace UGTLive
         #endregion
         
         #region Json Output Creation
+        
+        /// <summary>
+        /// Group docTR fallback lines into columns by horizontal overlap.
+        /// Lines are assigned to the first column where the horizontal overlap ratio
+        /// (overlap / min(lineWidth, columnWidth)) exceeds a threshold.
+        /// </summary>
+        private List<List<TextElement>> GroupLinesIntoColumnsByHorizontalOverlap(List<TextElement> lines)
+        {
+            var groups = new List<List<TextElement>>();
+            var groupBounds = new List<Rect>();
+            
+            // Sort by horizontal center for stable grouping
+            var sorted = lines.OrderBy(l => l.Bounds.X + (l.Bounds.Width * 0.5)).ToList();
+            
+            const double requiredOverlapRatio = 0.35; // 35% of the narrower width must overlap
+            
+            foreach (var line in sorted)
+            {
+                bool assigned = false;
+                double lineLeft = line.Bounds.X;
+                double lineRight = line.Bounds.X + line.Bounds.Width;
+                
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    var gb = groupBounds[i];
+                    double gbLeft = gb.X;
+                    double gbRight = gb.X + gb.Width;
+                    
+                    double overlap = Math.Max(0, Math.Min(lineRight, gbRight) - Math.Max(lineLeft, gbLeft));
+                    double minWidth = Math.Max(1.0, Math.Min(line.Bounds.Width, gb.Width));
+                    double ratio = overlap / minWidth;
+                    
+                    if (ratio >= requiredOverlapRatio)
+                    {
+                        groups[i].Add(line);
+                        
+                        // Update group bounds to include this line
+                        double newLeft = Math.Min(gbLeft, lineLeft);
+                        double newRight = Math.Max(gbRight, lineRight);
+                        double newTop = Math.Min(gb.Y, line.Bounds.Y);
+                        double newBottom = Math.Max(gb.Y + gb.Height, line.Bounds.Y + line.Bounds.Height);
+                        groupBounds[i] = new Rect(newLeft, newTop, newRight - newLeft, newBottom - newTop);
+                        
+                        assigned = true;
+                        break;
+                    }
+                }
+                
+                if (!assigned)
+                {
+                    groups.Add(new List<TextElement> { line });
+                    groupBounds.Add(line.Bounds.Clone());
+                }
+            }
+            
+            return groups;
+        }
         
         /// <summary>
         /// Write an averaged color to JSON, weighted by confidence
@@ -913,6 +1066,27 @@ namespace UGTLive
                                         {
                                             backgroundColors.Add((bgColor, character.Confidence));
                                         }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Fallback color aggregation: if no character-level colors were found
+                        // (e.g., when gluing non-character docTR lines), try to aggregate
+                        // directly from each child line's OriginalItem color properties.
+                        if (foregroundColors.Count == 0 || backgroundColors.Count == 0)
+                        {
+                            foreach (var line in paragraph.Children)
+                            {
+                                if (line.OriginalItem.ValueKind != JsonValueKind.Undefined)
+                                {
+                                    if (foregroundColors.Count == 0 && line.OriginalItem.TryGetProperty("foreground_color", out JsonElement lineFg))
+                                    {
+                                        foregroundColors.Add((lineFg, line.Confidence));
+                                    }
+                                    if (backgroundColors.Count == 0 && line.OriginalItem.TryGetProperty("background_color", out JsonElement lineBg))
+                                    {
+                                        backgroundColors.Add((lineBg, line.Confidence));
                                     }
                                 }
                             }
