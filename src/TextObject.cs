@@ -406,13 +406,10 @@ namespace UGTLive
                 builder.AppendLine("#content {");
                 builder.AppendLine("  writing-mode: horizontal-tb;");
                 builder.AppendLine("  white-space: normal;");
-                builder.AppendLine("  text-align: center;");
-                builder.AppendLine("  position: absolute;");
-                builder.AppendLine("  top: 50%;");
-                builder.AppendLine("  left: 0;");
-                builder.AppendLine("  transform: translateY(-50%);");
+                builder.AppendLine("  text-align: left;");
+                builder.AppendLine("  position: relative;");
                 builder.AppendLine("  width: 100%;");
-                builder.AppendLine("  max-height: 100%;");
+                builder.AppendLine("  height: 100%;");
                 builder.AppendLine("  overflow-wrap: break-word;");
             }
 

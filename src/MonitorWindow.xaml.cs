@@ -921,7 +921,8 @@ namespace UGTLive
                 html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
                 html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
                 html.AppendLine($"  font-size: {fontSize}px;");
-                html.AppendLine($"  padding: 10px;");
+                html.AppendLine($"  padding: 0;");
+                html.AppendLine($"  margin: 0;");
                 html.AppendLine($"  line-height: 1.2;");
                 
                 // Add vertical text support
