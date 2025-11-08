@@ -61,6 +61,7 @@ namespace UGTLive
         {
             "EasyOCR",
             "Manga OCR",
+            "docTR",
             "Windows OCR"
         };
 

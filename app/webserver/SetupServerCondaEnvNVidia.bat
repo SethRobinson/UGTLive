@@ -124,6 +124,9 @@ python -m pip install easyocr || goto :FailInstallEasyOCR
 echo Installing Manga OCR...
 python -m pip install manga-ocr || goto :FailInstallMangaOCR
 
+echo Installing docTR...
+python -m pip install python-doctr || goto :FailInstallDocTR
+
 echo Installing CRAFT Text Detector (with compatible dependencies)...
 python -m pip install scikit-image gdown || goto :FailInstallCRAFT
 python -m pip install craft-text-detector --no-deps || goto :FailInstallCRAFT
@@ -142,6 +145,9 @@ python -c "import easyocr; easyocr.Reader(['ja','en'])" || goto :FailWarmEasyOCR
 
 echo Initializing Manga OCR (downloads model on first use)...
 python -c "from manga_ocr import MangaOcr; MangaOcr()" || goto :FailWarmManga
+
+echo Initializing docTR (downloads models on first use)...
+python -c "from doctr.models import ocr_predictor; ocr_predictor(det_arch='db_resnet50', reco_arch='crnn_mobilenet_v3_large', pretrained=True)" || goto :FailWarmDocTR
 
 REM -----------------------------------------------------------------
 REM Download Manga109 YOLO model + labels
@@ -177,7 +183,7 @@ python -c "import ultralytics; print('Ultralytics version:', ultralytics.__versi
 echo.
 echo =============================================================
 echo   Setup complete!
-echo   The ocrstuff environment now includes EasyOCR, Manga OCR,
+echo   The ocrstuff environment now includes EasyOCR, Manga OCR, docTR,
 echo   Manga109 YOLO detection, and color extraction helpers.
 echo   Use RunServer.bat to start the OCR socket server.
 echo =============================================================
@@ -289,6 +295,16 @@ exit /b 1
 
 :FailWarmManga
 echo ERROR: Failed while initializing Manga OCR model!
+pause
+exit /b 1
+
+:FailInstallDocTR
+echo ERROR: Failed to install docTR!
+pause
+exit /b 1
+
+:FailWarmDocTR
+echo ERROR: Failed while initializing docTR models!
 pause
 exit /b 1
 

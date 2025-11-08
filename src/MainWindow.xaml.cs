@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -196,6 +196,10 @@ namespace UGTLive
                 {
                     SetStatus("Using Manga OCR");
                 }
+                else if (method == "docTR")
+                {
+                    SetStatus("Using docTR");
+                }
                 else
                 {
                     SetStatus("Using EasyOCR");
@@ -229,6 +233,38 @@ namespace UGTLive
                                 {
                                     // Only show an error message if explicitly requested by user action
                                     Console.WriteLine("Failed to connect to socket server - Manga OCR will not be available");
+                                }
+
+                                
+                            }
+                            catch (Exception ex) {
+                                Console.WriteLine($"Error reconnecting: {ex.Message}");
+                                
+                                // Show an error message
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
+                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                });
+                            }
+                        });
+                    }
+                }
+                else if (method == "docTR")
+                {
+                    SetStatus("Using docTR");
+                    
+                    // Ensure we're connected when switching to docTR
+                    if (!SocketManager.Instance.IsConnected)
+                    {
+                        Console.WriteLine("Socket not connected when switching to docTR");
+                        _ = Task.Run(async () => {
+                            try {
+                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
+                                
+                                if (!reconnected || !SocketManager.Instance.IsConnected)
+                                {
+                                    // Only show an error message if explicitly requested by user action
+                                    Console.WriteLine("Failed to connect to socket server - docTR will not be available");
                                 }
 
                                 
@@ -942,6 +978,19 @@ namespace UGTLive
                         else
                         {
                             SetStatus("Using Manga OCR");
+                        }
+                    }
+                    else if (ocrMethod == "docTR")
+                    {
+                        // Using docTR, try to connect to the socket server
+                        if (!SocketManager.Instance.IsConnected)
+                        {
+                            _ = SocketManager.Instance.TryReconnectAsync();
+                            SetStatus("Connecting to Python backend for docTR...");
+                        }
+                        else
+                        {
+                            SetStatus("Using docTR");
                         }
                     }
                     else

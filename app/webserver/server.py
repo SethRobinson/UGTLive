@@ -9,6 +9,8 @@ import time
 from process_image_easyocr import process_image as process_image_easyocr
 # Import Manga OCR implementation
 from process_image_mangaocr import process_image as process_image_mangaocr
+# Import docTR implementation
+from process_image_doctr import process_image as process_image_doctr
 
 # Configure logging
 logging.basicConfig(
@@ -71,6 +73,11 @@ def handle_client_connection(conn, addr):
                     logger.info(f"Using Manga OCR with language: {lang}, character-level: {char_level}")
                     # Process image with Manga OCR
                     result = process_image_mangaocr("image_to_process.png", lang=lang, char_level=char_level)
+                elif implementation == 'doctr' or implementation == 'doctr-ocr' or implementation == 'doctr_ocr':
+                    # Log the OCR engine being used
+                    logger.info(f"Using docTR with language: {lang}, character-level: {char_level}")
+                    # Process image with docTR
+                    result = process_image_doctr("image_to_process.png", lang=lang, char_level=char_level)
                 else:
                     # Default to EasyOCR
                     # Log the OCR engine and language being used

@@ -127,9 +127,9 @@ namespace UGTLive
                 // Load force cursor visible setting
                 // Force cursor visibility is now handled by MouseManager
                 
-                // Only connect to socket server if using EasyOCR or Manga OCR
+                // Only connect to socket server if using EasyOCR, Manga OCR, or docTR
                 string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-                if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR")
+                if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR")
                 {
                     await ConnectToSocketServerAsync();
                 }
@@ -195,9 +195,9 @@ namespace UGTLive
         // Reconnect timer tick event
         private async void ReconnectTimer_Tick(object? sender, EventArgs e)
         {
-            // Only try to reconnect if we're using EasyOCR or Manga OCR
+            // Only try to reconnect if we're using EasyOCR, Manga OCR, or docTR
             string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR")
+            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR" && ocrMethod != "docTR")
             {
                 _reconnectTimer.Stop();
                 _reconnectAttempts = 0;
@@ -275,9 +275,9 @@ namespace UGTLive
         // Socket connection changed event handler
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
         {
-            // If not connected and we're using EasyOCR or Manga OCR, start the reconnect timer
+            // If not connected and we're using EasyOCR, Manga OCR, or docTR, start the reconnect timer
             string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-            if (!isConnected && (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR"))
+            if (!isConnected && (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR"))
             {
                 Console.WriteLine("Connection status changed to disconnected. Starting reconnect timer.");
                 SocketManager.Instance._isConnected = false;
@@ -1434,6 +1434,10 @@ namespace UGTLive
                     if (ocrMethod == "Manga OCR")
                     {
                         implementation = "mangaocr";
+                    }
+                    else if (ocrMethod == "docTR")
+                    {
+                        implementation = "doctr";
                     }
                     
                     Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
