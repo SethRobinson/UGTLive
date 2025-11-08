@@ -348,11 +348,7 @@ namespace UGTLive
                                     // Cập nhật text object với bản dịch
                                     matchingTextObj.TextTranslated = translatedText;
 
-                                    // Check if we need to change orientation for the translated text
-                                    if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
-                                    {
-                                        matchingTextObj.TextOrientation = "horizontal";
-                                    }
+                                    // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with Google translation");
@@ -366,11 +362,7 @@ namespace UGTLive
                                         // Cập nhật theo index nếu ID khớp định dạng
                                         _textObjects[index].TextTranslated = translatedText;
 
-                                        // Check if we need to change orientation for the translated text
-                                        if (_textObjects[index].TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
-                                        {
-                                            _textObjects[index].TextOrientation = "horizontal";
-                                        }
+                                        // Don't modify the original text orientation - it should remain as detected by OCR
 
                                         _textObjects[index].UpdateUIElement();
                                          Console.WriteLine($"Updated text object at index {index} with Google translation");
@@ -1652,11 +1644,7 @@ namespace UGTLive
                                     // Update the corresponding text object
                                     matchingTextObj.TextTranslated = translatedText;
 
-                                    // Check if we need to change orientation for the translated text
-                                    if (matchingTextObj.TextOrientation == "vertical" && LanguageCanOnlyBeDrawnHorizontally(GetTargetLanguage()))
-                                    {
-                                        matchingTextObj.TextOrientation = "horizontal";
-                                    }
+                                    // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with translation");

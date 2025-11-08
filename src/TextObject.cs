@@ -142,7 +142,37 @@ namespace UGTLive
                 Border.Loaded += async (s, e) =>
                 {
                     await EnsureWebViewReadyAsync();
-                    await UpdateWebViewContentAsync();
+                    // Update with current overlay mode
+                    OverlayMode currentMode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
+                    
+                    string textToRender;
+                    bool isTranslated = false;
+                    string displayOrientation = TextOrientation;
+                    
+                    if (currentMode == OverlayMode.Source)
+                    {
+                        textToRender = Text;
+                    }
+                    else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+                    {
+                        textToRender = TextTranslated;
+                        isTranslated = true;
+                        // Check if target supports vertical
+                        if (TextOrientation == "vertical")
+                        {
+                            string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                            if (!IsVerticalSupportedLanguage(targetLang))
+                            {
+                                displayOrientation = "horizontal";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        textToRender = Text;
+                    }
+                    
+                    await UpdateWebViewContentAsync(textToRender, isTranslated, displayOrientation);
                 };
             }
             else if (TextBlock != null)
@@ -158,8 +188,17 @@ namespace UGTLive
         {
             WebView = null;
             
-            // Determine if we're showing source or target text
-            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
+            // Determine what text to show based on overlay mode
+            OverlayMode currentMode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
+            string textToShow = Text; // Default to source
+            bool isTranslated = false;
+            
+            if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+            {
+                textToShow = TextTranslated;
+                isTranslated = true;
+            }
+            
             string fontFamily = isTranslated 
                 ? ConfigManager.Instance.GetTargetLanguageFontFamily()
                 : ConfigManager.Instance.GetSourceLanguageFontFamily();
@@ -169,7 +208,7 @@ namespace UGTLive
             
             TextBlock = new TextBlock
             {
-                Text = Text,
+                Text = textToShow,
                 Foreground = TextColor,
                 FontWeight = fontWeight,
                 FontSize = DefaultFontSize,
@@ -294,7 +333,7 @@ namespace UGTLive
             }
         }
 
-        private async Task UpdateWebViewContentAsync()
+        private async Task UpdateWebViewContentAsync(string? textToRender = null, bool? isTranslated = null, string? overrideOrientation = null)
         {
             if (!_useWebViewOverlay || WebView == null)
             {
@@ -303,11 +342,36 @@ namespace UGTLive
 
             try
             {
-                string textToRender = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+                // Use provided text or default
+                if (string.IsNullOrEmpty(textToRender))
+                {
+                    textToRender = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+                }
+                
+                // Determine if translated for font selection
+                if (isTranslated == null)
+                {
+                    isTranslated = !string.IsNullOrEmpty(TextTranslated) && textToRender == TextTranslated;
+                }
+                
                 string normalized = NormalizeContent(textToRender);
                 string encoded = EncodeContentForHtml(normalized);
                 string textColorCss = BrushToCss(TextColor);
-                string html = BuildWebViewDocument(encoded, textColorCss, _currentFontSize);
+                
+                // Get appropriate font settings
+                string fontFamily = isTranslated.Value
+                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                bool isBold = isTranslated.Value
+                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                    : ConfigManager.Instance.GetSourceLanguageFontBold();
+                
+                // Use override orientation if provided, otherwise use current TextOrientation
+                string displayOrientation = !string.IsNullOrEmpty(overrideOrientation) 
+                    ? overrideOrientation 
+                    : TextOrientation;
+                
+                string html = BuildWebViewDocument(encoded, textColorCss, _currentFontSize, fontFamily, isBold, displayOrientation);
 
                 if (!_webViewInitialized || WebView.CoreWebView2 == null)
                 {
@@ -348,7 +412,7 @@ namespace UGTLive
             return System.Web.HttpUtility.HtmlEncode(normalized).Replace("\n", "<br/>");
         }
 
-        private string BuildWebViewDocument(string encodedContent, string textColorCss, double fontSize)
+        private string BuildWebViewDocument(string encodedContent, string textColorCss, double fontSize, string? fontFamily = null, bool? isBold = null, string? orientation = null)
         {
             if (string.IsNullOrWhiteSpace(encodedContent))
             {
@@ -356,6 +420,24 @@ namespace UGTLive
             }
 
             string fontSizeCss = fontSize.ToString(CultureInfo.InvariantCulture);
+            
+            // Use provided font settings or defaults
+            if (string.IsNullOrEmpty(fontFamily))
+            {
+                fontFamily = !string.IsNullOrEmpty(TextTranslated) 
+                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
+            }
+            
+            if (isBold == null)
+            {
+                isBold = !string.IsNullOrEmpty(TextTranslated)
+                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                    : ConfigManager.Instance.GetSourceLanguageFontBold();
+            }
+            
+            // Use provided orientation or default to current TextOrientation
+            string effectiveOrientation = orientation ?? TextOrientation;
 
             var builder = new StringBuilder();
             builder.AppendLine("<!DOCTYPE html>");
@@ -372,7 +454,7 @@ namespace UGTLive
             builder.AppendLine("  overflow: hidden;");
             builder.AppendLine($"  color: {textColorCss};");
             builder.AppendLine("}");
-            if (TextOrientation == "vertical")
+            if (effectiveOrientation == "vertical")
             {
                 builder.AppendLine("#container {");
                 builder.AppendLine("  position: relative;");
@@ -412,19 +494,10 @@ namespace UGTLive
                 builder.AppendLine("  height: 100%;");
                 builder.AppendLine("  overflow-wrap: break-word;");
             }
-
-            // Determine if we're showing source or target text
-            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
-            string fontFamily = isTranslated 
-                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
-                : ConfigManager.Instance.GetSourceLanguageFontFamily();
-            bool isBold = isTranslated
-                ? ConfigManager.Instance.GetTargetLanguageFontBold()
-                : ConfigManager.Instance.GetSourceLanguageFontBold();
             
             // Escape font family names for CSS (handle comma-separated lists)
-            string fontFamilyCss = string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""));
-            string fontWeightCss = isBold ? "bold" : "normal";
+            string fontFamilyCss = string.Join(", ", fontFamily!.Split(',').Select(f => $"\"{f.Trim()}\""));
+            string fontWeightCss = isBold!.Value ? "bold" : "normal";
             
             builder.AppendLine($"  font-family: {fontFamilyCss};");
             builder.AppendLine($"  font-weight: {fontWeightCss};");
@@ -450,16 +523,19 @@ namespace UGTLive
             builder.AppendLine("    const container = document.getElementById('container');");
             builder.AppendLine("    const content = document.getElementById('content');");
             builder.AppendLine("    if (!container || !content) { return; }");
-
+            builder.AppendLine("");
+            builder.AppendLine("    // Check if this is vertical text");
+            builder.AppendLine($"    const isVertical = {(effectiveOrientation == "vertical" ? "true" : "false")};");
+            builder.AppendLine("");
             builder.AppendLine("    const baseFont = parseFloat(content.dataset.baseFontSize || '24');");
             builder.AppendLine("    let minSize = Math.max(8, baseFont * 0.4);");
             builder.AppendLine("    let maxSize = Math.min(220, baseFont * 4);");
             builder.AppendLine("    let bestSize = minSize;");
             builder.AppendLine("    let foundFit = false;");
-
+            builder.AppendLine("");
             builder.AppendLine("    while (maxSize - minSize > 0.25) {");
             builder.AppendLine("        const testSize = (minSize + maxSize) / 2;");
-        builder.AppendLine("        content.style.fontSize = testSize + 'px';");
+            builder.AppendLine("        content.style.fontSize = testSize + 'px';");
             builder.AppendLine("        if (fits(container, content)) {");
             builder.AppendLine("            bestSize = testSize;");
             builder.AppendLine("            minSize = testSize;");
@@ -468,7 +544,7 @@ namespace UGTLive
             builder.AppendLine("            maxSize = testSize;");
             builder.AppendLine("        }");
             builder.AppendLine("    }");
-
+            builder.AppendLine("");
             builder.AppendLine("    if (!foundFit) {");
             builder.AppendLine("        content.style.fontSize = maxSize + 'px';");
             builder.AppendLine("    } else {");
@@ -513,17 +589,25 @@ namespace UGTLive
             builder.AppendLine("        return false;");
             builder.AppendLine("    }");
             builder.AppendLine("}, { passive: false, capture: true });");
+            builder.AppendLine("");
+            builder.AppendLine("// Call fitContent when the page loads");
+            builder.AppendLine("window.addEventListener('DOMContentLoaded', function() {");
+            builder.AppendLine("    setTimeout(fitContent, 10);");
+            builder.AppendLine("});");
+            builder.AppendLine("window.addEventListener('load', function() {");
+            builder.AppendLine("    setTimeout(fitContent, 50);");
+            builder.AppendLine("});");
             builder.AppendLine("</script>");
             builder.AppendLine("</head>");
-            builder.AppendLine("<body>");
-            builder.AppendLine($"<div id=\"container\"><div id=\"content\" data-base-font-size=\"{fontSizeCss}\">{encodedContent}</div></div>");
+            builder.AppendLine("<body onload=\"fitContent()\">");
+            builder.AppendLine($"<div id=\"container\"><div id=\"content\" data-base-font-size=\"{fontSizeCss}\" data-orientation=\"{effectiveOrientation}\">{encodedContent}</div></div>");
             builder.AppendLine("</body>");
             builder.AppendLine("</html>");
 
             return builder.ToString();
         }
 
-        private double CalculateWebViewFontSize(string text)
+        private double CalculateWebViewFontSize(string text, string? orientation = null)
         {
             try
             {
@@ -531,6 +615,9 @@ namespace UGTLive
                 {
                     return DefaultFontSize;
                 }
+
+                // Use provided orientation or fall back to TextOrientation
+                string effectiveOrientation = orientation ?? TextOrientation;
 
                 double availableWidth = Width > 0 ? Width : double.MaxValue;
                 double availableHeight = Height;
@@ -549,13 +636,16 @@ namespace UGTLive
                 }
 
                 double minSize = WebViewMinFontSize;
-                double maxSize = Math.Min(WebViewMaxFontSize, availableHeight);
+                // For vertical text, maxSize should be based on width, not height
+                double maxSize = effectiveOrientation == "vertical" 
+                    ? Math.Min(WebViewMaxFontSize, availableWidth)
+                    : Math.Min(WebViewMaxFontSize, availableHeight);
                 double bestSize = minSize;
 
                 for (int i = 0; i < 12; i++)
                 {
                     double testSize = (minSize + maxSize) / 2.0;
-                    if (DoesFontFit(testSize, normalized, availableWidth, availableHeight))
+                    if (DoesFontFit(testSize, normalized, availableWidth, availableHeight, effectiveOrientation))
                     {
                         bestSize = testSize;
                         minSize = testSize;
@@ -579,39 +669,82 @@ namespace UGTLive
             }
         }
 
-        private bool DoesFontFit(double fontSize, string normalizedText, double availableWidth, double availableHeight)
+        private bool DoesFontFit(double fontSize, string normalizedText, double availableWidth, double availableHeight, string? orientation = null)
         {
-            double charHeight = fontSize * WebViewLineHeightFactor;
-            if (charHeight <= 0)
+            // Use provided orientation or fall back to TextOrientation
+            string effectiveOrientation = orientation ?? TextOrientation;
+            bool isVertical = effectiveOrientation == "vertical";
+            
+            if (isVertical)
             {
-                return false;
-            }
+                // For vertical text, swap the logic - height becomes width and width becomes height
+                double charWidth = fontSize;
+                if (charWidth <= 0)
+                {
+                    return false;
+                }
 
-            int charsPerColumn = Math.Max(1, (int)Math.Floor(availableHeight / charHeight));
-            if (charsPerColumn <= 0)
+                int charsPerRow = Math.Max(1, (int)Math.Floor(availableWidth / charWidth));
+                if (charsPerRow <= 0)
+                {
+                    return false;
+                }
+
+                string[] segments = normalizedText.Split('\n');
+                int rowsNeeded = 0;
+
+                foreach (string segment in segments)
+                {
+                    int length = Math.Max(1, segment.Length);
+                    rowsNeeded += (int)Math.Ceiling(length / (double)charsPerRow);
+                }
+
+                if (rowsNeeded <= 0)
+                {
+                    rowsNeeded = 1;
+                }
+
+                double rowHeight = fontSize * WebViewLineHeightFactor;
+                double rowGap = fontSize * WebViewColumnGapFactor;
+                double totalHeight = rowsNeeded * rowHeight + (rowsNeeded - 1) * rowGap;
+
+                return totalHeight <= availableHeight;
+            }
+            else
             {
-                return false;
+                // Original horizontal text logic
+                double charHeight = fontSize * WebViewLineHeightFactor;
+                if (charHeight <= 0)
+                {
+                    return false;
+                }
+
+                int charsPerColumn = Math.Max(1, (int)Math.Floor(availableHeight / charHeight));
+                if (charsPerColumn <= 0)
+                {
+                    return false;
+                }
+
+                string[] segments = normalizedText.Split('\n');
+                int columnsNeeded = 0;
+
+                foreach (string segment in segments)
+                {
+                    int length = Math.Max(1, segment.Length);
+                    columnsNeeded += (int)Math.Ceiling(length / (double)charsPerColumn);
+                }
+
+                if (columnsNeeded <= 0)
+                {
+                    columnsNeeded = 1;
+                }
+
+                double columnWidth = fontSize;
+                double columnGap = fontSize * WebViewColumnGapFactor;
+                double totalWidth = columnsNeeded * columnWidth + (columnsNeeded - 1) * columnGap;
+
+                return totalWidth <= availableWidth;
             }
-
-            string[] segments = normalizedText.Split('\n');
-            int columnsNeeded = 0;
-
-            foreach (string segment in segments)
-            {
-                int length = Math.Max(1, segment.Length);
-                columnsNeeded += (int)Math.Ceiling(length / (double)charsPerColumn);
-            }
-
-            if (columnsNeeded <= 0)
-            {
-                columnsNeeded = 1;
-            }
-
-            double columnWidth = fontSize;
-            double columnGap = fontSize * WebViewColumnGapFactor;
-            double totalWidth = columnsNeeded * columnWidth + (columnsNeeded - 1) * columnGap;
-
-            return totalWidth <= availableWidth;
         }
 
         private static string BrushToCss(SolidColorBrush brush)
@@ -704,12 +837,12 @@ namespace UGTLive
             }
         }
 
-        private void CopySourceToClipboard()
+        private void CopyToClipboard()
         {
             try
             {
-                // Check if there's a selection first, otherwise copy all text
-                string textToCopy = GetPrimarySourceText();
+                // Get text based on current overlay mode
+                string textToCopy = GetPrimaryText();
                 
                 if (!string.IsNullOrEmpty(textToCopy))
                 {
@@ -728,6 +861,11 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error copying text to clipboard: {ex.Message}");
             }
+        }
+        
+        private void CopySourceToClipboard()
+        {
+            CopyToClipboard();
         }
 
         public void SetFontSize(double fontSize)
@@ -753,11 +891,11 @@ namespace UGTLive
         }
 
         // Update the UI element with current properties
-        public void UpdateUIElement()
+        public void UpdateUIElement(OverlayMode? overlayMode = null)
         {
             if (!System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(UpdateUIElement);
+                System.Windows.Application.Current.Dispatcher.Invoke(() => UpdateUIElement(overlayMode));
                 return;
             }
 
@@ -779,11 +917,45 @@ namespace UGTLive
 
             if (_useWebViewOverlay)
             {
-                string textForRender = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+                // Determine overlay mode
+                OverlayMode currentMode = overlayMode ?? 
+                    (MonitorWindow.Instance != null ? MonitorWindow.Instance.CurrentOverlayMode : OverlayMode.Translated);
+                    
+                string textForRender;
+                bool isShowingTranslated = false;
+                
+                if (currentMode == OverlayMode.Source)
+                {
+                    textForRender = Text;
+                }
+                else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+                {
+                    textForRender = TextTranslated;
+                    isShowingTranslated = true;
+                }
+                else
+                {
+                    // Fall back to source if no translation available
+                    textForRender = Text;
+                }
+
+                // Determine display orientation
+                string displayOrientation = TextOrientation; // Always start with original
+                
+                // Only modify orientation if we're showing translated text
+                if (currentMode == OverlayMode.Translated && isShowingTranslated && TextOrientation == "vertical")
+                {
+                    // Check if target language supports vertical
+                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                    if (!IsVerticalSupportedLanguage(targetLang))
+                    {
+                        displayOrientation = "horizontal";
+                    }
+                }
 
                 if (ConfigManager.Instance.IsAutoSizeTextBlocksEnabled())
                 {
-                    double calculatedSize = CalculateWebViewFontSize(textForRender);
+                    double calculatedSize = CalculateWebViewFontSize(textForRender, displayOrientation);
                     if (!double.IsNaN(calculatedSize) && Math.Abs(calculatedSize - _currentFontSize) > 0.1)
                     {
                         _currentFontSize = calculatedSize;
@@ -810,8 +982,10 @@ namespace UGTLive
                         WebView.ClearValue(FrameworkElement.HeightProperty);
                     }
                 }
-
-                _ = UpdateWebViewContentAsync();
+                
+                // Update WebView with appropriate text and orientation
+                _ = UpdateWebViewContentAsync(textForRender, isShowingTranslated, displayOrientation);
+                
                 return;
             }
 
@@ -820,11 +994,33 @@ namespace UGTLive
                 return;
             }
 
-            TextBlock.Text = !string.IsNullOrEmpty(TextTranslated) ? TextTranslated : Text;
+            // Determine overlay mode
+            OverlayMode mode = overlayMode ?? 
+                (MonitorWindow.Instance != null ? MonitorWindow.Instance.CurrentOverlayMode : OverlayMode.Translated);
+                
+            // Get text to display based on mode
+            string displayText;
+            bool isTranslated = false;
+            
+            if (mode == OverlayMode.Source)
+            {
+                displayText = Text;
+            }
+            else if (mode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+            {
+                displayText = TextTranslated;
+                isTranslated = true;
+            }
+            else
+            {
+                // Fall back to source
+                displayText = Text;
+            }
+            
+            TextBlock.Text = displayText;
             TextBlock.Foreground = TextColor;
             
-            // Update font family and weight based on whether text is translated
-            bool isTranslated = !string.IsNullOrEmpty(TextTranslated);
+            // Update font family and weight based on what we're showing
             string fontFamily = isTranslated 
                 ? ConfigManager.Instance.GetTargetLanguageFontFamily()
                 : ConfigManager.Instance.GetSourceLanguageFontFamily();
@@ -989,13 +1185,13 @@ namespace UGTLive
         {
             ContextMenu contextMenu = new ContextMenu();
             
-            // Copy Source menu item
-            MenuItem copySourceMenuItem = new MenuItem();
-            copySourceMenuItem.Header = "Copy Source";
-            copySourceMenuItem.Click += CopySourceMenuItem_Click;
-            contextMenu.Items.Add(copySourceMenuItem);
+            // Copy menu item (was "Copy Source")
+            MenuItem copyMenuItem = new MenuItem();
+            copyMenuItem.Header = "Copy";
+            copyMenuItem.Click += CopyMenuItem_Click;
+            contextMenu.Items.Add(copyMenuItem);
             
-            // Copy Translated menu item
+            // Copy Translated menu item (only shown when in Source mode)
             MenuItem copyTranslatedMenuItem = new MenuItem();
             copyTranslatedMenuItem.Header = "Copy Translated";
             copyTranslatedMenuItem.Click += CopyTranslatedMenuItem_Click;
@@ -1004,20 +1200,25 @@ namespace UGTLive
             // Add a separator
             contextMenu.Items.Add(new Separator());
             
-            // Learn Source menu item
-            MenuItem learnSourceMenuItem = new MenuItem();
-            learnSourceMenuItem.Header = "Learn Source";
-            learnSourceMenuItem.Click += LearnSourceMenuItem_Click;
-            contextMenu.Items.Add(learnSourceMenuItem);
+            // Learn menu item
+            MenuItem learnMenuItem = new MenuItem();
+            learnMenuItem.Header = "Learn";
+            learnMenuItem.Click += LearnMenuItem_Click;
+            contextMenu.Items.Add(learnMenuItem);
             
-            // Speak Source menu item
-            MenuItem speakSourceMenuItem = new MenuItem();
-            speakSourceMenuItem.Header = "Speak Source";
-            speakSourceMenuItem.Click += SpeakSourceMenuItem_Click;
-            contextMenu.Items.Add(speakSourceMenuItem);
+            // Speak menu item (was "Speak Source")
+            MenuItem speakMenuItem = new MenuItem();
+            speakMenuItem.Header = "Speak";
+            speakMenuItem.Click += SpeakMenuItem_Click;
+            contextMenu.Items.Add(speakMenuItem);
             
             // Update menu item states when context menu is opened
             contextMenu.Opened += (s, e) => {
+                // Get current overlay mode from MonitorWindow
+                OverlayMode mode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
+                
+                // Only show "Copy Translated" option when in Source mode
+                copyTranslatedMenuItem.Visibility = mode == OverlayMode.Source ? Visibility.Visible : Visibility.Collapsed;
                 copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(this.TextTranslated);
             };
 
@@ -1026,10 +1227,10 @@ namespace UGTLive
             return contextMenu;
         }
         
-        // Click handler for Copy Source menu item
-        private void CopySourceMenuItem_Click(object sender, RoutedEventArgs e)
+        // Click handler for Copy menu item
+        private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            CopySourceToClipboard();
+            CopyToClipboard();
         }
         
         // Click handler for Copy Translated menu item
@@ -1042,8 +1243,8 @@ namespace UGTLive
             }
         }
         
-        // Click handler for Learn Source menu item
-        private void LearnSourceMenuItem_Click(object sender, RoutedEventArgs e)
+        // Click handler for Learn menu item
+        private void LearnMenuItem_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -1074,12 +1275,12 @@ namespace UGTLive
             }
         }
         
-        // Click handler for Speak Source menu item
-        private async void SpeakSourceMenuItem_Click(object sender, RoutedEventArgs e)
+        // Click handler for Speak menu item
+        private async void SpeakMenuItem_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                string textToSpeak = GetPrimarySourceText();
+                string textToSpeak = GetPrimaryText();
 
                 if (!string.IsNullOrEmpty(textToSpeak))
                 {
@@ -1144,8 +1345,31 @@ namespace UGTLive
             }
         }
 
+        private string GetPrimaryText()
+        {
+            // Get current overlay mode from MonitorWindow
+            OverlayMode mode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
+            
+            // Check for selection first
+            string? selection = _currentSelectionText;
+            if (!string.IsNullOrWhiteSpace(selection))
+            {
+                return selection.Trim();
+            }
+            
+            // Return text based on mode
+            if (mode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+            {
+                return TextTranslated.Trim();
+            }
+            
+            // Default to source text (for Source mode or when translated is not available)
+            return string.IsNullOrWhiteSpace(Text) ? string.Empty : Text.Trim();
+        }
+        
         private string GetPrimarySourceText()
         {
+            // For Learn functionality, always use source text
             string? selection = _currentSelectionText;
             if (!string.IsNullOrWhiteSpace(selection))
             {
@@ -1209,6 +1433,14 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error preparing custom context menu: {ex.Message}");
             }
+        }
+        
+        // Check if a language supports vertical text
+        private bool IsVerticalSupportedLanguage(string languageCode)
+        {
+            // Languages that typically support vertical text (CJK languages)
+            string[] verticalLanguages = { "ja", "zh", "ko", "zh-cn", "zh-tw", "zh-hk", "ja-jp", "ko-kr" };
+            return verticalLanguages.Any(lang => languageCode.StartsWith(lang, StringComparison.OrdinalIgnoreCase));
         }
         
         // Animate the border when clicked

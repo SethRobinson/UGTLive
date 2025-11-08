@@ -35,6 +35,23 @@
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
             
+            <!-- Overlay Controls -->
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="Overlay:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <RadioButton x:Name="overlayHideRadio" Content="Hide" Foreground="White" VerticalAlignment="Center" 
+                             Margin="0,0,10,0" GroupName="OverlayMode" 
+                             Checked="OverlayRadioButton_Checked" Tag="Hide"/>
+                <RadioButton x:Name="overlaySourceRadio" Content="Source" Foreground="White" VerticalAlignment="Center" 
+                             Margin="0,0,10,0" GroupName="OverlayMode" IsChecked="True"
+                             Checked="OverlayRadioButton_Checked" Tag="Source"/>
+                <RadioButton x:Name="overlayTranslatedRadio" Content="Translated" Foreground="White" VerticalAlignment="Center" 
+                             GroupName="OverlayMode" 
+                             Checked="OverlayRadioButton_Checked" Tag="Translated"/>
+            </StackPanel>
+            
+            <!-- Separator -->
+            <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
+            
             <!-- Hidden controls for settings synchronization -->
             <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" />
             

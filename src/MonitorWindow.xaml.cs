@@ -17,6 +17,13 @@ using System.Text;
 
 namespace UGTLive
 {
+    public enum OverlayMode
+    {
+        Hide,
+        Source,
+        Translated
+    }
+    
     public partial class MonitorWindow : Window
     {
         private double currentZoom = 1.0;
@@ -24,6 +31,7 @@ namespace UGTLive
         private string lastImagePath = string.Empty;
         private readonly Dictionary<string, Border> _overlayElements = new();
         private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
+        private OverlayMode _currentOverlayMode = OverlayMode.Source;
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -38,6 +46,9 @@ namespace UGTLive
                 return _instance;
             }
         }
+        
+        // Getter for current overlay mode
+        public OverlayMode CurrentOverlayMode => _currentOverlayMode;
         
         // Settle time is stored in ConfigManager, no need for a local variable
         
@@ -689,8 +700,68 @@ namespace UGTLive
                     {
                         textObject.TextBlock.Foreground = textObject.TextColor;
                     }
-                    // For WebView, we need to update the content
-                    textObject.UpdateUIElement();
+                    // For WebView, we'll update the content after determining the overlay mode
+                }
+                
+                // Now update the displayed text based on overlay mode
+                if (textObject.TextBlock != null)
+                {
+                    string displayText;
+                    if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObject.TextTranslated))
+                    {
+                        displayText = textObject.TextTranslated;
+                    }
+                    else if (_currentOverlayMode == OverlayMode.Source)
+                    {
+                        displayText = textObject.Text;
+                    }
+                    else
+                    {
+                        // Default to source if mode is Hide (though it will be hidden anyway)
+                        displayText = textObject.Text;
+                    }
+                    textObject.TextBlock.Text = displayText;
+                }
+                
+                // Update WebView overlays with the current overlay mode
+                // This ensures correct text and orientation are displayed
+                if (textObject.WebView != null)
+                {
+                    textObject.UpdateUIElement(_currentOverlayMode);
+                }
+                
+                // For TextBlock overlays, handle vertical text (TextBlock doesn't support writing-mode)
+                // So we use a LayoutTransform for vertical text
+                if (textObject.TextBlock != null && textObject.TextOrientation == "vertical")
+                {
+                    if (_currentOverlayMode == OverlayMode.Source || 
+                        (_currentOverlayMode == OverlayMode.Translated && string.IsNullOrEmpty(textObject.TextTranslated)))
+                    {
+                        // Show vertical for source
+                        textObject.TextBlock.LayoutTransform = new RotateTransform(90);
+                        textObject.TextBlock.TextAlignment = TextAlignment.Center;
+                    }
+                    else if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObject.TextTranslated))
+                    {
+                        // Check if target supports vertical
+                        string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                        if (IsVerticalSupportedLanguage(targetLang))
+                        {
+                            textObject.TextBlock.LayoutTransform = new RotateTransform(90);
+                            textObject.TextBlock.TextAlignment = TextAlignment.Center;
+                        }
+                        else
+                        {
+                            textObject.TextBlock.LayoutTransform = Transform.Identity;
+                            textObject.TextBlock.TextAlignment = TextAlignment.Left;
+                        }
+                    }
+                }
+                else if (textObject.TextBlock != null)
+                {
+                    // Horizontal text
+                    textObject.TextBlock.LayoutTransform = Transform.Identity;
+                    textObject.TextBlock.TextAlignment = TextAlignment.Left;
                 }
 
                 if (border == null)
@@ -721,6 +792,16 @@ namespace UGTLive
 
                 Canvas.SetLeft(border, textObject.X);
                 Canvas.SetTop(border, textObject.Y);
+                
+                // Set visibility last, after all content updates and positioning
+                if (_currentOverlayMode == OverlayMode.Hide)
+                {
+                    border.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    border.Visibility = Visibility.Visible;
+                }
             }
             catch (Exception ex)
             {
@@ -843,12 +924,16 @@ namespace UGTLive
             
             // CSS styles
             html.AppendLine("body { margin: 0; padding: 0; background-color: #000; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }");
-            html.AppendLine(".content-wrapper { display: flex; flex-direction: column; align-items: center; }");
+            html.AppendLine(".content-wrapper { display: flex; flex-direction: column; align-items: center; padding-top: 60px; }");
             html.AppendLine(".container { position: relative; display: inline-block; transform: translateZ(0); will-change: auto; }");
             html.AppendLine(".monitor-image { display: block; transform: translateZ(0); will-change: auto; }");
             html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: hidden; }");
-            html.AppendLine(".controls { position: fixed; top: 10px; right: 10px; z-index: 1000; }");
-            html.AppendLine(".controls button { padding: 10px 20px; font-size: 16px; cursor: pointer; }");
+            html.AppendLine(".text-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
+            html.AppendLine(".controls-container { position: fixed; top: 10px; left: 0; right: 0; z-index: 1000; display: flex; justify-content: center; }");
+            html.AppendLine(".controls { background-color: #202020; padding: 10px 20px; border-radius: 5px; display: inline-block; }");
+            html.AppendLine(".controls button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }");
+            html.AppendLine(".controls label { color: white; margin-right: 15px; cursor: pointer; display: inline-block; }");
+            html.AppendLine(".controls input[type='radio'] { margin-right: 5px; cursor: pointer; }");
             html.AppendLine(".footer { background-color: rgba(0,0,0,0.8); color: white; padding: 10px; text-align: center; font-size: 14px; width: 100%; }");
             html.AppendLine(".footer a { color: #00aaff; text-decoration: none; }");
             html.AppendLine(".footer a:hover { text-decoration: underline; }");
@@ -858,9 +943,18 @@ namespace UGTLive
             html.AppendLine("</head>");
             html.AppendLine("<body>");
             
-            // Controls
+            // Controls container
+            html.AppendLine("<div class=\"controls-container\">");
             html.AppendLine("<div class=\"controls\">");
-            html.AppendLine("<button onclick=\"toggleOverlays()\">Hide overlay</button>");
+            // Set radio button checked state based on current overlay mode
+            string hideChecked = _currentOverlayMode == OverlayMode.Hide ? " checked" : "";
+            string sourceChecked = _currentOverlayMode == OverlayMode.Source ? " checked" : "";
+            string translatedChecked = _currentOverlayMode == OverlayMode.Translated ? " checked" : "";
+            
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"hide\" onchange=\"setOverlayMode('hide')\"{hideChecked}> Hide</label>");
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"source\" onchange=\"setOverlayMode('source')\"{sourceChecked}> Source</label>");
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"translated\" onchange=\"setOverlayMode('translated')\"{translatedChecked}> Translated</label>");
+            html.AppendLine("</div>");
             html.AppendLine("</div>");
             
             // Content wrapper for centering
@@ -883,8 +977,20 @@ namespace UGTLive
                 // Get position with zoom applied
                 double left = Canvas.GetLeft(border) * currentZoom;
                 double top = Canvas.GetTop(border) * currentZoom;
-                double width = border.ActualWidth * currentZoom;
-                double height = border.ActualHeight * currentZoom;
+                
+                // Use TextObject dimensions when border is collapsed (Hidden mode)
+                // If ActualWidth/Height are 0 (collapsed), use TextObject dimensions
+                double width = border.ActualWidth > 0 
+                    ? border.ActualWidth * currentZoom
+                    : textObj.Width > 0 
+                        ? textObj.Width * currentZoom 
+                        : 200 * currentZoom; // Default fallback width
+                        
+                double height = border.ActualHeight > 0 
+                    ? border.ActualHeight * currentZoom
+                    : textObj.Height > 0 
+                        ? textObj.Height * currentZoom 
+                        : 100 * currentZoom; // Default fallback height
                 
                 // Get colors
                 string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
@@ -899,9 +1005,16 @@ namespace UGTLive
                     ? ConfigManager.Instance.GetTargetLanguageFontBold()
                     : ConfigManager.Instance.GetSourceLanguageFontBold();
                 
-                // Get the text content
-                string text = isTranslated ? textObj.TextTranslated : textObj.Text;
-                string escapedText = System.Web.HttpUtility.HtmlEncode(text).Replace("\n", "<br>");
+                // Get both source and translated text
+                string sourceText = textObj.Text;
+                string translatedText = textObj.TextTranslated;
+                
+                // Escape both texts for HTML
+                string escapedSourceText = System.Web.HttpUtility.HtmlEncode(sourceText).Replace("\n", "<br>");
+                string escapedTranslatedText = System.Web.HttpUtility.HtmlEncode(translatedText).Replace("\n", "<br>");
+                
+                // Default to source text for initial display (matching the radio button default)
+                string displayText = escapedSourceText;
                 
                 // Calculate font size with zoom
                 double fontSize = 24 * currentZoom; // Default font size with zoom
@@ -910,8 +1023,11 @@ namespace UGTLive
                     fontSize = textObj.TextBlock.FontSize * currentZoom;
                 }
                 
-                // Generate overlay div with unique ID for text fitting
-                html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObjectId}\" data-original-font-size=\"{fontSize}\" style=\"");
+                // Generate overlay div with unique ID for text fitting and data attributes for both texts
+                html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObjectId}\" " +
+                    $"data-source-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceText)}\" " +
+                    $"data-translated-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(translatedText)}\" " +
+                    $"data-original-font-size=\"{fontSize}\" style=\"");
                 html.AppendLine($"  left: {left}px;");
                 html.AppendLine($"  top: {top}px;");
                 html.AppendLine($"  width: {width}px;");
@@ -925,18 +1041,37 @@ namespace UGTLive
                 html.AppendLine($"  margin: 0;");
                 html.AppendLine($"  line-height: 1.2;");
                 
-                // Add vertical text support
-                if (textObj.TextOrientation == "vertical")
+                // Add data attributes for orientation
+                html.AppendLine($"\" data-orientation=\"{textObj.TextOrientation}\">");
+                
+                // Add inner div for text content with orientation support
+                string initialOrientation = textObj.TextOrientation;
+                
+                // Only modify orientation if we're in Translated mode AND showing translated text
+                if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) && textObj.TextOrientation == "vertical")
+                {
+                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                    if (!IsVerticalSupportedLanguage(targetLang))
+                    {
+                        initialOrientation = "horizontal";
+                    }
+                }
+                
+                html.AppendLine($"<div class=\"text-content\" style=\"");
+                if (initialOrientation == "vertical")
                 {
                     html.AppendLine($"  writing-mode: vertical-rl;");
                     html.AppendLine($"  text-orientation: upright;");
                     html.AppendLine($"  display: flex;");
                     html.AppendLine($"  align-items: center;");
                     html.AppendLine($"  justify-content: center;");
+                    html.AppendLine($"  width: 100%;");
+                    html.AppendLine($"  height: 100%;");
                 }
                 
                 html.AppendLine($"\">");
-                html.AppendLine(escapedText);
+                html.AppendLine($"<span class=\"overlay-content\">{displayText}</span>");
+                html.AppendLine("</div>");
                 html.AppendLine("</div>");
             }
             
@@ -952,15 +1087,76 @@ namespace UGTLive
             
             // JavaScript
             html.AppendLine("<script>");
-            html.AppendLine("let overlaysVisible = true;");
-            html.AppendLine("function toggleOverlays() {");
-            html.AppendLine("  overlaysVisible = !overlaysVisible;");
+            // Set initial mode based on current overlay mode
+            string initialMode = _currentOverlayMode switch
+            {
+                OverlayMode.Hide => "hide",
+                OverlayMode.Translated => "translated",
+                _ => "source"
+            };
+            html.AppendLine($"let currentOverlayMode = '{initialMode}';");
+            html.AppendLine("");
+            // Add target language info for JavaScript
+            string targetLangCode = ConfigManager.Instance.GetTargetLanguage().ToLower();
+            bool targetSupportsVertical = IsVerticalSupportedLanguage(targetLangCode);
+            html.AppendLine($"const targetSupportsVertical = {(targetSupportsVertical ? "true" : "false")};");
+            html.AppendLine("");
+            
+            html.AppendLine("function setOverlayMode(mode) {");
+            html.AppendLine("  currentOverlayMode = mode;");
             html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
-            html.AppendLine("  const button = document.querySelector('.controls button');");
+            html.AppendLine("  ");
             html.AppendLine("  for (let overlay of overlays) {");
-            html.AppendLine("    overlay.style.display = overlaysVisible ? 'block' : 'none';");
+            html.AppendLine("    if (mode === 'hide') {");
+            html.AppendLine("      overlay.style.display = 'none';");
+            html.AppendLine("    } else {");
+            html.AppendLine("      overlay.style.display = 'block';");
+            html.AppendLine("      ");
+            html.AppendLine("      // Get the appropriate text based on mode");
+            html.AppendLine("      const sourceText = overlay.getAttribute('data-source-text') || '';");
+            html.AppendLine("      const translatedText = overlay.getAttribute('data-translated-text') || '';");
+            html.AppendLine("      const originalOrientation = overlay.getAttribute('data-orientation') || 'horizontal';");
+            html.AppendLine("      const contentSpan = overlay.querySelector('.overlay-content');");
+            html.AppendLine("      const textContentDiv = overlay.querySelector('.text-content');");
+            html.AppendLine("      ");
+            html.AppendLine("      if (contentSpan) {");
+            html.AppendLine("        if (mode === 'translated' && translatedText) {");
+            html.AppendLine("          contentSpan.innerHTML = translatedText.replace(/\\n/g, '<br>');");
+            html.AppendLine("        } else {");
+            html.AppendLine("          // Default to source for 'source' mode or when translated is empty");
+            html.AppendLine("          contentSpan.innerHTML = sourceText.replace(/\\n/g, '<br>');");
+            html.AppendLine("        }");
+            html.AppendLine("      }");
+            html.AppendLine("      ");
+            html.AppendLine("      // Handle orientation");
+            html.AppendLine("      if (textContentDiv) {");
+            html.AppendLine("        if (mode === 'source' || (mode === 'translated' && !translatedText)) {");
+            html.AppendLine("          // Show source orientation");
+            html.AppendLine("          if (originalOrientation === 'vertical') {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("          } else {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("          }");
+            html.AppendLine("        } else if (mode === 'translated') {");
+            html.AppendLine("          // For translated, check if target supports vertical");
+            html.AppendLine("          if (originalOrientation === 'vertical' && targetSupportsVertical) {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("          } else {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("          }");
+            html.AppendLine("        }");
+            html.AppendLine("      }");
+            html.AppendLine("    }");
             html.AppendLine("  }");
-            html.AppendLine("  button.textContent = overlaysVisible ? 'Hide overlay' : 'Show overlay';");
+            html.AppendLine("  ");
+            html.AppendLine("  // Refit text after changing content");
+            html.AppendLine("  if (mode !== 'hide') {");
+            html.AppendLine("    setTimeout(fitAllText, 0);");
+            html.AppendLine("  }");
             html.AppendLine("}");
             html.AppendLine("");
             html.AppendLine("// Function to scale text to fit within its container");
@@ -1062,9 +1258,15 @@ namespace UGTLive
             html.AppendLine("");
             html.AppendLine("// Run when DOM is ready");
             html.AppendLine("if (document.readyState === 'loading') {");
-            html.AppendLine("  document.addEventListener('DOMContentLoaded', initializeTextFitting);");
+            html.AppendLine("  document.addEventListener('DOMContentLoaded', function() {");
+            html.AppendLine("    initializeTextFitting();");
+            html.AppendLine("    // Apply initial overlay mode");
+            html.AppendLine("    setOverlayMode(currentOverlayMode);");
+            html.AppendLine("  });");
             html.AppendLine("} else {");
             html.AppendLine("  initializeTextFitting();");
+            html.AppendLine("  // Apply initial overlay mode");
+            html.AppendLine("  setOverlayMode(currentOverlayMode);");
             html.AppendLine("}");
             html.AppendLine("</script>");
             
@@ -1077,6 +1279,14 @@ namespace UGTLive
         private string ColorToHex(Color color)
         {
             return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+        
+        // Check if a language supports vertical text
+        private bool IsVerticalSupportedLanguage(string languageCode)
+        {
+            // Languages that typically support vertical text (CJK languages)
+            string[] verticalLanguages = { "ja", "zh", "ko", "zh-cn", "zh-tw", "zh-hk", "ja-jp", "ko-kr" };
+            return verticalLanguages.Any(lang => languageCode.StartsWith(lang, StringComparison.OrdinalIgnoreCase));
         }
         
         // Removed ResetZoomButton_Click as it's no longer needed with the TextBox
@@ -1421,6 +1631,29 @@ namespace UGTLive
                 
                 // Mark the event as handled
                 e.Handled = true;
+            }
+        }
+        
+        // Handle Overlay Radio Button selection
+        private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.RadioButton radioButton && radioButton.Tag is string mode)
+            {
+                switch (mode)
+                {
+                    case "Hide":
+                        _currentOverlayMode = OverlayMode.Hide;
+                        break;
+                    case "Source":
+                        _currentOverlayMode = OverlayMode.Source;
+                        break;
+                    case "Translated":
+                        _currentOverlayMode = OverlayMode.Translated;
+                        break;
+                }
+                
+                // Refresh the overlays with the new mode
+                RefreshOverlays();
             }
         }
         
