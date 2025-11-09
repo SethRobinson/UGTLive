@@ -84,7 +84,12 @@ namespace UGTLive
 
             foreach (string method in ConfigManager.SupportedOcrMethods)
             {
-                ocrMethodComboBox.Items.Add(new ComboBoxItem { Content = method });
+                string displayName = ConfigManager.GetOcrMethodDisplayName(method);
+                ocrMethodComboBox.Items.Add(new ComboBoxItem 
+                { 
+                    Content = displayName,
+                    Tag = method  // Store internal ID in Tag
+                });
             }
 
             ocrMethodComboBox.SelectionChanged += OcrMethodComboBox_SelectionChanged;
@@ -359,13 +364,13 @@ namespace UGTLive
             // Temporarily remove event handler to prevent triggering during initialization
             ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
             
-            // Find matching ComboBoxItem
+            // Find matching ComboBoxItem by Tag (internal ID)
             foreach (ComboBoxItem item in ocrMethodComboBox.Items)
             {
-                string itemText = item.Content.ToString() ?? "";
-                if (string.Equals(itemText, savedOcrMethod, StringComparison.OrdinalIgnoreCase))
+                string itemId = item.Tag?.ToString() ?? "";
+                if (string.Equals(itemId, savedOcrMethod, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Found matching OCR method: '{itemText}'");
+                    Console.WriteLine($"Found matching OCR method: '{itemId}'");
                     ocrMethodComboBox.SelectedItem = item;
                     break;
                 }
@@ -734,7 +739,8 @@ namespace UGTLive
             
             if (sender is ComboBox comboBox)
             {
-                string? ocrMethod = (comboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+                // Get internal ID from Tag property
+                string? ocrMethod = (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
                 
                 if (!string.IsNullOrEmpty(ocrMethod))
                 {
@@ -743,10 +749,10 @@ namespace UGTLive
                     // Update MonitorWindow OCR method
                     if (MonitorWindow.Instance.ocrMethodComboBox != null)
                     {
-                        // Find and select the matching item by content, not index
+                        // Find and select the matching item by Tag (internal ID)
                         foreach (ComboBoxItem item in MonitorWindow.Instance.ocrMethodComboBox.Items)
                         {
-                            if (string.Equals(item.Content.ToString(), ocrMethod, StringComparison.OrdinalIgnoreCase))
+                            if (string.Equals(item.Tag?.ToString(), ocrMethod, StringComparison.OrdinalIgnoreCase))
                             {
                                 MonitorWindow.Instance.ocrMethodComboBox.SelectedItem = item;
                                 break;

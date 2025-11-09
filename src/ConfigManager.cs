@@ -56,7 +56,7 @@ namespace UGTLive
         public const string AUTO_TRANSLATE_ENABLED = "auto_translate_enabled";
         public const string IGNORE_PHRASES = "ignore_phrases";
 
-        // Supported OCR methods
+        // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
         {
             "EasyOCR",
@@ -65,11 +65,30 @@ namespace UGTLive
             "Windows OCR"
         };
 
+        // Display names for OCR methods (can be changed without breaking code)
+        private static readonly Dictionary<string, string> _ocrMethodDisplayNames = new Dictionary<string, string>
+        {
+            { "EasyOCR", "Easy OCR (OK at most languages)" },
+            { "Manga OCR", "Manga OCR (for Japanese manga)" },
+            { "docTR", "docTR (Great at non-asian languages)" },
+            { "Windows OCR", "Windows OCR (Pretty bad)" }
+        };
+
         public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;
 
         public static bool IsSupportedOcrMethod(string method)
         {
             return !string.IsNullOrWhiteSpace(method) && _supportedOcrMethods.Any(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Get display name for an OCR method (returns internal ID if display name not found)
+        public static string GetOcrMethodDisplayName(string internalId)
+        {
+            if (_ocrMethodDisplayNames.TryGetValue(internalId, out string? displayName))
+            {
+                return displayName;
+            }
+            return internalId; // Fallback to internal ID if display name not found
         }
         
         // Text-to-Speech configuration keys

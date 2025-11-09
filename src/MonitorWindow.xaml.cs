@@ -125,7 +125,12 @@ namespace UGTLive
 
             foreach (string method in ConfigManager.SupportedOcrMethods)
             {
-                ocrMethodComboBox.Items.Add(new ComboBoxItem { Content = method });
+                string displayName = ConfigManager.GetOcrMethodDisplayName(method);
+                ocrMethodComboBox.Items.Add(new ComboBoxItem 
+                { 
+                    Content = displayName,
+                    Tag = method  // Store internal ID in Tag
+                });
             }
         }
 
@@ -159,7 +164,8 @@ namespace UGTLive
             
             if (ocrMethodComboBox.SelectedItem == null) return;
             
-            string? ocrMethod = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            // Get internal ID from Tag property
+            string? ocrMethod = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
             if (string.IsNullOrEmpty(ocrMethod)) return;
             
             // Reset the OCR hash to force a fresh comparison after changing OCR method
@@ -315,16 +321,16 @@ namespace UGTLive
                 // a new connection while initializing
                 ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
                 
-                // Find the matching ComboBoxItem
+                // Find the matching ComboBoxItem by Tag (internal ID)
                 bool foundMatch = false;
                 foreach (ComboBoxItem comboItem in ocrMethodComboBox.Items)
                 {
-                    string itemText = comboItem.Content.ToString() ?? "";
-                    Console.WriteLine($"Comparing OCR method: '{itemText}' with config value: '{ocrMethod}'");
+                    string itemId = comboItem.Tag?.ToString() ?? "";
+                    Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
                     
-                    if (string.Equals(itemText, ocrMethod, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(itemId, ocrMethod, StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Found matching OCR method: '{itemText}'");
+                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
                         ocrMethodComboBox.SelectedItem = comboItem;
                         foundMatch = true;
                         break;
@@ -336,14 +342,14 @@ namespace UGTLive
                     Console.WriteLine($"WARNING: Could not find OCR method '{ocrMethod}' in ComboBox. Available items:");
                     foreach (ComboBoxItem listItem in ocrMethodComboBox.Items)
                     {
-                        Console.WriteLine($"  - '{listItem.Content}'");
+                        Console.WriteLine($"  - '{listItem.Tag}' (display: '{listItem.Content}')");
                     }
                 }
                 
                 // Log what we actually set
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Content}'");
+                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
                 }
                 
                 // Re-attach the event handler
@@ -352,7 +358,7 @@ namespace UGTLive
                 // Make sure MainWindow has the same OCR method
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedComboItem)
                 {
-                    string selectedOcrMethod = selectedComboItem.Content.ToString() ?? "";
+                    string selectedOcrMethod = selectedComboItem.Tag?.ToString() ?? "";
                     MainWindow.Instance.SetOcrMethod(selectedOcrMethod);
                 }
                 

@@ -1011,7 +1011,8 @@ namespace UGTLive
         {
             if (sender is System.Windows.Controls.ComboBox comboBox)
             {
-                string? ocrMethod = (comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+                // Get internal ID from Tag property
+                string? ocrMethod = (comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag?.ToString();
                 
                 if (!string.IsNullOrEmpty(ocrMethod))
                 {
