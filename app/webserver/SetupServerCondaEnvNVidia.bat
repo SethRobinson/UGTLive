@@ -113,6 +113,23 @@ if "!IS_5090!"=="1" (
     echo Installing PyTorch with CUDA 11.8 support via conda...
     call conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia || goto :FailInstallPyTorch
 
+    echo Upgrading PyTorch to 2.6+ for transformers compatibility (security requirement)...
+    echo Attempting to install PyTorch 2.6+ from stable repository...
+    python -m pip install --upgrade "torch>=2.6.0" "torchvision>=0.21.0" "torchaudio>=2.6.0" --index-url https://download.pytorch.org/whl/cu118
+    set "UPGRADE_RESULT=%ERRORLEVEL%"
+    if !UPGRADE_RESULT! EQU 0 (
+        echo PyTorch successfully upgraded to 2.6+ from stable repository.
+    ) else (
+        echo PyTorch 2.6+ not found in stable repository (errorlevel: !UPGRADE_RESULT!), trying nightly build...
+        python -m pip install --upgrade --pre "torch>=2.6.0" "torchvision>=0.21.0" "torchaudio>=2.6.0" --index-url https://download.pytorch.org/whl/nightly/cu118
+        set "NIGHTLY_RESULT=%ERRORLEVEL%"
+        if !NIGHTLY_RESULT! NEQ 0 (
+            echo ERROR: Failed to upgrade PyTorch from both stable and nightly repositories (errorlevel: !NIGHTLY_RESULT!)
+            goto :FailUpgradePyTorch
+        )
+        echo PyTorch successfully upgraded to 2.6+ from nightly build.
+    )
+
     echo Installing conda-forge dependencies...
     call conda install -y -c conda-forge opencv pillow matplotlib scipy || goto :FailInstallCondaForge
 
@@ -247,6 +264,12 @@ exit /b 1
 
 :FailInstallPyTorch
 echo ERROR: Failed to install PyTorch!
+pause
+exit /b 1
+
+:FailUpgradePyTorch
+echo ERROR: Failed to upgrade PyTorch to 2.6+!
+echo This is required for transformers library compatibility.
 pause
 exit /b 1
 
