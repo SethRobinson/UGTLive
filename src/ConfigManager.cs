@@ -68,10 +68,10 @@ namespace UGTLive
         // Display names for OCR methods (can be changed without breaking code)
         private static readonly Dictionary<string, string> _ocrMethodDisplayNames = new Dictionary<string, string>
         {
-            { "EasyOCR", "Easy OCR (OK at most languages)" },
-            { "Manga OCR", "Manga OCR (for Japanese manga)" },
+            { "EasyOCR", "Easy OCR (Decent at most languages)" },
+            { "Manga OCR", "Manga OCR (Vertical Japanese manga)" },
             { "docTR", "docTR (Great at non-asian languages)" },
-            { "Windows OCR", "Windows OCR (Pretty bad)" }
+            { "Windows OCR", "Windows OCR (Bad at all)" }
         };
 
         public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;
