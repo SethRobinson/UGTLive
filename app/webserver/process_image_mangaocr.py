@@ -15,6 +15,9 @@ from color_analysis import (
 # Import the shared manga YOLO detector
 from manga_yolo_detector import detect_regions_from_path, render_debug_image, ModelNotFoundError
 
+# Debug flag: Set to True to enable YOLO debug image output to debug_outputs directory
+ENABLE_YOLO_DEBUG_OUTPUT = False
+
 # Global variables to manage OCR engines
 MANGA_OCR_ENGINE = None
 
@@ -173,8 +176,8 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         
         # Set up debug output path
         debug_output_path = None
-        debug_dir = Path(__file__).resolve().parent / "debug_outputs"
-        if True:  # Always enable debug for socket server
+        if ENABLE_YOLO_DEBUG_OUTPUT:
+            debug_dir = Path(__file__).resolve().parent / "debug_outputs"
             debug_dir.mkdir(parents=True, exist_ok=True)
             image_stem = Path(image_path).stem
             image_suffix = Path(image_path).suffix or ".png"
