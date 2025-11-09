@@ -686,9 +686,6 @@
                                   VerticalAlignment="Center" Margin="0,5,10,0"/>
                         <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="3" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="ElevenLabsVoiceComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Kanata" Tag="gt4GHSXYxdkWrtuD6uJ6"/>
-
-                            
                             <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
                             <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
                             <ComboBoxItem Content="Bella" Tag="EXAVITQu4vr4xnSDxMaL"/>
