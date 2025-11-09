@@ -473,7 +473,8 @@ namespace UGTLive
                     condaStatusIcon.Text = "✓";
                     condaStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(32, 184, 20)); // Green
                     condaStatusText.Text = $"Available - {result.version}";
-                    installCondaButton.IsEnabled = false;
+                    // Keep button enabled to allow reinstallation if needed
+                    installCondaButton.IsEnabled = true;
                 }
                 else
                 {
