@@ -214,6 +214,9 @@ echo.
 echo If conda is already installed but not detected:
 echo   You may need to restart your computer for PATH changes to take full effect.
 echo   Alternatively, you can manually add conda to your PATH environment variable.
+echo   If you forgot to check the checkbox that adds the to PATH environment variable,
+echo   when installing Miniconda, you can use Add Remove Programs in Windows to remove it,
+echo   then run UGTLive again to be prompted to re-install.
 echo.
 pause
 exit /b 1
