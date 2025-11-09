@@ -80,8 +80,9 @@ namespace UGTLive
             InitializeComponent();
             this.Loaded += ServerSetupDialog_Loaded;
             
-            // Load checkbox state from config
+            // Load checkbox states from config
             showServerWindowCheckBox.IsChecked = ConfigManager.Instance.GetShowServerWindow();
+            skipCondaChecksCheckBox.IsChecked = ConfigManager.Instance.GetSkipCondaChecks();
             
             // Load app icon and version info
             LoadSplashBranding();
@@ -135,6 +136,13 @@ namespace UGTLive
             
             // If server is running, toggle window visibility
             ServerProcessManager.Instance.SetServerWindowVisibility(isChecked);
+        }
+        
+        private void SkipCondaChecksCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            // Save checkbox state to config
+            bool isChecked = skipCondaChecksCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetSkipCondaChecks(isChecked);
         }
         
         private class VersionInfo
@@ -285,19 +293,32 @@ namespace UGTLive
                 // Check GPU (right after version check)
                 await UpdateGpuStatusAsync();
                 
-                // Check Conda
-                var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
-                await UpdateCondaStatusAsync();
+                // Check if user wants to skip conda/python checks
+                bool skipCondaChecks = await Dispatcher.InvokeAsync(() => skipCondaChecksCheckBox.IsChecked ?? false);
                 
-                // Check Environment
-                var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
-                await UpdateEnvironmentStatusAsync();
+                if (skipCondaChecks)
+                {
+                    // Skip conda/python checks and show "Skipped" status
+                    await UpdateCondaStatusSkippedAsync();
+                    await UpdateEnvironmentStatusSkippedAsync();
+                    await UpdatePackagesStatusSkippedAsync();
+                }
+                else
+                {
+                    // Check Conda
+                    var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                    await UpdateCondaStatusAsync();
+                    
+                    // Check Environment
+                    var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
+                    await UpdateEnvironmentStatusAsync();
+                    
+                    // Check Packages
+                    var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
+                    await UpdatePackagesStatusAsync();
+                }
                 
-                // Check Packages
-                var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
-                await UpdatePackagesStatusAsync();
-                
-                // Check Server
+                // Check Server (always check this)
                 await UpdateServerStatusAsync();
                 
                 statusMessage.Text = "Diagnostics complete";
@@ -305,15 +326,35 @@ namespace UGTLive
                 // Check if server is running for auto-start logic
                 bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
                 
-                // Auto-start server if everything looks good but server isn't running
-                if (condaResult.available && envResult.exists && !serverRunning)
+                // Auto-start server if it's not running
+                if (!serverRunning)
                 {
-                    // Check if all key packages are installed
-                    string[] keyPackages = { "torch", "easyocr", "manga-ocr", "python-doctr", "ultralytics", "opencv-python" };
-                    bool allPackagesInstalled = keyPackages.All(pkg => 
-                        packagesResult.ContainsKey(pkg) && packagesResult[pkg].installed);
+                    bool shouldAutoStart = false;
                     
-                    if (allPackagesInstalled)
+                    if (skipCondaChecks)
+                    {
+                        // If checks are skipped, assume everything is set up and try to auto-start
+                        shouldAutoStart = true;
+                    }
+                    else
+                    {
+                        // If checks aren't skipped, validate conda/environment/packages before auto-starting
+                        var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                        var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
+                        var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
+                        
+                        if (condaResult.available && envResult.exists)
+                        {
+                            // Check if all key packages are installed
+                            string[] keyPackages = { "torch", "easyocr", "manga-ocr", "python-doctr", "ultralytics", "opencv-python" };
+                            bool allPackagesInstalled = keyPackages.All(pkg => 
+                                packagesResult.ContainsKey(pkg) && packagesResult[pkg].installed);
+                            
+                            shouldAutoStart = allPackagesInstalled;
+                        }
+                    }
+                    
+                    if (shouldAutoStart)
                     {
                         // Check if user wants to see the server window
                         bool showWindow = await Dispatcher.InvokeAsync(() => (bool)(showServerWindowCheckBox.IsChecked ?? false));
@@ -447,6 +488,20 @@ namespace UGTLive
             });
         }
         
+        private async Task UpdateCondaStatusSkippedAsync()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                condaStatusIcon.Text = "—";
+                condaStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(128, 128, 128)); // Gray
+                condaStatusText.Text = "Skipped";
+                installCondaButton.IsEnabled = false;
+                
+                // Scroll to show this section
+                ScrollToElement(condaStatusIcon);
+            });
+        }
+        
         private async Task UpdateEnvironmentStatusAsync()
         {
             var result = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
@@ -465,6 +520,19 @@ namespace UGTLive
                     envStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(220, 0, 0)); // Red
                     envStatusText.Text = result.errorMessage;
                 }
+                
+                // Scroll to show this section
+                ScrollToElement(envStatusIcon);
+            });
+        }
+        
+        private async Task UpdateEnvironmentStatusSkippedAsync()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                envStatusIcon.Text = "—";
+                envStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(128, 128, 128)); // Gray
+                envStatusText.Text = "Skipped";
                 
                 // Scroll to show this section
                 ScrollToElement(envStatusIcon);
@@ -533,6 +601,21 @@ namespace UGTLive
                     packagesStatusText.Text = $"Missing packages ({installedCount}/{keyPackages.Length})";
                     installBackendButton.IsEnabled = true;
                 }
+                
+                // Scroll to show this section
+                ScrollToElement(packagesStatusIcon);
+            });
+        }
+        
+        private async Task UpdatePackagesStatusSkippedAsync()
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                packagesStatusIcon.Text = "—";
+                packagesStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(128, 128, 128)); // Gray
+                packagesStatusText.Text = "Skipped";
+                packagesList.ItemsSource = null;
+                installBackendButton.IsEnabled = false;
                 
                 // Scroll to show this section
                 ScrollToElement(packagesStatusIcon);
