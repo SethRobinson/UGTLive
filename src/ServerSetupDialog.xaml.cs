@@ -925,11 +925,11 @@ namespace UGTLive
             try
             {
                 string webserverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webserver");
-                string setupBatch = Path.Combine(webserverPath, "SetupServerCondaEnvNVidia.bat");
+                string setupBatch = Path.Combine(webserverPath, "SetupServerCondaEnv.bat");
                 
                 if (!File.Exists(setupBatch))
                 {
-                    MessageBox.Show($"SetupServerCondaEnvNVidia.bat not found at {setupBatch}", "Error", 
+                    MessageBox.Show($"SetupServerCondaEnv.bat not found at {setupBatch}", "Error", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
