@@ -715,6 +715,9 @@ namespace UGTLive
             
             Logic.Instance.Finish();
             
+            // Stop server if it was started by this app
+            ServerProcessManager.Instance.StopServer();
+            
             // Make sure the console is closed
             if (consoleWindow != IntPtr.Zero)
             {

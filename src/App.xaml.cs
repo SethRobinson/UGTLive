@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Application = System.Windows.Application;
@@ -36,13 +37,58 @@ public partial class App : Application
         // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
         
         // Add event handler to show main window after splash closes
-        SplashManager.Instance.SplashClosed += (sender, args) =>
+        SplashManager.Instance.SplashClosed += async (sender, args) =>
         {
+            // Check if server is needed and running before showing main window
+            await CheckServerAndShowDialogIfNeededAsync();
+            
             _mainWindow?.Show();
             
             // Attach key handler to other windows once main window is shown
             AttachKeyHandlersToAllWindows();
         };
+    }
+    
+    /// <summary>
+    /// Checks if server is running and shows setup dialog if needed
+    /// </summary>
+    private async Task CheckServerAndShowDialogIfNeededAsync()
+    {
+        try
+        {
+            // Check what OCR method is configured
+            string ocrMethod = ConfigManager.Instance.GetOcrMethod();
+            
+            // Only check server if using EasyOCR, Manga OCR, or docTR
+            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR" && ocrMethod != "docTR")
+            {
+                // Using Windows OCR, no server needed
+                return;
+            }
+            
+            // Detect if server is already running
+            bool serverRunning = await ServerProcessManager.Instance.DetectExistingServerAsync();
+            
+            if (!serverRunning)
+            {
+                // Server not running, show setup dialog
+                this.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        ServerSetupDialog.ShowDialogSafe();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Console.WriteLine($"Error showing server setup dialog at startup: {ex.Message}");
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"Error checking server status at startup: {ex.Message}");
+        }
     }
     
     // Ensure all windows are initialized and loaded
@@ -74,6 +120,8 @@ public partial class App : Application
     
     protected override void OnExit(ExitEventArgs e)
     {
+        // Ensure server cleanup happens on exit
+        ServerProcessManager.Instance.StopServer();
         base.OnExit(e);
     }
 }

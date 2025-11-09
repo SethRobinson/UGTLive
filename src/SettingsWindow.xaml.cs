@@ -918,6 +918,20 @@ namespace UGTLive
         }
         
         // Language swap button handler
+        private void ServerSetupButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ServerSetupDialog.ShowDialogSafe();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening server setup dialog: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"Error opening server setup dialog: {ex.Message}");
+            }
+        }
+        
         private void SwapLanguagesButton_Click(object sender, RoutedEventArgs e)
         {
             // Store the current selections

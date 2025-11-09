@@ -15,6 +15,11 @@
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="20">
+                <!-- Server Setup Button -->
+                <Button x:Name="serverSetupButton" Content="Open UGTLive backend server install/fix screen" 
+                        Padding="10,5" Margin="0,0,0,15" HorizontalAlignment="Stretch"
+                        Click="ServerSetupButton_Click" FontWeight="Bold"/>
+                
                 <!-- Language Settings -->
                 <GroupBox Header="Language Settings" Margin="0,0,0,15" Padding="10">
                     <Grid>
