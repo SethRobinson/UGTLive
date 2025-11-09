@@ -26,6 +26,19 @@ echo Conda detected successfully!
 echo.
 
 REM -----------------------------------------------------------------
+REM Warn if conda base path contains spaces
+REM -----------------------------------------------------------------
+for /f "usebackq tokens=* delims=" %%B in (`conda info --base 2^>nul`) do (
+    set "CONDA_BASE=%%B"
+)
+if defined CONDA_BASE (
+    if not "!CONDA_BASE!"=="!CONDA_BASE: =!" (
+        echo WARNING: Conda installation path contains spaces: "!CONDA_BASE!"
+        echo Some tools may warn; paths are quoted in this setup.
+    )
+)
+
+REM -----------------------------------------------------------------
 REM Detect GPU model to choose CUDA toolchain
 REM -----------------------------------------------------------------
 set "GPU_NAME="
@@ -57,7 +70,7 @@ if "!IS_5090!"=="1" (
 ) else (
     echo Using standard CUDA 11.x configuration.
     set "PYTHON_VERSION=3.9"
-    set "CUPY_PACKAGE=cupy-cuda11x"
+    set "CUPY_PACKAGE=cupy-cuda12x"
 )
 echo.
 
@@ -96,6 +109,8 @@ if "!IS_5090!"=="1" (
     set "KMP_DUPLICATE_LIB_OK=TRUE"
 )
 
+set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+
 echo Upgrading pip...
 python -m pip install --upgrade pip || goto :FailPipUpgrade
 
@@ -110,8 +125,8 @@ if "!IS_5090!"=="1" (
     python -m pip install opencv-python pillow matplotlib scipy || goto :FailInstallBaseDeps
     python -m pip install tqdm pyyaml requests numpy || goto :FailInstallAdditionalDeps
 ) else (
-    echo Installing PyTorch with CUDA 11.8 support via conda...
-    call conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia || goto :FailInstallPyTorch
+    echo Installing PyTorch with CUDA 12.1 support via conda...
+    call conda install -y pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia || goto :FailInstallPyTorch
 
     echo Installing conda-forge dependencies...
     call conda install -y -c conda-forge opencv pillow matplotlib scipy || goto :FailInstallCondaForge
@@ -145,10 +160,42 @@ python -m pip install "ultralytics>=8.3.0" fastapi "uvicorn[standard]" python-mu
 REM -----------------------------------------------------------------
 REM Pre-download OCR models
 REM -----------------------------------------------------------------
+echo Ensuring PyTorch is version 2.6 or newer...
+python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+if errorlevel 1 (
+    echo Upgrading to stable PyTorch CUDA 12.1 (torch>=2.6)...
+    python -m pip install --upgrade torch>=2.6 torchvision>=0.21 torchaudio>=2.6 --index-url https://download.pytorch.org/whl/cu121
+    python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+)
+if errorlevel 1 (
+    echo Stable CU121 not available; trying PyTorch nightly CUDA 12.8...
+    python -m pip install --pre --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+    python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+)
+if errorlevel 1 goto :FailInstallPyTorch
+
 echo Pre-downloading EasyOCR language models (ja + en)...
 python -c "import easyocr; easyocr.Reader(['ja','en'])" || goto :FailWarmEasyOCR
 
+echo Prefetching Manga OCR safetensors model (best-effort)...
+python -c "from huggingface_hub import hf_hub_download as d; d('kha-white/manga-ocr-base','model.safetensors')" >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: model.safetensors not found or could not be fetched; attempting pytorch_model.bin...
+    python -c "from huggingface_hub import hf_hub_download as d; d('kha-white/manga-ocr-base','pytorch_model.bin')" >nul 2>&1
+)
+
 echo Initializing Manga OCR (downloads model on first use)...
+echo Re-checking PyTorch is v2.6+ before Manga OCR init...
+python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+if errorlevel 1 (
+    python -m pip install --upgrade torch>=2.6 torchvision>=0.21 torchaudio>=2.6 --index-url https://download.pytorch.org/whl/cu121
+    python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+)
+if errorlevel 1 (
+    python -m pip install --pre --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+    python -c "import torch,sys; v=tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]); sys.exit(0 if v>=(2,6) else 1)"
+)
+if errorlevel 1 goto :FailInstallPyTorch
 python -c "from manga_ocr import MangaOcr; MangaOcr()" || goto :FailWarmManga
 
 echo Initializing docTR (downloads models on first use)...
