@@ -50,22 +50,15 @@ if exist "%TEMP%\gpu_check.txt" (
 if not "!GPU_NAME!"=="Unknown" (
     echo Detected NVIDIA GPU: !GPU_NAME!
     
-    REM Check for RTX 5090
-    echo !GPU_NAME! | find /i "5090" >nul && set "GPU_SERIES=50"
+    REM Check for RTX 50 series
+    if "!GPU_SERIES!"=="UNSUPPORTED" (
+        echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
+    )
     
     REM Check for RTX 3000/4000 series
     if "!GPU_SERIES!"=="UNSUPPORTED" (
         echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
         echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "3050" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "3060" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "3070" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "3080" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "3090" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "4060" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "4070" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "4080" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "4090" >nul && set "GPU_SERIES=30_40"
     )
 ) else (
     echo WARNING: Unable to detect NVIDIA GPU via nvidia-smi
@@ -80,7 +73,7 @@ REM -----------------------------------------------------------------
 REM Call appropriate setup script
 REM -----------------------------------------------------------------
 if "!GPU_SERIES!"=="50" (
-    echo Detected RTX 5090 - using specialized setup...
+    echo Detected RTX 50 series - using specialized setup...
     echo.
     if exist "%SCRIPT_DIR%_NVidia50Series.bat" (
         call "%SCRIPT_DIR%_NVidia50Series.bat"
@@ -110,7 +103,7 @@ if "!GPU_SERIES!"=="50" (
     echo This setup currently supports:
     echo   - NVIDIA RTX 3050, 3060, 3070, 3080, 3090
     echo   - NVIDIA RTX 4060, 4070, 4080, 4090  
-    echo   - NVIDIA RTX 5090
+    echo   - NVIDIA RTX 5050, 5060, 5070, 5080, 5090
     echo.
     echo If you have one of these GPUs but it wasn't detected correctly,
     echo please ensure your NVIDIA drivers are installed and up to date.

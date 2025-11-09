@@ -2,9 +2,9 @@
 setlocal ENABLEDELAYEDEXPANSION
 
 echo =============================================================
-echo   Setting up UGTLive OCR environment (RTX 5090)
+echo   Setting up UGTLive OCR environment (RTX 50 Series)
 echo   EasyOCR + MangaOCR with GPU acceleration
-echo   Using PyTorch nightly for RTX 5090 support
+echo   Using PyTorch nightly for RTX 50 Series support
 echo =============================================================
 echo.
 
@@ -55,10 +55,10 @@ echo Upgrading pip...
 python -m pip install --upgrade pip || goto :FailPipUpgrade
 
 REM -----------------------------------------------------------------
-REM Install PyTorch nightly for RTX 5090 support
+REM Install PyTorch nightly for RTX 50 Series support
 REM -----------------------------------------------------------------
 echo.
-echo Installing PyTorch nightly with CUDA 12.8 support for RTX 5090...
+echo Installing PyTorch nightly with CUDA 12.8 support for RTX 50 Series...
 python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 || goto :FailInstallPyTorch
 
 echo Installing base scientific Python dependencies via pip...
@@ -152,7 +152,7 @@ python -c "import ultralytics; print('Ultralytics version:', ultralytics.__versi
 
 echo.
 echo =============================================================
-echo   Setup complete for RTX 5090!
+echo   Setup complete for RTX 50 Series!
 echo   The ocrstuff environment is ready with GPU acceleration.
 echo   The OCR server will start automatically from UGTLive.
 echo =============================================================
