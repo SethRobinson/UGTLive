@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
 import torch
+import tempfile
 
 from color_analysis import (
     attach_color_info,
@@ -135,6 +136,41 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Step 1: Use Manga109 YOLO to detect text regions
         print("Step 1: Detecting text regions with Manga109 YOLO...")
         
+        # Check if image is too small for YOLO detection
+        # YOLO models typically need at least 320x320 pixels, but 640x640+ is better for small text
+        # We'll add padding (borders) if either dimension is below 640 pixels
+        MIN_DIMENSION_FOR_YOLO = 640
+        yolo_image_path = image_path
+        padding_x = 0  # Horizontal padding offset (left padding)
+        padding_y = 0  # Vertical padding offset (top padding)
+        temp_padded_file = None
+        
+        if original_width < MIN_DIMENSION_FOR_YOLO or original_height < MIN_DIMENSION_FOR_YOLO:
+            print(f"Image is small ({original_width}x{original_height}), adding padding to meet minimum size...")
+            # Calculate target dimensions (at least MIN_DIMENSION_FOR_YOLO)
+            target_width = max(original_width, MIN_DIMENSION_FOR_YOLO)
+            target_height = max(original_height, MIN_DIMENSION_FOR_YOLO)
+            
+            # Calculate padding to center the image
+            padding_x = (target_width - original_width) // 2
+            padding_y = (target_height - original_height) // 2
+            
+            print(f"Adding padding: ({original_width}x{original_height}) -> ({target_width}x{target_height}) (padding: {padding_x}px horizontal, {padding_y}px vertical)")
+            
+            # Create a new image with the target size, filled with white
+            # Using white padding as it's neutral and won't interfere with text detection
+            padded_image = Image.new('RGB', (target_width, target_height), color=(255, 255, 255))
+            
+            # Paste the original image centered on the padded canvas
+            padded_image.paste(image, (padding_x, padding_y))
+            
+            # Save padded image to temporary file for YOLO
+            temp_padded_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+            padded_image.save(temp_padded_file.name, 'PNG')
+            temp_padded_file.close()
+            yolo_image_path = temp_padded_file.name
+            print(f"Saved padded image to temporary file: {yolo_image_path}")
+        
         # Set up debug output path
         debug_output_path = None
         debug_dir = Path(__file__).resolve().parent / "debug_outputs"
@@ -144,13 +180,21 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
             image_suffix = Path(image_path).suffix or ".png"
             debug_output_path = debug_dir / f"{image_stem}_mangaocr_debug{image_suffix}"
         
-        # Run YOLO detection
-        detection_result = detect_regions_from_path(
-            image_path,
-            conf_threshold=0.25,
-            iou_threshold=0.45,
-            debug_output_path=debug_output_path
-        )
+        # Run YOLO detection on (possibly padded) image
+        try:
+            detection_result = detect_regions_from_path(
+                yolo_image_path,
+                conf_threshold=0.25,
+                iou_threshold=0.45,
+                debug_output_path=debug_output_path
+            )
+        finally:
+            # Clean up temporary padded file if we created one
+            if temp_padded_file is not None and os.path.exists(temp_padded_file.name):
+                try:
+                    os.unlink(temp_padded_file.name)
+                except Exception as e:
+                    print(f"Warning: Failed to delete temporary padded image: {e}")
         
         detections = detection_result.get("detections", [])
         print(f"Found {len(detections)} text regions")
@@ -187,6 +231,13 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
             x_max = int(bbox["x_max"])
             y_max = int(bbox["y_max"])
             
+            # Adjust coordinates to account for padding offset if we added padding
+            if padding_x > 0 or padding_y > 0:
+                x_min = x_min - padding_x
+                y_min = y_min - padding_y
+                x_max = x_max - padding_x
+                y_max = y_max - padding_y
+            
             # Skip regions that are too small (likely noise)
             if (x_max - x_min) < 10 or (y_max - y_min) < 10:
                 print(f"Region {idx+1}: Skipping (too small)")
@@ -219,9 +270,15 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
             
             # Use the polygon if available, otherwise create from bbox
             if polygon:
-                box_native = [
-                    [float(point[0]), float(point[1])] for point in polygon
-                ]
+                # Adjust polygon coordinates to account for padding offset if we added padding
+                if padding_x > 0 or padding_y > 0:
+                    box_native = [
+                        [float(point[0]) - padding_x, float(point[1]) - padding_y] for point in polygon
+                    ]
+                else:
+                    box_native = [
+                        [float(point[0]), float(point[1])] for point in polygon
+                    ]
             else:
                 box_native = [
                     [float(x_min), float(y_min)],
