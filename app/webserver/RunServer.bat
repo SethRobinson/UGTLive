@@ -3,7 +3,7 @@ echo This is a python backend that uses your GPU to run AI stuff we needed.
 echo .
 
 REM Prefer running via conda without activating (handles spaces in paths)
-conda run --no-capture-output -n ocrstuff python server.py
+call conda run --no-capture-output -n ocrstuff python server.py
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo WARNING: conda run failed, attempting to activate environment...

@@ -20,7 +20,7 @@ set "LABELS_URL=https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.
 REM -----------------------------------------------------------------
 REM Validate conda availability
 REM -----------------------------------------------------------------
-where conda >nul 2>nul || goto :NoConda
+where call conda >nul 2>nul || goto :NoConda
 
 echo Conda detected successfully!
 echo.
@@ -132,7 +132,7 @@ if "!IS_5090!"=="1" (
     call conda install -y -c conda-forge opencv pillow matplotlib scipy || goto :FailInstallCondaForge
 
     echo Installing additional conda dependencies...
-    call conda install -y tqdm pyyaml requests || goto :FailInstallCondaDeps
+    call conda install -y numpy tqdm pyyaml requests || goto :FailInstallCondaDeps
 )
 
 REM -----------------------------------------------------------------
