@@ -942,8 +942,9 @@ namespace UGTLive
                             }
                          
                             // Extract colors from JSON if available
-                            SolidColorBrush? foregroundColor = null;
-                            SolidColorBrush? backgroundColor = null;
+                            // Use Color? instead of SolidColorBrush? to avoid threading issues
+                            Color? foregroundColor = null;
+                            Color? backgroundColor = null;
                             
                             if (item.TryGetProperty("foreground_color", out JsonElement foregroundColorElement))
                             {
@@ -979,6 +980,9 @@ namespace UGTLive
                             CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor);
                         }
                     }
+                    
+                    // Refresh monitor window overlays to ensure they're displayed
+                    MonitorWindow.Instance.RefreshOverlays();
                 }
             }
             catch (Exception ex)
@@ -989,7 +993,9 @@ namespace UGTLive
         }
         
         // Helper method to parse color from JSON element
-        private SolidColorBrush? ParseColorFromJson(JsonElement colorElement, bool isBackground = false)
+        // Returns Color? instead of SolidColorBrush? to avoid threading issues
+        // Brushes should be created on the UI thread in CreateTextObjectAtPosition
+        private Color? ParseColorFromJson(JsonElement colorElement, bool isBackground = false)
         {
             try
             {
@@ -1044,7 +1050,7 @@ namespace UGTLive
                     // Use fully opaque (alpha 255) for both foreground and background
                     byte alpha = (byte)255;
                     
-                    return new SolidColorBrush(Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b));
+                    return Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b);
                 }
                 
                 // Fallback: try hex value if RGB is not available
@@ -1060,7 +1066,7 @@ namespace UGTLive
                         
                         // Use fully opaque (alpha 255) for both foreground and background
                         byte alpha = (byte)255;
-                        return new SolidColorBrush(Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b));
+                        return Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b);
                     }
                 }
                 
@@ -1074,7 +1080,9 @@ namespace UGTLive
         }
         
         // Create a text object at the specified position with confidence info
-        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal", SolidColorBrush? foregroundColor = null, SolidColorBrush? backgroundColor = null)
+        // Accepts Color? instead of SolidColorBrush? to avoid threading issues
+        // Creates brushes on the UI thread
+        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal", Color? foregroundColor = null, Color? backgroundColor = null)
         {
 
             try
@@ -1130,12 +1138,17 @@ namespace UGTLive
                     fontSize = Math.Max(10, Math.Min(36, (int)(height * 0.9)));
                 }
                 
+                // Create SolidColorBrush objects from Color structs on the UI thread
                 // Use provided colors or fall back to defaults (white text on fully opaque black background)
-                SolidColorBrush textColor = foregroundColor ?? new SolidColorBrush(Colors.White);
-                SolidColorBrush bgColor = backgroundColor ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
+                SolidColorBrush textColor = foregroundColor.HasValue 
+                    ? new SolidColorBrush(foregroundColor.Value) 
+                    : new SolidColorBrush(Colors.White);
+                SolidColorBrush bgColor = backgroundColor.HasValue 
+                    ? new SolidColorBrush(backgroundColor.Value) 
+                    : new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
                 
                 // Debug: Log final colors being used
-                if (foregroundColor != null || backgroundColor != null)
+                if (foregroundColor.HasValue || backgroundColor.HasValue)
                 {
                     Console.WriteLine($"Creating TextObject '{text.Substring(0, Math.Min(20, text.Length))}...' - TextColor: {textColor.Color}, BackgroundColor: {bgColor.Color}");
                 }

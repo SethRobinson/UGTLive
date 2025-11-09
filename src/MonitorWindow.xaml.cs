@@ -183,7 +183,8 @@ namespace UGTLive
                 // Using EasyOCR, check connection status first
                 _ = Task.Run(async () => 
                 {
-                   
+                    try
+                    {
                         Console.WriteLine("Checking local socket connection...");
 
                         // If already connected, we're good to go
@@ -199,7 +200,24 @@ namespace UGTLive
 
                         // Connect without disconnecting first (TryReconnectAsync handles cleanup)
                         bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                   
+                        
+                        // Update status based on reconnection result
+                        if (reconnected && SocketManager.Instance.IsConnected)
+                        {
+                            Console.WriteLine("Successfully connected to socket server");
+                            UpdateStatus("Connected to Python backend");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to connect to socket server - will retry when needed");
+                            UpdateStatus("Not connected to Python backend");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during socket reconnection: {ex.Message}");
+                        UpdateStatus("Error connecting to Python backend");
+                    }
                 });
             }
             
