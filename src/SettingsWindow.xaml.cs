@@ -472,6 +472,15 @@ namespace UGTLive
             ttsServiceComboBox.SelectionChanged -= TtsServiceComboBox_SelectionChanged;
             elevenLabsVoiceComboBox.SelectionChanged -= ElevenLabsVoiceComboBox_SelectionChanged;
             googleTtsVoiceComboBox.SelectionChanged -= GoogleTtsVoiceComboBox_SelectionChanged;
+            if (elevenLabsCustomVoiceCheckBox != null)
+            {
+                elevenLabsCustomVoiceCheckBox.Checked -= ElevenLabsCustomVoiceCheckBox_CheckedChanged;
+                elevenLabsCustomVoiceCheckBox.Unchecked -= ElevenLabsCustomVoiceCheckBox_CheckedChanged;
+            }
+            if (elevenLabsCustomVoiceIdTextBox != null)
+            {
+                elevenLabsCustomVoiceIdTextBox.LostFocus -= ElevenLabsCustomVoiceIdTextBox_LostFocus;
+            }
             
             // Set TTS enabled state
             ttsEnabledCheckBox.IsChecked = ConfigManager.Instance.IsTtsEnabled();
@@ -503,6 +512,20 @@ namespace UGTLive
                     break;
                 }
             }
+
+            // Set custom ElevenLabs voice settings
+            bool useCustomElevenLabsVoice = ConfigManager.Instance.GetElevenLabsUseCustomVoiceId();
+            if (elevenLabsCustomVoiceCheckBox != null)
+            {
+                elevenLabsCustomVoiceCheckBox.IsChecked = useCustomElevenLabsVoice;
+            }
+            if (elevenLabsCustomVoiceIdTextBox != null)
+            {
+                elevenLabsCustomVoiceIdTextBox.Text = ConfigManager.Instance.GetElevenLabsCustomVoiceId();
+                elevenLabsCustomVoiceIdTextBox.IsEnabled = useCustomElevenLabsVoice;
+            }
+            elevenLabsVoiceComboBox.IsEnabled = !useCustomElevenLabsVoice;
+            elevenLabsVoiceLabel.IsEnabled = !useCustomElevenLabsVoice;
             
             // Set Google TTS API key
             googleTtsApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleTtsApiKey();
@@ -524,6 +547,15 @@ namespace UGTLive
             ttsServiceComboBox.SelectionChanged += TtsServiceComboBox_SelectionChanged;
             elevenLabsVoiceComboBox.SelectionChanged += ElevenLabsVoiceComboBox_SelectionChanged;
             googleTtsVoiceComboBox.SelectionChanged += GoogleTtsVoiceComboBox_SelectionChanged;
+            if (elevenLabsCustomVoiceCheckBox != null)
+            {
+                elevenLabsCustomVoiceCheckBox.Checked += ElevenLabsCustomVoiceCheckBox_CheckedChanged;
+                elevenLabsCustomVoiceCheckBox.Unchecked += ElevenLabsCustomVoiceCheckBox_CheckedChanged;
+            }
+            if (elevenLabsCustomVoiceIdTextBox != null)
+            {
+                elevenLabsCustomVoiceIdTextBox.LostFocus += ElevenLabsCustomVoiceIdTextBox_LostFocus;
+            }
             
             // Load ignore phrases
             LoadIgnorePhrases();
@@ -1280,7 +1312,8 @@ namespace UGTLive
                     elevenLabsApiKeyHelpText == null || elevenLabsVoiceLabel == null || 
                     elevenLabsVoiceComboBox == null || googleTtsApiKeyLabel == null || 
                     googleTtsApiKeyGrid == null || googleTtsVoiceLabel == null || 
-                    googleTtsVoiceComboBox == null)
+                    googleTtsVoiceComboBox == null || elevenLabsCustomVoiceLabel == null || 
+                    elevenLabsCustomVoiceGrid == null)
                 {
                     Console.WriteLine("TTS UI elements not initialized yet. Skipping visibility update.");
                     return;
@@ -1290,6 +1323,8 @@ namespace UGTLive
                 elevenLabsApiKeyLabel.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
                 elevenLabsApiKeyGrid.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
                 elevenLabsApiKeyHelpText.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
+                elevenLabsCustomVoiceLabel.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
+                elevenLabsCustomVoiceGrid.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
                 elevenLabsVoiceLabel.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
                 elevenLabsVoiceComboBox.Visibility = isElevenLabsSelected ? Visibility.Visible : Visibility.Collapsed;
                 
@@ -1314,6 +1349,20 @@ namespace UGTLive
                             break;
                         }
                     }
+
+                    // Update custom voice UI state
+                    bool useCustom = ConfigManager.Instance.GetElevenLabsUseCustomVoiceId();
+                    if (elevenLabsCustomVoiceCheckBox != null)
+                    {
+                        elevenLabsCustomVoiceCheckBox.IsChecked = useCustom;
+                    }
+                    if (elevenLabsCustomVoiceIdTextBox != null)
+                    {
+                        elevenLabsCustomVoiceIdTextBox.Text = ConfigManager.Instance.GetElevenLabsCustomVoiceId();
+                        elevenLabsCustomVoiceIdTextBox.IsEnabled = useCustom;
+                    }
+                    elevenLabsVoiceComboBox.IsEnabled = !useCustom;
+                    elevenLabsVoiceLabel.IsEnabled = !useCustom;
                 }
                 else if (isGoogleTtsSelected)
                 {
@@ -1733,6 +1782,47 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating ElevenLabs voice: {ex.Message}");
+            }
+        }
+
+        private void ElevenLabsCustomVoiceCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                bool useCustom = elevenLabsCustomVoiceCheckBox.IsChecked == true;
+                ConfigManager.Instance.SetElevenLabsUseCustomVoiceId(useCustom);
+
+                // Enable/disable related controls
+                if (elevenLabsCustomVoiceIdTextBox != null)
+                {
+                    elevenLabsCustomVoiceIdTextBox.IsEnabled = useCustom;
+                }
+                elevenLabsVoiceComboBox.IsEnabled = !useCustom;
+                elevenLabsVoiceLabel.IsEnabled = !useCustom;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating ElevenLabs custom voice toggle: {ex.Message}");
+            }
+        }
+
+        private void ElevenLabsCustomVoiceIdTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                string customId = elevenLabsCustomVoiceIdTextBox.Text?.Trim() ?? "";
+                ConfigManager.Instance.SetElevenLabsCustomVoiceId(customId);
+                Console.WriteLine("ElevenLabs custom voice ID updated from UI");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating ElevenLabs custom voice ID: {ex.Message}");
             }
         }
         

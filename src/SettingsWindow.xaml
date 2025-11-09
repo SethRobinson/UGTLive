@@ -649,6 +649,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- TTS Enabled -->
@@ -686,10 +687,28 @@
                             </TextBlock>
                         </Grid>
                         
+                        <!-- ElevenLabs Custom Voice ID - Only visible when ElevenLabs is selected -->
+                        <TextBlock x:Name="elevenLabsCustomVoiceLabel" Text="Custom Voice ID:" Grid.Row="3" Grid.Column="0" 
+                                  VerticalAlignment="Top" Margin="0,8,10,0"/>
+                        <Grid Grid.Row="3" Grid.Column="1" Margin="0,5,0,0" x:Name="elevenLabsCustomVoiceGrid">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <CheckBox x:Name="elevenLabsCustomVoiceCheckBox" Grid.Row="0"
+                                      Margin="0,0,0,2"
+                                      Content="Use custom ID"
+                                      Checked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"
+                                      Unchecked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"/>
+                            <TextBox x:Name="elevenLabsCustomVoiceIdTextBox" Grid.Row="1"
+                                     Margin="0,0,0,0"
+                                     LostFocus="ElevenLabsCustomVoiceIdTextBox_LostFocus"/>
+                        </Grid>
+                        
                         <!-- ElevenLabs Voice - Only visible when ElevenLabs is selected -->
-                        <TextBlock x:Name="elevenLabsVoiceLabel" Text="ElevenLabs Voice:" Grid.Row="3" Grid.Column="0" 
+                        <TextBlock x:Name="elevenLabsVoiceLabel" Text="ElevenLabs Voice:" Grid.Row="4" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,5,10,0"/>
-                        <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="3" Grid.Column="1" 
+                        <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="ElevenLabsVoiceComboBox_SelectionChanged">
                             <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
                             <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
@@ -721,9 +740,9 @@
                         </Grid>
                         
                         <!-- Google TTS Voice - Only visible when Google TTS is selected -->
-                        <TextBlock x:Name="googleTtsVoiceLabel" Text="Google Voice:" Grid.Row="3" Grid.Column="0" 
+                        <TextBlock x:Name="googleTtsVoiceLabel" Text="Google Voice:" Grid.Row="4" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <ComboBox x:Name="googleTtsVoiceComboBox" Grid.Row="3" Grid.Column="1" 
+                        <ComboBox x:Name="googleTtsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
                                  Margin="0,5" SelectionChanged="GoogleTtsVoiceComboBox_SelectionChanged" Visibility="Collapsed">
                             <!-- Japanese Voices -->
                             <ComboBoxItem Content="Japanese (Female) - Neural2" Tag="ja-JP-Neural2-B"/>

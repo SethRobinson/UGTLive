@@ -60,6 +60,20 @@ namespace UGTLive
                 
                 // Get voice ID
                 string voice = ConfigManager.Instance.GetElevenLabsVoice();
+
+                // Override with custom voice ID if enabled
+                try
+                {
+                    if (ConfigManager.Instance.GetElevenLabsUseCustomVoiceId())
+                    {
+                        string customVoice = ConfigManager.Instance.GetElevenLabsCustomVoiceId();
+                        if (!string.IsNullOrWhiteSpace(customVoice))
+                        {
+                            voice = customVoice;
+                        }
+                    }
+                }
+                catch {}
                 
                 // Set API key in headers
                 _httpClient.DefaultRequestHeaders.Remove("xi-api-key");

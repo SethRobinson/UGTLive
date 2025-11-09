@@ -77,6 +77,8 @@ namespace UGTLive
         public const string TTS_SERVICE = "tts_service";
         public const string ELEVENLABS_API_KEY = "elevenlabs_api_key";
         public const string ELEVENLABS_VOICE = "elevenlabs_voice";
+        public const string ELEVENLABS_USE_CUSTOM_VOICE_ID = "elevenlabs_use_custom_voice_id";
+        public const string ELEVENLABS_CUSTOM_VOICE_ID = "elevenlabs_custom_voice_id";
         public const string GOOGLE_TTS_API_KEY = "google_tts_api_key";
         public const string GOOGLE_TTS_VOICE = "google_tts_voice";
         
@@ -318,6 +320,8 @@ namespace UGTLive
             _configValues[TARGET_LANGUAGE] = "en";
             _configValues[ELEVENLABS_API_KEY] = "<your API key here>";
             _configValues[ELEVENLABS_VOICE] = "21m00Tcm4TlvDq8ikWAM";
+            _configValues[ELEVENLABS_USE_CUSTOM_VOICE_ID] = "false";
+            _configValues[ELEVENLABS_CUSTOM_VOICE_ID] = "";
             _configValues[TTS_SERVICE] = "Google Cloud TTS";
             _configValues[GOOGLE_TTS_API_KEY] = "<your API key here>";
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
@@ -1236,6 +1240,32 @@ namespace UGTLive
                 SaveConfig();
                 Console.WriteLine($"ElevenLabs voice set to: {voiceId}");
             }
+        }
+
+        // Get/Set ElevenLabs custom voice toggle
+        public bool GetElevenLabsUseCustomVoiceId()
+        {
+            return GetBoolValue(ELEVENLABS_USE_CUSTOM_VOICE_ID, false);
+        }
+
+        public void SetElevenLabsUseCustomVoiceId(bool useCustom)
+        {
+            _configValues[ELEVENLABS_USE_CUSTOM_VOICE_ID] = useCustom.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"ElevenLabs custom voice ID enabled: {useCustom}");
+        }
+
+        // Get/Set ElevenLabs custom voice ID
+        public string GetElevenLabsCustomVoiceId()
+        {
+            return GetValue(ELEVENLABS_CUSTOM_VOICE_ID, "");
+        }
+
+        public void SetElevenLabsCustomVoiceId(string voiceId)
+        {
+            _configValues[ELEVENLABS_CUSTOM_VOICE_ID] = voiceId ?? "";
+            SaveConfig();
+            Console.WriteLine("ElevenLabs custom voice ID updated");
         }
         
         // Google TTS methods
