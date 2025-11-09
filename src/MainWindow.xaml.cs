@@ -12,6 +12,7 @@ using System.Drawing.Drawing2D;
 using System.Diagnostics;
 using System.Text;
 using System.Windows.Shell;
+using System.Threading.Tasks;
 using MessageBox = System.Windows.MessageBox;
 
 
@@ -705,28 +706,87 @@ namespace UGTLive
             }
         }
 
-        protected override void OnClosed(EventArgs e)
+        private bool _isShuttingDown = false;
+        
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Remove global keyboard hook
-            KeyboardShortcuts.CleanupGlobalHook();
-            
-            // Clean up MouseManager resources
-            MouseManager.Instance.Cleanup();
-            
-            Logic.Instance.Finish();
-            
-            // Stop server if it was started by this app
-            ServerProcessManager.Instance.StopServer();
-            
-            // Make sure the console is closed
-            if (consoleWindow != IntPtr.Zero)
+            // If we're already shutting down, allow the close
+            if (_isShuttingDown)
             {
-                ShowWindow(consoleWindow, SW_HIDE);
+                base.OnClosing(e);
+                return;
             }
             
-            // Make sure the application exits when the main window is closed
-            System.Windows.Application.Current.Shutdown();
+            // Cancel the close for now
+            e.Cancel = true;
             
+            // Close Monitor window immediately before showing shutdown dialog
+            if (MonitorWindow.Instance.IsVisible)
+            {
+                MonitorWindow.Instance.ForceClose();
+            }
+            
+            // Show shutdown dialog
+            ShutdownDialog shutdownDialog = new ShutdownDialog();
+            shutdownDialog.Show();
+            shutdownDialog.UpdateStatus("Closing connections...");
+            
+            // Process UI messages to ensure dialog is visible
+            System.Windows.Application.Current.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+            
+            // Perform shutdown operations
+            PerformShutdown(shutdownDialog);
+        }
+        
+        private async void PerformShutdown(ShutdownDialog shutdownDialog)
+        {
+            try
+            {
+                // Remove global keyboard hook
+                shutdownDialog.UpdateStatus("Closing connections...");
+                await Task.Delay(50); // Small delay to allow UI update
+                KeyboardShortcuts.CleanupGlobalHook();
+                
+                shutdownDialog.UpdateStatus("Cleaning up resources...");
+                await Task.Delay(50);
+                MouseManager.Instance.Cleanup();
+                
+                shutdownDialog.UpdateStatus("Finalizing...");
+                await Task.Delay(50);
+                Logic.Instance.Finish();
+                
+                shutdownDialog.UpdateStatus("Stopping server...");
+                await Task.Delay(50);
+                ServerProcessManager.Instance.StopServer();
+                
+                // Make sure the console is closed
+                if (consoleWindow != IntPtr.Zero)
+                {
+                    ShowWindow(consoleWindow, SW_HIDE);
+                }
+                
+                // Close shutdown dialog
+                shutdownDialog.Close();
+                
+                // Mark as shutting down and close the window
+                _isShuttingDown = true;
+                this.Close();
+                
+                // Make sure the application exits
+                System.Windows.Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during shutdown: {ex.Message}");
+                shutdownDialog.Close();
+                _isShuttingDown = true;
+                this.Close();
+                System.Windows.Application.Current.Shutdown();
+            }
+        }
+        
+        protected override void OnClosed(EventArgs e)
+        {
             base.OnClosed(e);
         }
         

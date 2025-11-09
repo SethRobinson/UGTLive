@@ -47,6 +47,15 @@ namespace UGTLive
             }
         }
         
+        // Flag to allow proper closing during shutdown
+        private bool _isShuttingDown = false;
+        
+        public void ForceClose()
+        {
+            _isShuttingDown = true;
+            Close();
+        }
+        
         // Getter for current overlay mode
         public OverlayMode CurrentOverlayMode => _currentOverlayMode;
         
@@ -1519,6 +1528,13 @@ namespace UGTLive
         // Override closing to hide instead
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
+            if (_isShuttingDown)
+            {
+                // Allow closing during shutdown
+                Console.WriteLine("Monitor window closing during shutdown");
+                return;
+            }
+            
             e.Cancel = true;  // Cancel the close
             Hide();           // Hide the window instead
             Console.WriteLine("Monitor window closing operation converted to hide");
