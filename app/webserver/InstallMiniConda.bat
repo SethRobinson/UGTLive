@@ -32,11 +32,13 @@ echo.
 echo ===== Installation Complete =====
 echo.
 echo IMPORTANT NEXT STEPS:
-echo   1. CLOSE this Command Prompt window
-echo   2. Open a NEW Command Prompt window
-echo   3. Run the setup script again (SetupServerCondaEnvNVidia.bat)
+echo   1. Close UGTLive (if it's running)
+echo   2. Restart UGTLive
+echo   3. The app will detect conda and allow you to continue setup
 echo.
-echo The new Command Prompt window is needed so that conda is available in your PATH.
+echo NOTE: PATH changes may not be immediately available. If conda is not
+echo detected after restarting, you may need to restart your computer for
+echo the PATH changes to take full effect.
 echo.
 pause
 goto :eof

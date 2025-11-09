@@ -74,7 +74,7 @@ namespace UGTLive
         private int previousCaptureY;
         
         // Auto translation
-        private bool isAutoTranslateEnabled = true;
+        private bool isAutoTranslateEnabled = false;
         
         // ChatBox management
         private ChatBoxWindow? chatBoxWindow;

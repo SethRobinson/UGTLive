@@ -67,6 +67,11 @@ REM -----------------------------------------------------------------
 echo Activating conda base environment...
 call conda activate base || goto :FailActivateBase
 
+echo Accepting conda Terms of Service for required channels...
+call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>nul
+call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>nul
+call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/msys2 2>nul
+
 echo Updating conda...
 call conda update -y conda || goto :WarnUpdateConda
 
@@ -185,7 +190,7 @@ echo =============================================================
 echo   Setup complete!
 echo   The ocrstuff environment now includes EasyOCR, Manga OCR, docTR,
 echo   Manga109 YOLO detection, and color extraction helpers.
-echo   Use RunServer.bat to start the OCR socket server.
+echo   The OCR server will start automatically from UGTLive.
 echo =============================================================
 echo.
 pause
@@ -197,19 +202,18 @@ echo ===== ERROR: Conda is not installed or not in PATH =====
 echo.
 echo Conda is required to set up the OCR environment.
 echo.
-echo OPTION 1 - Automatic Installation:
-echo   Run "InstallMiniConda.bat" (in this same directory) to install Miniconda.
-echo   After installation, CLOSE THIS WINDOW and open a NEW Command Prompt, then run this script again.
+echo If you just installed Miniconda, please:
+echo   1. Close UGTLive completely
+echo   2. Restart UGTLive
+echo   3. The app will detect conda and allow you to continue setup
 echo.
-echo OPTION 2 - Manual Installation:
-echo   1. Download Miniconda from: https://docs.conda.io/en/latest/miniconda.html
-echo   2. Run the installer and make sure to check "Add conda to PATH"
-echo   3. Close this window and open a NEW Command Prompt
-echo   4. Run this script again
+echo If conda is not installed:
+echo   Use the "Install Miniconda" button in the UGTLive Server Setup window.
+echo   After installation, close and restart UGTLive for PATH changes to take effect.
 echo.
-echo OPTION 3 - If conda is already installed:
-echo   Open a NEW Command Prompt and make sure conda is activated
-echo   You might need to run: conda init cmd.exe
+echo If conda is already installed but not detected:
+echo   You may need to restart your computer for PATH changes to take full effect.
+echo   Alternatively, you can manually add conda to your PATH environment variable.
 echo.
 pause
 exit /b 1

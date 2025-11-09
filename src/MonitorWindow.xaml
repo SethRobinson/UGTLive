@@ -55,7 +55,7 @@
             <!-- Hidden controls for settings synchronization -->
             <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" />
             
-            <CheckBox x:Name="autoTranslateCheckBox" IsChecked="True" Visibility="Collapsed"/>
+            <CheckBox x:Name="autoTranslateCheckBox" IsChecked="False" Visibility="Collapsed"/>
             
             <TextBox x:Name="blockDetectionPowerTextBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" 
                      Text="5" VerticalContentAlignment="Center"/>

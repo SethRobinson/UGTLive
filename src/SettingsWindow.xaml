@@ -113,7 +113,7 @@
                         <TextBlock Text="Auto Translate:" Grid.Row="1" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <CheckBox x:Name="autoTranslateCheckBox" Grid.Row="1" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="True" 
+                                 Margin="0,5" IsChecked="False" 
                                  Checked="AutoTranslateCheckBox_CheckedChanged" 
                                  Unchecked="AutoTranslateCheckBox_CheckedChanged"/>
                                  

@@ -4,7 +4,24 @@ rmdir tempbuild /S /Q
 rmdir app\win-x64\publish /S /Q
 
 dotnet clean UGTLive.sln --configuration Release
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo ========================================
+    echo BUILD FAILED: dotnet clean failed!
+    echo ========================================
+    pause
+    exit /b %ERRORLEVEL%
+)
+
 dotnet publish .\UGTLive.csproj -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo ========================================
+    echo BUILD FAILED: dotnet publish failed!
+    echo ========================================
+    pause
+    exit /b %ERRORLEVEL%
+)
 
 
 mkdir tempbuild

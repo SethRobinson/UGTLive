@@ -751,25 +751,72 @@ namespace UGTLive
                     UseShellExecute = true
                 };
                 
-                Process.Start(psi);
+                Process process = Process.Start(psi)!;
                 
-                statusMessage.Text = "Miniconda installer started. Please complete the installation and restart UGTLive.";
+                statusMessage.Text = "Installing Miniconda... Please wait.";
+                progressBar.Visibility = Visibility.Visible;
+                
+                // Wait for installer to complete
+                await Task.Run(() => process.WaitForExit());
+                
+                progressBar.Visibility = Visibility.Collapsed;
+                statusMessage.Text = "Miniconda installation complete.";
+                
+                // Show message that app will close and user needs to restart manually
+                MessageBox.Show(
+                    "Miniconda installation is complete.\n\n" +
+                    "UGTLive will now close automatically.\n\n" +
+                    "Please restart UGTLive manually to continue setup.\n\n" +
+                    "PATH environment changes require a full restart of the application\n" +
+                    "to take effect. After restarting, you can continue with the backend setup.",
+                    "Restart Required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                
+                // Close the application
+                System.Windows.Application.Current.Shutdown();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error starting installer: {ex.Message}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 statusMessage.Text = $"Error: {ex.Message}";
+                progressBar.Visibility = Visibility.Collapsed;
             }
             finally
             {
-                _isInstalling = false;
+                // Only clean up if app is still running (not shutting down)
+                try
+                {
+                    if (System.Windows.Application.Current != null)
+                    {
+                        progressBar.Visibility = Visibility.Collapsed;
+                        installCondaButton.IsEnabled = true;
+                        _isInstalling = false;
+                    }
+                }
+                catch
+                {
+                    // Ignore errors during shutdown
+                }
             }
         }
         
         private async void InstallBackendButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isInstalling) return;
+            
+            // Show Conda Terms of Service acceptance dialog
+            CondaTosDialog tosDialog = new CondaTosDialog
+            {
+                Owner = this
+            };
+            
+            bool? tosResult = tosDialog.ShowDialog();
+            if (tosResult != true || !tosDialog.TosAccepted)
+            {
+                return; // User cancelled or didn't accept ToS
+            }
             
             MessageBoxResult result = MessageBox.Show(
                 "This will install or reinstall the UGTLive backend environment.\n\n" +

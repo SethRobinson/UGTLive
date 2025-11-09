@@ -325,7 +325,7 @@ namespace UGTLive
             _configValues[LEAVE_TRANSLATION_ONSCREEN] = "true";
             _configValues[MIN_LETTER_CONFIDENCE] = "0.1";
             _configValues[MIN_LINE_CONFIDENCE] = "0.1";
-            _configValues[AUTO_TRANSLATE_ENABLED] = "true";
+            _configValues[AUTO_TRANSLATE_ENABLED] = "false";
             _configValues[IGNORE_PHRASES] = "";
             
             // Audio Input Device default
@@ -788,7 +788,7 @@ namespace UGTLive
         // Check if auto translate is enabled
         public bool IsAutoTranslateEnabled()
         {
-            string value = GetValue(AUTO_TRANSLATE_ENABLED, "true");
+            string value = GetValue(AUTO_TRANSLATE_ENABLED, "false");
             return value.ToLower() == "true";
         }
         
