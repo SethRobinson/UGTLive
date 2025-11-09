@@ -98,6 +98,7 @@ namespace UGTLive
         public const string OPENAI_REALTIME_API_KEY = "openai_realtime_api_key";
         public const string AUDIO_SERVICE_AUTO_TRANSLATE = "audio_service_auto_translate";
         public const string USE_WEBVIEW_OVERLAY = "use_webview_overlay";
+        public const string SHOW_SERVER_WINDOW = "show_server_window";
 
         // Audio Input Device
         public const string AUDIO_INPUT_DEVICE_INDEX = "audio_input_device_index";
@@ -198,6 +199,21 @@ namespace UGTLive
         {
             string value = GetValue(key, defaultValue.ToString().ToLower());
             return value.ToLower() == "true";
+        }
+        
+        public void SetBoolValue(string key, bool value)
+        {
+            SetValue(key, value.ToString().ToLower());
+        }
+        
+        public bool GetShowServerWindow()
+        {
+            return GetBoolValue(SHOW_SERVER_WINDOW, false);
+        }
+        
+        public void SetShowServerWindow(bool showWindow)
+        {
+            SetBoolValue(SHOW_SERVER_WINDOW, showWindow);
         }
 
         // Load configuration from file

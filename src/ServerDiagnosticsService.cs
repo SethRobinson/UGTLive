@@ -262,6 +262,69 @@ namespace UGTLive
         }
         
         /// <summary>
+        /// Checks for NVIDIA GPU and returns model name
+        /// </summary>
+        public async Task<(bool found, string modelName, string errorMessage)> CheckNvidiaGpuAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // Use nvidia-smi to detect NVIDIA GPU (most reliable method)
+                    ProcessStartInfo psi = new ProcessStartInfo
+                    {
+                        FileName = "nvidia-smi",
+                        Arguments = "--query-gpu=name --format=csv,noheader",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+                    
+                    using (Process? process = Process.Start(psi))
+                    {
+                        if (process != null)
+                        {
+                            string output = process.StandardOutput.ReadToEnd();
+                            string error = process.StandardError.ReadToEnd();
+                            process.WaitForExit();
+                            
+                            if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                            {
+                                // Parse the GPU name (first line, trim whitespace)
+                                string gpuName = output.Split('\n')[0].Trim();
+                                
+                                // Check if it's an error message
+                                if (gpuName.StartsWith("ERROR", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    return (false, "", "nvidia-smi returned an error");
+                                }
+                                
+                                if (!string.IsNullOrWhiteSpace(gpuName))
+                                {
+                                    return (true, gpuName, "");
+                                }
+                            }
+                            
+                            // If we got here, nvidia-smi ran but didn't return a GPU name
+                            if (!string.IsNullOrWhiteSpace(error))
+                            {
+                                return (false, "", $"nvidia-smi error: {error.Trim()}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // nvidia-smi not found or failed
+                    return (false, "", $"No NVIDIA GPU detected (nvidia-smi not available: {ex.Message})");
+                }
+                
+                return (false, "", "No NVIDIA GPU detected");
+            });
+        }
+        
+        /// <summary>
         /// Checks Python packages in the ocrstuff environment
         /// </summary>
         public async Task<Dictionary<string, (bool installed, string version)>> CheckPythonPackagesAsync()

@@ -6,13 +6,13 @@
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
         Title="UGTLive Server Setup"
-        Height="600"
+        Height="810"
         Width="700"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
         Icon="/media/Icon1.ico">
-    <Grid Margin="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -20,13 +20,68 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Server Setup &amp; Diagnostics" 
-                   FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+        <!-- Splash Header with Icon and Branding -->
+        <Border Grid.Row="0" Background="White" Padding="20,20,20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- App Icon -->
+                <Image x:Name="appIconImage" Grid.Column="0" Width="80" Height="80" 
+                       Margin="0,0,20,0" VerticalAlignment="Center"/>
+                
+                <!-- Title and Version -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Universal Game Translator Live" 
+                               FontSize="20" FontWeight="Bold" 
+                               Foreground="#1E1E6E" Margin="0,0,0,5"/>
+                    <TextBlock x:Name="versionTextBlock" 
+                               Text="V0.28 by Seth A. Robinson" 
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="#5A5A5A"/>
+                </StackPanel>
+            </Grid>
+        </Border>
         
         <!-- Diagnostic Items -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,0,20,15">
             <StackPanel>
+                <!-- Update Check -->
+                <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="updateStatusIcon" Text="⏳" FontSize="20" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Version Check" FontWeight="Bold"/>
+                            <TextBlock x:Name="updateStatusText" Text="Checking for updates..." Foreground="Gray"/>
+                        </StackPanel>
+                        <Button x:Name="downloadUpdateButton" Content="Download Update" 
+                                Grid.Column="2" Padding="10,5" Margin="5,0,0,0"
+                                Click="DownloadUpdateButton_Click" IsEnabled="False" Visibility="Collapsed"/>
+                    </Grid>
+                </Border>
+                
+                <!-- GPU Check -->
+                <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="gpuStatusIcon" Text="⏳" FontSize="20" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="NVIDIA GPU" FontWeight="Bold"/>
+                            <TextBlock x:Name="gpuStatusText" Text="Checking..." Foreground="Gray"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                
                 <!-- Conda Check -->
                 <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
                     <Grid>
@@ -107,29 +162,51 @@
                             <TextBlock Text="Server Status" FontWeight="Bold"/>
                             <TextBlock x:Name="serverStatusText" Text="Checking..." Foreground="Gray"/>
                         </StackPanel>
-                        <Button x:Name="startServerButton" Content="Start Server" 
-                                Grid.Column="2" Padding="10,5" Margin="5,0,0,0"
-                                Click="StartServerButton_Click" IsEnabled="False"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="5,0,0,0" VerticalAlignment="Center">
+                            <CheckBox x:Name="showServerWindowCheckBox" 
+                                      Content="Show Server window"
+                                      Margin="0,0,10,0" VerticalAlignment="Center"
+                                      Checked="ShowServerWindowCheckBox_Changed" Unchecked="ShowServerWindowCheckBox_Changed"/>
+                            <Button x:Name="startServerButton" Content="Start Server" 
+                                    Padding="10,5" Margin="0,0,5,0"
+                                    Click="StartServerButton_Click" IsEnabled="False"/>
+                            <Button x:Name="stopServerButton" Content="Stop Server" 
+                                    Padding="10,5"
+                                    Click="StopServerButton_Click" IsEnabled="False"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </StackPanel>
         </ScrollViewer>
         
         <!-- Progress Bar -->
-        <ProgressBar x:Name="progressBar" Grid.Row="2" Height="20" Margin="0,0,0,10" 
+        <ProgressBar x:Name="progressBar" Grid.Row="2" Height="20" Margin="20,0,20,10" 
                      Visibility="Collapsed" IsIndeterminate="True"/>
         
         <!-- Status Message -->
         <TextBlock x:Name="statusMessage" Grid.Row="2" Text="" Foreground="Gray" 
-                   Margin="0,0,0,10" TextWrapping="Wrap" Visibility="Collapsed"/>
+                   Margin="20,0,20,10" TextWrapping="Wrap" Visibility="Collapsed"
+                   HorizontalAlignment="Center" TextAlignment="Center"/>
+        
         
         <!-- Buttons -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="refreshButton" Content="Refresh Diagnostics" 
-                    Padding="10,5" Margin="0,0,10,0" Click="RefreshButton_Click"/>
-            <Button x:Name="closeButton" Content="Close" 
-                    Padding="10,5" IsEnabled="False" Click="CloseButton_Click"/>
-        </StackPanel>
+        <Grid Grid.Row="3" Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="statusLabel" 
+                       Grid.Column="0"
+                       Text="Making sure everything is ready..." 
+                       Foreground="Black"
+                       VerticalAlignment="Center" 
+                       HorizontalAlignment="Center"
+                       FontSize="14"/>
+            <Button x:Name="continueButton" 
+                    Grid.Column="1"
+                    Content="Continue" 
+                    Padding="10,5" IsEnabled="True" Click="ContinueButton_Click"/>
+        </Grid>
     </Grid>
 </Window>
 

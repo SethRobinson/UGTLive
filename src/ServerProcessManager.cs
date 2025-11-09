@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -85,7 +86,8 @@ namespace UGTLive
         /// <summary>
         /// Starts the server process using RunServer.bat (does not wait for server to be ready)
         /// </summary>
-        public async Task<(bool success, string errorMessage)> StartServerProcessAsync()
+        /// <param name="showWindow">If true, shows the server window. If false, runs invisibly.</param>
+        public async Task<(bool success, string errorMessage)> StartServerProcessAsync(bool showWindow = true)
         {
             return await Task.Run(() =>
             {
@@ -110,7 +112,7 @@ namespace UGTLive
                         FileName = runServerBatch,
                         WorkingDirectory = webserverPath,
                         UseShellExecute = true,
-                        CreateNoWindow = false // Show window so user can see server output
+                        WindowStyle = showWindow ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden
                     };
                     
                     _serverProcess = Process.Start(psi);
@@ -119,6 +121,10 @@ namespace UGTLive
                     {
                         return (false, "Failed to start server process");
                     }
+                    
+                    // Wait a moment for the process to start, then set window visibility
+                    System.Threading.Thread.Sleep(500);
+                    SetServerWindowVisibility(showWindow);
                     
                     // Mark that we started the server
                     _serverStartedByApp = true;
@@ -252,11 +258,193 @@ namespace UGTLive
             }
         }
         
+        // Windows API functions for showing/hiding windows
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+        
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+        
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        
+        private const int SW_HIDE = 0;
+        private const int SW_SHOW = 5;
+        
+        /// <summary>
+        /// Sets the visibility of the server window if it's running
+        /// </summary>
+        public void SetServerWindowVisibility(bool show)
+        {
+            if (_serverProcess == null || _serverProcess.HasExited)
+            {
+                return;
+            }
+            
+            try
+            {
+                uint processId = (uint)_serverProcess.Id;
+                IntPtr serverWindowHandle = IntPtr.Zero;
+                
+                // Find the window belonging to this process
+                EnumWindows((hWnd, lParam) =>
+                {
+                    GetWindowThreadProcessId(hWnd, out uint windowProcessId);
+                    if (windowProcessId == processId)
+                    {
+                        // Check if this is a console window (has a class name starting with "ConsoleWindowClass")
+                        // We want to find the main window for the process
+                        serverWindowHandle = hWnd;
+                        return false; // Stop enumeration
+                    }
+                    return true; // Continue enumeration
+                }, IntPtr.Zero);
+                
+                if (serverWindowHandle != IntPtr.Zero)
+                {
+                    ShowWindow(serverWindowHandle, show ? SW_SHOW : SW_HIDE);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting server window visibility: {ex.Message}");
+            }
+        }
+        
         
         /// <summary>
         /// Gets whether the server was started by this app
         /// </summary>
         public bool ServerStartedByApp => _serverStartedByApp;
+        
+        /// <summary>
+        /// Force stops any server running on port 9999, even if not started by this app
+        /// </summary>
+        public async Task<(bool success, string errorMessage)> ForceStopServerAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // First check if port 9999 is actually in use
+                    bool portInUse = false;
+                    try
+                    {
+                        using (var tcpClient = new TcpClient())
+                        {
+                            var result = tcpClient.BeginConnect("127.0.0.1", 9999, null, null);
+                            portInUse = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100));
+                            if (portInUse)
+                            {
+                                tcpClient.EndConnect(result);
+                            }
+                        }
+                    }
+                    catch { }
+                    
+                    if (!portInUse)
+                    {
+                        return (true, "No server running on port 9999");
+                    }
+                    
+                    // First try to stop server we started
+                    if (_serverStartedByApp && _serverProcess != null && !_serverProcess.HasExited)
+                    {
+                        StopServer();
+                        // Wait a moment and check if port is still in use
+                        System.Threading.Thread.Sleep(1000);
+                        try
+                        {
+                            using (var tcpClient = new TcpClient())
+                            {
+                                var result = tcpClient.BeginConnect("127.0.0.1", 9999, null, null);
+                                if (!result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100)))
+                                {
+                                    return (true, "Server stopped");
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                    
+                    // If port is still in use, try to find and kill python/pythonw processes
+                    // that might be running the server
+                    try
+                    {
+                        string[] processNames = { "python", "pythonw" };
+                        
+                        foreach (string processName in processNames)
+                        {
+                            Process[] processes = Process.GetProcessesByName(processName);
+                            
+                            foreach (Process proc in processes)
+                            {
+                                try
+                                {
+                                    // Try to check if this process might be our server
+                                    // by checking if it's listening on port 9999
+                                    // We'll kill processes one by one until port is released
+                                    Console.WriteLine($"Attempting to stop potential server process: {processName} (PID {proc.Id})");
+                                    proc.Kill();
+                                    proc.WaitForExit(5000);
+                                    
+                                    // Wait a moment for port to be released
+                                    System.Threading.Thread.Sleep(1000);
+                                    
+                                    // Check if port is now released
+                                    bool stillInUse = false;
+                                    try
+                                    {
+                                        using (var tcpClient = new TcpClient())
+                                        {
+                                            var result = tcpClient.BeginConnect("127.0.0.1", 9999, null, null);
+                                            stillInUse = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(100));
+                                            if (stillInUse)
+                                            {
+                                                tcpClient.EndConnect(result);
+                                            }
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // Port released (connection failed means port is free)
+                                        return (true, "Server stopped");
+                                    }
+                                    
+                                    if (!stillInUse)
+                                    {
+                                        return (true, "Server stopped");
+                                    }
+                                    
+                                    // Port still in use, try next process
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error stopping process {proc.Id}: {ex.Message}");
+                                    // Continue to next process
+                                }
+                            }
+                        }
+                        
+                        // If we get here, we tried all processes but port is still in use
+                        return (false, "Could not stop server - port 9999 still in use");
+                    }
+                    catch (Exception ex)
+                    {
+                        return (false, $"Error stopping server: {ex.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return (false, $"Error: {ex.Message}");
+                }
+            });
+        }
     }
 }
 

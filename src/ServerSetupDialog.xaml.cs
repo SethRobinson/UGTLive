@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MessageBox = System.Windows.MessageBox;
 using MediaColor = System.Windows.Media.Color;
@@ -67,7 +70,7 @@ namespace UGTLive
             }
             else
             {
-                // Show the dialog
+                // Show the dialog (modal when called from settings, non-modal for startup)
                 dialog.ShowDialog();
             }
         }
@@ -76,6 +79,12 @@ namespace UGTLive
         {
             InitializeComponent();
             this.Loaded += ServerSetupDialog_Loaded;
+            
+            // Load checkbox state from config
+            showServerWindowCheckBox.IsChecked = ConfigManager.Instance.GetShowServerWindow();
+            
+            // Load app icon and version info
+            LoadSplashBranding();
             
             // Clear instance when window is closed
             this.Closed += (s, e) =>
@@ -87,9 +96,176 @@ namespace UGTLive
             };
         }
         
+        private void LoadSplashBranding()
+        {
+            try
+            {
+                // Load app icon
+                System.Uri iconUri = new System.Uri("pack://application:,,,/media/Icon1.ico", UriKind.RelativeOrAbsolute);
+                IconBitmapDecoder decoder = new IconBitmapDecoder(
+                    iconUri,
+                    BitmapCreateOptions.None,
+                    BitmapCacheOption.OnLoad);
+                
+                BitmapSource bigFrame = decoder.Frames
+                    .OrderByDescending(f => f.PixelWidth)
+                    .First();
+                
+                appIconImage.Source = bigFrame;
+                
+                // Set version text
+                versionTextBlock.Text = $"V{SplashManager.CurrentVersion} by Seth A. Robinson";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading splash branding: {ex.Message}");
+            }
+        }
+        
         private async void ServerSetupDialog_Loaded(object sender, RoutedEventArgs e)
         {
             await RunDiagnosticsAsync();
+        }
+        
+        private void ShowServerWindowCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            // Save checkbox state to config
+            bool isChecked = showServerWindowCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetShowServerWindow(isChecked);
+            
+            // If server is running, toggle window visibility
+            ServerProcessManager.Instance.SetServerWindowVisibility(isChecked);
+        }
+        
+        private class VersionInfo
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("name")]
+            public string? Name { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("latest_version")]
+            public double LatestVersion { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("message")]
+            public string? Message { get; set; }
+        }
+        
+        private async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    updateStatusIcon.Text = "⏳";
+                    updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(128, 128, 128)); // Gray
+                    updateStatusText.Text = "Checking for updates...";
+                });
+                
+                VersionInfo? versionInfo = await FetchVersionInfoAsync();
+                
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (versionInfo == null)
+                    {
+                        updateStatusIcon.Text = "⚠";
+                        updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(255, 165, 0)); // Orange
+                        updateStatusText.Text = "Could not check for updates";
+                        return;
+                    }
+                    
+                    if (versionInfo.LatestVersion > SplashManager.CurrentVersion)
+                    {
+                        updateStatusIcon.Text = "⚠";
+                        updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(255, 165, 0)); // Orange
+                        updateStatusText.Text = $"New version V{versionInfo.LatestVersion} available!";
+                        downloadUpdateButton.IsEnabled = true;
+                        downloadUpdateButton.Visibility = Visibility.Visible;
+                        
+                        // Store version info for download button
+                        _updateVersionInfo = versionInfo;
+                    }
+                    else
+                    {
+                        updateStatusIcon.Text = "✓";
+                        updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(32, 184, 20)); // Green
+                        updateStatusText.Text = "You have the latest version";
+                    }
+                    
+                    // Scroll to show update status (first check)
+                    ScrollToElement(updateStatusIcon);
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking for updates: {ex.Message}");
+                Dispatcher.Invoke(() =>
+                {
+                    updateStatusIcon.Text = "⚠";
+                    updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(255, 165, 0)); // Orange
+                    updateStatusText.Text = "Update check failed";
+                });
+            }
+        }
+        
+        private VersionInfo? _updateVersionInfo;
+        private const string VersionCheckerUrl = "https://raw.githubusercontent.com/SethRobinson/UGTLive/refs/heads/main/media/latest_version_checker.json";
+        private const string DownloadUrl = "https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip";
+        
+        private async Task<VersionInfo?> FetchVersionInfoAsync()
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(5); // 5 second timeout
+                    string json = await client.GetStringAsync(VersionCheckerUrl);
+                    Console.WriteLine($"Received JSON: {json}");
+                    
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    
+                    var result = JsonSerializer.Deserialize<VersionInfo>(json, options);
+                    Console.WriteLine($"Deserialized version: {result?.LatestVersion}, name: {result?.Name}, message: {result?.Message}");
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching version info: {ex.Message}");
+                return null;
+            }
+        }
+        
+        private void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_updateVersionInfo != null)
+                {
+                    string message = _updateVersionInfo.Message?.Replace("{VERSION_STRING}", _updateVersionInfo.LatestVersion.ToString()) 
+                        ?? $"A new version (V{_updateVersionInfo.LatestVersion}) is available. Would you like to download it?";
+                    
+                    MessageBoxResult result = MessageBox.Show(message, "Update Available", 
+                        MessageBoxButton.YesNo, MessageBoxImage.Information);
+                    
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        // Open the download URL in the default browser
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = DownloadUrl,
+                            UseShellExecute = true
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open download page: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"Error downloading update: {ex.Message}");
+            }
         }
         
         private async Task RunDiagnosticsAsync()
@@ -103,19 +279,59 @@ namespace UGTLive
             
             try
             {
+                // Check for updates first
+                await CheckForUpdatesAsync();
+                
+                // Check GPU (right after version check)
+                await UpdateGpuStatusAsync();
+                
                 // Check Conda
+                var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
                 await UpdateCondaStatusAsync();
                 
                 // Check Environment
+                var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
                 await UpdateEnvironmentStatusAsync();
                 
                 // Check Packages
+                var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
                 await UpdatePackagesStatusAsync();
                 
                 // Check Server
                 await UpdateServerStatusAsync();
                 
                 statusMessage.Text = "Diagnostics complete";
+                
+                // Check if server is running for auto-start logic
+                bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
+                
+                // Auto-start server if everything looks good but server isn't running
+                if (condaResult.available && envResult.exists && !serverRunning)
+                {
+                    // Check if all key packages are installed
+                    string[] keyPackages = { "torch", "easyocr", "manga-ocr", "python-doctr", "ultralytics", "opencv-python" };
+                    bool allPackagesInstalled = keyPackages.All(pkg => 
+                        packagesResult.ContainsKey(pkg) && packagesResult[pkg].installed);
+                    
+                    if (allPackagesInstalled)
+                    {
+                        // Check if user wants to see the server window
+                        bool showWindow = await Dispatcher.InvokeAsync(() => (bool)(showServerWindowCheckBox.IsChecked ?? false));
+                        
+                        // Disable Start Server button and show visual indication
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            startServerButton.IsEnabled = false;
+                            startServerButton.Content = "Auto-starting...";
+                            startServerButton.Opacity = 0.6; // Gray it out
+                            statusMessage.Visibility = Visibility.Visible;
+                            statusMessage.Text = "Auto-starting server... (This may take a few seconds)";
+                        });
+                        
+                        // Auto-start the server
+                        await AutoStartServerAsync(showWindow);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -129,9 +345,78 @@ namespace UGTLive
                 
                 // Hide status message after a delay
                 await Task.Delay(2000);
-                Dispatcher.Invoke(() =>
+                await Dispatcher.InvokeAsync(() =>
                 {
                     statusMessage.Visibility = Visibility.Collapsed;
+                });
+            }
+        }
+        
+        private async Task AutoStartServerAsync(bool showWindow)
+        {
+            try
+            {
+                statusMessage.Visibility = Visibility.Visible;
+                statusMessage.Text = "Auto-starting server...";
+                progressBar.Visibility = Visibility.Visible;
+                
+                // Start the server process
+                var startResult = await ServerProcessManager.Instance.StartServerProcessAsync(showWindow);
+                
+                if (!startResult.success)
+                {
+                    statusMessage.Text = $"Auto-start failed: {startResult.errorMessage}";
+                    return;
+                }
+                
+                // Poll for server to become available (check every second for up to 30 seconds)
+                statusMessage.Text = "Waiting for server to start...";
+                bool serverReady = false;
+                int maxAttempts = 30; // 30 seconds
+                int attempts = 0;
+                
+                while (attempts < maxAttempts && !serverReady)
+                {
+                    await Task.Delay(1000); // Wait 1 second between checks
+                    attempts++;
+                    
+                    serverReady = await ServerProcessManager.Instance.IsServerRunningAsync();
+                    
+                    if (!serverReady)
+                    {
+                        statusMessage.Text = $"Waiting for server to start... ({attempts}/{maxAttempts} seconds)";
+                    }
+                }
+                
+                if (serverReady)
+                {
+                    statusMessage.Text = "Server started successfully!";
+                    await UpdateServerStatusAsync();
+                }
+                else
+                {
+                    statusMessage.Text = "Server did not start in time. Please check for errors.";
+                }
+            }
+            catch (Exception ex)
+            {
+                statusMessage.Text = $"Auto-start error: {ex.Message}";
+                Console.WriteLine($"Auto-start error: {ex.Message}");
+            }
+            finally
+            {
+                progressBar.Visibility = Visibility.Collapsed;
+                
+                // Re-enable Start Server button if auto-start failed
+                bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (!serverRunning)
+                    {
+                        startServerButton.IsEnabled = true;
+                        startServerButton.Content = "Start Server";
+                        startServerButton.Opacity = 1.0;
+                    }
                 });
             }
         }
@@ -140,7 +425,7 @@ namespace UGTLive
         {
             var result = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
             
-            Dispatcher.Invoke(() =>
+            await Dispatcher.InvokeAsync(() =>
             {
                 if (result.available)
                 {
@@ -156,6 +441,9 @@ namespace UGTLive
                     condaStatusText.Text = result.errorMessage;
                     installCondaButton.IsEnabled = true;
                 }
+                
+                // Scroll to show this section
+                ScrollToElement(condaStatusIcon);
             });
         }
         
@@ -163,7 +451,7 @@ namespace UGTLive
         {
             var result = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
             
-            Dispatcher.Invoke(() =>
+            await Dispatcher.InvokeAsync(() =>
             {
                 if (result.exists)
                 {
@@ -177,6 +465,9 @@ namespace UGTLive
                     envStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(220, 0, 0)); // Red
                     envStatusText.Text = result.errorMessage;
                 }
+                
+                // Scroll to show this section
+                ScrollToElement(envStatusIcon);
             });
         }
         
@@ -242,6 +533,33 @@ namespace UGTLive
                     packagesStatusText.Text = $"Missing packages ({installedCount}/{keyPackages.Length})";
                     installBackendButton.IsEnabled = true;
                 }
+                
+                // Scroll to show this section
+                ScrollToElement(packagesStatusIcon);
+            });
+        }
+        
+        private async Task UpdateGpuStatusAsync()
+        {
+            var result = await ServerDiagnosticsService.Instance.CheckNvidiaGpuAsync();
+            
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (result.found)
+                {
+                    gpuStatusIcon.Text = "✓";
+                    gpuStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(32, 184, 20)); // Green
+                    gpuStatusText.Text = result.modelName;
+                }
+                else
+                {
+                    gpuStatusIcon.Text = "✗";
+                    gpuStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(220, 0, 0)); // Red
+                    gpuStatusText.Text = "These scripts currently require a modern NVidia GPU to work out of the box!";
+                }
+                
+                // Scroll to show this section
+                ScrollToElement(gpuStatusIcon);
             });
         }
         
@@ -249,31 +567,149 @@ namespace UGTLive
         {
             var result = await ServerProcessManager.Instance.IsServerRunningAsync();
             
-            Dispatcher.Invoke(() =>
+            await Dispatcher.InvokeAsync(() =>
             {
                 if (result)
                 {
                     serverStatusIcon.Text = "✓";
                     serverStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(32, 184, 20)); // Green
-                    serverStatusText.Text = "Server is running on port 9999";
+                    serverStatusText.Text = "UGTLive Server detected";
                     startServerButton.IsEnabled = false;
-                    closeButton.IsEnabled = true;
+                    startServerButton.Content = "Start Server"; // Reset text in case it was "Auto-starting..."
+                    startServerButton.Opacity = 1.0; // Reset opacity
+                    stopServerButton.IsEnabled = true;
+                    
+                    // Update status label to show everything is ready
+                    statusLabel.Text = "Everything looks good. Let's go!";
+                    statusLabel.Foreground = new SolidColorBrush(MediaColor.FromRgb(32, 184, 20)); // Green
+                    
+                    // Scroll to show server status section
+                    ScrollToServerStatus();
                 }
                 else
                 {
                     serverStatusIcon.Text = "✗";
                     serverStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(220, 0, 0)); // Red
                     serverStatusText.Text = "Server is not running";
+                    stopServerButton.IsEnabled = false;
                     
-                    // Enable start button if conda and environment are available
-                    var condaCheck = Task.Run(async () => 
-                        await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync()).Result;
-                    var envCheck = Task.Run(async () => 
-                        await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync()).Result;
+                    // Keep status label as "Making sure everything is ready..."
+                    statusLabel.Text = "Making sure everything is ready...";
+                    statusLabel.Foreground = new SolidColorBrush(MediaColor.FromRgb(0, 0, 0)); // Black
                     
-                    startServerButton.IsEnabled = condaCheck.available && envCheck.exists;
+                    // Scroll to show server status section
+                    ScrollToServerStatus();
+                    
+                    // Enable start button if conda and environment are available (check async without blocking)
+                    _ = CheckAndEnableStartButtonAsync();
                 }
             });
+        }
+        
+        private ScrollViewer? _diagnosticsScrollViewer;
+        
+        private void ScrollToElement(FrameworkElement element)
+        {
+            if (_diagnosticsScrollViewer == null)
+            {
+                _diagnosticsScrollViewer = FindVisualChild<ScrollViewer>(this);
+            }
+            
+            if (_diagnosticsScrollViewer != null && element != null)
+            {
+                // Bring the element into view
+                element.BringIntoView();
+                
+                // Small delay to ensure smooth scrolling
+                Task.Delay(100).ContinueWith(_ =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        // Ensure element is visible
+                        element.BringIntoView();
+                    });
+                });
+            }
+        }
+        
+        private void ScrollToServerStatus()
+        {
+            if (_diagnosticsScrollViewer == null)
+            {
+                _diagnosticsScrollViewer = FindVisualChild<ScrollViewer>(this);
+            }
+            
+            if (_diagnosticsScrollViewer != null)
+            {
+                // Scroll to bottom to show server status and buttons
+                _diagnosticsScrollViewer.ScrollToEnd();
+            }
+        }
+        
+        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                {
+                    return result;
+                }
+                var childOfChild = FindVisualChild<T>(child);
+                if (childOfChild != null)
+                {
+                    return childOfChild;
+                }
+            }
+            return null;
+        }
+        
+        private async void StopServerButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isInstalling) return;
+            
+            _isInstalling = true;
+            stopServerButton.IsEnabled = false;
+            statusMessage.Visibility = Visibility.Visible;
+            statusMessage.Text = "Stopping server...";
+            progressBar.Visibility = Visibility.Visible;
+            
+            try
+            {
+                var result = await ServerProcessManager.Instance.ForceStopServerAsync();
+                
+                if (result.success)
+                {
+                    statusMessage.Text = "Server stopped successfully!";
+                    // Server stopped, update UI
+                    await Task.Delay(1000); // Wait a moment for port to be released
+                    await UpdateServerStatusAsync();
+                }
+                else
+                {
+                    statusMessage.Text = $"Failed to stop server: {result.errorMessage}";
+                    MessageBox.Show($"Failed to stop server:\n\n{result.errorMessage}", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                statusMessage.Text = $"Error: {ex.Message}";
+                MessageBox.Show($"Error stopping server: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                progressBar.Visibility = Visibility.Collapsed;
+                _isInstalling = false;
+                
+                // Hide status message after delay
+                await Task.Delay(2000);
+                Dispatcher.Invoke(() =>
+                {
+                    statusMessage.Visibility = Visibility.Collapsed;
+                });
+            }
         }
         
         private async void InstallCondaButton_Click(object sender, RoutedEventArgs e)
@@ -409,8 +845,11 @@ namespace UGTLive
             
             try
             {
+                // Check if user wants to see the server window
+                bool showWindow = Dispatcher.Invoke(() => showServerWindowCheckBox.IsChecked ?? false);
+                
                 // Start the server process
-                var startResult = await ServerProcessManager.Instance.StartServerProcessAsync();
+                var startResult = await ServerProcessManager.Instance.StartServerProcessAsync(showWindow);
                 
                 if (!startResult.success)
                 {
@@ -475,41 +914,31 @@ namespace UGTLive
             }
         }
         
-        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+        private async Task CheckAndEnableStartButtonAsync()
         {
-            await RunDiagnosticsAsync();
+            try
+            {
+                var condaCheck = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                var envCheck = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
+                
+                Dispatcher.Invoke(() =>
+                {
+                    startServerButton.IsEnabled = condaCheck.available && envCheck.exists;
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking start button enable state: {ex.Message}");
+            }
         }
         
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        private void ContinueButton_Click(object sender, RoutedEventArgs e)
         {
-            // Only allow closing if server is running
-            // User can still close via window X button if needed
-            if (closeButton.IsEnabled)
-            {
-                this.Close();
-            }
+            this.Close();
         }
         
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Allow closing even if server isn't running (user might want to use Windows OCR)
-            // Just warn if server isn't running
-            if (!closeButton.IsEnabled)
-            {
-                var result = MessageBox.Show(
-                    "The server is not running. Some OCR methods (EasyOCR, Manga OCR, docTR) will not be available.\n\n" +
-                    "You can switch to Windows OCR in Settings, or set up the server later.\n\n" +
-                    "Close this dialog?",
-                    "Server Not Running",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                
-                if (result != MessageBoxResult.Yes)
-                {
-                    e.Cancel = true;
-                }
-            }
-            
             // Clear instance reference when closing
             if (_instance == this)
             {

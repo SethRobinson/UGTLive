@@ -13,83 +13,59 @@ public partial class App : Application
 {
     private MainWindow? _mainWindow;
     
-    protected override void OnStartup(StartupEventArgs e)
-    {
-        base.OnStartup(e);
-        
-        // Set up application-wide keyboard handling
-        this.DispatcherUnhandledException += App_DispatcherUnhandledException;
-        
-        // We'll hook keyboard events in the main window and other windows instead
-        // of at the application level (which isn't supported in this context)
-        
-        // Show splash screen first
-        SplashManager.Instance.ShowSplash();
-        
-        // Initialize ChatBoxWindow instance without showing it
-        // This ensures ChatBoxWindow.Instance is available immediately
-        new ChatBoxWindow();
-        
-        // Create main window but don't show it yet
-        _mainWindow = new MainWindow();
-        
-        // We'll attach the keyboard handlers when the windows are loaded
-        // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
-        
-        // Add event handler to show main window after splash closes
-        SplashManager.Instance.SplashClosed += async (sender, args) =>
+        protected override void OnStartup(StartupEventArgs e)
         {
-            // Check if server is needed and running before showing main window
-            await CheckServerAndShowDialogIfNeededAsync();
+            base.OnStartup(e);
             
-            _mainWindow?.Show();
+            // Set up application-wide keyboard handling
+            this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             
-            // Attach key handler to other windows once main window is shown
-            AttachKeyHandlersToAllWindows();
-        };
-    }
-    
-    /// <summary>
-    /// Checks if server is running and shows setup dialog if needed
-    /// </summary>
-    private async Task CheckServerAndShowDialogIfNeededAsync()
-    {
-        try
+            // We'll hook keyboard events in the main window and other windows instead
+            // of at the application level (which isn't supported in this context)
+            
+            // Initialize ChatBoxWindow instance without showing it
+            // This ensures ChatBoxWindow.Instance is available immediately
+            new ChatBoxWindow();
+            
+            // Create main window but don't show it yet
+            _mainWindow = new MainWindow();
+            
+            // We'll attach the keyboard handlers when the windows are loaded
+            // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
+            
+            // Show ServerSetupDialog as the startup/splash screen
+            ShowServerSetupDialogAsStartup();
+        }
+        
+        private void ShowServerSetupDialogAsStartup()
         {
-            // Check what OCR method is configured
-            string ocrMethod = ConfigManager.Instance.GetOcrMethod();
-            
-            // Only check server if using EasyOCR, Manga OCR, or docTR
-            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR" && ocrMethod != "docTR")
+            try
             {
-                // Using Windows OCR, no server needed
-                return;
-            }
-            
-            // Detect if server is already running
-            bool serverRunning = await ServerProcessManager.Instance.DetectExistingServerAsync();
-            
-            if (!serverRunning)
-            {
-                // Server not running, show setup dialog
-                this.Dispatcher.Invoke(() =>
+                // Show the server setup dialog (which now acts as our startup screen)
+                ServerSetupDialog dialog = ServerSetupDialog.Instance;
+                
+                // Set up event handler for when dialog closes
+                dialog.Closed += (s, args) =>
                 {
-                    try
-                    {
-                        ServerSetupDialog.ShowDialogSafe();
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Console.WriteLine($"Error showing server setup dialog at startup: {ex.Message}");
-                    }
-                });
+                    // Show main window after dialog closes
+                    _mainWindow?.Show();
+                    
+                    // Attach key handler to other windows once main window is shown
+                    AttachKeyHandlersToAllWindows();
+                };
+                
+                // Show the dialog (modal - blocks until closed)
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error showing server setup dialog at startup: {ex.Message}");
+                // Fallback: show main window if dialog fails
+                _mainWindow?.Show();
+                AttachKeyHandlersToAllWindows();
             }
         }
-        catch (Exception ex)
-        {
-            System.Console.WriteLine($"Error checking server status at startup: {ex.Message}");
-        }
-    }
+    
     
     // Ensure all windows are initialized and loaded
     private void AttachKeyHandlersToAllWindows()
