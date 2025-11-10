@@ -6,37 +6,38 @@
 
 ## Description 
 
-An easy to use GUI-based Windows tool that performs "live" translations of anything on the screen.
+An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen.
 
 Requires **Windows** and an **NVidia RTX 30/40/50** series card.
 
 Features:
 
-* New "Easy setup", don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
-* Out of the box you can do local GPU accerlated OCR (Easy OCR, Manga OCR, docTR, Windows OCR)
-* Optional cloud services supported: OpenAI, Gemini, Elevenlabs, Microsoft Speech
-* Can read/render/select/speak vertical Japanese in Manga, good for language learning.
+* Built for real-time use, detects changes and translates when things "settle"
+* Can read/render/select/speak vertical Japanese in Manga, good for language learning
+* Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, docTR, Windows OCR)
+* Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
 * Flexible interface, can use chatbox overlays or render a separate monitor window with changes.  Can target specific areas on your screen
+* New "Easy Setup", don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
 
-License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
+## License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
-## Download the latest version [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip) 
+## Download the latest version [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip) (Windows, NVidia GPU) 
 
+## Screenshots
 
-*Things to know:*
-
- * This is mostly tested with Japanese to English translations
- * Windows and NVIDIA 30/40/50 series cards only.  Minimum VRAM: 8 GB.  OCR operations are local and GPU accelerated
- * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
- * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
-* While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
-* Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
-* AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
+<table>
+<tr>
+<td><a href="media/easy_setup.png"><img src="media/easy_setup.png" width="200"/></a></td>
+<td><a href="media/manga_ocr.png"><img src="media/manga_ocr.png" width="200"/></a></td>
+<td><a href="media/manga_ocr_to_english.png"><img src="media/manga_ocr_to_english.png" width="200"/></a></td>
+<td><a href="media/manga_web_export_with_10ten.png"><img src="media/manga_web_export_with_10ten.png" width="200"/></a></td>
+</tr>
+</table>
 
 # History
 
-V0.50 Nov 10th, 2025 - Huge update to everything, added vertical Manga support, reworked backend completely, now detects original foreground/backgroind colors (badly, but it's a start)
+**V0.50 Nov 10th, 2025** - Huge update to everything, added vertical Manga support, reworked backend completely, now detects original foreground/background colors (badly, but it's a start), much simpler to install, no more fussing with .bat files and servers, it's all handled internally from the main app now.  Lot of little QOL and features added.
 
 # Download & Install
 
@@ -44,9 +45,9 @@ V0.50 Nov 10th, 2025 - Huge update to everything, added vertical Manga support, 
 
 * Run *UGTLive.exe*
 
-* It will go through a self check and install things if needed.  The entire setup can take up to 30 minutes, it's a lot to download.  It will autodetect your video card, it does need an NVidia RTX 30/40/50 series card with the latest NVidia drivers.
+* It will go through a self-check and install things if needed.  The entire setup can take up to 30 minutes, it's a lot to download.  It will auto-detect your video card, it does need an NVidia RTX 30/40/50 series card with the latest NVidia drivers.
 
-## How to update your version ##
+## How to update ##
 
 UGTLive will automatically check for updates when you start it. If a new version is available, you'll see a notification asking if you want to download it. To update:
 
@@ -55,13 +56,23 @@ UGTLive will automatically check for updates when you start it. If a new version
 3. Extract the new files over your existing installation
 4. After starting UGTLive, you should probably run the *Install/Reinstall Backend* option to be safe, if some new OCR method was added that requires new libraries, this will fix it.
 
+## Tips
+
+ * To get translations, click Settings and check the "Auto translate" button.  Setup the translation service to use in settings as well.
+ * Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
+* Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
+ * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
+* While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
+* Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
+* AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
+
 ## Problems?  Read this!
 
 * First, it's helpful to see what the backend is doing.  Click the "Show server window" option.  It scrolls fast but it might hold some clues.
 * Second, click the "Log" button.  It also scrolls by fast but may have some good info.
 * Try re-installing the backend by clicking the "Install/Reinstall Backend" button. (especially if something has changed with the version or your video card)
 
-Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [disccusions](https://github.com/SethRobinson/UGTLive/discussions) area.
+Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [discussions](https://github.com/SethRobinson/UGTLive/discussions) area.
 
 ## Keyboard Shortcuts for UGTLive
 
@@ -73,7 +84,6 @@ Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLiv
 | Shift+P | Show/Hide Settings |
 | Shift+L | Show/Hide Log Console |
 | Shift+H | Show/Hide Main Window |
-
 
 ## Why are you using an LLM instead of DeepL/Google Translate? ##
 
@@ -97,8 +107,12 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 **Credits and links**
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
 - [thanhkeke97](https://github.com/thanhkeke97)
-- [EasyOCR](https://github.com/JaidedAI/EasyOCR)
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR) - GPU-accelerated OCR supporting 80+ languages
+- [Manga OCR](https://huggingface.co/kha-white/manga-ocr-base) - Specialized OCR for Japanese manga text recognition
+- [docTR](https://github.com/mindee/doctr) - Document text recognition library with transformer architectures
+- [Manga109 YOLO](https://huggingface.co/deepghs/manga109_yolo) - YOLO model for manga text region detection
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) - YOLO framework for object detection
 
-Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version for inline web translation.
+Plug: Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version I made for inline LLM-based web translation that won't mess up the images/formatting.
 
 *This project was developed with assistance from AI tools for code generation and documentation.*
