@@ -71,7 +71,7 @@ namespace UGTLive
             { "EasyOCR", "Easy OCR (Decent at most languages)" },
             { "Manga OCR", "Manga OCR (Vertical Japanese manga)" },
             { "docTR", "docTR (Great at non-asian languages)" },
-            { "Windows OCR", "Windows OCR (Bad at all)" }
+            { "Windows OCR", "Windows OCR (Decent at English?)" }
         };
 
         public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;

@@ -1,59 +1,50 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.28-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-0.50-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
-Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), the Chrome extension version for inline web translation!
+## Description 
 
-A complete rewrite of Universal Game Translator with the following features:
+An easy to use GUI-based Windows tool that performs "live" translations of anything on the screen.
 
-* Runs EasyOCR locally via a Python server to facilitate live automatic translations
-* All translation is done with Large Language Models (LLMs) (Supports Gemini, ChatGPT, Ollama)
-* Can (optionally... it's slower) be run 100% locally by using Ollama with an LLM of your choice
-* Powerful easy to use GUI; overlay a chat window where you want (good for lots of dialog like a visual novel) or translate the entire screen
-* By sending information on the game being translated and previous context, translations can be more accurate than other methods
-* Can speak sentences and create lesson plans
-* Has a "Listen" button to transcribe/translate audio (uses OpenAI's real-time API, requires OpenAI API key)
+Requires **Windows** and an **NVidia RTX 30/40/50** series card.
+
+Features:
+
+* New "Easy setup", don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
+* Out of the box you can do local GPU accerlated OCR (Easy OCR, Manga OCR, docTR, Windows OCR)
+* Optional cloud services supported: OpenAI, Gemini, Elevenlabs, Microsoft Speech
+* Can read/render/select/speak vertical Japanese in Manga, good for language learning.
+* "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
+* Flexible interface, can use chatbox overlays or render a separate monitor window with changes.  Can target specific areas on your screen
 
 License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
+## Download the latest version [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip) 
+
+
 *Things to know:*
 
- * This is experimental, mostly tested with Japanese to English translations
- * Windows and NVIDIA cards only (it will probably work with any card, but I don't know if EasyOCR will be hardware accelerated, would likely need to tweak the conda setup .bat)
+ * This is mostly tested with Japanese to English translations
+ * Windows and NVIDIA 30/40/50 series cards only.  Minimum VRAM: 8 GB.  OCR operations are local and GPU accelerated
  * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
- 
-## How to install and use it (Windows) ##
+ * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
+* While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
+* Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
+* AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
+
+# History
+
+V0.50 Nov 10th, 2025 - Huge update to everything, added vertical Manga support, reworked backend completely, now detects original foreground/backgroind colors (badly, but it's a start)
+
+# Download & Install
 
 * Download the latest version [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip) and unzip it somewhere
 
-* Do you have Conda?  To check, open a command window (press `Win + R`, type `cmd`, and hit Enter) and type "conda". If it shows conda commands, you already have it installed. If it gives an error, follow the steps below to install Miniconda [(more info)](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions):
-```
-curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -o .\miniconda.exe
-start /wait "" .\miniconda.exe /S
-del .\miniconda.exe
-```
+* Run *UGTLive.exe*
 
-* Note:  When running .bat files you might get an ugly "This is dangerous, don't run it" message - the .exe itself is signed by RTsoft, but bat files don't have a way to be signed so you'll have to just trust me and click "More info" and run it anyway.  This message only happens the first time per .bat file.
-
-* Conda is a thing that lets us install a bunch of python stuff without screwing up other python installs.  Let's do that now, double click *UGTLive/webserver/SetupServerCondaEnvNVidia.bat* and wait a long time while it installs a bunch of junk (including dependencies like the `requests` module).  We need this for EasyOCR, the thing that we run locally to "look" at the screen.  Later, this server might also do more ML/AI work in future versions. (for example, doing subtitles of spoken dialog)
-
-* Did that look like it installed ok?  It runs a self-test at the end.  If it did, you're now ready to run the server.
-
-* Run *UGTLive/webserver/RunServer.bat* (Note: this "server" is only accessible locally by you, if you wanted it available beyond that, edit server.py, it has directions inside)
-
-* Now run *UGTLive/UGTLive.exe*
-
-* Go to the settings and add your Gemini API key.  There is some info written there on how to get it.
-
-![alt text](media/settings_gemini.png)
-
-* Check out the other settings; the defaults should be ok.  Notice that there is a place to enter the name of the game, this matters!  The LLM knowing this will help it correct errors and create better dialog, as it's more likely to know some weird word is the name of a character, etc.
-
-* Now you should be ready.  Click Start and see what happens!  Click "Log" to see errors and things.  If stuff doesn't work or you have questions, try posting here on GitHub.
-
-NOTE: The first time you use EasyOCR with a newlanguage, it has to download it first!  So it might seem broken, just wait a minute or two and start/stop UGTLive's translation and it should work.
+* It will go through a self check and install things if needed.  The entire setup can take up to 30 minutes, it's a lot to download.  It will autodetect your video card, it does need an NVidia RTX 30/40/50 series card with the latest NVidia drivers.
 
 ## How to update your version ##
 
@@ -62,15 +53,17 @@ UGTLive will automatically check for updates when you start it. If a new version
 1. Download the latest version from the notification or from [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 2. Close UGTLive if it's running
 3. Extract the new files over your existing installation
-4. That's it! Your settings and preferences will be preserved
+4. After starting UGTLive, you should probably run the *Install/Reinstall Backend* option to be safe, if some new OCR method was added that requires new libraries, this will fix it.
 
-The update process is simple and safe - you won't lose any of your settings or customizations.
+## Problems?  Read this!
+
+* First, it's helpful to see what the backend is doing.  Click the "Show server window" option.  It scrolls fast but it might hold some clues.
+* Second, click the "Log" button.  It also scrolls by fast but may have some good info.
+* Try re-installing the backend by clicking the "Install/Reinstall Backend" button. (especially if something has changed with the version or your video card)
+
+Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [disccusions](https://github.com/SethRobinson/UGTLive/discussions) area.
 
 ## Keyboard Shortcuts for UGTLive
-
-The following shortcuts have been added to UGTLive to help you use the application more quickly and efficiently:
-
-* Main Shortcuts:
 
 | Shortcut  | Function  |
 |-----------|-----------|
@@ -81,15 +74,6 @@ The following shortcuts have been added to UGTLive to help you use the applicati
 | Shift+L | Show/Hide Log Console |
 | Shift+H | Show/Hide Main Window |
 
-## Advanced setup info ##
-P
-While personally I recommend Gemini Flash 2 and EasyOCR, there are a lot of options at your disposal.  You can use Windows' built-in OCR instead of the python server, this doesn't work great for Japanese I've found, but might be ok for other languages.  It's fast.
-
-Ollama and ChatGPT are other LLM options. For Ollama, install it, and set a model like gemma3:12b.  On an RTX 4090 it takes around 5 seconds to return a translation.  (the settings contain directions and buttons to get started)  For ChatGPT/OpenAI, choose a model like GPT-4.1 Nano.
-
-Unfortunately I've hardcoded all the models so when new ones come out uh... well, maybe I'll move those to an editable file later.
-
-All the OCR is done at a character-by-character level.  Then there is a "Block detection" function that sticks things together to make words and paragraphs.  You can edit the "Block Power" to make it more likely to stick things together or break them apart.  (Dialog is good stuck together, other things are better not stuck together, so depends on what you're doing)
 
 ## Why are you using an LLM instead of DeepL/Google Translate? ##
 
@@ -109,26 +93,12 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 
 * Open the solution with Visual Studio 2022 and click compile.  I can't remember if it's going to automatically download the libraries it needs or not.
 
-* For the python server, I use VSCode to write/debug it.  It's super simple, EasyOCR is doing the heavy lifting. 
-
-## AI usage disclosure ##
-
-Claude code wrote about 90% of this app.  It's weird, AI both makes the job easier and harder - you kind of need to be a REALLY good programmer to go through and fix errors in AI code, but even with that, it saves a ton of time. 
-
-I find myself adding little extras that I'd never bother with pre-AI, like the color and transparency settings of the chat window, that every setting can be done in the app, no weird config.txt files to edit like I normally do.  Programming has changed forever and I like it.
-
-ChatGPT created the logo and the .ico file itself.  It also added the "Play" button to the YouTube screenshot above, it was just faster than opening Photoshop.
-
-## Things that should be added/fixed someday ##
-
-* Figure out how to draw and capture the same part of the screen (I can do it with ugly flashes but.. yeah, not good)
-* Make the capture process faster, the "Monitor" window loses FPS on large areas, I haven't even tried to optimize this yet
-* I feel like the OCR (both EasyOCR and Windows OCR) should be better; does anybody know what settings/preprocessing I should tweak?
-* I've barely tested with anything besides Japanese to English, stuff is probably weird or broken with other languages
-* Integration with Google Vision to help create training data for custom EasyOCR models to improve OCR on older video games
 
 **Credits and links**
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
 - [thanhkeke97](https://github.com/thanhkeke97)
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR)
-- [Claude code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+
+Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version for inline web translation.
+
+*This project was developed with assistance from AI tools for code generation and documentation.*

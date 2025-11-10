@@ -1,0 +1,368 @@
+---
+description: Architecture patterns and project structure guidelines
+globs: ["**/*.cs"]
+alwaysApply: false
+---
+
+# Architecture Patterns
+
+## Project Structure
+
+### Directory Organization
+```
+src/
+  - Core application files (App.xaml, Logic.cs, ConfigManager.cs)
+  - UI/ (Window classes)
+  - Services/ (Translation, OCR, TTS services)
+  - Managers/ (BlockDetection, Log, Mouse, etc.)
+  - Utilities/ (Helper classes)
+app/
+  - Compiled binaries
+  - webserver/ (Python server)
+  - media/ (Resources)
+```
+
+### File Naming
+- One class per file
+- File name matches class name
+- XAML files: `WindowName.xaml` and `WindowName.xaml.cs`
+
+## Design Patterns
+
+### Singleton Pattern
+Used for core managers:
+- `ConfigManager.Instance`
+- `Logic.Instance`
+- `BlockDetectionManager.Instance`
+- `LogManager.Instance`
+
+**Implementation:**
+```csharp
+private static ConfigManager? _instance;
+
+public static ConfigManager Instance
+{
+    get
+    {
+        if (_instance == null)
+        {
+            _instance = new ConfigManager();
+        }
+        return _instance;
+    }
+}
+
+private ConfigManager() { }
+```
+
+### Factory Pattern
+Used for creating service instances:
+
+```csharp
+public static class TranslationServiceFactory
+{
+    public static ITranslationService CreateService(string serviceName)
+    {
+        return serviceName switch
+        {
+            "Gemini" => new GeminiTranslationService(...),
+            "ChatGPT" => new ChatGptTranslationService(...),
+            _ => throw new ArgumentException(...)
+        };
+    }
+}
+```
+
+### Strategy Pattern
+Translation services implement common interface:
+
+```csharp
+public interface ITranslationService
+{
+    Task<TranslationResult?> TranslateAsync(...);
+}
+```
+
+## Separation of Concerns
+
+### UI Layer
+- XAML files define UI structure
+- Code-behind handles UI events
+- Minimal business logic in UI code
+
+### Business Logic Layer
+- `Logic.cs` - Core translation workflow
+- `BlockDetectionManager.cs` - Text processing
+- Service classes - External API integration
+
+### Data Layer
+- `ConfigManager.cs` - Configuration persistence
+- File-based storage (config.txt, etc.)
+
+## Dependency Management
+
+### Service Dependencies
+Services depend on ConfigManager, not each other:
+
+```csharp
+public class GeminiTranslationService
+{
+    private readonly string _apiKey;
+    
+    public GeminiTranslationService()
+    {
+        _apiKey = ConfigManager.Instance.GetGeminiApiKey();
+    }
+}
+```
+
+### Manager Dependencies
+Managers can depend on other managers:
+
+```csharp
+public class Logic
+{
+    private readonly ConfigManager _configManager;
+    private readonly BlockDetectionManager _blockManager;
+    
+    public Logic()
+    {
+        _configManager = ConfigManager.Instance;
+        _blockManager = BlockDetectionManager.Instance;
+    }
+}
+```
+
+## Communication Patterns
+
+### Window Communication
+Windows communicate through Logic.Instance:
+
+```csharp
+// In ChatBoxWindow
+Logic.Instance.OnTranslationReceived += HandleTranslation;
+
+// In Logic
+public event EventHandler<TranslationEventArgs>? OnTranslationReceived;
+```
+
+### Event-Driven Architecture
+Use events for loose coupling:
+
+```csharp
+public class TranslationEventArgs : EventArgs
+{
+    public string TranslatedText { get; set; } = "";
+    public string SourceText { get; set; } = "";
+}
+```
+
+## Resource Management
+
+### Disposable Resources
+Implement IDisposable for resources:
+
+```csharp
+public class ResourceManager : IDisposable
+{
+    private bool _disposed = false;
+    
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+    
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed resources
+            }
+            // Dispose unmanaged resources
+            _disposed = true;
+        }
+    }
+}
+```
+
+### Using Statements
+Always use `using` for disposable resources:
+
+```csharp
+using (var bitmap = new Bitmap(width, height))
+{
+    // Use bitmap
+} // Automatically disposed
+
+// Or with async
+using var httpClient = new HttpClient();
+var response = await httpClient.GetAsync(url);
+```
+
+## State Management
+
+### Application State
+State stored in ConfigManager:
+
+```csharp
+// Current translation service
+_currentTranslationService = ConfigManager.Instance.GetTranslationService();
+
+// Window positions
+var pos = ConfigManager.Instance.GetWindowPosition("ChatBox");
+```
+
+### Runtime State
+Runtime state in Logic or window classes:
+
+```csharp
+private bool _isProcessing = false;
+private List<TextObject> _currentTextBlocks = new();
+```
+
+## Error Propagation
+
+### Error Handling Strategy
+- Services return null on error
+- Log errors using LogManager
+- Show user-friendly messages
+- Don't crash the application
+
+```csharp
+public async Task<Result?> ProcessAsync()
+{
+    try
+    {
+        return await DoWorkAsync();
+    }
+    catch (Exception ex)
+    {
+        LogManager.Instance.LogError("Process failed", ex);
+        return null; // Return null instead of throwing
+    }
+}
+```
+
+## Extension Points
+
+### Adding New Translation Service
+1. Implement `ITranslationService`
+2. Add config keys to ConfigManager
+3. Update TranslationServiceFactory
+4. Add UI in SettingsWindow
+
+### Adding New OCR Method
+1. Add method name to `SupportedOcrMethods`
+2. Implement processing logic
+3. Update OCR selection UI
+4. Add configuration options
+
+## Performance Considerations
+
+### Lazy Initialization
+Initialize expensive resources on demand:
+
+```csharp
+private HttpClient? _httpClient;
+
+private HttpClient HttpClient
+{
+    get
+    {
+        if (_httpClient == null)
+        {
+            _httpClient = new HttpClient();
+        }
+        return _httpClient;
+    }
+}
+```
+
+### Caching
+Cache expensive operations:
+
+```csharp
+private Dictionary<string, TranslationResult> _translationCache = new();
+
+public TranslationResult? GetCachedTranslation(string text)
+{
+    if (_translationCache.TryGetValue(text, out var cached))
+    {
+        return cached;
+    }
+    return null;
+}
+```
+
+## Threading Model
+
+### UI Thread
+- All UI updates on UI thread
+- Use Dispatcher.Invoke for cross-thread updates
+- Long operations off UI thread
+
+### Background Threads
+- OCR processing on background thread
+- Network requests async/await
+- Screen capture on timer thread
+
+## Module Boundaries
+
+### Service Boundaries
+Services are independent modules:
+- Each service in own file
+- No direct dependencies between services
+- Communicate through interfaces
+
+### Manager Boundaries
+Managers provide cross-cutting concerns:
+- ConfigManager - Configuration
+- LogManager - Logging
+- BlockDetectionManager - Text processing
+
+## Testing Architecture
+
+### Testable Components
+- Business logic separate from UI
+- Services implement interfaces
+- Static utility methods where possible
+
+### Mock-Friendly Design
+```csharp
+// Use interface for testability
+public interface ITranslationService
+{
+    Task<TranslationResult?> TranslateAsync(...);
+}
+
+// Can be mocked in tests
+var mockService = new Mock<ITranslationService>();
+```
+
+## Version Management
+
+### Version Updates
+Update version in two places:
+1. `SplashManager.cs` - `CurrentVersion` constant
+2. `media/latest_version_checker.json` - `latest_version` field
+
+### Version Format
+- Use double/float (e.g., 0.27)
+- Increment by 0.01 for minor updates
+- Increment by 0.10 for major features
+
+## Build Configuration
+
+### Output Structure
+- Debug: `ugtlive_debug.exe` in `app/`
+- Release: `ugtlive.exe` in `app/`
+- All dependencies in `app/` directory
+
+### Dependencies
+- .NET 8.0 Windows
+- WPF and Windows Forms
+- NAudio for audio
+- WebView2 for web content

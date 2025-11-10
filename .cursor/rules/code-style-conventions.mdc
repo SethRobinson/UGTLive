@@ -1,0 +1,242 @@
+---
+description: Code style and naming conventions for UGTLive
+globs: ["**/*.cs"]
+alwaysApply: true
+---
+
+# Code Style and Conventions
+
+## Naming Conventions
+
+### Classes and Methods
+- **Classes**: PascalCase (e.g., `ConfigManager`, `TranslationService`)
+- **Public Methods**: PascalCase (e.g., `GetValue()`, `TranslateAsync()`)
+- **Private Methods**: camelCase (e.g., `loadConfig()`, `processImage()`)
+- **Private Fields**: Underscore prefix + camelCase (e.g., `_instance`, `_configValues`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `GEMINI_API_KEY`, `TRANSLATION_SERVICE`)
+
+### Properties
+- Use PascalCase for public properties
+- Prefer explicit getters/setters over auto-properties when logic is needed
+- Pattern: `GetVariableName()` / `SetVariableName()` for ConfigManager
+- Direct property access for simple UI bindings
+
+## Code Layout
+
+### Indentation and Braces
+- **Indentation**: 4 spaces (no tabs)
+- **Braces**: Allman style (opening brace on new line)
+- **Line Length**: Prefer < 120 characters, wrap if needed
+
+### Using Statements
+- System namespaces first
+- Third-party namespaces second
+- Application namespaces last
+- Group related usings together
+
+### Example Structure
+```csharp
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows;
+using UGTLive;
+
+namespace UGTLive
+{
+    public class ExampleClass
+    {
+        private static ExampleClass? _instance;
+        private readonly Dictionary<string, string> _configValues;
+
+        public static ExampleClass Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new ExampleClass();
+                }
+                return _instance;
+            }
+        }
+
+        private ExampleClass()
+        {
+            _configValues = new Dictionary<string, string>();
+        }
+
+        public string GetValue(string key)
+        {
+            return _configValues.TryGetValue(key, out var value) ? value : "";
+        }
+    }
+}
+```
+
+## Singleton Pattern
+
+### Implementation
+- Use lazy initialization with null check
+- Private constructor
+- Static Instance property
+- Thread-safe initialization (simple null check is sufficient for this app)
+
+```csharp
+private static ConfigManager? _instance;
+
+public static ConfigManager Instance
+{
+    get
+    {
+        if (_instance == null)
+        {
+            _instance = new ConfigManager();
+        }
+        return _instance;
+    }
+}
+
+private ConfigManager()
+{
+    // Initialization
+}
+```
+
+## Error Handling
+
+### General Principles
+- **Avoid try/catch blocks** unless absolutely necessary
+- **Check for null** before using objects
+- **Log errors** using `LogManager.Instance.LogError()`
+- **Console.WriteLine** for debug output
+- **MessageBox.Show** for user-facing errors (on UI thread)
+
+### Error Handling Pattern
+```csharp
+// Prefer null checks over try/catch
+if (response == null)
+{
+    Console.WriteLine("Response is null");
+    return null;
+}
+
+// Log errors
+LogManager.Instance.LogError("Error description", exception);
+
+// User-facing errors on UI thread
+Application.Current.Dispatcher.Invoke(() =>
+{
+    MessageBox.Show($"Error: {message}", "Error Title", 
+        MessageBoxButton.OK, MessageBoxImage.Error);
+});
+```
+
+## Comments
+
+### When to Comment
+- Complex algorithms or business logic
+- Non-obvious code decisions
+- API integration details
+- TODO items for future improvements
+
+### Comment Style
+- Use `//` for single-line comments
+- Use `///` for XML documentation on public APIs
+- Keep comments concise and up-to-date
+
+## File Organization
+
+### File Structure
+1. Using statements
+2. Namespace declaration
+3. Class declaration
+4. Private fields
+5. Public properties
+6. Constructor
+7. Public methods
+8. Private methods
+
+### One Class Per File
+- Each class should be in its own file
+- File name matches class name
+- Exception: Small helper classes can be in same file
+
+## Nullable Reference Types
+
+### Null Handling
+- Use nullable reference types (`string?`, `object?`)
+- Check for null before dereferencing
+- Use null-coalescing operator (`??`) when appropriate
+- Use null-conditional operator (`?.`) for safe access
+
+```csharp
+private string? _optionalValue;
+
+public string GetValue()
+{
+    return _optionalValue ?? "default";
+}
+
+if (_optionalValue != null)
+{
+    // Use _optionalValue safely
+}
+```
+
+## Constants
+
+### Configuration Keys
+- Define as `public const string` in ConfigManager
+- Use descriptive UPPER_SNAKE_CASE names
+- Group related constants together
+
+```csharp
+public const string GEMINI_API_KEY = "gemini_api_key";
+public const string GEMINI_MODEL = "gemini_model";
+```
+
+## Async/Await Patterns
+
+### Method Naming
+- Async methods end with `Async` suffix
+- Return `Task` or `Task<T>`
+- Use `await` for async calls
+
+```csharp
+public async Task<string> TranslateAsync(string text)
+{
+    var result = await httpClient.GetStringAsync(url);
+    return result;
+}
+```
+
+## LINQ Usage
+
+### When to Use LINQ
+- Prefer LINQ for collection operations
+- Use method syntax for complex queries
+- Keep queries readable
+
+```csharp
+var filtered = items.Where(x => x.IsValid)
+                    .OrderBy(x => x.Name)
+                    .ToList();
+```
+
+## String Handling
+
+### String Operations
+- Use `string.IsNullOrWhiteSpace()` for null/empty checks
+- Prefer string interpolation (`$"text {variable}"`) over concatenation
+- Use `StringBuilder` for multiple concatenations
+
+```csharp
+if (string.IsNullOrWhiteSpace(value))
+{
+    return defaultValue;
+}
+
+var message = $"Processing {count} items";
+```

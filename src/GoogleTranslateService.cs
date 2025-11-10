@@ -460,6 +460,7 @@ namespace UGTLive
                 "polish" or "pl" => "pl",
                 "arabic" or "ar" => "ar",
                 "turkish" or "tr" => "tr",
+                "dutch" or "nl" => "nl",
                 _ => language
             };
         }

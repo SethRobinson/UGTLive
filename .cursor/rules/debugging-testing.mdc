@@ -1,0 +1,350 @@
+---
+description: Debugging, logging, and testing patterns
+globs: ["**/*.cs"]
+alwaysApply: false
+---
+
+# Debugging and Testing Patterns
+
+## Logging
+
+### LogManager Usage
+Use LogManager for structured logging:
+
+```csharp
+using UGTLive;
+
+// Info log
+LogManager.Instance.LogInfo("Processing started");
+
+// Error log
+LogManager.Instance.LogError("Failed to process", exception);
+
+// Debug log
+LogManager.Instance.LogDebug("Debug information");
+```
+
+### Console Output
+Use Console.WriteLine for debug output:
+
+```csharp
+Console.WriteLine($"Processing {count} items");
+Console.WriteLine($"Config value: {key} = {value}");
+```
+
+### Masking Sensitive Data
+Never log API keys or sensitive information:
+
+```csharp
+// BAD
+Console.WriteLine($"API Key: {apiKey}");
+
+// GOOD
+Console.WriteLine($"API Key: {(string.IsNullOrEmpty(apiKey) ? "not set" : "***")}");
+```
+
+## Error File Writing
+
+### Service Error Files
+Some services write error details to files for debugging:
+
+```csharp
+try
+{
+    // API call
+}
+catch (Exception ex)
+{
+    string errorFile = "gemini_last_error.txt";
+    File.WriteAllText(errorFile, 
+        $"Error: {ex.Message}\n\nStack trace: {ex.StackTrace}");
+    
+    Console.WriteLine($"Error written to {errorFile}");
+}
+```
+
+## Debug Configuration Files
+
+### Debug Output Files
+The app writes debug files for troubleshooting:
+
+- `last_llm_request_sent.txt` - Last LLM request
+- `last_llm_reply_received.txt` - Last LLM response
+- `last_ocr_response.json` - Last OCR result
+- `gemini_last_error.txt` - Last Gemini error
+- `openai_audio_log.txt` - OpenAI audio debug log
+
+### Writing Debug Files
+```csharp
+public void WriteDebugFile(string filename, string content)
+{
+    try
+    {
+        string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename);
+        File.WriteAllText(debugPath, content);
+        Console.WriteLine($"Debug file written: {debugPath}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to write debug file: {ex.Message}");
+    }
+}
+```
+
+## Exception Handling
+
+### Unhandled Exception Handler
+App.xaml.cs handles unhandled exceptions:
+
+```csharp
+private void App_DispatcherUnhandledException(object sender, 
+    DispatcherUnhandledExceptionEventArgs e)
+{
+    Console.WriteLine($"Unhandled exception: {e.Exception.Message}");
+    Console.WriteLine($"Stack trace: {e.Exception.StackTrace}");
+    
+    // Mark as handled to prevent crash
+    e.Handled = true;
+}
+```
+
+### Service Exception Handling
+Services should catch and log exceptions:
+
+```csharp
+public async Task<Result?> ProcessAsync()
+{
+    try
+    {
+        return await DoWorkAsync();
+    }
+    catch (HttpRequestException ex)
+    {
+        Console.WriteLine($"HTTP error: {ex.Message}");
+        LogManager.Instance.LogError("HTTP request failed", ex);
+        return null;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Unexpected error: {ex.Message}");
+        LogManager.Instance.LogError("Unexpected error", ex);
+        return null;
+    }
+}
+```
+
+## Debug Builds
+
+### Debug vs Release
+Debug builds use different assembly names:
+
+```xml
+<PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <AssemblyName>ugtlive_debug</AssemblyName>
+</PropertyGroup>
+```
+
+### Conditional Compilation
+```csharp
+#if DEBUG
+    Console.WriteLine("Debug mode - extra logging enabled");
+#endif
+```
+
+## Testing Translation Services
+
+### Manual Testing Pattern
+1. Set API key in settings
+2. Select service and model
+3. Use Monitor window to capture text
+4. Check ChatBox for results
+5. Review logs for errors
+
+### Service Connection Test
+```csharp
+public async Task<bool> TestConnectionAsync()
+{
+    try
+    {
+        var result = await TranslateAsync("test", "en", "");
+        return result != null;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Connection test failed: {ex.Message}");
+        return false;
+    }
+}
+```
+
+## OCR Testing
+
+### Testing OCR Output
+```csharp
+// Write OCR results to file for inspection
+var ocrResults = await ProcessOCRAsync(bitmap);
+var json = JsonSerializer.Serialize(ocrResults, new JsonSerializerOptions 
+{ 
+    WriteIndented = true 
+});
+File.WriteAllText("last_ocr_response.json", json);
+```
+
+### Visual OCR Feedback
+Monitor window shows OCR results visually:
+
+```csharp
+private void DrawOCRResults(Graphics g, List<TextObject> textObjects)
+{
+    foreach (var textObj in textObjects)
+    {
+        // Draw bounding box
+        g.DrawRectangle(Pens.Red, textObj.BoundingBox);
+        
+        // Draw text
+        g.DrawString(textObj.Text, font, Brushes.White, textObj.BoundingBox);
+    }
+}
+```
+
+## Performance Debugging
+
+### Timing Operations
+```csharp
+var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+await ProcessAsync();
+stopwatch.Stop();
+Console.WriteLine($"Processing took {stopwatch.ElapsedMilliseconds}ms");
+```
+
+### Memory Usage
+```csharp
+using System.Diagnostics;
+
+var process = Process.GetCurrentProcess();
+Console.WriteLine($"Memory usage: {process.WorkingSet64 / 1024 / 1024} MB");
+```
+
+## Network Debugging
+
+### HTTP Request Logging
+```csharp
+// Log request details
+Console.WriteLine($"Request URL: {url}");
+Console.WriteLine($"Request Method: POST");
+Console.WriteLine($"Request Body: {requestBody}");
+
+var response = await httpClient.PostAsync(url, content);
+
+Console.WriteLine($"Response Status: {response.StatusCode}");
+var responseBody = await response.Content.ReadAsStringAsync();
+Console.WriteLine($"Response Body: {responseBody}");
+```
+
+### WebSocket Debugging
+```csharp
+private void LogWebSocketMessage(string direction, string message)
+{
+    Console.WriteLine($"[WebSocket {direction}] {message}");
+    
+    // Write to log file
+    File.AppendAllText("websocket_log.txt", 
+        $"[{DateTime.Now}] {direction}: {message}\n");
+}
+```
+
+## Configuration Debugging
+
+### Dump Configuration
+```csharp
+public void DumpConfig()
+{
+    Console.WriteLine("=== Configuration Dump ===");
+    foreach (var kvp in _configValues)
+    {
+        string value = kvp.Key.Contains("api_key") ? "***" : kvp.Value;
+        Console.WriteLine($"{kvp.Key} = {value}");
+    }
+    Console.WriteLine("=========================");
+}
+```
+
+## Breakpoint Strategy
+
+### Strategic Breakpoints
+- Entry points of service methods
+- Error handling blocks
+- Configuration loading/saving
+- UI event handlers
+- Async method completions
+
+### Conditional Breakpoints
+```csharp
+// Set breakpoint with condition: text.Length > 100
+if (text.Length > 100)
+{
+    // Breakpoint here
+}
+```
+
+## Unit Testing Considerations
+
+### Testable Code Structure
+- Separate business logic from UI
+- Use dependency injection where possible
+- Make methods static when they don't need instance state
+- Extract complex logic into testable methods
+
+### Example Testable Method
+```csharp
+// Testable static method
+public static string ProcessText(string input)
+{
+    if (string.IsNullOrWhiteSpace(input))
+    {
+        return "";
+    }
+    
+    return input.Trim().ToLower();
+}
+```
+
+## Integration Testing
+
+### Testing Service Integration
+```csharp
+// Test translation service
+var service = TranslationServiceFactory.CreateService("Gemini");
+var result = await service.TranslateAsync("test", "en", "");
+Assert.IsNotNull(result);
+```
+
+### Testing OCR Integration
+```csharp
+// Test OCR processing
+var bitmap = LoadTestImage();
+var results = await ocrManager.ProcessImageAsync(bitmap);
+Assert.IsTrue(results.Count > 0);
+```
+
+## Common Debugging Scenarios
+
+### Translation Not Working
+1. Check API key is set
+2. Verify service is running (for Ollama)
+3. Check network connection
+4. Review error logs
+5. Test with simple text
+
+### OCR Not Detecting Text
+1. Verify capture region is correct
+2. Check OCR method is set correctly
+3. Verify Python server is running (for EasyOCR)
+4. Check language settings
+5. Review OCR confidence thresholds
+
+### UI Not Updating
+1. Verify Dispatcher.Invoke is used
+2. Check if window is visible
+3. Verify data binding is correct
+4. Check for exceptions in logs

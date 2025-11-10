@@ -1,0 +1,312 @@
+---
+description: Async/await and threading patterns for WPF UI updates
+globs: ["**/*.cs"]
+alwaysApply: true
+---
+
+# Async/Await and Threading Patterns
+
+## UI Thread Updates
+
+### Dispatcher Pattern
+**CRITICAL**: All UI updates must happen on the UI thread. Use `Dispatcher.Invoke()` or `Dispatcher.InvokeAsync()` when updating UI from background threads.
+
+```csharp
+// From background thread - update UI
+Application.Current.Dispatcher.Invoke(() =>
+{
+    StatusText.Text = "Processing...";
+    StatusText.Foreground = Brushes.Blue;
+});
+
+// Async version (non-blocking)
+await Application.Current.Dispatcher.InvokeAsync(() =>
+{
+    StatusText.Text = "Complete";
+});
+```
+
+### Dispatcher Priority
+- Use `DispatcherPriority.Background` for non-urgent updates
+- Use `DispatcherPriority.Normal` (default) for standard updates
+- Use `DispatcherPriority.Send` only when absolutely necessary
+
+```csharp
+Dispatcher.Invoke(() =>
+{
+    // Update UI
+}, DispatcherPriority.Background);
+```
+
+## Async Service Methods
+
+### Translation Services
+All translation services implement async methods:
+
+```csharp
+public interface ITranslationService
+{
+    Task<TranslationResult?> TranslateAsync(
+        string sourceText,
+        string targetLanguage,
+        string context);
+}
+```
+
+### Implementation Pattern
+```csharp
+public async Task<TranslationResult?> TranslateAsync(string text, string lang, string context)
+{
+    try
+    {
+        using var httpClient = new HttpClient();
+        var response = await httpClient.PostAsync(url, content);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadAsStringAsync();
+            return ParseResult(result);
+        }
+        
+        return null;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Translation error: {ex.Message}");
+        return null;
+    }
+}
+```
+
+## Background Operations
+
+### Screen Capture
+Screen capture runs on background thread/timer:
+
+```csharp
+private void Timer_Tick(object sender, EventArgs e)
+{
+    // Capture runs on timer thread
+    var bitmap = CaptureScreen(x, y, width, height);
+    
+    // Process on background thread
+    Task.Run(async () =>
+    {
+        var result = await ProcessImageAsync(bitmap);
+        
+        // Update UI on UI thread
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            UpdateDisplay(result);
+        });
+    });
+}
+```
+
+### OCR Processing
+OCR operations should be async and non-blocking:
+
+```csharp
+private async Task<List<TextObject>> ProcessOCRAsync(Bitmap bitmap)
+{
+    // Run OCR on background thread
+    return await Task.Run(() =>
+    {
+        // OCR processing
+        return ocrService.Process(bitmap);
+    });
+}
+```
+
+## HttpClient Usage
+
+### Best Practices
+- **DO NOT** create new HttpClient instances for each request
+- Create HttpClient once and reuse (or use HttpClientFactory)
+- Dispose properly with `using` statement
+
+```csharp
+// Good: Reuse HttpClient
+private static readonly HttpClient _httpClient = new HttpClient();
+
+public async Task<string> GetDataAsync()
+{
+    var response = await _httpClient.GetAsync(url);
+    return await response.Content.ReadAsStringAsync();
+}
+
+// Or use using for one-off requests
+public async Task<string> GetDataAsync()
+{
+    using var client = new HttpClient();
+    var response = await client.GetAsync(url);
+    return await response.Content.ReadAsStringAsync();
+}
+```
+
+## Task Cancellation
+
+### Cancellation Tokens
+Use `CancellationToken` for long-running operations:
+
+```csharp
+public async Task ProcessAsync(CancellationToken cancellationToken)
+{
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        await DoWorkAsync();
+        await Task.Delay(1000, cancellationToken);
+    }
+}
+```
+
+## Thread Safety
+
+### Singleton Thread Safety
+Simple null-check pattern is sufficient for this application:
+
+```csharp
+private static ConfigManager? _instance;
+private static readonly object _lock = new object();
+
+public static ConfigManager Instance
+{
+    get
+    {
+        if (_instance == null)
+        {
+            lock (_lock)
+            {
+                if (_instance == null)
+                {
+                    _instance = new ConfigManager();
+                }
+            }
+        }
+        return _instance;
+    }
+}
+```
+
+### Dictionary Access
+- Use `TryGetValue` for safe dictionary access
+- Check for null before using values
+
+```csharp
+if (_configValues.TryGetValue(key, out var value))
+{
+    return value;
+}
+return defaultValue;
+```
+
+## Blocking vs Non-Blocking
+
+### Avoid Blocking UI Thread
+- **NEVER** use `.Result` or `.Wait()` on async methods in UI code
+- Always use `await` for async operations
+- Use `Task.Run()` to move CPU-intensive work off UI thread
+
+```csharp
+// BAD: Blocks UI thread
+var result = httpClient.GetAsync(url).Result;
+
+// GOOD: Non-blocking
+var result = await httpClient.GetAsync(url);
+
+// GOOD: Move work off UI thread
+var result = await Task.Run(() => ExpensiveOperation());
+```
+
+## Exception Handling in Async
+
+### Async Exception Handling
+Exceptions in async methods should be caught and logged:
+
+```csharp
+public async Task<Result?> ProcessAsync()
+{
+    try
+    {
+        var result = await DoWorkAsync();
+        return result;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+        LogManager.Instance.LogError("Process failed", ex);
+        return null;
+    }
+}
+```
+
+## Timer Usage
+
+### WPF DispatcherTimer
+Use `DispatcherTimer` for UI-related timers:
+
+```csharp
+private DispatcherTimer _timer;
+
+private void InitializeTimer()
+{
+    _timer = new DispatcherTimer();
+    _timer.Interval = TimeSpan.FromMilliseconds(100);
+    _timer.Tick += Timer_Tick;
+    _timer.Start();
+}
+
+private void Timer_Tick(object sender, EventArgs e)
+{
+    // Runs on UI thread
+    UpdateUI();
+}
+```
+
+### System.Timers.Timer
+Use `System.Timers.Timer` for background operations:
+
+```csharp
+private System.Timers.Timer _backgroundTimer;
+
+private void InitializeBackgroundTimer()
+{
+    _backgroundTimer = new System.Timers.Timer(1000);
+    _backgroundTimer.Elapsed += BackgroundTimer_Elapsed;
+    _backgroundTimer.AutoReset = true;
+    _backgroundTimer.Start();
+}
+
+private void BackgroundTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+{
+    // Runs on background thread - use Dispatcher for UI updates
+    Task.Run(async () => await ProcessBackgroundWorkAsync());
+}
+```
+
+## Progress Reporting
+
+### Progress Updates
+Report progress from background threads:
+
+```csharp
+private async Task ProcessWithProgressAsync(IProgress<int> progress)
+{
+    for (int i = 0; i < 100; i++)
+    {
+        await DoWorkAsync();
+        progress.Report(i);
+    }
+}
+
+// Usage
+var progress = new Progress<int>(percent =>
+{
+    Application.Current.Dispatcher.Invoke(() =>
+    {
+        ProgressBar.Value = percent;
+    });
+});
+
+await ProcessWithProgressAsync(progress);
+```
