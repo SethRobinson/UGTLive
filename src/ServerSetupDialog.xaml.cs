@@ -21,6 +21,7 @@ namespace UGTLive
         private static ServerSetupDialog? _instance;
         private bool _isRunningDiagnostics = false;
         private bool _isInstalling = false;
+        private bool _fromSettings = false;
         
         /// <summary>
         /// Gets or creates the singleton instance of ServerSetupDialog
@@ -58,9 +59,13 @@ namespace UGTLive
         /// <summary>
         /// Shows the dialog if not already visible, or brings existing instance to front
         /// </summary>
-        public static void ShowDialogSafe()
+        /// <param name="fromSettings">If true, skips conda/python checks and auto-start</param>
+        public static void ShowDialogSafe(bool fromSettings = false)
         {
             var dialog = Instance;
+            
+            // Set the fromSettings flag before showing
+            dialog._fromSettings = fromSettings;
             
             if (dialog.IsVisible)
             {
@@ -293,10 +298,8 @@ namespace UGTLive
                 // Check GPU (right after version check)
                 await UpdateGpuStatusAsync();
                 
-                // Check if user wants to skip conda/python checks
-                bool skipCondaChecks = await Dispatcher.InvokeAsync(() => skipCondaChecksCheckBox.IsChecked ?? false);
-                
-                if (skipCondaChecks)
+                // If opened from Settings, skip conda/python checks and auto-start
+                if (_fromSettings)
                 {
                     // Skip conda/python checks and show "Skipped" status
                     await UpdateCondaStatusSkippedAsync();
@@ -305,17 +308,30 @@ namespace UGTLive
                 }
                 else
                 {
-                    // Check Conda
-                    var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
-                    await UpdateCondaStatusAsync();
+                    // Check if user wants to skip conda/python checks
+                    bool skipCondaChecks = await Dispatcher.InvokeAsync(() => skipCondaChecksCheckBox.IsChecked ?? false);
                     
-                    // Check Environment
-                    var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
-                    await UpdateEnvironmentStatusAsync();
-                    
-                    // Check Packages
-                    var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
-                    await UpdatePackagesStatusAsync();
+                    if (skipCondaChecks)
+                    {
+                        // Skip conda/python checks and show "Skipped" status
+                        await UpdateCondaStatusSkippedAsync();
+                        await UpdateEnvironmentStatusSkippedAsync();
+                        await UpdatePackagesStatusSkippedAsync();
+                    }
+                    else
+                    {
+                        // Check Conda
+                        var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                        await UpdateCondaStatusAsync();
+                        
+                        // Check Environment
+                        var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
+                        await UpdateEnvironmentStatusAsync();
+                        
+                        // Check Packages
+                        var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
+                        await UpdatePackagesStatusAsync();
+                    }
                 }
                 
                 // Check Server (always check this)
@@ -323,54 +339,61 @@ namespace UGTLive
                 
                 statusMessage.Text = "Diagnostics complete";
                 
-                // Check if server is running for auto-start logic
-                bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
-                
-                // Auto-start server if it's not running
-                if (!serverRunning)
+                // Only auto-start if not opened from Settings
+                if (!_fromSettings)
                 {
-                    bool shouldAutoStart = false;
+                    // Check if server is running for auto-start logic
+                    bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
                     
-                    if (skipCondaChecks)
+                    // Auto-start server if it's not running
+                    if (!serverRunning)
                     {
-                        // If checks are skipped, assume everything is set up and try to auto-start
-                        shouldAutoStart = true;
-                    }
-                    else
-                    {
-                        // If checks aren't skipped, validate conda/environment/packages before auto-starting
-                        var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
-                        var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
-                        var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
+                        bool shouldAutoStart = false;
                         
-                        if (condaResult.available && envResult.exists)
+                        // Check if user wants to skip conda/python checks
+                        bool skipCondaChecks = await Dispatcher.InvokeAsync(() => skipCondaChecksCheckBox.IsChecked ?? false);
+                        
+                        if (skipCondaChecks)
                         {
-                            // Check if all key packages are installed
-                            string[] keyPackages = { "torch", "easyocr", "manga-ocr", "python-doctr", "ultralytics", "opencv-python" };
-                            bool allPackagesInstalled = keyPackages.All(pkg => 
-                                packagesResult.ContainsKey(pkg) && packagesResult[pkg].installed);
-                            
-                            shouldAutoStart = allPackagesInstalled;
+                            // If checks are skipped, assume everything is set up and try to auto-start
+                            shouldAutoStart = true;
                         }
-                    }
-                    
-                    if (shouldAutoStart)
-                    {
-                        // Check if user wants to see the server window
-                        bool showWindow = await Dispatcher.InvokeAsync(() => (bool)(showServerWindowCheckBox.IsChecked ?? false));
-                        
-                        // Disable Start Server button and show visual indication
-                        await Dispatcher.InvokeAsync(() =>
+                        else
                         {
-                            startServerButton.IsEnabled = false;
-                            startServerButton.Content = "Auto-starting...";
-                            startServerButton.Opacity = 0.6; // Gray it out
-                            statusMessage.Visibility = Visibility.Visible;
-                            statusMessage.Text = "Auto-starting server... (This may take a few seconds)";
-                        });
+                            // If checks aren't skipped, validate conda/environment/packages before auto-starting
+                            var condaResult = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                            var envResult = await ServerDiagnosticsService.Instance.CheckCondaEnvironmentAsync();
+                            var packagesResult = await ServerDiagnosticsService.Instance.CheckPythonPackagesAsync();
+                            
+                            if (condaResult.available && envResult.exists)
+                            {
+                                // Check if all key packages are installed
+                                string[] keyPackages = { "torch", "easyocr", "manga-ocr", "python-doctr", "ultralytics", "opencv-python" };
+                                bool allPackagesInstalled = keyPackages.All(pkg => 
+                                    packagesResult.ContainsKey(pkg) && packagesResult[pkg].installed);
+                                
+                                shouldAutoStart = allPackagesInstalled;
+                            }
+                        }
                         
-                        // Auto-start the server
-                        await AutoStartServerAsync(showWindow);
+                        if (shouldAutoStart)
+                        {
+                            // Check if user wants to see the server window
+                            bool showWindow = await Dispatcher.InvokeAsync(() => (bool)(showServerWindowCheckBox.IsChecked ?? false));
+                            
+                            // Disable Start Server button and show visual indication
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                startServerButton.IsEnabled = false;
+                                startServerButton.Content = "Auto-starting...";
+                                startServerButton.Opacity = 0.6; // Gray it out
+                                statusMessage.Visibility = Visibility.Visible;
+                                statusMessage.Text = "Auto-starting server... (This may take a few seconds)";
+                            });
+                            
+                            // Auto-start the server
+                            await AutoStartServerAsync(showWindow);
+                        }
                     }
                 }
             }
@@ -616,7 +639,7 @@ namespace UGTLive
                 packagesStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(128, 128, 128)); // Gray
                 packagesStatusText.Text = "Skipped";
                 packagesList.ItemsSource = null;
-                installBackendButton.IsEnabled = false;
+                installBackendButton.IsEnabled = true; // Always enabled so user can install/reinstall if needed
                 
                 // Scroll to show this section
                 ScrollToElement(packagesStatusIcon);
@@ -890,40 +913,76 @@ namespace UGTLive
         {
             if (_isInstalling) return;
             
-            // Show Conda Terms of Service acceptance dialog
-            CondaTosDialog tosDialog = new CondaTosDialog
-            {
-                Owner = this
-            };
-            
-            bool? tosResult = tosDialog.ShowDialog();
-            if (tosResult != true || !tosDialog.TosAccepted)
-            {
-                return; // User cancelled or didn't accept ToS
-            }
-            
-            MessageBoxResult result = MessageBox.Show(
-                "This will install or reinstall the UGTLive backend environment.\n\n" +
-                "This process may take several minutes and will:\n" +
-                "- Create/update the 'ocrstuff' conda environment\n" +
-                "- Install PyTorch, EasyOCR, Manga OCR, docTR, and other dependencies\n" +
-                "- Download AI models\n\n" +
-                "A command window will open showing progress.\n\n" +
-                "Continue?",
-                "Install/Reinstall Backend",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            
-            if (result != MessageBoxResult.Yes) return;
-            
+            // Provide immediate feedback that button was clicked
             _isInstalling = true;
             installBackendButton.IsEnabled = false;
             statusMessage.Visibility = Visibility.Visible;
-            statusMessage.Text = "Starting backend installation...";
+            statusMessage.Text = "Preparing installation...";
             progressBar.Visibility = Visibility.Visible;
             
             try
             {
+                // Check if server is running - if so, warn user to stop it first
+                bool serverRunning = await ServerProcessManager.Instance.IsServerRunningAsync();
+                if (serverRunning)
+                {
+                    // Reset button state since we're not proceeding
+                    _isInstalling = false;
+                    installBackendButton.IsEnabled = true;
+                    statusMessage.Visibility = Visibility.Collapsed;
+                    progressBar.Visibility = Visibility.Collapsed;
+                    
+                    MessageBox.Show(
+                        "The server is currently running.\n\n" +
+                        "Please stop the server by clicking the 'Stop Server' button first before reinstalling the backend.",
+                        "Server Running",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+                
+                // Show Conda Terms of Service acceptance dialog
+                CondaTosDialog tosDialog = new CondaTosDialog
+                {
+                    Owner = this
+                };
+                
+                bool? tosResult = tosDialog.ShowDialog();
+                if (tosResult != true || !tosDialog.TosAccepted)
+                {
+                    // Reset button state since user cancelled
+                    _isInstalling = false;
+                    installBackendButton.IsEnabled = true;
+                    statusMessage.Visibility = Visibility.Collapsed;
+                    progressBar.Visibility = Visibility.Collapsed;
+                    return; // User cancelled or didn't accept ToS
+                }
+                
+                MessageBoxResult result = MessageBox.Show(
+                    "This will install or reinstall the UGTLive backend environment.\n\n" +
+                    "This process may take several minutes and will:\n" +
+                    "- Create/update the 'ocrstuff' conda environment\n" +
+                    "- Install PyTorch, EasyOCR, Manga OCR, docTR, and other dependencies\n" +
+                    "- Download AI models\n\n" +
+                    "A command window will open showing progress.\n\n" +
+                    "Continue?",
+                    "Install/Reinstall Backend",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                
+                if (result != MessageBoxResult.Yes)
+                {
+                    // Reset button state since user cancelled
+                    _isInstalling = false;
+                    installBackendButton.IsEnabled = true;
+                    statusMessage.Visibility = Visibility.Collapsed;
+                    progressBar.Visibility = Visibility.Collapsed;
+                    return;
+                }
+                
+                // Update status message now that we're proceeding
+                statusMessage.Text = "Starting backend installation...";
+                
                 string webserverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webserver");
                 string setupBatch = Path.Combine(webserverPath, "SetupServerCondaEnv.bat");
                 
@@ -931,6 +990,10 @@ namespace UGTLive
                 {
                     MessageBox.Show($"SetupServerCondaEnv.bat not found at {setupBatch}", "Error", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
+                    statusMessage.Text = $"Error: SetupServerCondaEnv.bat not found";
+                    _isInstalling = false;
+                    installBackendButton.IsEnabled = true;
+                    progressBar.Visibility = Visibility.Collapsed;
                     return;
                 }
                 
@@ -950,17 +1013,27 @@ namespace UGTLive
                 
                 // Refresh diagnostics
                 await RunDiagnosticsAsync();
+                
+                // Reset button state after successful installation and diagnostics
+                _isInstalling = false;
+                installBackendButton.IsEnabled = true;
+                progressBar.Visibility = Visibility.Collapsed;
+                
+                // Hide status message after a delay
+                await Task.Delay(2000);
+                Dispatcher.Invoke(() =>
+                {
+                    statusMessage.Visibility = Visibility.Collapsed;
+                });
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during installation: {ex.Message}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 statusMessage.Text = $"Error: {ex.Message}";
-            }
-            finally
-            {
-                progressBar.Visibility = Visibility.Collapsed;
                 _isInstalling = false;
+                installBackendButton.IsEnabled = true;
+                progressBar.Visibility = Visibility.Collapsed;
             }
         }
         

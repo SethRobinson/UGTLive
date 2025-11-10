@@ -960,7 +960,7 @@ namespace UGTLive
         {
             try
             {
-                ServerSetupDialog.ShowDialogSafe();
+                ServerSetupDialog.ShowDialogSafe(fromSettings: true);
             }
             catch (Exception ex)
             {
