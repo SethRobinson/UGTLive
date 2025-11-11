@@ -438,9 +438,26 @@ namespace UGTLive
                                 // Pre-filter low-confidence characters before block detection
                                 JsonElement filteredResults = FilterLowConfidenceCharacters(resultsElement);
                                 
-                                // Process character-level OCR data using CharacterBlockDetectionManager
-                                // Use the filtered results for consistency
-                                JsonElement modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                // Check if block detection should be skipped (e.g., for Google Vision results)
+                                bool skipBlockDetection = false;
+                                if (root.TryGetProperty("skip_block_detection", out JsonElement skipElement))
+                                {
+                                    skipBlockDetection = skipElement.GetBoolean();
+                                }
+                                
+                                JsonElement modifiedResults;
+                                if (skipBlockDetection)
+                                {
+                                    // Skip block detection for pre-grouped results (e.g., Google Vision)
+                                    modifiedResults = filteredResults;
+                                    Console.WriteLine("Skipping block detection for pre-grouped results");
+                                }
+                                else
+                                {
+                                    // Process character-level OCR data using CharacterBlockDetectionManager
+                                    // Use the filtered results for consistency
+                                    modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                }
                                 
                                 // Filter out text objects that should be ignored based on ignore phrases
                                 modifiedResults = FilterIgnoredPhrases(modifiedResults);
@@ -1394,6 +1411,59 @@ namespace UGTLive
             }
         }
         
+        // Process bitmap directly with Google Vision API (no file saving)
+        public async void ProcessWithGoogleVision(System.Drawing.Bitmap bitmap, string sourceLanguage)
+        {
+            try
+            {
+                Console.WriteLine("Starting Google Vision OCR processing...");
+                
+                try
+                {
+                    // Get the text objects from Google Vision API
+                    var textObjects = await GoogleVisionOCRService.Instance.ProcessImageAsync(bitmap, sourceLanguage);
+                    Console.WriteLine($"Google Vision OCR found {textObjects.Count} text objects");
+                    
+                    // Process the OCR results
+                    await GoogleVisionOCRService.Instance.ProcessGoogleVisionResults(textObjects);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Google Vision OCR error: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    
+                    // Show error to user if API key might be missing
+                    if (ex.Message.Contains("API key", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show("Google Vision API key not configured. Please set your API key in Settings.", 
+                            "Google Vision Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing bitmap with Google Vision: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            finally
+            {
+                // Make sure bitmap is properly disposed
+                try
+                {
+                    if (bitmap != null)
+                    {
+                        bitmap.Dispose();
+                    }
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
+
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+        }
+        
      
         
         // Called when a screenshot is saved (for EasyOCR method)
@@ -1411,6 +1481,12 @@ namespace UGTLive
                     // Windows OCR doesn't require socket connection
                     Console.WriteLine("Using Windows OCR (built-in)");
                     // ProcessScreenshot will handle the Windows OCR logic
+                }
+                else if (ocrMethod == "Google Vision")
+                {
+                    // Google Vision doesn't require socket connection
+                    Console.WriteLine("Using Google Vision API");
+                    // ProcessScreenshot will handle the Google Vision API logic
                 }
                 else
                 {

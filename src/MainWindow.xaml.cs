@@ -193,6 +193,10 @@ namespace UGTLive
                 {
                     SetStatus("Using Windows OCR (built-in)");
                 }
+                else if (method == "Google Vision")
+                {
+                    SetStatus("Using Google Vision (cloud)");
+                }
                 else if (method == "Manga OCR")
                 {
                     SetStatus("Using Manga OCR");
@@ -217,6 +221,10 @@ namespace UGTLive
                 if (method == "Windows OCR")
                 {
                     SetStatus("Using Windows OCR (built-in)");
+                }
+                else if (method == "Google Vision")
+                {
+                    SetStatus("Using Google Vision (cloud)");
                 }
                 else if (method == "Manga OCR")
                 {
@@ -384,6 +392,11 @@ namespace UGTLive
             KeyboardShortcuts.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
             KeyboardShortcuts.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
             KeyboardShortcuts.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
+            KeyboardShortcuts.ClearOverlaysRequested += (s, e) => {
+                Logic.Instance.ClearAllTextObjects();
+                MonitorWindow.Instance.RefreshOverlays();
+                Console.WriteLine("Overlays cleared (Shift+X)");
+            };
             
             // Set up global keyboard hook to handle shortcuts even when console has focus
             KeyboardShortcuts.InitializeGlobalHook();
@@ -614,14 +627,21 @@ namespace UGTLive
                 isStarted = false;
                 btn.Content = "Start";
                 btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
-                //erase any active text objects
-                Logic.Instance.ClearAllTextObjects();
+                // Don't clear text objects when stopping - keep them for overlay switching
+                // Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.HideTranslationStatus();
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
+                
+                // Optional: Add a way to clear overlays manually if needed
+                // You could add a separate "Clear" button or keyboard shortcut
             }
             else
             {
+                // Clear old text objects when starting again
+                Logic.Instance.ClearAllTextObjects();
+                MonitorWindow.Instance.RefreshOverlays();
+                
                 isStarted = true;
                 btn.Content = "Stop";
                 UpdateCaptureRect();
@@ -914,11 +934,17 @@ namespace UGTLive
 
                     SetOCRCheckIsWanted(false);
 
-                    // Check if we're using Windows OCR - if so, process in memory without saving
-                    if (GetSelectedOcrMethod() == "Windows OCR")
+                    // Check if we're using Windows OCR or Google Vision - if so, process in memory without saving
+                    string ocrMethod = GetSelectedOcrMethod();
+                    if (ocrMethod == "Windows OCR")
                     {
                         string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
                         Logic.Instance.ProcessWithWindowsOCR(bitmap, sourceLanguage);
+                    }
+                    else if (ocrMethod == "Google Vision")
+                    {
+                        string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
+                        Logic.Instance.ProcessWithGoogleVision(bitmap, sourceLanguage);
                     }
                     else
                     {

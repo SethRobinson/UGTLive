@@ -1,0 +1,230 @@
+<Window x:Class="UGTLive.GoogleVisionSetupDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Google Vision API Setup Guide" 
+        Height="650" 
+        Width="600" 
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        Icon="/media/Icon1.ico">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#4285F4" Padding="20">
+            <StackPanel>
+                <TextBlock Text="Google Cloud Vision API Setup"
+                           FontSize="24" 
+                           FontWeight="Bold" 
+                           Foreground="White"/>
+                <TextBlock Text="Follow these steps to get your API key"
+                           FontSize="14"
+                           Foreground="White"
+                           Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Instructions -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20">
+            <StackPanel>
+                <!-- Step 1: Create Google Cloud Project -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10">
+                            <TextBlock.Inlines>
+                                <Run Text="Step 1: Create a Google Cloud Project" Foreground="#4285F4"/>
+                            </TextBlock.Inlines>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            1. Navigate to the Google Cloud Console:
+                        </TextBlock>
+                        <TextBlock Margin="20,0,0,5">
+                            <Hyperlink NavigateUri="https://console.cloud.google.com/" RequestNavigate="Hyperlink_RequestNavigate">
+                                https://console.cloud.google.com/
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,5,0,5">
+                            2. Sign in with your Google account
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            3. Click on the project dropdown at the top
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            4. Select "New Project"
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap">
+                            5. Enter a project name (e.g., "UGTLive OCR") and click "Create"
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 2: Enable Billing -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10">
+                            <TextBlock.Inlines>
+                                <Run Text="Step 2: Enable Billing" Foreground="#4285F4"/>
+                            </TextBlock.Inlines>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5" FontWeight="SemiBold">
+                            Note: Google offers $300 in free credits for new users!
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            1. In the Cloud Console, go to the Billing section
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            2. Link a billing account to your project
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            3. If you're a new user, you'll receive $300 in credits
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap">
+                            4. Set up budget alerts to monitor usage (optional but recommended)
+                        </TextBlock>
+                        <TextBlock Margin="20,10,0,0">
+                            <Hyperlink NavigateUri="https://cloud.google.com/billing/docs/how-to/modify-project" RequestNavigate="Hyperlink_RequestNavigate">
+                                Learn more about billing
+                            </Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 3: Enable Vision API -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10">
+                            <TextBlock.Inlines>
+                                <Run Text="Step 3: Enable the Cloud Vision API" Foreground="#4285F4"/>
+                            </TextBlock.Inlines>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            1. In the Cloud Console, navigate to "APIs &amp; Services" → "Library"
+                        </TextBlock>
+                        <TextBlock Margin="20,0,0,5">
+                            <Hyperlink NavigateUri="https://console.cloud.google.com/apis/library" RequestNavigate="Hyperlink_RequestNavigate">
+                                Go to API Library
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,5,0,5">
+                            2. Search for "Cloud Vision API"
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            3. Click on "Cloud Vision API" from the results
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold">
+                            4. Click "Enable" to activate the API for your project
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 4: Create API Key -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10">
+                            <TextBlock.Inlines>
+                                <Run Text="Step 4: Create API Key" Foreground="#4285F4"/>
+                            </TextBlock.Inlines>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            1. Go to "APIs &amp; Services" → "Credentials"
+                        </TextBlock>
+                        <TextBlock Margin="20,0,0,5">
+                            <Hyperlink NavigateUri="https://console.cloud.google.com/apis/credentials" RequestNavigate="Hyperlink_RequestNavigate">
+                                Go to Credentials
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,5,0,5">
+                            2. Click "Create Credentials" and select "API Key"
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5" FontWeight="SemiBold">
+                            3. Copy the generated API key
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,5">
+                            4. (Optional) Click "Restrict Key" to add security restrictions
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontStyle="Italic">
+                            Tip: Restrict the key to the Cloud Vision API for better security
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Important Notes -->
+                <Border Background="#FFF3CD" BorderBrush="#FFE8A1" BorderThickness="1" CornerRadius="5" Padding="15">
+                    <StackPanel>
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5">
+                            <TextBlock.Inlines>
+                                <Run Text="⚠️ Important Notes:" Foreground="#856404"/>
+                            </TextBlock.Inlines>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,3" Foreground="#856404">
+                            • Keep your API key secure and never share it publicly
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,3" Foreground="#856404">
+                            • Monitor your usage in the Google Cloud Console to avoid unexpected charges
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,3" Foreground="#856404">
+                            • The free tier includes 1,000 units per month for text detection
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#856404">
+                            • Consider setting up usage alerts and quotas for cost control
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Bottom Buttons -->
+        <Border Grid.Row="2" Background="#F5F5F5" Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Foreground="#666666">
+                    <Hyperlink NavigateUri="https://cloud.google.com/vision/docs/before-you-begin" RequestNavigate="Hyperlink_RequestNavigate">
+                        View official documentation
+                    </Hyperlink>
+                </TextBlock>
+                <Button Grid.Column="1" 
+                        Content="Got it!" 
+                        Click="OkButton_Click" 
+                        IsDefault="True"
+                        Padding="20,8"
+                        FontWeight="SemiBold"
+                        Background="#4285F4"
+                        Foreground="White"
+                        BorderThickness="0">
+                    <Button.Resources>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#5A95F5"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

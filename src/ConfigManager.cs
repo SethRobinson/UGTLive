@@ -43,6 +43,12 @@ namespace UGTLive
         public const string GOOGLE_TRANSLATE_USE_CLOUD_API = "google_translate_use_cloud_api";
         public const string GOOGLE_TRANSLATE_AUTO_MAP_LANGUAGES = "google_translate_auto_map_languages";
         
+        // Google Vision API settings
+        public const string GOOGLE_VISION_API_KEY = "google_vision_api_key";
+        public const string GOOGLE_VISION_ENDPOINT = "google_vision_endpoint";
+        public const string GOOGLE_VISION_HORIZONTAL_GLUE = "google_vision_horizontal_glue";
+        public const string GOOGLE_VISION_VERTICAL_GLUE = "google_vision_vertical_glue";
+        
         // Translation context keys
         public const string MAX_CONTEXT_PIECES = "max_context_pieces";
         public const string MIN_CONTEXT_SIZE = "min_context_size";
@@ -66,7 +72,8 @@ namespace UGTLive
             "EasyOCR",
             "Manga OCR",
             "docTR",
-            "Windows OCR"
+            "Windows OCR",
+            "Google Vision"
         };
 
         // Display names for OCR methods (can be changed without breaking code)
@@ -75,7 +82,8 @@ namespace UGTLive
             { "EasyOCR", "Easy OCR (Decent at most languages)" },
             { "Manga OCR", "Manga OCR (Vertical Japanese manga)" },
             { "docTR", "docTR (Great at non-asian languages)" },
-            { "Windows OCR", "Windows OCR (Decent at English?)" }
+            { "Windows OCR", "Windows OCR (Decent at English?)" },
+            { "Google Vision", "Google Vision (cloud)" }
         };
 
         public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;
@@ -1718,6 +1726,52 @@ Here is the input JSON:";
             _configValues[GOOGLE_TRANSLATE_API_KEY] = apiKey;
             SaveConfig();
             Console.WriteLine("Google Translate API key updated");
+        }
+
+        public string GetGoogleVisionApiKey()
+        {
+            return GetValue(GOOGLE_VISION_API_KEY, "");
+        }
+
+        public void SetGoogleVisionApiKey(string apiKey)
+        {
+            _configValues[GOOGLE_VISION_API_KEY] = apiKey;
+            SaveConfig();
+            Console.WriteLine("Google Vision API key updated");
+        }
+
+        public double GetGoogleVisionHorizontalGlue()
+        {
+            string value = GetValue(GOOGLE_VISION_HORIZONTAL_GLUE, "1.5");
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 1.5; // Default: 1.5 character widths
+        }
+
+        public void SetGoogleVisionHorizontalGlue(double value)
+        {
+            _configValues[GOOGLE_VISION_HORIZONTAL_GLUE] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"Google Vision horizontal glue updated to {value}");
+        }
+
+        public double GetGoogleVisionVerticalGlue()
+        {
+            string value = GetValue(GOOGLE_VISION_VERTICAL_GLUE, "0.5");
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 0.5; // Default: 0.5 character heights
+        }
+
+        public void SetGoogleVisionVerticalGlue(double value)
+        {
+            _configValues[GOOGLE_VISION_VERTICAL_GLUE] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"Google Vision vertical glue updated to {value}");
         }
 
         public string GetAudioProcessingProvider()

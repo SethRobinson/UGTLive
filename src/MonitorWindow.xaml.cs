@@ -193,6 +193,22 @@ namespace UGTLive
                     }
                 });
             }
+            else if (ocrMethod == "Google Vision")
+            {
+                // Using Google Vision API, no need for socket connection
+                _ = Task.Run(() => 
+                {
+                    try
+                    {
+                       SocketManager.Instance.Disconnect();
+                        UpdateStatus("Using Google Vision (cloud)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error disconnecting socket: {ex.Message}");
+                    }
+                });
+            }
             else
             {
                 // Using EasyOCR, check connection status first

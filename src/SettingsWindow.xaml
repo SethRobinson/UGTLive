@@ -101,6 +101,10 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- OCR Method -->
@@ -160,6 +164,81 @@
                                  Checked="GlueDoctrLinesCheckBox_CheckedChanged"
                                  Unchecked="GlueDoctrLinesCheckBox_CheckedChanged"
                                  ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
+                        
+                        <!-- Google Vision API Key - Only visible when Google Vision is selected -->
+                        <TextBlock x:Name="googleVisionApiKeyLabel" Text="Google Vision API Key:" Grid.Row="7" Grid.Column="0" 
+                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                        <Grid Grid.Row="7" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionApiKeyGrid" Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <PasswordBox x:Name="googleVisionApiKeyPasswordBox" Grid.Row="0" Grid.Column="0"
+                                     VerticalAlignment="Top" Margin="0,0,5,2" 
+                                     PasswordChanged="GoogleVisionApiKeyPasswordBox_PasswordChanged"/>
+                            <Button x:Name="googleVisionApiKeyHelpButton" Grid.Row="0" Grid.Column="1"
+                                    Content="How to get API key" Padding="5,2" 
+                                    Click="GoogleVisionApiKeyHelpButton_Click"/>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,2,0,2" FontSize="11">
+                                <Run>Learn more at </Run>
+                                <Hyperlink Click="GoogleVisionApiLink_Click">cloud.google.com/vision</Hyperlink>
+                            </TextBlock>
+                            <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="googleVisionTestApiKeyButton" Grid.Column="0"
+                                        Content="Test API Key" Padding="8,3" 
+                                        Click="GoogleVisionTestApiKeyButton_Click"/>
+                                <TextBlock x:Name="googleVisionTestResultText" Grid.Column="1"
+                                          Margin="10,0,0,0" VerticalAlignment="Center"
+                                          Foreground="Gray" Text=""/>
+                                <ProgressBar x:Name="googleVisionTestProgressBar" Grid.Column="2"
+                                            Width="100" Height="20" Margin="10,0,0,0"
+                                            Visibility="Collapsed" IsIndeterminate="True"/>
+                            </Grid>
+                        </Grid>
+                        
+                        <!-- Google Vision Grouping Settings - Only visible when Google Vision is selected -->
+                        <TextBlock x:Name="googleVisionGroupingLabel" Text="Text Grouping Settings:" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                                  VerticalAlignment="Center" Margin="0,8,10,0" Visibility="Collapsed" FontWeight="SemiBold"/>
+                        
+                        <TextBlock x:Name="googleVisionHorizontalGlueLabel" Text="Horizontal glue distance:" Grid.Row="9" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                  ToolTip="Maximum horizontal distance (in character widths) to group words together. Lower values create more separate text blocks."/>
+                        <Grid Grid.Row="9" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHorizontalGlueGrid" Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="googleVisionHorizontalGlueTextBox" Grid.Column="0"
+                                     VerticalAlignment="Top" Margin="0,0,5,0" Text="1.5"
+                                     LostFocus="GoogleVisionHorizontalGlueTextBox_LostFocus"
+                                     ToolTip="Default: 1.5 (1.5 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
+                            <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                        </Grid>
+                        
+                        <TextBlock x:Name="googleVisionVerticalGlueLabel" Text="Vertical glue distance:" Grid.Row="10" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                  ToolTip="Maximum vertical distance (in line heights) to consider text on the same line. Lower values separate lines more."/>
+                        <Grid Grid.Row="10" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueGrid" Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="googleVisionVerticalGlueTextBox" Grid.Column="0"
+                                     VerticalAlignment="Top" Margin="0,0,5,0" Text="0.5"
+                                     LostFocus="GoogleVisionVerticalGlueTextBox_LostFocus"
+                                     ToolTip="Default: 0.5 (half a line height). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
+                            <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                        </Grid>
                     </Grid>
                 </GroupBox>
                 

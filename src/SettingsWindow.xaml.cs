@@ -379,6 +379,9 @@ namespace UGTLive
             // Re-attach event handler
             ocrMethodComboBox.SelectionChanged += OcrMethodComboBox_SelectionChanged;
             
+            // Update OCR-specific settings visibility based on saved method
+            UpdateOcrSpecificSettings(savedOcrMethod);
+            
             // Get auto-translate setting from config instead of MainWindow
             // This ensures the setting persists across application restarts
             autoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAutoTranslateEnabled();
@@ -786,6 +789,9 @@ namespace UGTLive
                         Console.WriteLine($"SettingsWindow: Skipping save during initialization for OCR method '{ocrMethod}'");
                     }
                     
+                    // Update OCR-specific settings visibility
+                    UpdateOcrSpecificSettings(ocrMethod);
+                    
                     // Reset the OCR hash to force a fresh comparison after changing OCR method
                     Logic.Instance.ResetHash();
                     
@@ -850,6 +856,203 @@ namespace UGTLive
             Logic.Instance.ClearAllTextObjects();
             MainWindow.Instance.SetOCRCheckIsWanted(true);
             MonitorWindow.Instance.RefreshOverlays();
+        }
+        
+        // Update OCR-specific settings visibility
+        private void UpdateOcrSpecificSettings(string selectedOcr)
+        {
+            try
+            {
+                bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
+
+                // Show/hide Google Vision-specific settings
+                if (googleVisionApiKeyLabel != null)
+                    googleVisionApiKeyLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionApiKeyGrid != null)
+                    googleVisionApiKeyGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                
+                // Show/hide Google Vision grouping settings
+                if (googleVisionGroupingLabel != null)
+                    googleVisionGroupingLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionHorizontalGlueLabel != null)
+                    googleVisionHorizontalGlueLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionHorizontalGlueGrid != null)
+                    googleVisionHorizontalGlueGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionVerticalGlueLabel != null)
+                    googleVisionVerticalGlueLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionVerticalGlueGrid != null)
+                    googleVisionVerticalGlueGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+
+                // Load Google Vision settings if it's being shown
+                if (isGoogleVisionSelected)
+                {
+                    if (googleVisionApiKeyPasswordBox != null)
+                    {
+                        googleVisionApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleVisionApiKey();
+                    }
+                    
+                    if (googleVisionHorizontalGlueTextBox != null)
+                    {
+                        googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionHorizontalGlue().ToString("F1");
+                    }
+                    
+                    if (googleVisionVerticalGlueTextBox != null)
+                    {
+                        googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OCR-specific settings visibility: {ex.Message}");
+            }
+        }
+
+        // Google Vision API Key password changed
+        private void GoogleVisionApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            string apiKey = googleVisionApiKeyPasswordBox.Password;
+            ConfigManager.Instance.SetGoogleVisionApiKey(apiKey);
+            Console.WriteLine("Google Vision API key updated");
+        }
+
+        // Google Vision API Key help button click
+        private void GoogleVisionApiKeyHelpButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new GoogleVisionSetupDialog();
+                dialog.Owner = this;
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open setup guide: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // Google Vision API link click
+        private void GoogleVisionApiLink_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "https://cloud.google.com/vision",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open link: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // Google Vision Test API Key button click
+        private async void GoogleVisionTestApiKeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button and show progress
+                googleVisionTestApiKeyButton.IsEnabled = false;
+                googleVisionTestProgressBar.Visibility = Visibility.Visible;
+                googleVisionTestResultText.Text = "Testing...";
+                googleVisionTestResultText.Foreground = new SolidColorBrush(Colors.Gray);
+
+                // Test the API key
+                var (success, message) = await GoogleVisionOCRService.Instance.TestApiKeyAsync();
+
+                // Update UI with result
+                googleVisionTestResultText.Text = message;
+                googleVisionTestResultText.Foreground = success 
+                    ? new SolidColorBrush(Colors.Green) 
+                    : new SolidColorBrush(Colors.Red);
+
+                if (!success)
+                {
+                    // If the message contains specific error types, provide additional help
+                    if (message.Contains("API key not configured"))
+                    {
+                        googleVisionTestResultText.Text = "Please enter your API key first";
+                    }
+                    else if (message.Contains("403") || message.Contains("permission", StringComparison.OrdinalIgnoreCase))
+                    {
+                        googleVisionTestResultText.Text = "API key invalid or Vision API not enabled. Click 'How to get API key' for help.";
+                    }
+                    else if (message.Contains("quota", StringComparison.OrdinalIgnoreCase))
+                    {
+                        googleVisionTestResultText.Text = "Quota exceeded. Check your Google Cloud Console for usage limits.";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                googleVisionTestResultText.Text = $"Test failed: {ex.Message}";
+                googleVisionTestResultText.Foreground = new SolidColorBrush(Colors.Red);
+            }
+            finally
+            {
+                // Re-enable button and hide progress
+                googleVisionTestApiKeyButton.IsEnabled = true;
+                googleVisionTestProgressBar.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // Google Vision Horizontal Glue text changed
+        private void GoogleVisionHorizontalGlueTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            if (double.TryParse(googleVisionHorizontalGlueTextBox.Text, out double value))
+            {
+                // Clamp to range (0 to 2000)
+                value = Math.Max(0, Math.Min(2000.0, value));
+                googleVisionHorizontalGlueTextBox.Text = value.ToString("F1");
+                
+                ConfigManager.Instance.SetGoogleVisionHorizontalGlue(value);
+                Console.WriteLine($"Google Vision horizontal glue set to {value}");
+                
+                // Force refresh
+                Logic.Instance.ResetHash();
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                // Reset to current value if invalid
+                googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionHorizontalGlue().ToString("F1");
+            }
+        }
+
+        // Google Vision Vertical Glue text changed
+        private void GoogleVisionVerticalGlueTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            if (double.TryParse(googleVisionVerticalGlueTextBox.Text, out double value))
+            {
+                // Clamp to range (0 to 2000)
+                value = Math.Max(0, Math.Min(2000.0, value));
+                googleVisionVerticalGlueTextBox.Text = value.ToString("F1");
+                
+                ConfigManager.Instance.SetGoogleVisionVerticalGlue(value);
+                Console.WriteLine($"Google Vision vertical glue set to {value}");
+                
+                // Force refresh
+                Logic.Instance.ResetHash();
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                // Reset to current value if invalid
+                googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
+            }
         }
 
         // Monitor Window Override Color handlers
