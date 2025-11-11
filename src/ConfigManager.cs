@@ -703,14 +703,7 @@ namespace UGTLive
         // Get current OCR method
         public string GetOcrMethod()
         {
-            Console.WriteLine("Checking contents of _configValues in GetOcrMethod:");
-            foreach (var key in _configValues.Keys)
-            {
-                Console.WriteLine($"  Config key: '{key}'");
-            }
-            
             string ocrMethod = GetValue(OCR_METHOD, "Windows OCR"); // Default to Windows OCR if not set
-            Console.WriteLine($"ConfigManager.GetOcrMethod() returning: '{ocrMethod}'");
             return ocrMethod;
         }
         
