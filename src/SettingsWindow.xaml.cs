@@ -882,6 +882,10 @@ namespace UGTLive
                     googleVisionVerticalGlueLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (googleVisionVerticalGlueGrid != null)
                     googleVisionVerticalGlueGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionKeepLinefeedsLabel != null)
+                    googleVisionKeepLinefeedsLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleVisionKeepLinefeedsCheckBox != null)
+                    googleVisionKeepLinefeedsCheckBox.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
 
                 // Load Google Vision settings if it's being shown
                 if (isGoogleVisionSelected)
@@ -899,6 +903,11 @@ namespace UGTLive
                     if (googleVisionVerticalGlueTextBox != null)
                     {
                         googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
+                    }
+                    
+                    if (googleVisionKeepLinefeedsCheckBox != null)
+                    {
+                        googleVisionKeepLinefeedsCheckBox.IsChecked = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
                     }
                 }
             }
@@ -1053,6 +1062,20 @@ namespace UGTLive
                 // Reset to current value if invalid
                 googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
             }
+        }
+
+        private void GoogleVisionKeepLinefeedsCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            bool isChecked = googleVisionKeepLinefeedsCheckBox.IsChecked ?? true;
+            ConfigManager.Instance.SetGoogleVisionKeepLinefeeds(isChecked);
+            Console.WriteLine($"Google Vision keep linefeeds set to {isChecked}");
+            
+            // Force refresh
+            Logic.Instance.ResetHash();
+            MainWindow.Instance.SetOCRCheckIsWanted(true);
         }
 
         // Monitor Window Override Color handlers

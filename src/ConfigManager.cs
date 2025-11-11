@@ -48,6 +48,7 @@ namespace UGTLive
         public const string GOOGLE_VISION_ENDPOINT = "google_vision_endpoint";
         public const string GOOGLE_VISION_HORIZONTAL_GLUE = "google_vision_horizontal_glue";
         public const string GOOGLE_VISION_VERTICAL_GLUE = "google_vision_vertical_glue";
+        public const string GOOGLE_VISION_KEEP_LINEFEEDS = "google_vision_keep_linefeeds";
         
         // Translation context keys
         public const string MAX_CONTEXT_PIECES = "max_context_pieces";
@@ -1772,6 +1773,18 @@ Here is the input JSON:";
             _configValues[GOOGLE_VISION_VERTICAL_GLUE] = value.ToString();
             SaveConfig();
             Console.WriteLine($"Google Vision vertical glue updated to {value}");
+        }
+
+        public bool GetGoogleVisionKeepLinefeeds()
+        {
+            return GetBoolValue(GOOGLE_VISION_KEEP_LINEFEEDS, true); // Default to true
+        }
+
+        public void SetGoogleVisionKeepLinefeeds(bool value)
+        {
+            SetBoolValue(GOOGLE_VISION_KEEP_LINEFEEDS, value);
+            SaveConfig();
+            Console.WriteLine($"Google Vision keep linefeeds set to: {value}");
         }
 
         public string GetAudioProcessingProvider()

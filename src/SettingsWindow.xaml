@@ -105,6 +105,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- OCR Method -->
@@ -239,6 +240,16 @@
                                      ToolTip="Default: 0.5 (half a line height). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
                             <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                         </Grid>
+                        
+                        <!-- Try to keep original text linefeeds -->
+                        <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="11" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                  ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
+                        <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="11" Grid.Column="1" 
+                                 Margin="0,5" IsChecked="True" Visibility="Collapsed"
+                                 Checked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged" 
+                                 Unchecked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged"
+                                 ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
                     </Grid>
                 </GroupBox>
                 

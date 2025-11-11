@@ -695,6 +695,9 @@ namespace UGTLive
                 groups.Add(group);
             }
             
+            // Get the keep linefeeds setting
+            bool keepLinefeeds = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
+            
             // Convert groups to single text objects
             var result = new List<(string text, double x, double y, double width, double height)>();
             foreach (var group in groups)
@@ -702,8 +705,46 @@ namespace UGTLive
                 // Sort words in reading order (top to bottom, left to right)
                 var sortedGroup = group.OrderBy(w => w.y).ThenBy(w => w.x).ToList();
                 
-                // Combine text with spaces
-                string combinedText = string.Join(" ", sortedGroup.Select(w => w.text));
+                // Combine text with spaces or linefeeds
+                string combinedText;
+                if (keepLinefeeds && sortedGroup.Count > 1)
+                {
+                    // Build text with linefeeds when words are on different lines
+                    var textParts = new List<string>();
+                    double? lastY = null;
+                    double avgLineHeight = sortedGroup.Average(w => w.height);
+                    
+                    foreach (var word in sortedGroup)
+                    {
+                        if (lastY.HasValue)
+                        {
+                            // Check if this word is on a different line
+                            double verticalDistance = Math.Abs(word.y - lastY.Value);
+                            bool onDifferentLine = verticalDistance > avgLineHeight * 0.5;
+                            
+                            if (onDifferentLine)
+                            {
+                                // Add linefeed before this word
+                                textParts.Add("\r\n");
+                            }
+                            else
+                            {
+                                // Add space for words on the same line
+                                textParts.Add(" ");
+                            }
+                        }
+                        
+                        textParts.Add(word.text);
+                        lastY = word.y;
+                    }
+                    
+                    combinedText = string.Join("", textParts);
+                }
+                else
+                {
+                    // Original behavior: combine with spaces
+                    combinedText = string.Join(" ", sortedGroup.Select(w => w.text));
+                }
                 
                 // Calculate bounding box for the group
                 double minX = group.Min(w => w.x);
