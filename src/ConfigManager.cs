@@ -32,6 +32,7 @@ namespace UGTLive
         public const string OLLAMA_MODEL = "ollama_model";
         public const string CHATGPT_API_KEY = "chatgpt_api_key";
         public const string CHATGPT_MODEL = "chatgpt_model";
+        public const string CHATGPT_MAX_COMPLETION_TOKENS = "chatgpt_max_completion_tokens";
         public const string FORCE_CURSOR_VISIBLE = "force_cursor_visible";
         public const string AUTO_SIZE_TEXT_BLOCKS = "auto_size_text_blocks";
         public const string GOOGLE_TRANSLATE_API_KEY = "google_translate_api_key";
@@ -351,6 +352,7 @@ namespace UGTLive
             _configValues[MIN_TEXT_FRAGMENT_SIZE] = "1";
             _configValues[CHATGPT_MODEL] = "gpt-5-nano";
             _configValues[CHATGPT_API_KEY] = "<your API key here>";
+            _configValues[CHATGPT_MAX_COMPLETION_TOKENS] = "32768";
             _configValues[GEMINI_MODEL] = "gemini-2.5-flash";
             _configValues[BLOCK_DETECTION_SCALE] = "3.00";
             _configValues[BLOCK_DETECTION_SETTLE_TIME] = "0.15";
@@ -1346,6 +1348,31 @@ namespace UGTLive
                 _configValues[CHATGPT_MODEL] = model;
                 SaveConfig();
                 Console.WriteLine($"ChatGPT model set to: {model}");
+            }
+        }
+        
+        // Get/Set ChatGPT max completion tokens
+        public int GetChatGptMaxCompletionTokens()
+        {
+            string value = GetValue(CHATGPT_MAX_COMPLETION_TOKENS, "32768");
+            if (int.TryParse(value, out int tokens) && tokens > 0)
+            {
+                return tokens;
+            }
+            return 32768; // Default: 32768 tokens
+        }
+        
+        public void SetChatGptMaxCompletionTokens(int tokens)
+        {
+            if (tokens > 0)
+            {
+                _configValues[CHATGPT_MAX_COMPLETION_TOKENS] = tokens.ToString();
+                SaveConfig();
+                Console.WriteLine($"ChatGPT max completion tokens set to: {tokens}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid ChatGPT max completion tokens: {tokens}. Must be greater than 0.");
             }
         }
         

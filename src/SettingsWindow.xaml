@@ -440,6 +440,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Translation Service -->
@@ -565,15 +566,25 @@
                             </Grid.ColumnDefinitions>
                             <ComboBox x:Name="chatGptModelComboBox" Grid.Column="0"
                                     SelectionChanged="ChatGptModelComboBox_SelectionChanged">
-                                <ComboBoxItem Content="GPT-5 Nano (Fastest)" Tag="gpt-5-nano"/>
-                                <ComboBoxItem Content="GPT-5 Mini (Fast)" Tag="gpt-5-mini"/>
-                                <ComboBoxItem Content="GPT-5 (Medium)" Tag="gpt-5"/>
-                                <ComboBoxItem Content="GPT-5 Pro (Slow)" Tag="gpt-5-pro"/>
+                                <ComboBoxItem Content="GPT-4.1 Nano (Fastest)" Tag="gpt-4.1-nano"/>
+                                <ComboBoxItem Content="GPT-5 Nano" Tag="gpt-5-nano"/>
+                                <ComboBoxItem Content="GPT-5 Mini" Tag="gpt-5-mini"/>
+                                <ComboBoxItem Content="GPT-5" Tag="gpt-5"/>
+                                <ComboBoxItem Content="GPT-5 Pro" Tag="gpt-5-pro"/>
                             </ComboBox>
                             <Button x:Name="viewChatGptModelsButton" Content="View Models" Grid.Column="1"
                                    Margin="5,0,0,0" Padding="5,0" Click="ViewChatGptModelsButton_Click"
                                    ToolTip="Open OpenAI models documentation in browser"/>
                         </Grid>
+                        
+                        <!-- ChatGPT Max Completion Tokens - Only visible when ChatGPT is selected -->
+                        <TextBlock x:Name="chatGptMaxTokensLabel" Text="Max Completion Tokens:" Grid.Row="4" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                  ToolTip="Maximum number of tokens in the completion response"/>
+                        <TextBox x:Name="chatGptMaxTokensTextBox" Grid.Row="4" Grid.Column="1" 
+                                Margin="0,5" Visibility="Collapsed"
+                                TextChanged="ChatGptMaxTokensTextBox_TextChanged"
+                                ToolTip="Maximum number of tokens in the completion response (default: 32768)"/>
                         
                         <!-- Google Translate API Key - Only visible when Google Translate is selected -->
                         <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
@@ -613,18 +624,18 @@
                                  ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
                         
                         <!-- Prompt Label -->
-                        <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="4" Grid.Column="0" 
+                        <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="5" Grid.Column="0" 
                                   VerticalAlignment="Top" Margin="0,10,10,0"/>
                         
                         <!-- Prompt Editor -->
-                        <TextBox x:Name="promptTemplateTextBox" Grid.Row="4" Grid.Column="1" 
+                        <TextBox x:Name="promptTemplateTextBox" Grid.Row="5" Grid.Column="1" 
                                 Margin="0,10,0,0" AcceptsReturn="True" TextWrapping="Wrap"
                                 MinHeight="150" MaxHeight="300" VerticalScrollBarVisibility="Auto"
                                 FontFamily="Consolas" FontSize="12" 
                                 LostFocus="PromptTemplateTextBox_LostFocus"/>
                         
                         <!-- Save Button -->
-                        <Button x:Name="savePromptButton" Content="Save Prompt" Grid.Row="5" Grid.Column="1"
+                        <Button x:Name="savePromptButton" Content="Save Prompt" Grid.Row="6" Grid.Column="1"
                                HorizontalAlignment="Right" Margin="0,10,0,0" Padding="10,5"
                                Click="SavePromptButton_Click"/>
                     </Grid>

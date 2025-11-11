@@ -1174,6 +1174,7 @@ namespace UGTLive
                     geminiModelLabel == null || geminiModelGrid == null ||
                     chatGptApiKeyLabel == null || chatGptApiKeyGrid == null ||
                     chatGptModelLabel == null || chatGptModelGrid == null ||
+                    chatGptMaxTokensLabel == null || chatGptMaxTokensTextBox == null ||
                     googleTranslateApiKeyLabel == null || googleTranslateApiKeyGrid == null ||
                     googleTranslateServiceTypeLabel == null || googleTranslateServiceTypeComboBox == null ||
                     googleTranslateMappingLabel == null || googleTranslateMappingCheckBox == null)
@@ -1202,6 +1203,8 @@ namespace UGTLive
                 chatGptApiKeyGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
                 chatGptModelLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
                 chatGptModelGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                chatGptMaxTokensLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                chatGptMaxTokensTextBox.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide Google Translate-specific settings
                 googleTranslateServiceTypeLabel.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -1276,6 +1279,10 @@ namespace UGTLive
                             break;
                         }
                     }
+                    
+                    // Set max completion tokens
+                    int maxTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
+                    chatGptMaxTokensTextBox.Text = maxTokens.ToString();
                 }
                 else if (isGoogleTranslateSelected)
                 {
@@ -1637,6 +1644,30 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating ChatGPT model: {ex.Message}");
+            }
+        }
+        
+        // ChatGPT Max Completion Tokens changed
+        private void ChatGptMaxTokensTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (chatGptMaxTokensTextBox != null && !string.IsNullOrWhiteSpace(chatGptMaxTokensTextBox.Text))
+                {
+                    if (int.TryParse(chatGptMaxTokensTextBox.Text, out int maxTokens) && maxTokens > 0)
+                    {
+                        ConfigManager.Instance.SetChatGptMaxCompletionTokens(maxTokens);
+                        Console.WriteLine($"ChatGPT max completion tokens set to: {maxTokens}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating ChatGPT max completion tokens: {ex.Message}");
             }
         }
         

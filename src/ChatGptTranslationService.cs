@@ -92,12 +92,15 @@ namespace UGTLive
                     { "content", "Here is the input JSON:\n\n" + jsonData }
                 });
                 
+                // Get max completion tokens from config
+                int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
+                
                 // Create request body
                 var requestBody = new Dictionary<string, object>
                 {
                     { "model", model },
                     { "messages", messages },
-                    { "max_completion_tokens", 2000 }   // Increase max tokens for longer texts (ChatGPT 5+ uses max_completion_tokens)
+                    { "max_completion_tokens", maxCompletionTokens }   // Configurable max tokens (ChatGPT 5+ uses max_completion_tokens)
                     // Note: temperature parameter removed - ChatGPT 5 only supports default value of 1
                 };
                 
