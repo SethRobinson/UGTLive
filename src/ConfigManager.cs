@@ -349,7 +349,7 @@ namespace UGTLive
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
             _configValues[MIN_TEXT_FRAGMENT_SIZE] = "1";
-            _configValues[CHATGPT_MODEL] = "gpt-4.1-nano";
+            _configValues[CHATGPT_MODEL] = "gpt-5-nano";
             _configValues[CHATGPT_API_KEY] = "<your API key here>";
             _configValues[GEMINI_MODEL] = "gemini-2.5-flash";
             _configValues[BLOCK_DETECTION_SCALE] = "3.00";

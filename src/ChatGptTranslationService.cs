@@ -97,8 +97,8 @@ namespace UGTLive
                 {
                     { "model", model },
                     { "messages", messages },
-                    { "temperature", 0.3 },  // Lower temperature for more consistent translations
-                    { "max_tokens", 2000 }   // Increase max tokens for longer texts
+                    { "max_completion_tokens", 2000 }   // Increase max tokens for longer texts (ChatGPT 5+ uses max_completion_tokens)
+                    // Note: temperature parameter removed - ChatGPT 5 only supports default value of 1
                 };
                 
                 // Serialize the request body
