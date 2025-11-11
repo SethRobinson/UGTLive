@@ -864,6 +864,13 @@ namespace UGTLive
             try
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
+                bool isDocTRSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
+
+                // Show/hide docTR-specific settings
+                if (glueDoctrLinesLabel != null)
+                    glueDoctrLinesLabel.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (glueDoctrLinesCheckBox != null)
+                    glueDoctrLinesCheckBox.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
 
                 // Show/hide Google Vision-specific settings
                 if (googleVisionApiKeyLabel != null)

@@ -142,7 +142,11 @@ namespace UGTLive
                 // If there are NO character-level elements but we do have non-character items
                 // (e.g., docTR returns line-level rectangles), treat those non-character items
                 // as lines and glue them into paragraphs.
+                string currentOcrMethod = ConfigManager.Instance.GetOcrMethod();
+                bool isDocTR = string.Equals(currentOcrMethod, "docTR", StringComparison.OrdinalIgnoreCase);
+                
                 if (characters.Count == 0 && nonCharacters.Count > 0
+                    && isDocTR
                     && ConfigManager.Instance.GetGlueDocTRLinesEnabled())
                 {
                     Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");

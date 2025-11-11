@@ -157,7 +157,7 @@
                                  ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
                         
                         <!-- Glue docTR lines into paragraphs -->
-                        <TextBlock Text="Glue docTR lines into paragraphs:" Grid.Row="6" Grid.Column="0" 
+                        <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="6" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                   ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
                         <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="6" Grid.Column="1" 
