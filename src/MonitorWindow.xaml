@@ -42,7 +42,7 @@
                              Margin="0,0,10,0" GroupName="OverlayMode" 
                              Checked="OverlayRadioButton_Checked" Tag="Hide"/>
                 <RadioButton x:Name="overlaySourceRadio" Content="Source" Foreground="White" VerticalAlignment="Center" 
-                             Margin="0,0,10,0" GroupName="OverlayMode" IsChecked="True"
+                             Margin="0,0,10,0" GroupName="OverlayMode"
                              Checked="OverlayRadioButton_Checked" Tag="Source"/>
                 <RadioButton x:Name="overlayTranslatedRadio" Content="Translated" Foreground="White" VerticalAlignment="Center" 
                              GroupName="OverlayMode" 

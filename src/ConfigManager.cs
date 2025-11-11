@@ -150,6 +150,7 @@ namespace UGTLive
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
         public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
         public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
+        public const string MONITOR_OVERLAY_MODE = "monitor_overlay_mode";
         
         // docTR-specific glue toggle
         public const string GLUE_DOCTR_LINES = "glue_doctr_lines";
@@ -2060,6 +2061,22 @@ Here is the input JSON:";
             _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = height.ToString();
             SaveConfig();
             Console.WriteLine($"Monitor text area expansion height set to: {height}");
+        }
+
+        // Get/Set Monitor Overlay Mode
+        public string GetMonitorOverlayMode()
+        {
+            return GetValue(MONITOR_OVERLAY_MODE, "Translated"); // Default to Translated
+        }
+
+        public void SetMonitorOverlayMode(string mode)
+        {
+            if (!string.IsNullOrWhiteSpace(mode))
+            {
+                _configValues[MONITOR_OVERLAY_MODE] = mode;
+                SaveConfig();
+                Console.WriteLine($"Monitor overlay mode set to: {mode}");
+            }
         }
 
         // Font Settings methods

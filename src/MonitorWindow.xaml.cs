@@ -31,7 +31,7 @@ namespace UGTLive
         private string lastImagePath = string.Empty;
         private readonly Dictionary<string, Border> _overlayElements = new();
         private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
-        private OverlayMode _currentOverlayMode = OverlayMode.Source;
+        private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -364,6 +364,38 @@ namespace UGTLive
                 
                 // Get auto-translate state from MainWindow
                 bool isTranslateEnabled = MainWindow.Instance.GetTranslateEnabled();
+                
+                // Load overlay mode from config
+                string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
+                Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                
+                // Temporarily remove event handlers to prevent triggering saves during initialization
+                overlayHideRadio.Checked -= OverlayRadioButton_Checked;
+                overlaySourceRadio.Checked -= OverlayRadioButton_Checked;
+                overlayTranslatedRadio.Checked -= OverlayRadioButton_Checked;
+                
+                // Set the appropriate radio button based on config
+                switch (overlayMode)
+                {
+                    case "Hide":
+                        _currentOverlayMode = OverlayMode.Hide;
+                        overlayHideRadio.IsChecked = true;
+                        break;
+                    case "Source":
+                        _currentOverlayMode = OverlayMode.Source;
+                        overlaySourceRadio.IsChecked = true;
+                        break;
+                    case "Translated":
+                    default: // Default to Translated if not set or invalid
+                        _currentOverlayMode = OverlayMode.Translated;
+                        overlayTranslatedRadio.IsChecked = true;
+                        break;
+                }
+                
+                // Reattach event handlers
+                overlayHideRadio.Checked += OverlayRadioButton_Checked;
+                overlaySourceRadio.Checked += OverlayRadioButton_Checked;
+                overlayTranslatedRadio.Checked += OverlayRadioButton_Checked;
                 
                 // Initialization complete, now we can save settings changes
                 _isInitializing = false;
@@ -1679,6 +1711,10 @@ namespace UGTLive
         // Handle Overlay Radio Button selection
         private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
         {
+            // Skip if initializing to prevent saving during load
+            if (_isInitializing)
+                return;
+                
             if (sender is System.Windows.Controls.RadioButton radioButton && radioButton.Tag is string mode)
             {
                 switch (mode)
@@ -1693,6 +1729,9 @@ namespace UGTLive
                         _currentOverlayMode = OverlayMode.Translated;
                         break;
                 }
+                
+                // Save the overlay mode to config
+                ConfigManager.Instance.SetMonitorOverlayMode(mode);
                 
                 // Refresh the overlays with the new mode
                 RefreshOverlays();
