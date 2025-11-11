@@ -19,6 +19,7 @@ namespace UGTLive
         private readonly string _ollamaConfigFilePath;
         private readonly string _chatgptConfigFilePath;
         private readonly string _googleTranslateConfigFilePath;
+        private readonly string _llamacppConfigFilePath;
         private readonly Dictionary<string, string> _configValues;
         private string _currentTranslationService = "Gemini"; // Default to Gemini
 
@@ -30,6 +31,8 @@ namespace UGTLive
         public const string OLLAMA_URL = "ollama_url";
         public const string OLLAMA_PORT = "ollama_port";
         public const string OLLAMA_MODEL = "ollama_model";
+        public const string LLAMACPP_URL = "llamacpp_url";
+        public const string LLAMACPP_PORT = "llamacpp_port";
         public const string CHATGPT_API_KEY = "chatgpt_api_key";
         public const string CHATGPT_MODEL = "chatgpt_model";
         public const string CHATGPT_MAX_COMPLETION_TOKENS = "chatgpt_max_completion_tokens";
@@ -182,12 +185,14 @@ namespace UGTLive
             _ollamaConfigFilePath = Path.Combine(appDirectory, "ollama_config.txt");
             _chatgptConfigFilePath = Path.Combine(appDirectory, "chatgpt_config.txt");
             _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
+            _llamacppConfigFilePath = Path.Combine(appDirectory, "llamacpp_config.txt");
             
             Console.WriteLine($"Config file path: {_configFilePath}");
             Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
             Console.WriteLine($"Ollama config file path: {_ollamaConfigFilePath}");
             Console.WriteLine($"ChatGPT config file path: {_chatgptConfigFilePath}");
             Console.WriteLine($"Google Translate config file path: {_googleTranslateConfigFilePath}");
+            Console.WriteLine($"llama.cpp config file path: {_llamacppConfigFilePath}");
             
             // Load main config values
             LoadConfig();
@@ -195,6 +200,13 @@ namespace UGTLive
             // Load translation service from config
             if (_configValues.TryGetValue(TRANSLATION_SERVICE, out string? service))
             {
+                // Normalize service name for backwards compatibility
+                if (string.Equals(service, "Llama.cpp", StringComparison.OrdinalIgnoreCase))
+                {
+                    service = "llama.cpp";
+                    _configValues[TRANSLATION_SERVICE] = service;
+                    SaveConfig(); // Update the config file with the normalized name
+                }
                 _currentTranslationService = service;
             }
             else
@@ -617,6 +629,45 @@ namespace UGTLive
             return $"{url}:{port}/api/generate";
         }
         
+        // Get/Set llama.cpp URL
+        public string GetLlamaCppUrl()
+        {
+            return GetValue(LLAMACPP_URL, "http://localhost");
+        }
+        
+        public void SetLlamaCppUrl(string url)
+        {
+            _configValues[LLAMACPP_URL] = url;
+            SaveConfig();
+        }
+        
+        // Get/Set llama.cpp Port
+        public string GetLlamaCppPort()
+        {
+            return GetValue(LLAMACPP_PORT, "8080");
+        }
+        
+        public void SetLlamaCppPort(string port)
+        {
+            _configValues[LLAMACPP_PORT] = port;
+            SaveConfig();
+        }
+        
+        // Get the full llama.cpp API endpoint
+        public string GetLlamaCppApiEndpoint()
+        {
+            string url = GetLlamaCppUrl();
+            string port = GetLlamaCppPort();
+            
+            // Ensure URL doesn't end with a slash
+            if (url.EndsWith("/"))
+            {
+                url = url.Substring(0, url.Length - 1);
+            }
+            
+            return $"{url}:{port}/v1/chat/completions";
+        }
+        
         // Get current translation service
         public string GetCurrentTranslationService()
         {
@@ -626,12 +677,16 @@ namespace UGTLive
         // Set current translation service
         public void SetTranslationService(string service)
         {
-            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "Google Translate")
+            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "llama.cpp" || service == "Google Translate")
             {
                 _currentTranslationService = service;
                 _configValues[TRANSLATION_SERVICE] = service;
                 SaveConfig();
                 Console.WriteLine($"Translation service set to {service}");
+            }
+            else
+            {
+                Console.WriteLine($"WARNING: Invalid translation service: '{service}'. Valid options are: Gemini, Ollama, ChatGPT, llama.cpp, Google Translate");
             }
         }
         
@@ -673,9 +728,25 @@ namespace UGTLive
             try
             {
                 // Default prompts for each service
-                string defaultGeminiPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
-                string defaultOllamaPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
-                string defaultChatGptPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
+                string defaultPrompt = @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog.
+
+You should:
+
+* Output ONLY the resulting JSON data.
+* The output JSON must have the exact same structure as the input JSON, with a source_language, target_language, and a text_blocks array.
+* Each element in the text_blocks array must include its id and its rect (the bounding box).
+* No extra text, explanations, or formatting should be included.
+* If ""previous_context"" data exist in the json, this should not be translated, but used to better understand the context of the text that IS being translated.
+* Example of output for a text block: If text_0 and text_1 were merged, the result would look like: { ""id"": ""text_0"", ""text"": ""Translated text of text_0."", ""rect"": { ""x"": 10, ""y"": 20, ""width"": 400, ""height"": 50 } }
+* Don't return the ""previous_context"" or ""game_info"" json parms, that's for input only, not what you output.
+* If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together, but each on their own text line.
+
+Here is the input JSON:";
+                
+                string defaultGeminiPrompt = defaultPrompt;
+                string defaultOllamaPrompt = defaultPrompt;
+                string defaultChatGptPrompt = defaultPrompt;
+                string defaultLlamaCppPrompt = defaultPrompt;
                 
                 // Check and create Gemini config file
                 if (!File.Exists(_geminiConfigFilePath))
@@ -699,6 +770,14 @@ namespace UGTLive
                     string chatgptContent = $"<llm_prompt_multi_start>\n{defaultChatGptPrompt}\n<llm_prompt_multi_end>";
                     File.WriteAllText(_chatgptConfigFilePath, chatgptContent);
                     Console.WriteLine("Created default ChatGPT config file");
+                }
+                
+                // Check and create llama.cpp config file
+                if (!File.Exists(_llamacppConfigFilePath))
+                {
+                    string llamacppContent = $"<llm_prompt_multi_start>\n{defaultLlamaCppPrompt}\n<llm_prompt_multi_end>";
+                    File.WriteAllText(_llamacppConfigFilePath, llamacppContent);
+                    Console.WriteLine("Created default llama.cpp config file");
                 }
                 
                 // Google Translate doesn't use prompts, so no need to create config file
@@ -736,6 +815,9 @@ namespace UGTLive
                     break;
                 case "ChatGPT":
                     filePath = _chatgptConfigFilePath;
+                    break;
+                case "llama.cpp":
+                    filePath = _llamacppConfigFilePath;
                     break;
                 default:
                     filePath = _geminiConfigFilePath;
@@ -789,6 +871,9 @@ namespace UGTLive
                     break;
                 case "ChatGPT":
                     filePath = _chatgptConfigFilePath;
+                    break;
+                case "llama.cpp":
+                    filePath = _llamacppConfigFilePath;
                     break;
                 default:
                     filePath = _geminiConfigFilePath;

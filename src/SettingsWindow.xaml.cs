@@ -463,6 +463,10 @@ namespace UGTLive
             ollamaPortTextBox.Text = ConfigManager.Instance.GetOllamaPort();
             ollamaModelTextBox.Text = ConfigManager.Instance.GetOllamaModel();
             
+            // Initialize llama.cpp settings
+            llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
+            llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+            
             // Update service-specific settings visibility based on selected service
             UpdateServiceSpecificSettings(currentService);
             
@@ -1161,71 +1165,95 @@ namespace UGTLive
         {
             try
             {
-                bool isOllamaSelected = selectedService == "Ollama";
-                bool isGeminiSelected = selectedService == "Gemini";
-                bool isChatGptSelected = selectedService == "ChatGPT";
-                bool isGoogleTranslateSelected = selectedService == "Google Translate";
+                bool isOllamaSelected = string.Equals(selectedService, "Ollama", StringComparison.OrdinalIgnoreCase);
+                bool isGeminiSelected = string.Equals(selectedService, "Gemini", StringComparison.OrdinalIgnoreCase);
+                bool isChatGptSelected = string.Equals(selectedService, "ChatGPT", StringComparison.OrdinalIgnoreCase);
+                bool isLlamacppSelected = string.Equals(selectedService, "llama.cpp", StringComparison.OrdinalIgnoreCase);
+                bool isGoogleTranslateSelected = string.Equals(selectedService, "Google Translate", StringComparison.OrdinalIgnoreCase);
                 
-                // Make sure the window is fully loaded and controls are initialized
-                if (ollamaUrlLabel == null || ollamaUrlTextBox == null || 
-                    ollamaPortLabel == null || ollamaPortTextBox == null ||
-                    ollamaModelLabel == null || ollamaModelGrid == null ||
-                    geminiApiKeyLabel == null || geminiApiKeyPasswordBox == null ||
-                    geminiModelLabel == null || geminiModelGrid == null ||
-                    chatGptApiKeyLabel == null || chatGptApiKeyGrid == null ||
-                    chatGptModelLabel == null || chatGptModelGrid == null ||
-                    chatGptMaxTokensLabel == null || chatGptMaxTokensTextBox == null ||
-                    googleTranslateApiKeyLabel == null || googleTranslateApiKeyGrid == null ||
-                    googleTranslateServiceTypeLabel == null || googleTranslateServiceTypeComboBox == null ||
-                    googleTranslateMappingLabel == null || googleTranslateMappingCheckBox == null)
-                {
-                    Console.WriteLine("UI elements not initialized yet. Skipping visibility update.");
-                    return;
-                }
+                // Don't return early - set visibility for whatever elements are available
+                // This ensures partial initialization doesn't prevent any visibility updates
                 
                 // Show/hide Gemini-specific settings
-                geminiApiKeyLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
-                geminiApiKeyPasswordBox.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
-                geminiApiKeyHelpText.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
-                geminiModelLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
-                geminiModelGrid.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiApiKeyLabel != null)
+                    geminiApiKeyLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiApiKeyPasswordBox != null)
+                    geminiApiKeyPasswordBox.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiApiKeyHelpText != null)
+                    geminiApiKeyHelpText.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiModelLabel != null)
+                    geminiModelLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiModelGrid != null)
+                    geminiModelGrid.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide Ollama-specific settings
-                ollamaUrlLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
-                ollamaUrlGrid.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
-                ollamaPortLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
-                ollamaPortTextBox.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
-                ollamaModelLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
-                ollamaModelGrid.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaUrlLabel != null)
+                    ollamaUrlLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaUrlGrid != null)
+                    ollamaUrlGrid.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaPortLabel != null)
+                    ollamaPortLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaPortTextBox != null)
+                    ollamaPortTextBox.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaModelLabel != null)
+                    ollamaModelLabel.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (ollamaModelGrid != null)
+                    ollamaModelGrid.Visibility = isOllamaSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide ChatGPT-specific settings
-                chatGptApiKeyLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                chatGptApiKeyGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                chatGptModelLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                chatGptModelGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                chatGptMaxTokensLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                chatGptMaxTokensTextBox.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptApiKeyLabel != null)
+                    chatGptApiKeyLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptApiKeyGrid != null)
+                    chatGptApiKeyGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptModelLabel != null)
+                    chatGptModelLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptModelGrid != null)
+                    chatGptModelGrid.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptMaxTokensLabel != null)
+                    chatGptMaxTokensLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (chatGptMaxTokensTextBox != null)
+                    chatGptMaxTokensTextBox.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
+                
+                // Show/hide llama.cpp-specific settings
+                if (llamacppUrlLabel != null)
+                    llamacppUrlLabel.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppUrlGrid != null)
+                    llamacppUrlGrid.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppPortLabel != null)
+                    llamacppPortLabel.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppPortTextBox != null)
+                    llamacppPortTextBox.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide Google Translate-specific settings
-                googleTranslateServiceTypeLabel.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
-                googleTranslateServiceTypeComboBox.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
-                googleTranslateMappingLabel.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
-                googleTranslateMappingCheckBox.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateServiceTypeLabel != null)
+                    googleTranslateServiceTypeLabel.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateServiceTypeComboBox != null)
+                    googleTranslateServiceTypeComboBox.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateMappingLabel != null)
+                    googleTranslateMappingLabel.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateMappingCheckBox != null)
+                    googleTranslateMappingCheckBox.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Hide prompt template for Google Translate
                 bool showPromptTemplate = !isGoogleTranslateSelected;
                 
                 // API key is only visible for Google Translate if Cloud API is selected
                 bool showGoogleTranslateApiKey = isGoogleTranslateSelected && 
+                    googleTranslateServiceTypeComboBox != null &&
                     (googleTranslateServiceTypeComboBox.SelectedItem as ComboBoxItem)?.Content.ToString() == "Cloud API (paid)";
                     
-                googleTranslateApiKeyLabel.Visibility = showGoogleTranslateApiKey ? Visibility.Visible : Visibility.Collapsed;
-                googleTranslateApiKeyGrid.Visibility = showGoogleTranslateApiKey ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateApiKeyLabel != null)
+                    googleTranslateApiKeyLabel.Visibility = showGoogleTranslateApiKey ? Visibility.Visible : Visibility.Collapsed;
+                if (googleTranslateApiKeyGrid != null)
+                    googleTranslateApiKeyGrid.Visibility = showGoogleTranslateApiKey ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide prompt template and related controls for Google Translate
-                promptLabel.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
-                promptTemplateTextBox.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
-                savePromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
+                if (promptLabel != null)
+                    promptLabel.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
+                if (promptTemplateTextBox != null)
+                    promptTemplateTextBox.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
+                if (savePromptButton != null)
+                    savePromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Load service-specific settings if they're being shown
                 if (isGeminiSelected)
@@ -1283,6 +1311,11 @@ namespace UGTLive
                     // Set max completion tokens
                     int maxTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
                     chatGptMaxTokensTextBox.Text = maxTokens.ToString();
+                }
+                else if (isLlamacppSelected)
+                {
+                    llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
+                    llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
                 }
                 else if (isGoogleTranslateSelected)
                 {
@@ -1472,6 +1505,35 @@ namespace UGTLive
             }
         }
         
+        // llama.cpp URL changed
+        private void LlamacppUrlTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string url = llamacppUrlTextBox.Text.Trim();
+            if (!string.IsNullOrEmpty(url))
+            {
+                ConfigManager.Instance.SetLlamaCppUrl(url);
+            }
+        }
+        
+        // llama.cpp Port changed
+        private void LlamacppPortTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string port = llamacppPortTextBox.Text.Trim();
+            if (!string.IsNullOrEmpty(port))
+            {
+                // Validate that the port is a number
+                if (int.TryParse(port, out _))
+                {
+                    ConfigManager.Instance.SetLlamaCppPort(port);
+                }
+                else
+                {
+                    // Reset to default if invalid
+                    llamacppPortTextBox.Text = "8080";
+                }
+            }
+        }
+        
         // Model downloader instance
         private readonly OllamaModelDownloader _modelDownloader = new OllamaModelDownloader();
         
@@ -1578,6 +1640,11 @@ namespace UGTLive
         private void OllamaDownloadLink_Click(object sender, RoutedEventArgs e)
         {
             OpenUrl("https://ollama.com");
+        }
+        
+        private void LlamacppDocsLink_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://github.com/ggerganov/llama.cpp");
         }
         
         private void ChatGptApiLink_Click(object sender, RoutedEventArgs e)

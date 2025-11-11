@@ -1730,13 +1730,13 @@ namespace UGTLive
                 JsonElement textToProcess;
                 
                 // Different services have different response formats
-                if (currentService == "ChatGPT")
+                if (currentService == "ChatGPT" || currentService == "llama.cpp")
                 {
-                    // ChatGPT format: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
+                    // ChatGPT/llama.cpp format: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
                     if (doc.RootElement.TryGetProperty("translated_text", out JsonElement translatedTextElement))
                     {
                         string translatedTextJson = translatedTextElement.GetString() ?? "";
-                        Console.WriteLine($"ChatGPT translated_text: {translatedTextJson}");
+                        Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
                         
                         // If the translated_text is a JSON string, parse it
                         if (!string.IsNullOrEmpty(translatedTextJson) && 

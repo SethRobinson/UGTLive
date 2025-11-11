@@ -451,6 +451,7 @@
                             <ComboBoxItem Content="Gemini"/>
                             <ComboBoxItem Content="Ollama"/>
                             <ComboBoxItem Content="ChatGPT"/>
+                            <ComboBoxItem Content="llama.cpp"/>
                             <ComboBoxItem Content="Google Translate"/>
                         </ComboBox>
                         
@@ -585,6 +586,32 @@
                                 Margin="0,5" Visibility="Collapsed"
                                 TextChanged="ChatGptMaxTokensTextBox_TextChanged"
                                 ToolTip="Maximum number of tokens in the completion response (default: 32768)"/>
+                        
+                        <!-- llama.cpp URL - Only visible when llama.cpp is selected -->
+                        <TextBlock x:Name="llamacppUrlLabel" Text="llama.cpp URL:" Grid.Row="1" Grid.Column="0" 
+                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                        <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="llamacppUrlGrid" Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBox x:Name="llamacppUrlTextBox" Grid.Row="0"
+                                    VerticalAlignment="Top" Margin="0,0,0,2" Text="http://localhost"
+                                    TextChanged="LlamacppUrlTextBox_TextChanged"/>
+                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                <Run>Start server with: </Run>
+                                <Run FontFamily="Consolas">llama-server -m model.gguf</Run>
+                                <Run> | </Run>
+                                <Hyperlink Click="LlamacppDocsLink_Click">llama.cpp on github</Hyperlink>
+                            </TextBlock>
+                        </Grid>
+                        
+                        <!-- llama.cpp Port - Only visible when llama.cpp is selected -->
+                        <TextBlock x:Name="llamacppPortLabel" Text="llama.cpp Port:" Grid.Row="2" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                        <TextBox x:Name="llamacppPortTextBox" Grid.Row="2" Grid.Column="1" 
+                                Margin="0,5" Text="8080" Visibility="Collapsed"
+                                TextChanged="LlamacppPortTextBox_TextChanged"/>
                         
                         <!-- Google Translate API Key - Only visible when Google Translate is selected -->
                         <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
