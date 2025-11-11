@@ -1524,6 +1524,10 @@ namespace UGTLive
         // llama.cpp URL changed
         private void LlamacppUrlTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            // Skip if initializing or if the sender isn't the expected TextBox
+            if (_isInitializing || sender != llamacppUrlTextBox)
+                return;
+                
             string url = llamacppUrlTextBox.Text.Trim();
             if (!string.IsNullOrEmpty(url))
             {
@@ -1534,6 +1538,10 @@ namespace UGTLive
         // llama.cpp Port changed
         private void LlamacppPortTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            // Skip if initializing or if the sender isn't the expected TextBox
+            if (_isInitializing || sender != llamacppPortTextBox)
+                return;
+                
             string port = llamacppPortTextBox.Text.Trim();
             if (!string.IsNullOrEmpty(port))
             {

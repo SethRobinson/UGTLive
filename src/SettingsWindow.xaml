@@ -596,7 +596,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBox x:Name="llamacppUrlTextBox" Grid.Row="0"
-                                    VerticalAlignment="Top" Margin="0,0,0,2" Text="http://localhost"
+                                    VerticalAlignment="Top" Margin="0,0,0,2"
                                     TextChanged="LlamacppUrlTextBox_TextChanged"/>
                             <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
                                 <Run>Start server with: </Run>
@@ -610,7 +610,7 @@
                         <TextBlock x:Name="llamacppPortLabel" Text="llama.cpp Port:" Grid.Row="2" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
                         <TextBox x:Name="llamacppPortTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,5" Text="8080" Visibility="Collapsed"
+                                Margin="0,5" Visibility="Collapsed"
                                 TextChanged="LlamacppPortTextBox_TextChanged"/>
                         
                         <!-- Google Translate API Key - Only visible when Google Translate is selected -->
