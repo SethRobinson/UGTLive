@@ -195,7 +195,7 @@ namespace UGTLive
                 }
                 else if (method == "Google Vision")
                 {
-                    SetStatus("Using Google Vision (cloud)");
+                    SetStatus("Using Google Cloud Vision (non-local, costs $)");
                 }
                 else if (method == "Manga OCR")
                 {
@@ -224,7 +224,7 @@ namespace UGTLive
                 }
                 else if (method == "Google Vision")
                 {
-                    SetStatus("Using Google Vision (cloud)");
+                    SetStatus("Using Google Cloud Vision (non-local, costs $)");
                 }
                 else if (method == "Manga OCR")
                 {

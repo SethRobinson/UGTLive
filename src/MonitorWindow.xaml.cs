@@ -201,7 +201,7 @@ namespace UGTLive
                     try
                     {
                        SocketManager.Instance.Disconnect();
-                        UpdateStatus("Using Google Vision (cloud)");
+                        UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
                     }
                     catch (Exception ex)
                     {

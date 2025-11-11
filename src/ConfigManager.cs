@@ -83,7 +83,7 @@ namespace UGTLive
             { "Manga OCR", "Manga OCR (Vertical Japanese manga)" },
             { "docTR", "docTR (Great at non-asian languages)" },
             { "Windows OCR", "Windows OCR (Decent at English?)" },
-            { "Google Vision", "Google Vision (cloud)" }
+            { "Google Vision", "Google Cloud Vision (non-local, costs $)" }
         };
 
         public static IReadOnlyList<string> SupportedOcrMethods => _supportedOcrMethods;

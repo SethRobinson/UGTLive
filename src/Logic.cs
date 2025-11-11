@@ -1435,8 +1435,8 @@ namespace UGTLive
                     // Show error to user if API key might be missing
                     if (ex.Message.Contains("API key", StringComparison.OrdinalIgnoreCase))
                     {
-                        MessageBox.Show("Google Vision API key not configured. Please set your API key in Settings.", 
-                            "Google Vision Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show("Google Cloud Vision API key not configured. Please set your API key in Settings.", 
+                            "Google Cloud Vision Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
             }
