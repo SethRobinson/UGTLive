@@ -131,7 +131,6 @@ namespace UGTLive
         public const string AUDIO_PROCESSING_PROVIDER = "audio_processing_provider";
         public const string OPENAI_REALTIME_API_KEY = "openai_realtime_api_key";
         public const string AUDIO_SERVICE_AUTO_TRANSLATE = "audio_service_auto_translate";
-        public const string USE_WEBVIEW_OVERLAY = "use_webview_overlay";
         public const string SHOW_SERVER_WINDOW = "show_server_window";
         public const string SKIP_CONDA_CHECKS = "skip_conda_checks";
 
@@ -341,7 +340,6 @@ namespace UGTLive
             // Set default values based on current config.txt
             _configValues[GEMINI_API_KEY] = "<your API key here>";
             _configValues[AUTO_SIZE_TEXT_BLOCKS] = "true";
-            _configValues[USE_WEBVIEW_OVERLAY] = "true";
             _configValues[CHATBOX_FONT_FAMILY] = "Segoe UI";
             _configValues[CHATBOX_FONT_SIZE] = "15";
             _configValues[CHATBOX_FONT_COLOR] = "#FFFFFFFF";
@@ -902,11 +900,6 @@ Here is the input JSON:";
         {
             string value = GetValue(AUTO_SIZE_TEXT_BLOCKS, "true");
             return value.ToLower() == "true";
-        }
-
-        public bool IsWebViewOverlayEnabled()
-        {
-            return GetBoolValue(USE_WEBVIEW_OVERLAY, true);
         }
         
         // Check if auto translate is enabled

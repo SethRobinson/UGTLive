@@ -764,7 +764,7 @@ namespace UGTLive
                 }
                 
                 // We need to create a NEW UI element with positioning appropriate for Canvas
-                // but we'll use the existing Border and TextBlock references so updates work
+                // but we'll use the existing Border and WebView references so updates work
                 Border? border = textObject.Border;
                 if (border == null || border.Child == null)
                 {
@@ -775,33 +775,6 @@ namespace UGTLive
                 {
                     // Update existing UI element with current colors (override or original)
                     border.Background = textObject.BackgroundColor;
-                    
-                    // Update text color in TextBlock or WebView
-                    if (textObject.TextBlock != null)
-                    {
-                        textObject.TextBlock.Foreground = textObject.TextColor;
-                    }
-                    // For WebView, we'll update the content after determining the overlay mode
-                }
-                
-                // Now update the displayed text based on overlay mode
-                if (textObject.TextBlock != null)
-                {
-                    string displayText;
-                    if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObject.TextTranslated))
-                    {
-                        displayText = textObject.TextTranslated;
-                    }
-                    else if (_currentOverlayMode == OverlayMode.Source)
-                    {
-                        displayText = textObject.Text;
-                    }
-                    else
-                    {
-                        // Default to source if mode is Hide (though it will be hidden anyway)
-                        displayText = textObject.Text;
-                    }
-                    textObject.TextBlock.Text = displayText;
                 }
                 
                 // Update WebView overlays with the current overlay mode
@@ -809,40 +782,6 @@ namespace UGTLive
                 if (textObject.WebView != null)
                 {
                     textObject.UpdateUIElement(_currentOverlayMode);
-                }
-                
-                // For TextBlock overlays, handle vertical text (TextBlock doesn't support writing-mode)
-                // So we use a LayoutTransform for vertical text
-                if (textObject.TextBlock != null && textObject.TextOrientation == "vertical")
-                {
-                    if (_currentOverlayMode == OverlayMode.Source || 
-                        (_currentOverlayMode == OverlayMode.Translated && string.IsNullOrEmpty(textObject.TextTranslated)))
-                    {
-                        // Show vertical for source
-                        textObject.TextBlock.LayoutTransform = new RotateTransform(90);
-                        textObject.TextBlock.TextAlignment = TextAlignment.Center;
-                    }
-                    else if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObject.TextTranslated))
-                    {
-                        // Check if target supports vertical
-                        string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
-                        if (IsVerticalSupportedLanguage(targetLang))
-                        {
-                            textObject.TextBlock.LayoutTransform = new RotateTransform(90);
-                            textObject.TextBlock.TextAlignment = TextAlignment.Center;
-                        }
-                        else
-                        {
-                            textObject.TextBlock.LayoutTransform = Transform.Identity;
-                            textObject.TextBlock.TextAlignment = TextAlignment.Left;
-                        }
-                    }
-                }
-                else if (textObject.TextBlock != null)
-                {
-                    // Horizontal text
-                    textObject.TextBlock.LayoutTransform = Transform.Identity;
-                    textObject.TextBlock.TextAlignment = TextAlignment.Left;
                 }
 
                 if (border == null)
@@ -1099,10 +1038,6 @@ namespace UGTLive
                 
                 // Calculate font size with zoom
                 double fontSize = 24 * currentZoom; // Default font size with zoom
-                if (textObj.TextBlock != null)
-                {
-                    fontSize = textObj.TextBlock.FontSize * currentZoom;
-                }
                 
                 // Generate overlay div with unique ID for text fitting and data attributes for both texts
                 html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObjectId}\" " +

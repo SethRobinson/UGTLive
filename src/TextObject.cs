@@ -39,13 +39,10 @@ namespace UGTLive
         public SolidColorBrush TextColor { get; set; }
         public SolidColorBrush BackgroundColor { get; set; }
         public UIElement? UIElement { get; set; }
-        public TextBlock? TextBlock { get; private set; }
         public WebView2? WebView { get; private set; }
         public Border Border { get; private set; } = new Border();
 
         public event EventHandler? TextCopied;
-
-        private readonly bool _useWebViewOverlay;
         private bool _webViewInitialized;
         private string? _pendingWebViewHtml;
         private string? _lastRenderedHtml;
@@ -93,8 +90,6 @@ namespace UGTLive
             // Initialize sound player if not already initialized
             _soundPlayer ??= new SoundPlayer();
 
-            _useWebViewOverlay = ConfigManager.Instance.IsWebViewOverlayEnabled();
-
             // Create the UI element that will be added to the overlay
             //UIElement = CreateUIElement();
         }
@@ -122,14 +117,7 @@ namespace UGTLive
 
             ApplySizeConstraints();
 
-            if (_useWebViewOverlay)
-            {
-                CreateWebViewChild();
-            }
-            else
-            {
-                CreateTextBlockChild();
-            }
+            CreateWebViewChild();
 
             Border.ContextMenu = CreateContextMenu();
 
@@ -137,116 +125,48 @@ namespace UGTLive
             // Let the event bubble up to MonitorWindow for zoom handling
             Border.PreviewMouseWheel += Border_PreviewMouseWheel;
 
-            if (_useWebViewOverlay)
+            Border.Loaded += async (s, e) =>
             {
-                Border.Loaded += async (s, e) =>
+                await EnsureWebViewReadyAsync();
+                // Update with current overlay mode
+                OverlayMode currentMode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
+                
+                string textToRender;
+                bool isTranslated = false;
+                string displayOrientation = TextOrientation;
+                
+                if (currentMode == OverlayMode.Source)
                 {
-                    await EnsureWebViewReadyAsync();
-                    // Update with current overlay mode
-                    OverlayMode currentMode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
-                    
-                    string textToRender;
-                    bool isTranslated = false;
-                    string displayOrientation = TextOrientation;
-                    
-                    if (currentMode == OverlayMode.Source)
+                    textToRender = Text;
+                }
+                else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+                {
+                    textToRender = TextTranslated;
+                    isTranslated = true;
+                    // Check if target supports vertical
+                    if (TextOrientation == "vertical")
                     {
-                        textToRender = Text;
-                    }
-                    else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
-                    {
-                        textToRender = TextTranslated;
-                        isTranslated = true;
-                        // Check if target supports vertical
-                        if (TextOrientation == "vertical")
+                        string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                        if (!IsVerticalSupportedLanguage(targetLang))
                         {
-                            string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
-                            if (!IsVerticalSupportedLanguage(targetLang))
-                            {
-                                displayOrientation = "horizontal";
-                            }
+                            displayOrientation = "horizontal";
                         }
                     }
-                    else
-                    {
-                        textToRender = Text;
-                    }
-                    
-                    await UpdateWebViewContentAsync(textToRender, isTranslated, displayOrientation);
-                };
-            }
-            else if (TextBlock != null)
-            {
-                Border.Loaded += (s, e) => AdjustFontSize(Border, TextBlock);
-            }
+                }
+                else
+                {
+                    textToRender = Text;
+                }
+                
+                await UpdateWebViewContentAsync(textToRender, isTranslated, displayOrientation);
+            };
 
             UIElement = Border;
             return Border;
         }
 
-        private void CreateTextBlockChild()
-        {
-            WebView = null;
-            
-            // Determine what text to show based on overlay mode
-            OverlayMode currentMode = MonitorWindow.Instance?.CurrentOverlayMode ?? OverlayMode.Source;
-            string textToShow = Text; // Default to source
-            bool isTranslated = false;
-            
-            if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
-            {
-                textToShow = TextTranslated;
-                isTranslated = true;
-            }
-            
-            string fontFamily = isTranslated 
-                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
-                : ConfigManager.Instance.GetSourceLanguageFontFamily();
-            FontWeight fontWeight = isTranslated
-                ? (ConfigManager.Instance.GetTargetLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal)
-                : (ConfigManager.Instance.GetSourceLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal);
-            
-            TextBlock = new TextBlock
-            {
-                Text = textToShow,
-                Foreground = TextColor,
-                FontWeight = fontWeight,
-                FontSize = DefaultFontSize,
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Left,
-                FontStretch = FontStretches.Normal,
-                FontFamily = new FontFamily(fontFamily),
-                Margin = new Thickness(0),
-                TextTrimming = TextTrimming.None
-            };
-
-            if (Width > 0)
-            {
-                TextBlock.MaxWidth = Width;
-                Border.MaxWidth = Width + 20;
-            }
-            else
-            {
-                TextBlock.ClearValue(TextBlock.MaxWidthProperty);
-                Border.ClearValue(Border.MaxWidthProperty);
-            }
-
-            if (Height > 0)
-            {
-                Border.Height = Height;
-            }
-            else
-            {
-                Border.ClearValue(Border.HeightProperty);
-            }
-
-            Border.Child = TextBlock;
-            _currentFontSize = DefaultFontSize;
-        }
-
         private void CreateWebViewChild()
         {
-            TextBlock = null;
             WebView = new WebView2
             {
                 Margin = new Thickness(0),
@@ -290,7 +210,7 @@ namespace UGTLive
 
         private async Task EnsureWebViewReadyAsync()
         {
-            if (!_useWebViewOverlay || WebView == null)
+            if (WebView == null)
             {
                 return;
             }
@@ -335,7 +255,7 @@ namespace UGTLive
 
         private async Task UpdateWebViewContentAsync(string? textToRender = null, bool? isTranslated = null, string? overrideOrientation = null)
         {
-            if (!_useWebViewOverlay || WebView == null)
+            if (WebView == null)
             {
                 return;
             }
@@ -875,19 +795,12 @@ namespace UGTLive
                 return;
             }
 
-            if (_useWebViewOverlay)
+            double clamped = Math.Max(WebViewMinFontSize, Math.Min(WebViewMaxFontSize, fontSize));
+            if (Math.Abs(_currentFontSize - clamped) > 0.1)
             {
-                double clamped = Math.Max(WebViewMinFontSize, Math.Min(WebViewMaxFontSize, fontSize));
-                if (Math.Abs(_currentFontSize - clamped) > 0.1)
-                {
-                    _currentFontSize = clamped;
-                }
-                _ = UpdateWebViewContentAsync();
+                _currentFontSize = clamped;
             }
-            else if (TextBlock != null)
-            {
-                TextBlock.FontSize = fontSize;
-            }
+            _ = UpdateWebViewContentAsync();
         }
 
         // Update the UI element with current properties
@@ -915,253 +828,77 @@ namespace UGTLive
             border.Background = BackgroundColor;
             border.Margin = new Thickness(X, Y, 0, 0);
 
-            if (_useWebViewOverlay)
-            {
-                // Determine overlay mode
-                OverlayMode currentMode = overlayMode ?? 
-                    (MonitorWindow.Instance != null ? MonitorWindow.Instance.CurrentOverlayMode : OverlayMode.Translated);
-                    
-                string textForRender;
-                bool isShowingTranslated = false;
+            // Determine overlay mode
+            OverlayMode currentMode = overlayMode ?? 
+                (MonitorWindow.Instance != null ? MonitorWindow.Instance.CurrentOverlayMode : OverlayMode.Translated);
                 
-                if (currentMode == OverlayMode.Source)
+            string textForRender;
+            bool isShowingTranslated = false;
+            
+            if (currentMode == OverlayMode.Source)
+            {
+                textForRender = Text;
+            }
+            else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+            {
+                textForRender = TextTranslated;
+                isShowingTranslated = true;
+            }
+            else
+            {
+                // Fall back to source if no translation available
+                textForRender = Text;
+            }
+
+            // Determine display orientation
+            string displayOrientation = TextOrientation; // Always start with original
+            
+            // Only modify orientation if we're showing translated text
+            if (currentMode == OverlayMode.Translated && isShowingTranslated && TextOrientation == "vertical")
+            {
+                // Check if target language supports vertical
+                string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                if (!IsVerticalSupportedLanguage(targetLang))
                 {
-                    textForRender = Text;
+                    displayOrientation = "horizontal";
                 }
-                else if (currentMode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
+            }
+
+            if (ConfigManager.Instance.IsAutoSizeTextBlocksEnabled())
+            {
+                double calculatedSize = CalculateWebViewFontSize(textForRender, displayOrientation);
+                if (!double.IsNaN(calculatedSize) && Math.Abs(calculatedSize - _currentFontSize) > 0.1)
                 {
-                    textForRender = TextTranslated;
-                    isShowingTranslated = true;
+                    _currentFontSize = calculatedSize;
+                }
+            }
+
+            if (WebView != null)
+            {
+                if (Width > 0)
+                {
+                    WebView.Width = Width;
                 }
                 else
                 {
-                    // Fall back to source if no translation available
-                    textForRender = Text;
-                }
-
-                // Determine display orientation
-                string displayOrientation = TextOrientation; // Always start with original
-                
-                // Only modify orientation if we're showing translated text
-                if (currentMode == OverlayMode.Translated && isShowingTranslated && TextOrientation == "vertical")
-                {
-                    // Check if target language supports vertical
-                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
-                    if (!IsVerticalSupportedLanguage(targetLang))
-                    {
-                        displayOrientation = "horizontal";
-                    }
-                }
-
-                if (ConfigManager.Instance.IsAutoSizeTextBlocksEnabled())
-                {
-                    double calculatedSize = CalculateWebViewFontSize(textForRender, displayOrientation);
-                    if (!double.IsNaN(calculatedSize) && Math.Abs(calculatedSize - _currentFontSize) > 0.1)
-                    {
-                        _currentFontSize = calculatedSize;
-                    }
-                }
-
-                if (WebView != null)
-                {
-                    if (Width > 0)
-                    {
-                        WebView.Width = Width;
-                    }
-                    else
-                    {
-                        WebView.ClearValue(FrameworkElement.WidthProperty);
-                    }
-
-                    if (Height > 0)
-                    {
-                        WebView.Height = Height;
-                    }
-                    else
-                    {
-                        WebView.ClearValue(FrameworkElement.HeightProperty);
-                    }
-                }
-                
-                // Update WebView with appropriate text and orientation
-                _ = UpdateWebViewContentAsync(textForRender, isShowingTranslated, displayOrientation);
-                
-                return;
-            }
-
-            if (TextBlock == null)
-            {
-                return;
-            }
-
-            // Determine overlay mode
-            OverlayMode mode = overlayMode ?? 
-                (MonitorWindow.Instance != null ? MonitorWindow.Instance.CurrentOverlayMode : OverlayMode.Translated);
-                
-            // Get text to display based on mode
-            string displayText;
-            bool isTranslated = false;
-            
-            if (mode == OverlayMode.Source)
-            {
-                displayText = Text;
-            }
-            else if (mode == OverlayMode.Translated && !string.IsNullOrEmpty(TextTranslated))
-            {
-                displayText = TextTranslated;
-                isTranslated = true;
-            }
-            else
-            {
-                // Fall back to source
-                displayText = Text;
-            }
-            
-            TextBlock.Text = displayText;
-            TextBlock.Foreground = TextColor;
-            
-            // Update font family and weight based on what we're showing
-            string fontFamily = isTranslated 
-                ? ConfigManager.Instance.GetTargetLanguageFontFamily()
-                : ConfigManager.Instance.GetSourceLanguageFontFamily();
-            FontWeight fontWeight = isTranslated
-                ? (ConfigManager.Instance.GetTargetLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal)
-                : (ConfigManager.Instance.GetSourceLanguageFontBold() ? FontWeights.Bold : FontWeights.Normal);
-            
-            TextBlock.FontFamily = new FontFamily(fontFamily);
-            TextBlock.FontWeight = fontWeight;
-
-                if (Width > 0)
-                {
-                    TextBlock.MaxWidth = Width;
-                border.MaxWidth = Width + 20;
-            }
-            else
-            {
-                TextBlock.ClearValue(TextBlock.MaxWidthProperty);
-                border.ClearValue(Border.MaxWidthProperty);
+                    WebView.ClearValue(FrameworkElement.WidthProperty);
                 }
 
                 if (Height > 0)
                 {
-                border.Height = Height;
+                    WebView.Height = Height;
+                }
+                else
+                {
+                    WebView.ClearValue(FrameworkElement.HeightProperty);
+                }
             }
-            else
-            {
-                border.ClearValue(Border.HeightProperty);
-            }
-
-            TextBlock.FontSize = DefaultFontSize;
-            AdjustFontSize(border, TextBlock);
+            
+            // Update WebView with appropriate text and orientation
+            _ = UpdateWebViewContentAsync(textForRender, isShowingTranslated, displayOrientation);
         }
 
-        // Static cache for font size calculations
-        private static readonly Dictionary<string, double> _fontSizeCache = new Dictionary<string, double>();
         
-        // Adjust font size to fit within the container using binary search
-        private void AdjustFontSize(Border border, TextBlock textBlock)
-        {
-            try
-            {
-                // Check if auto sizing is enabled
-                if (!ConfigManager.Instance.IsAutoSizeTextBlocksEnabled())
-                {
-                    // Just set default font size and exit
-                    textBlock.FontSize = 24; // Increased from 18 to 24 for better initial size
-                    textBlock.LayoutTransform = Transform.Identity;
-                    return;
-                }
-                
-                // Exit early if dimensions aren't set or text is empty
-                if (Width <= 0 || Height <= 0 || string.IsNullOrWhiteSpace(textBlock.Text))
-                {
-                    // Reset to defaults and exit
-                    textBlock.FontSize = 24; // Increased from 18 to 24 for better initial size
-                    textBlock.LayoutTransform = Transform.Identity;
-                    return;
-                }
-
-                // Basic text settings
-                textBlock.TextWrapping = TextWrapping.Wrap;
-                textBlock.VerticalAlignment = VerticalAlignment.Center;
-                textBlock.TextAlignment = TextAlignment.Left;
-                
-                // Create a cache key based on text length, width and height
-                // Using length instead of full text to increase cache hits for similar-sized texts
-                string cacheKey = $"{textBlock.Text.Length}_{Width}_{Height}";
-                
-                // Check if we have a cached font size for similar dimensions
-                if (_fontSizeCache.TryGetValue(cacheKey, out double cachedFontSize))
-                {
-                    textBlock.FontSize = cachedFontSize;
-                    textBlock.LayoutTransform = Transform.Identity;
-                    return;
-                }
-                
-                // Binary search for the best font size
-                double minSize = 10;
-                double maxSize = 48; // Increased from 36 to 48 to allow for larger text
-                double currentSize = 24; // Increased from 18 to 24 for better initial size
-                int maxIterations = 6; // Reduced from 10 to 6 iterations for performance
-                double lastDiff = double.MaxValue;
-                
-                for (int i = 0; i < maxIterations; i++)
-                {
-                    textBlock.FontSize = currentSize;
-                    textBlock.Measure(new Size(Width * 0.95, Double.PositiveInfinity));
-                    
-                    double currentDiff = Math.Abs(textBlock.DesiredSize.Height - Height);
-                    
-                    // Early termination if we're close enough
-                    if (currentDiff < 2 || Math.Abs(lastDiff - currentDiff) < 0.5)
-                    {
-                        break;
-                    }
-                    
-                    lastDiff = currentDiff;
-                    
-                    // If text is too tall, decrease font size more aggressively
-                    if (textBlock.DesiredSize.Height > Height * 0.90)
-                    {
-                        maxSize = currentSize;
-                        currentSize = (minSize + currentSize) / 2;
-                    }
-                    // If text is too short, increase font size
-                    // Using 0.85 for a more balanced fit that prevents overflow
-                    else if (textBlock.DesiredSize.Height < Height * 0.85)
-                    {
-                        minSize = currentSize;
-                        currentSize = (currentSize + maxSize) / 2;
-                    }
-                    // Good enough fit
-                    else
-                    {
-                        break;
-                    }
-                }
-                
-                // Verify final size is within min/max range
-                double finalSize = Math.Max(minSize, Math.Min(maxSize, currentSize));
-                textBlock.FontSize = finalSize;
-                textBlock.LayoutTransform = Transform.Identity;
-                _currentFontSize = finalSize;
-                
-                // Cache the result for future use
-                if (_fontSizeCache.Count > 100) // Limit cache size
-                {
-                    _fontSizeCache.Clear(); // Simple strategy: clear all when too many entries
-                }
-                _fontSizeCache[cacheKey] = finalSize;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in AdjustFontSize: {ex.Message}");
-                // Reset to defaults in case of any exception
-                textBlock.FontSize = 24; // Increased from 18 to 24 for better initial size
-                textBlock.LayoutTransform = Transform.Identity;
-            }
-        }
-
         // Play a sound when clicked
         private void PlayClickSound()
         {
