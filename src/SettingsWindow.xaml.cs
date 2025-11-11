@@ -464,8 +464,16 @@ namespace UGTLive
             ollamaModelTextBox.Text = ConfigManager.Instance.GetOllamaModel();
             
             // Initialize llama.cpp settings
+            // Temporarily remove event handlers to prevent triggering changes during initialization
+            llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
+            llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
+            
             llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
             llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+            
+            // Reattach event handlers
+            llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
+            llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
             
             // Update service-specific settings visibility based on selected service
             UpdateServiceSpecificSettings(currentService);
@@ -1314,8 +1322,16 @@ namespace UGTLive
                 }
                 else if (isLlamacppSelected)
                 {
+                    // Temporarily remove event handlers to prevent triggering changes when switching services
+                    llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
+                    llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
+                    
                     llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
                     llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+                    
+                    // Reattach event handlers
+                    llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
+                    llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
                 }
                 else if (isGoogleTranslateSelected)
                 {

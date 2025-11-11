@@ -184,13 +184,9 @@ namespace UGTLive
                                 string detailedError = errorElement.GetString() ?? errorMessage;
                                 
                                 // Show error message to user
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                                    System.Windows.MessageBox.Show(
-                                        $"Ollama error: {detailedError}\n\nPlease check your model name and Ollama settings.",
-                                        "Ollama Translation Error",
-                                        System.Windows.MessageBoxButton.OK,
-                                        System.Windows.MessageBoxImage.Error);
-                                });
+                                ErrorPopupManager.ShowError(
+                                    $"Ollama error: {detailedError}\n\nPlease check your model name and Ollama settings.",
+                                    "Ollama Translation Error");
                                 
                                 return null;
                             }
@@ -201,13 +197,9 @@ namespace UGTLive
                         }
                         
                         // Show general error if JSON parsing failed
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                            System.Windows.MessageBox.Show(
-                                $"Ollama API error: {response.StatusCode}\n{errorMessage}\n\nPlease check your settings.",
-                                "Ollama Translation Error",
-                                System.Windows.MessageBoxButton.OK,
-                                System.Windows.MessageBoxImage.Error);
-                        });
+                        ErrorPopupManager.ShowError(
+                            $"Ollama API error: {response.StatusCode}\n{errorMessage}\n\nPlease check your settings.",
+                            "Ollama Translation Error");
                         
                         return null;
                     }
@@ -218,13 +210,21 @@ namespace UGTLive
                 Console.WriteLine($"Ollama API error: {ex.Message}");
                 
                 // Show error message to user for other exceptions
-                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    System.Windows.MessageBox.Show(
-                        $"Ollama API error: {ex.Message}\n\nPlease check your network connection and Ollama settings.",
-                        "Ollama Translation Error",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
-                });
+                string errorMessage = $"Ollama API error: {ex.Message}";
+                
+                if (ex is HttpRequestException)
+                {
+                    errorMessage += "\n\nFailed to connect to Ollama server.\n\nPlease check:\n" +
+                        "1. Ollama is running\n" +
+                        "2. The server URL in settings is correct\n" +
+                        "3. Your firewall/antivirus isn't blocking the connection";
+                }
+                else
+                {
+                    errorMessage += "\n\nPlease check your network connection and Ollama settings.";
+                }
+                
+                ErrorPopupManager.ShowError(errorMessage, "Ollama Translation Error");
                 
                 return null;
             }

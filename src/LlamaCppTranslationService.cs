@@ -226,13 +226,24 @@ namespace UGTLive
                     Console.WriteLine($"Error calling llama.cpp API: {response.StatusCode}");
                     Console.WriteLine($"Response: {responseContent}");
                     
-                    // Common error: server not running
+                    // Common error: server not running or rejected request
+                    string errorMessage = $"llama.cpp server error: {response.StatusCode}";
+                    string detailedMessage = $"The llama.cpp server returned an error.\n\nStatus: {response.StatusCode}";
+                    
+                    if (!string.IsNullOrWhiteSpace(responseContent))
+                    {
+                        detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
+                    }
+                    
                     if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || 
                         response.StatusCode == System.Net.HttpStatusCode.NotFound ||
                         response.StatusCode == System.Net.HttpStatusCode.BadGateway)
                     {
+                        detailedMessage += "\n\nHint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080";
                         Console.WriteLine("Hint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080");
                     }
+                    
+                    ErrorPopupManager.ShowError(detailedMessage, "llama.cpp Translation Error");
                 }
                 
                 return null;
@@ -241,11 +252,22 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error connecting to llama.cpp server: {ex.Message}");
                 Console.WriteLine("Hint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080");
+                
+                string errorMessage = $"Failed to connect to llama.cpp server.\n\nError: {ex.Message}\n\nPlease check:\n" +
+                    "1. The llama.cpp server is running\n" +
+                    "2. The server URL in settings is correct\n" +
+                    "3. Your firewall/antivirus isn't blocking the connection\n\n" +
+                    "Start the server with: llama-server -m model.gguf --port 8080";
+                
+                ErrorPopupManager.ShowError(errorMessage, "llama.cpp Connection Error");
                 return null;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in LlamaCppTranslationService.TranslateAsync: {ex.Message}");
+                
+                string errorMessage = $"An unexpected error occurred with llama.cpp translation.\n\nError: {ex.Message}";
+                ErrorPopupManager.ShowError(errorMessage, "llama.cpp Translation Error");
                 return null;
             }
         }

@@ -92,13 +92,9 @@ namespace UGTLive
                             System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {detailedError}\n\nResponse code: {response.StatusCode}\nFull response: {errorMessage}");
                             
                             // Show error message to user
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                                System.Windows.MessageBox.Show(
-                                    $"Gemini API error: {detailedError}\n\nPlease check your API key and settings.",
-                                    "Gemini Translation Error",
-                                    System.Windows.MessageBoxButton.OK,
-                                    System.Windows.MessageBoxImage.Error);
-                            });
+                            ErrorPopupManager.ShowError(
+                                $"Gemini API error: {detailedError}\n\nPlease check your API key and settings.",
+                                "Gemini Translation Error");
                             
                             return null;
                         }
@@ -112,13 +108,9 @@ namespace UGTLive
                     System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {response.StatusCode}\n\nFull response: {errorMessage}");
                     
                     // Show general error if JSON parsing failed
-                    System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                        System.Windows.MessageBox.Show(
-                            $"Gemini API error: {response.StatusCode}\n{errorMessage}\n\nPlease check your API key and settings.",
-                            "Gemini Translation Error",
-                            System.Windows.MessageBoxButton.OK,
-                            System.Windows.MessageBoxImage.Error);
-                    });
+                    ErrorPopupManager.ShowError(
+                        $"Gemini API error: {response.StatusCode}\n{errorMessage}\n\nPlease check your API key and settings.",
+                        "Gemini Translation Error");
                     
                     return null;
                 }
@@ -131,13 +123,21 @@ namespace UGTLive
                 System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {ex.Message}\n\nStack trace: {ex.StackTrace}");
                 
                 // Show error message to user
-                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    System.Windows.MessageBox.Show(
-                        $"Gemini API error: {ex.Message}\n\nPlease check your network connection and API key.",
-                        "Gemini Translation Error",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
-                });
+                string errorMessage = $"Gemini API error: {ex.Message}";
+                
+                if (ex is HttpRequestException)
+                {
+                    errorMessage += "\n\nFailed to connect to Gemini API.\n\nPlease check:\n" +
+                        "1. Your internet connection\n" +
+                        "2. Your API key is correct in settings\n" +
+                        "3. Your firewall/antivirus isn't blocking the connection";
+                }
+                else
+                {
+                    errorMessage += "\n\nPlease check your network connection and API key.";
+                }
+                
+                ErrorPopupManager.ShowError(errorMessage, "Gemini Translation Error");
                 
                 return null;
             }

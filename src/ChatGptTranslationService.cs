@@ -292,13 +292,83 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Error calling ChatGPT API: {response.StatusCode}");
                     Console.WriteLine($"Response: {responseContent}");
+                    
+                    string errorMessage = $"ChatGPT API error: {response.StatusCode}";
+                    string detailedMessage = $"The ChatGPT API returned an error.\n\nStatus: {response.StatusCode}";
+                    
+                    // Try to parse error details from response
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(responseContent))
+                        {
+                            using JsonDocument errorDoc = JsonDocument.Parse(responseContent);
+                            if (errorDoc.RootElement.TryGetProperty("error", out JsonElement errorElement))
+                            {
+                                if (errorElement.TryGetProperty("message", out JsonElement messageElement))
+                                {
+                                    string apiErrorMessage = messageElement.GetString() ?? "";
+                                    detailedMessage += $"\n\nError: {apiErrorMessage}";
+                                }
+                                
+                                if (errorElement.TryGetProperty("type", out JsonElement typeElement))
+                                {
+                                    string errorType = typeElement.GetString() ?? "";
+                                    detailedMessage += $"\n\nType: {errorType}";
+                                }
+                            }
+                            else
+                            {
+                                detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // If we can't parse as JSON, include raw response
+                        if (!string.IsNullOrWhiteSpace(responseContent))
+                        {
+                            detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
+                        }
+                    }
+                    
+                    // Add helpful hints based on status code
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        detailedMessage += "\n\nPlease check your API key in settings.";
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || 
+                             response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        detailedMessage += "\n\nThe service may be temporarily unavailable or rate limited. Please try again later.";
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    {
+                        detailedMessage += "\n\nPlease check your request format and settings.";
+                    }
+                    
+                    ErrorPopupManager.ShowError(detailedMessage, "ChatGPT Translation Error");
                 }
                 
+                return null;
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"Error connecting to ChatGPT API: {ex.Message}");
+                
+                string errorMessage = $"Failed to connect to ChatGPT API.\n\nError: {ex.Message}\n\nPlease check:\n" +
+                    "1. Your internet connection\n" +
+                    "2. Your API key is correct in settings\n" +
+                    "3. Your firewall/antivirus isn't blocking the connection";
+                
+                ErrorPopupManager.ShowError(errorMessage, "ChatGPT Connection Error");
                 return null;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in ChatGptTranslationService.TranslateAsync: {ex.Message}");
+                
+                string errorMessage = $"An unexpected error occurred with ChatGPT translation.\n\nError: {ex.Message}";
+                ErrorPopupManager.ShowError(errorMessage, "ChatGPT Translation Error");
                 return null;
             }
         }
