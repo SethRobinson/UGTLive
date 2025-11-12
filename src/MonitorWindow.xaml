@@ -11,11 +11,14 @@
         Background="Black"
         Icon="/media/Icon1.ico"
         PreviewMouseWheel="Window_PreviewMouseWheel">
+    <!-- Root Grid to contain both main content and overlay -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <!-- Main content grid -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
         
         <!-- Control Panel -->
         <WrapPanel Grid.Row="0" Background="#202020" Margin="10,5,10,5">
@@ -69,17 +72,19 @@
         <ScrollViewer Grid.Row="1" x:Name="imageScrollViewer" 
                       HorizontalScrollBarVisibility="Auto" 
                       VerticalScrollBarVisibility="Auto"
-                      Background="Black">
+                      Background="Black"
+                      Panel.ZIndex="0">
             <Grid x:Name="imageContainer" Background="Black">
                 <Image x:Name="captureImage" Stretch="None" 
                        RenderOptions.BitmapScalingMode="NearestNeighbor"
                        HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Canvas x:Name="textOverlayCanvas"/>
+                <Canvas x:Name="textOverlayCanvas" Panel.ZIndex="1"/>
             </Grid>
         </ScrollViewer>
         
-        <!-- Translation status as overlay -->
-        <Border x:Name="translationStatusBorder" Grid.Row="1" 
+        <!-- Translation status overlay -->
+        <Border x:Name="translationStatusBorder" 
+                Grid.Row="1"
                 Background="#DD202020" 
                 VerticalAlignment="Bottom" 
                 HorizontalAlignment="Center"
@@ -89,7 +94,7 @@
                 BorderThickness="1"
                 BorderBrush="#444444"
                 Visibility="Collapsed"
-                Panel.ZIndex="10">
+                Panel.ZIndex="1000">
             <Grid>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="translationStatusLabel" 
@@ -101,5 +106,6 @@
                 </StackPanel>
             </Grid>
         </Border>
+        </Grid>
     </Grid>
 </Window>

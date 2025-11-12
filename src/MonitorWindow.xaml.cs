@@ -151,6 +151,15 @@ namespace UGTLive
         private DispatcherTimer? _translationStatusTimer;
         private DateTime _translationStartTime;
         
+        // OCR timing and FPS tracking
+        private DateTime _lastOCRTime = DateTime.MinValue;
+        private DateTime _currentOCRStartTime = DateTime.MinValue;
+        private readonly Queue<double> _ocrFrameTimes = new Queue<double>();
+        private const int MAX_FPS_SAMPLES = 10; // Keep last 10 samples for averaging
+        private bool _isOCRActive = false;
+        private DispatcherTimer? _ocrStatusTimer;
+        private bool _isShowingSettling = false; // Track if settling message is showing
+        
         // OCR Method Selection Changed
         public void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -1470,14 +1479,19 @@ namespace UGTLive
 
             if (bSettling)
             {
+                _isShowingSettling = true;
                 Dispatcher.Invoke(() =>
                 {
                     translationStatusLabel.Text = $"Settling...";
+                    
+                    
                     translationStatusBorder.Visibility = Visibility.Visible;
                 });
 
                     return;
             }
+            
+            _isShowingSettling = false;
 
 
             _translationStartTime = DateTime.Now;
@@ -1486,6 +1500,8 @@ namespace UGTLive
             Dispatcher.Invoke(() =>
             {
                 translationStatusLabel.Text = $"Waiting for {service}... 0:00";
+                
+                
                 translationStatusBorder.Visibility = Visibility.Visible;
                 
                 // Start the timer if not already running
@@ -1504,6 +1520,8 @@ namespace UGTLive
         // Hide the translation status
         public void HideTranslationStatus()
         {
+            _isShowingSettling = false;
+            
             Dispatcher.Invoke(() =>
             {
                 translationStatusBorder.Visibility = Visibility.Collapsed;
@@ -1513,7 +1531,168 @@ namespace UGTLive
                 {
                     _translationStatusTimer.Stop();
                 }
+                
+                // Show OCR status if OCR is still active and running
+                if (_isOCRActive && MainWindow.Instance.GetIsStarted())
+                {
+                    ShowOCRStatus();
+                }
             });
+        }
+        
+        // OCR Status Methods
+        
+        // Calculate average FPS from recent samples
+        private double CalculateAverageFPS()
+        {
+            if (_ocrFrameTimes.Count == 0) return 0.0;
+            
+            double averageFrameTime = _ocrFrameTimes.Average();
+            return averageFrameTime > 0 ? 1.0 / averageFrameTime : 0.0;
+        }
+        
+        // Initialize the OCR status timer
+        private void InitializeOCRStatusTimer()
+        {
+            _ocrStatusTimer = new DispatcherTimer();
+            _ocrStatusTimer.Interval = TimeSpan.FromMilliseconds(250); // Update 4 times per second
+            _ocrStatusTimer.Tick += OCRStatusTimer_Tick;
+        }
+        
+        // Update the OCR status display
+        private void OCRStatusTimer_Tick(object sender, EventArgs e)
+        {
+            // Check if OCR is still running
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                // OCR has been stopped, hide the status
+                HideOCRStatus();
+                return;
+            }
+            
+            if (_isOCRActive)
+            {
+                // Don't update if showing settling or translation
+                if (_isShowingSettling || _translationStatusTimer?.IsEnabled == true)
+                {
+                    return;
+                }
+                
+                double fps = CalculateAverageFPS();
+                string ocrMethod = GetCurrentOCRMethodDisplayName();
+                
+                Dispatcher.Invoke(() =>
+                {
+                    translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
+                });
+            }
+        }
+        
+        // Get the display name for the current OCR method
+        private string GetCurrentOCRMethodDisplayName()
+        {
+            if (ocrMethodComboBox.SelectedItem == null) return "OCR";
+            
+            // Get the short name (key) from the Tag property
+            string? shortName = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+            return shortName ?? "OCR";
+        }
+        
+        // Show OCR status
+        public void ShowOCRStatus()
+        {
+            // Only show if OCR is actually running (Start button is active)
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                return; // Don't show if stopped
+            }
+            
+            // Only show if no translation is in progress
+            if (_translationStatusTimer?.IsEnabled == true)
+            {
+                return; // Don't override translation status
+            }
+            
+            
+            _isOCRActive = true;
+            double fps = CalculateAverageFPS();
+            string ocrMethod = GetCurrentOCRMethodDisplayName();
+            
+            Dispatcher.Invoke(() =>
+            {
+                translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
+                
+                translationStatusBorder.Visibility = Visibility.Visible;
+                
+                // Start the timer if not already running
+                if (_ocrStatusTimer == null)
+                {
+                    InitializeOCRStatusTimer();
+                }
+                
+                if (!_ocrStatusTimer!.IsEnabled)
+                {
+                    _ocrStatusTimer.Start();
+                }
+            });
+        }
+        
+        // Hide OCR status
+        public void HideOCRStatus()
+        {
+            _isOCRActive = false;
+            
+            // Clear frame times when stopping
+            _ocrFrameTimes.Clear();
+            
+            Dispatcher.Invoke(() =>
+            {
+                // Only hide if we're showing OCR status (not translation status)
+                if (translationStatusLabel.Text.Contains("fps"))
+                {
+                    translationStatusBorder.Visibility = Visibility.Collapsed;
+                }
+                
+                // Stop the timer
+                if (_ocrStatusTimer != null && _ocrStatusTimer.IsEnabled)
+                {
+                    _ocrStatusTimer.Stop();
+                }
+            });
+        }
+        
+        // Notify that OCR has started
+        public void NotifyOCRStarted()
+        {
+            _currentOCRStartTime = DateTime.Now;
+        }
+        
+        // Notify that OCR has completed
+        public void NotifyOCRCompleted()
+        {
+            if (_currentOCRStartTime != DateTime.MinValue)
+            {
+                // Calculate frame time
+                double frameTime = (DateTime.Now - _currentOCRStartTime).TotalSeconds;
+                
+                // Add to queue
+                _ocrFrameTimes.Enqueue(frameTime);
+                
+                // Keep only the last N samples
+                while (_ocrFrameTimes.Count > MAX_FPS_SAMPLES)
+                {
+                    _ocrFrameTimes.Dequeue();
+                }
+                
+                _lastOCRTime = DateTime.Now;
+            }
+            
+            // Only show OCR status if OCR is still running AND no other status is showing
+            if (MainWindow.Instance.GetIsStarted() && 
+                translationStatusBorder.Visibility != Visibility.Visible)
+            {
+                ShowOCRStatus();
+            }
         }
         
         // Override closing to hide instead

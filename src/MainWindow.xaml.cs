@@ -633,6 +633,9 @@ namespace UGTLive
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
                 
+                // Hide OCR status when stopping
+                MonitorWindow.Instance.HideOCRStatus();
+                
                 // Optional: Add a way to clear overlays manually if needed
                 // You could add a separate "Clear" button or keyboard shortcut
             }
@@ -647,7 +650,9 @@ namespace UGTLive
                 UpdateCaptureRect();
                 SetOCRCheckIsWanted(true);
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
-
+                
+                // Show OCR status when starting
+                MonitorWindow.Instance.ShowOCRStatus();
             }
         }
 
@@ -933,6 +938,9 @@ namespace UGTLive
                     stopwatch.Start();
 
                     SetOCRCheckIsWanted(false);
+                    
+                    // Notify that OCR is starting
+                    MonitorWindow.Instance.NotifyOCRStarted();
 
                     // Check if we're using Windows OCR or Google Vision - if so, process in memory without saving
                     string ocrMethod = GetSelectedOcrMethod();

@@ -402,6 +402,9 @@ namespace UGTLive
         {
             _ocrProcessingStopwatch.Restart();
             MainWindow.Instance.SetOCRCheckIsWanted(true);
+            
+            // Notify that OCR has completed
+            MonitorWindow.Instance.NotifyOCRCompleted();
 
             if (GetWaitingForTranslationToFinish())
             {
@@ -1407,7 +1410,9 @@ namespace UGTLive
                 }
 
                 MainWindow.Instance.SetOCRCheckIsWanted(true);
-
+                
+                // Notify that OCR has completed
+                MonitorWindow.Instance.NotifyOCRCompleted();
             }
         }
         
@@ -1461,6 +1466,9 @@ namespace UGTLive
                 }
 
                 MainWindow.Instance.SetOCRCheckIsWanted(true);
+                
+                // Notify that OCR has completed
+                MonitorWindow.Instance.NotifyOCRCompleted();
             }
         }
         
