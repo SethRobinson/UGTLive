@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.50-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-0.51-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
@@ -36,6 +36,8 @@ Features:
 </table>
 
 # History
+
+**V0.51 Nov 11th, 2025** - Added llama.cpp support (llm), added Google Cloud Vision support (OCR), added OCR fps display
 
 **V0.50 Nov 10th, 2025** - Huge update to everything, added vertical Manga support, reworked backend completely, now detects original foreground/background colors (badly, but it's a start), much simpler to install, no more fussing with .bat files and servers, it's all handled internally from the main app now.  Lot of little QOL and features added.
 
