@@ -147,9 +147,13 @@
                                 ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
                         
                         <!-- Leave Translation Onscreen -->
-                        <TextBlock Text="Leave translation onscreen:" Grid.Row="5" Grid.Column="0" 
+                        <TextBlock Grid.Row="5" Grid.Column="0" 
                                   VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
+                                  ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made">
+                            <Run Text="Leave translation onscreen:"/>
+                            <LineBreak/>
+                            <Run Text="(this option is broken)"/>
+                        </TextBlock>
                         <CheckBox x:Name="leaveTranslationOnscreenCheckBox" Grid.Row="5" Grid.Column="1" 
                                  Margin="0,5" IsChecked="False" 
                                  Checked="LeaveTranslationOnscreenCheckBox_CheckedChanged" 
