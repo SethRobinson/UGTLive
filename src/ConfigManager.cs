@@ -555,11 +555,9 @@ namespace UGTLive
         {
             if (_configValues.TryGetValue(key, out var value))
             {
-                //Console.WriteLine($"ConfigManager.GetValue: Found value for key '{key}': '{value}'");
                 return value;
             }
             
-            Console.WriteLine($"ConfigManager.GetValue: Key '{key}' not found, returning default value: '{defaultValue}'");
             return defaultValue;
         }
 
