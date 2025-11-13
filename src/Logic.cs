@@ -2000,6 +2000,12 @@ namespace UGTLive
 
                 // Get the prompt template
                 string prompt = GetLlmPrompt();
+                
+                // Replace language placeholders in prompt with actual language names
+                string sourceLanguageName = GetLanguageName(GetSourceLanguage() ?? "en");
+                string targetLanguageName = GetLanguageName(GetTargetLanguage());
+                prompt = prompt.Replace("source_language", sourceLanguageName);
+                prompt = prompt.Replace("target_language", targetLanguageName);
                
                
                 // Log the LLM request
@@ -2079,6 +2085,33 @@ namespace UGTLive
                 return selectedItem.Content?.ToString()!;
             }
             return "en";
+        }
+        
+        // Convert language code to full language name
+        private string GetLanguageName(string languageCode)
+        {
+            return languageCode.ToLower() switch
+            {
+                "ja" => "Japanese",
+                "en" => "English",
+                "ch_sim" => "Chinese",
+                "es" => "Spanish",
+                "fr" => "French",
+                "it" => "Italian",
+                "de" => "German",
+                "ru" => "Russian",
+                "id" => "Indonesian",
+                "pl" => "Polish",
+                "hi" => "Hindi",
+                "ko" => "Korean",
+                "vi" => "Vietnamese",
+                "ar" => "Arabic",
+                "tr" => "Turkish",
+                "pt" => "Portuguese",
+                "nl" => "Dutch",
+                "th" => "Thai",
+                _ => languageCode
+            };
         }
         
         // Get previous context based on configuration settings
