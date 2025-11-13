@@ -414,6 +414,7 @@ app/webserver/*
 !app/ollama_config.txt
 !app/gemini_config.txt
 !app/chatgpt_config.txt
+!app/ollama_config.txt
 
 UniversalGameTranslatorLive_Windows.zip
 

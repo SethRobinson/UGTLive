@@ -1374,6 +1374,27 @@ namespace UGTLive
             SaveCurrentPrompt();
         }
         
+        // Restore default prompt button clicked
+        private void RestoreDefaultPromptButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (translationServiceComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string selectedService = selectedItem.Content.ToString() ?? "Gemini";
+                    string defaultPrompt = ConfigManager.Instance.GetDefaultPrompt(selectedService);
+                    
+                    // Set the default prompt in the text box (user can then save it if they want)
+                    promptTemplateTextBox.Text = defaultPrompt;
+                    Console.WriteLine($"Default prompt restored for {selectedService}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error restoring default prompt: {ex.Message}");
+            }
+        }
+        
         // Text box lost focus - save prompt
         private void PromptTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
@@ -1495,6 +1516,8 @@ namespace UGTLive
                     promptTemplateTextBox.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
                 if (savePromptButton != null)
                     savePromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
+                if (restoreDefaultPromptButton != null)
+                    restoreDefaultPromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Load service-specific settings if they're being shown
                 if (isGeminiSelected)
@@ -1803,6 +1826,126 @@ namespace UGTLive
         private void ViewModelsButton_Click(object sender, RoutedEventArgs e)
         {
             OpenUrl("https://ollama.com/search");
+        }
+        
+        private async void ListInstalledModelsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button while fetching
+                listInstalledModelsButton.IsEnabled = false;
+                listInstalledModelsButton.Content = "Loading...";
+                
+                // Fetch models from Ollama
+                List<string> models = await FetchInstalledModelsAsync();
+                
+                // Re-enable button
+                listInstalledModelsButton.IsEnabled = true;
+                listInstalledModelsButton.Content = "List 'em";
+                
+                if (models == null || models.Count == 0)
+                {
+                    MessageBox.Show(
+                        "No models found or failed to connect to Ollama server.\n\n" +
+                        "Please check:\n" +
+                        "1. Ollama is running\n" +
+                        "2. The server URL and port in settings are correct\n" +
+                        "3. Your firewall/antivirus isn't blocking the connection",
+                        "No Models Found",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+                
+                // Show model selector dialog
+                var dialog = new OllamaModelSelectorWindow
+                {
+                    Owner = this
+                };
+                dialog.SetModels(models);
+                
+                if (dialog.ShowDialog() == true && dialog.SelectedModel != null)
+                {
+                    // Update the model text box
+                    ollamaModelTextBox.Text = dialog.SelectedModel;
+                    // The TextChanged event handler will save it to config
+                }
+            }
+            catch (Exception ex)
+            {
+                listInstalledModelsButton.IsEnabled = true;
+                listInstalledModelsButton.Content = "List 'em";
+                
+                MessageBox.Show(
+                    $"Error fetching models: {ex.Message}\n\n" +
+                    "Please check your Ollama server settings.",
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+        
+        private async Task<List<string>> FetchInstalledModelsAsync()
+        {
+            try
+            {
+                string ollamaUrl = ConfigManager.Instance.GetOllamaUrl();
+                string ollamaPort = ConfigManager.Instance.GetOllamaPort();
+                
+                // Correctly format the URL
+                if (!ollamaUrl.StartsWith("http://") && !ollamaUrl.StartsWith("https://"))
+                {
+                    ollamaUrl = "http://" + ollamaUrl;
+                }
+                
+                string apiUrl = $"{ollamaUrl}:{ollamaPort}/api/tags";
+                Console.WriteLine($"Fetching models from URL: {apiUrl}");
+                
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(30);
+                    HttpResponseMessage response = await client.GetAsync(apiUrl);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Response from Ollama tags API: {jsonResponse}");
+                        
+                        using JsonDocument doc = JsonDocument.Parse(jsonResponse);
+                        List<string> models = new List<string>();
+                        
+                        // Check if the models array exists
+                        if (doc.RootElement.TryGetProperty("models", out JsonElement modelsElement))
+                        {
+                            foreach (JsonElement modelElement in modelsElement.EnumerateArray())
+                            {
+                                if (modelElement.TryGetProperty("name", out JsonElement nameElement))
+                                {
+                                    string modelName = nameElement.GetString() ?? "";
+                                    if (!string.IsNullOrWhiteSpace(modelName))
+                                    {
+                                        models.Add(modelName);
+                                        Console.WriteLine($"Found installed model: {modelName}");
+                                    }
+                                }
+                            }
+                        }
+                        
+                        return models.OrderBy(m => m).ToList();
+                    }
+                    else
+                    {
+                        string errorMessage = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Ollama API error: {response.StatusCode}, {errorMessage}");
+                        return new List<string>();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching models: {ex.Message}");
+                return new List<string>();
+            }
         }
         
         private void GeminiApiLink_Click(object sender, RoutedEventArgs e)
