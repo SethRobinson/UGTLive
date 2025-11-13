@@ -25,7 +25,7 @@ using FontFamily = System.Windows.Media.FontFamily;
 
 namespace UGTLive
 {
-    public class TextObject
+    public class TextObject : IDisposable
     {
         // Properties
         public string Text { get; set; }
@@ -48,6 +48,7 @@ namespace UGTLive
         private string? _lastRenderedHtml;
         private string? _currentSelectionText;
         private double _currentFontSize = DefaultFontSize;
+        private bool _isDisposed;
 
         private const double WebViewMinFontSize = 12;
         private const double WebViewMaxFontSize = 64;
@@ -98,6 +99,7 @@ namespace UGTLive
         // Public so it can be used by MonitorWindow
         public UIElement CreateUIElement(bool useRelativePosition = true)
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.CreateUIElement");
             Border = new Border
             {
                 Background = BackgroundColor,
@@ -167,19 +169,30 @@ namespace UGTLive
 
         private void CreateWebViewChild()
         {
-            WebView = new WebView2
-            {
-                Margin = new Thickness(0),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-                VerticalAlignment = System.Windows.VerticalAlignment.Stretch
-            };
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.CreateWebViewChild");
+            WebView2? webView;
 
-            WebView.Loaded += async (s, e) =>
+            if (WebViewPool.TryRent(out var pooledWebView) && pooledWebView != null)
             {
-                await EnsureWebViewReadyAsync();
-                await UpdateWebViewContentAsync();
-            };
+                webView = pooledWebView;
+                OverlayProfiler.Record("TextObject.WebView2RentFromPool", 0);
+            }
+            else
+            {
+                Stopwatch constructorStopwatch = Stopwatch.StartNew();
+                webView = new WebView2();
+                constructorStopwatch.Stop();
+                OverlayProfiler.Record("TextObject.WebView2Constructor", constructorStopwatch.ElapsedMilliseconds);
+            }
 
+            webView.Margin = new Thickness(0);
+            webView.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            webView.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+
+            webView.Loaded -= WebView_Loaded;
+            webView.Loaded += WebView_Loaded;
+
+            WebView = webView;
             Border.Child = WebView;
         }
 
@@ -210,6 +223,7 @@ namespace UGTLive
 
         private async Task EnsureWebViewReadyAsync()
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.EnsureWebViewReadyAsync");
             if (WebView == null)
             {
                 return;
@@ -220,30 +234,49 @@ namespace UGTLive
                 return;
             }
 
+            if (WebView.CoreWebView2 != null)
+            {
+                ConfigureCoreWebView2();
+                _webViewInitialized = true;
+
+                if (!string.IsNullOrEmpty(_pendingWebViewHtml))
+                {
+                    Stopwatch navigateStopwatch = Stopwatch.StartNew();
+                    WebView.CoreWebView2.NavigateToString(_pendingWebViewHtml);
+                    navigateStopwatch.Stop();
+                    OverlayProfiler.Record("TextObject.NavigatePendingHtml", navigateStopwatch.ElapsedMilliseconds);
+                    _pendingWebViewHtml = null;
+                }
+
+                return;
+            }
+
             try
             {
-                await WebView.EnsureCoreWebView2Async();
+                CoreWebView2Environment? sharedEnvironment = await WebViewEnvironmentManager.GetEnvironmentAsync();
 
-                if (WebView.CoreWebView2 != null)
+                Stopwatch ensureStopwatch = Stopwatch.StartNew();
+                if (sharedEnvironment != null)
                 {
-                    WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0, 0, 0, 0);
-                    WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-                    WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
-                    // Disable zoom control to prevent WebView2 from handling Ctrl+MouseWheel
-                    WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
-
-                    WebView.CoreWebView2.WebMessageReceived -= WebView_WebMessageReceived;
-                    WebView.CoreWebView2.WebMessageReceived += WebView_WebMessageReceived;
-
-                    WebView.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
-                    WebView.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
+                    await WebView.EnsureCoreWebView2Async(sharedEnvironment);
                 }
+                else
+                {
+                    await WebView.EnsureCoreWebView2Async();
+                }
+                ensureStopwatch.Stop();
+                OverlayProfiler.Record("TextObject.EnsureCoreWebView2Async", ensureStopwatch.ElapsedMilliseconds);
+
+                ConfigureCoreWebView2();
 
                 _webViewInitialized = true;
 
                 if (!string.IsNullOrEmpty(_pendingWebViewHtml) && WebView.CoreWebView2 != null)
                 {
+                    Stopwatch navigateStopwatch = Stopwatch.StartNew();
                     WebView.CoreWebView2.NavigateToString(_pendingWebViewHtml);
+                    navigateStopwatch.Stop();
+                    OverlayProfiler.Record("TextObject.NavigatePendingHtml", navigateStopwatch.ElapsedMilliseconds);
                     _pendingWebViewHtml = null;
                 }
             }
@@ -253,8 +286,28 @@ namespace UGTLive
             }
         }
 
+        private void ConfigureCoreWebView2()
+        {
+            if (WebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0, 0, 0, 0);
+            WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            WebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+
+            WebView.CoreWebView2.WebMessageReceived -= WebView_WebMessageReceived;
+            WebView.CoreWebView2.WebMessageReceived += WebView_WebMessageReceived;
+
+            WebView.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
+            WebView.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
+        }
+
         private async Task UpdateWebViewContentAsync(string? textToRender = null, bool? isTranslated = null, string? overrideOrientation = null)
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.UpdateWebViewContentAsync");
             if (WebView == null)
             {
                 return;
@@ -308,7 +361,10 @@ namespace UGTLive
 
                 _lastRenderedHtml = html;
 
+                Stopwatch navigateStopwatch = Stopwatch.StartNew();
                 WebView.CoreWebView2.NavigateToString(html);
+                navigateStopwatch.Stop();
+                OverlayProfiler.Record("TextObject.NavigateToString", navigateStopwatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
@@ -334,6 +390,7 @@ namespace UGTLive
 
         private string BuildWebViewDocument(string encodedContent, string textColorCss, double fontSize, string? fontFamily = null, bool? isBold = null, string? orientation = null)
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.BuildWebViewDocument");
             if (string.IsNullOrWhiteSpace(encodedContent))
             {
                 encodedContent = "&nbsp;";
@@ -529,6 +586,7 @@ namespace UGTLive
 
         private double CalculateWebViewFontSize(string text, string? orientation = null)
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.CalculateWebViewFontSize");
             try
             {
                 if (Height <= 0)
@@ -591,6 +649,7 @@ namespace UGTLive
 
         private bool DoesFontFit(double fontSize, string normalizedText, double availableWidth, double availableHeight, string? orientation = null)
         {
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.DoesFontFit");
             // Use provided orientation or fall back to TextOrientation
             string effectiveOrientation = orientation ?? TextOrientation;
             bool isVertical = effectiveOrientation == "vertical";
@@ -788,6 +847,18 @@ namespace UGTLive
             CopyToClipboard();
         }
 
+        private async void WebView_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not WebView2 webView || webView != WebView)
+            {
+                return;
+            }
+
+            using IDisposable loadScope = OverlayProfiler.Measure("TextObject.WebViewLoadedHandler");
+            await EnsureWebViewReadyAsync();
+            await UpdateWebViewContentAsync();
+        }
+
         public void SetFontSize(double fontSize)
         {
             if (fontSize <= 0)
@@ -803,6 +874,59 @@ namespace UGTLive
             _ = UpdateWebViewContentAsync();
         }
 
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.Dispose");
+            try
+            {
+                if (Border != null)
+                {
+                    _originalBackgrounds.Remove(Border);
+                    Border.PreviewMouseWheel -= Border_PreviewMouseWheel;
+                    if (Border.Child == WebView)
+                    {
+                        Border.Child = null;
+                    }
+                    Border.ContextMenu = null;
+                }
+
+                if (WebView != null)
+                {
+                    try
+                    {
+                        WebView.Loaded -= WebView_Loaded;
+
+                        if (WebView.CoreWebView2 != null)
+                        {
+                            WebView.CoreWebView2.WebMessageReceived -= WebView_WebMessageReceived;
+                            WebView.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error detaching WebView2 events: {ex.Message}");
+                    }
+
+                    WebViewPool.Return(WebView);
+                    OverlayProfiler.Record("TextObject.WebViewReturnToPool", 0);
+                }
+            }
+            finally
+            {
+                WebView = null;
+                UIElement = null;
+                _webViewInitialized = false;
+                _pendingWebViewHtml = null;
+                _lastRenderedHtml = null;
+                _isDisposed = true;
+            }
+        }
+
         // Update the UI element with current properties
         public void UpdateUIElement(OverlayMode? overlayMode = null)
         {
@@ -812,6 +936,7 @@ namespace UGTLive
                 return;
             }
 
+            using IDisposable profiler = OverlayProfiler.Measure("TextObject.UpdateUIElement");
             if (Border == null || Border.Child == null)
             {
                 CreateUIElement();

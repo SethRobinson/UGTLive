@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -730,6 +731,7 @@ namespace UGTLive
 
             try
             {
+                using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.CreateOverlayFromTextObject");
                 // Check for null references
                 if (textObject == null || textOverlayCanvas == null)
                 {
@@ -1381,6 +1383,7 @@ namespace UGTLive
                     return;
                 }
                 
+                using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.RefreshOverlays");
                 // Check if canvas is initialized
                 if (textOverlayCanvas == null)
                 {
@@ -1437,6 +1440,52 @@ namespace UGTLive
             }
         }
         
+        public void RemoveOverlay(TextObject textObject)
+        {
+            if (textObject == null)
+            {
+                return;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => RemoveOverlay(textObject));
+                return;
+            }
+
+            using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.RemoveOverlay");
+            if (textOverlayCanvas == null)
+            {
+                return;
+            }
+
+            if (_overlayElements.TryGetValue(textObject.ID, out Border? border))
+            {
+                textOverlayCanvas.Children.Remove(border);
+                _overlayElements.Remove(textObject.ID);
+            }
+
+            _originalColors.Remove(textObject.ID);
+        }
+
+        public void ClearOverlays()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ClearOverlays());
+                return;
+            }
+
+            using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.ClearOverlays");
+            if (textOverlayCanvas != null)
+            {
+                textOverlayCanvas.Children.Clear();
+            }
+
+            _overlayElements.Clear();
+            _originalColors.Clear();
+        }
+
         // Update status message
         private void UpdateStatus(string message)
         {

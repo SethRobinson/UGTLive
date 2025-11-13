@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -118,6 +119,9 @@ namespace UGTLive
                 
                 // Load configuration
                 string geminiApiKey = ConfigManager.Instance.GetGeminiApiKey();
+
+                // Warm up shared WebView2 environment early to reduce overlay latency
+                _ = WebViewEnvironmentManager.GetEnvironmentAsync();
                 Console.WriteLine($"Loaded Gemini API key: {(string.IsNullOrEmpty(geminiApiKey) ? "Not set" : "Set")}");
                 
                 // Load LLM prompt
@@ -1114,6 +1118,7 @@ namespace UGTLive
                     return;
                 }
                 
+                using IDisposable profiler = OverlayProfiler.Measure("Logic.CreateTextObjectAtPosition");
                 // Store current capture position with the text object
                 int captureX = _currentCaptureX;
                 int captureY = _currentCaptureY;
@@ -1172,6 +1177,7 @@ namespace UGTLive
                 }
                 
                 // Add the text object to the UI
+                Stopwatch textObjectCtorStopwatch = Stopwatch.StartNew();
                 TextObject textObject = new TextObject(
                     text,  // Just the text, without confidence
                     x, y, width, height,
@@ -1180,10 +1186,15 @@ namespace UGTLive
                     captureX, captureY,  // Store original capture coordinates
                     textOrientation
                 );
+                textObjectCtorStopwatch.Stop();
+                OverlayProfiler.Record("Logic.TextObjectConstructor", textObjectCtorStopwatch.ElapsedMilliseconds);
                 textObject.ID = "text_"+GetNextTextID();
 
                 // Adjust font size
+                Stopwatch fontAdjustStopwatch = Stopwatch.StartNew();
                 textObject.SetFontSize(fontSize);
+                fontAdjustStopwatch.Stop();
+                OverlayProfiler.Record("Logic.TextObjectSetFontSize", fontAdjustStopwatch.ElapsedMilliseconds);
                 
                 // Add to our collection
                 _textObjects.Add(textObject);
@@ -1197,7 +1208,10 @@ namespace UGTLive
                     //do nothing, don't want to show the source language
                 } else
                 {
+                    Stopwatch createUiStopwatch = Stopwatch.StartNew();
                     textObject.UIElement = textObject.CreateUIElement();
+                    createUiStopwatch.Stop();
+                    OverlayProfiler.Record("Logic.TextObjectCreateUIElement", createUiStopwatch.ElapsedMilliseconds);
                 }
                     MonitorWindow.Instance.CreateMonitorOverlayFromTextObject(this, textObject);
 
@@ -1675,11 +1689,21 @@ namespace UGTLive
                     return;
                 }
                 
+                using IDisposable profiler = OverlayProfiler.Measure("Logic.ClearAllTextObjects");
+                foreach (TextObject textObject in _textObjects)
+                {
+                    MonitorWindow.Instance?.RemoveOverlay(textObject);
+                    textObject.Dispose();
+                }
+
+                MonitorWindow.Instance?.ClearOverlays();
+
                 // Clear the collection
                 _textObjects.Clear();
                 _textIDCounter = 0;
                 // No need to remove from the main window UI anymore
                 
+                OverlayProfiler.DumpSummary();
                 Console.WriteLine("All text objects cleared");
             }
             catch (Exception ex)
