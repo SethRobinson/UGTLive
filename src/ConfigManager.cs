@@ -66,6 +66,9 @@ namespace UGTLive
         public const string MIN_LINE_CONFIDENCE = "min_line_confidence";
         public const string AUTO_TRANSLATE_ENABLED = "auto_translate_enabled";
         public const string IGNORE_PHRASES = "ignore_phrases";
+        public const string MANGA_OCR_MIN_REGION_WIDTH = "manga_ocr_min_region_width";
+        public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
+        public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -408,6 +411,11 @@ namespace UGTLive
             
             // Glue docTR lines into paragraphs by default
             _configValues[GLUE_DOCTR_LINES] = "true";
+            
+            // Manga OCR minimum region size defaults
+            _configValues[MANGA_OCR_MIN_REGION_WIDTH] = "10";
+            _configValues[MANGA_OCR_MIN_REGION_HEIGHT] = "10";
+            _configValues[MANGA_OCR_OVERLAP_ALLOWED_PERCENT] = "90";
             
             // Save the default configuration
             SaveConfig();
@@ -1609,6 +1617,81 @@ Here is the input JSON:";
             _configValues[GLUE_DOCTR_LINES] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Glue docTR lines into paragraphs: {enabled}");
+        }
+
+        // Get/Set: Manga OCR minimum region width
+        public int GetMangaOcrMinRegionWidth()
+        {
+            string value = GetValue(MANGA_OCR_MIN_REGION_WIDTH, "10");
+            if (int.TryParse(value, out int width) && width >= 0)
+            {
+                return width;
+            }
+            return 10; // Default: 10 pixels
+        }
+
+        public void SetMangaOcrMinRegionWidth(int width)
+        {
+            if (width >= 0)
+            {
+                _configValues[MANGA_OCR_MIN_REGION_WIDTH] = width.ToString();
+                SaveConfig();
+                Console.WriteLine($"Manga OCR minimum region width set to: {width}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid Manga OCR minimum region width: {width}. Must be non-negative.");
+            }
+        }
+
+        // Get/Set: Manga OCR minimum region height
+        public int GetMangaOcrMinRegionHeight()
+        {
+            string value = GetValue(MANGA_OCR_MIN_REGION_HEIGHT, "10");
+            if (int.TryParse(value, out int height) && height >= 0)
+            {
+                return height;
+            }
+            return 10; // Default: 10 pixels
+        }
+
+        public void SetMangaOcrMinRegionHeight(int height)
+        {
+            if (height >= 0)
+            {
+                _configValues[MANGA_OCR_MIN_REGION_HEIGHT] = height.ToString();
+                SaveConfig();
+                Console.WriteLine($"Manga OCR minimum region height set to: {height}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid Manga OCR minimum region height: {height}. Must be non-negative.");
+            }
+        }
+
+        // Get/Set: Manga OCR overlap allowed percentage
+        public double GetMangaOcrOverlapAllowedPercent()
+        {
+            string value = GetValue(MANGA_OCR_OVERLAP_ALLOWED_PERCENT, "90");
+            if (double.TryParse(value, out double percent) && percent >= 0 && percent <= 100)
+            {
+                return percent;
+            }
+            return 90.0; // Default: 90%
+        }
+
+        public void SetMangaOcrOverlapAllowedPercent(double percent)
+        {
+            if (percent >= 0 && percent <= 100)
+            {
+                _configValues[MANGA_OCR_OVERLAP_ALLOWED_PERCENT] = percent.ToString("F1");
+                SaveConfig();
+                Console.WriteLine($"Manga OCR overlap allowed percent set to: {percent:F1}%");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid Manga OCR overlap allowed percent: {percent}. Must be between 0 and 100.");
+            }
         }
 
         // Get all ignore phrases as a list of tuples (phrase, exactMatch)

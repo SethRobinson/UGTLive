@@ -55,6 +55,9 @@ def handle_client_connection(conn, addr):
                 # Parse parameters if provided
                 lang = 'japan'  # Default language
                 implementation = 'easyocr'  # Default to EasyOCR
+                min_region_width = 10  # Default minimum region width
+                min_region_height = 10  # Default minimum region height
+                overlap_allowed_percent = 90.0  # Default overlap allowed percentage
                 
                 if "|" in command:
                     parts = command.split("|")
@@ -63,6 +66,25 @@ def handle_client_connection(conn, addr):
                     # Parse implementation parameter
                     if len(parts) > 2 and parts[2]:
                         implementation = parts[2].lower()
+                    # Parse min_region_width, min_region_height, and overlap_allowed_percent parameters (for Manga OCR)
+                    # Format: read_image|lang|implementation|char_level|min_width|min_height|overlap_percent
+                    # parts[3] is "char_level", parts[4] is min_width, parts[5] is min_height, parts[6] is overlap_percent
+                    if implementation == 'mangaocr' or implementation == 'manga-ocr' or implementation == 'manga_ocr':
+                        if len(parts) > 4 and parts[4]:
+                            try:
+                                min_region_width = int(parts[4])
+                            except ValueError:
+                                logger.warning(f"Invalid min_region_width: {parts[4]}, using default: {min_region_width}")
+                        if len(parts) > 5 and parts[5]:
+                            try:
+                                min_region_height = int(parts[5])
+                            except ValueError:
+                                logger.warning(f"Invalid min_region_height: {parts[5]}, using default: {min_region_height}")
+                        if len(parts) > 6 and parts[6]:
+                            try:
+                                overlap_allowed_percent = float(parts[6])
+                            except ValueError:
+                                logger.warning(f"Invalid overlap_allowed_percent: {parts[6]}, using default: {overlap_allowed_percent}")
                 
                 # Check if character-level OCR is requested
                 char_level = True  # Default to character-level
@@ -70,9 +92,11 @@ def handle_client_connection(conn, addr):
                 # Process image based on the selected implementation
                 if implementation == 'mangaocr' or implementation == 'manga-ocr' or implementation == 'manga_ocr':
                     # Log the OCR engine being used
-                    logger.info(f"Using Manga OCR with language: {lang}, character-level: {char_level}")
+                    logger.info(f"Using Manga OCR with language: {lang}, character-level: {char_level}, min_region: {min_region_width}x{min_region_height}, overlap_allowed: {overlap_allowed_percent}%")
                     # Process image with Manga OCR
-                    result = process_image_mangaocr("image_to_process.png", lang=lang, char_level=char_level)
+                    result = process_image_mangaocr("image_to_process.png", lang=lang, char_level=char_level,
+                                                    min_region_width=min_region_width, min_region_height=min_region_height,
+                                                    overlap_allowed_percent=overlap_allowed_percent)
                 elif implementation == 'doctr' or implementation == 'doctr-ocr' or implementation == 'doctr_ocr':
                     # Log the OCR engine being used
                     logger.info(f"Using docTR with language: {lang}, character-level: {char_level}")

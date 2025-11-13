@@ -858,6 +858,99 @@ namespace UGTLive
             MonitorWindow.Instance.RefreshOverlays();
         }
         
+        private void MangaOcrMinWidthTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (int.TryParse(mangaOcrMinWidthTextBox.Text, out int width) && width >= 0)
+                {
+                    ConfigManager.Instance.SetMangaOcrMinRegionWidth(width);
+                    Console.WriteLine($"Manga OCR minimum region width set to: {width}");
+                    
+                    // Force refresh to apply immediately
+                    Logic.Instance.ResetHash();
+                    Logic.Instance.ClearAllTextObjects();
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+                else
+                {
+                    // Reset to current config value if invalid
+                    mangaOcrMinWidthTextBox.Text = ConfigManager.Instance.GetMangaOcrMinRegionWidth().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Manga OCR minimum region width: {ex.Message}");
+            }
+        }
+        
+        private void MangaOcrMinHeightTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (int.TryParse(mangaOcrMinHeightTextBox.Text, out int height) && height >= 0)
+                {
+                    ConfigManager.Instance.SetMangaOcrMinRegionHeight(height);
+                    Console.WriteLine($"Manga OCR minimum region height set to: {height}");
+                    
+                    // Force refresh to apply immediately
+                    Logic.Instance.ResetHash();
+                    Logic.Instance.ClearAllTextObjects();
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+                else
+                {
+                    // Reset to current config value if invalid
+                    mangaOcrMinHeightTextBox.Text = ConfigManager.Instance.GetMangaOcrMinRegionHeight().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Manga OCR minimum region height: {ex.Message}");
+            }
+        }
+        
+        private void MangaOcrOverlapTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (double.TryParse(mangaOcrOverlapTextBox.Text, out double percent) && percent >= 0 && percent <= 100)
+                {
+                    ConfigManager.Instance.SetMangaOcrOverlapAllowedPercent(percent);
+                    Console.WriteLine($"Manga OCR overlap allowed percent set to: {percent:F1}%");
+                    
+                    // Force refresh to apply immediately
+                    Logic.Instance.ResetHash();
+                    Logic.Instance.ClearAllTextObjects();
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+                else
+                {
+                    // Reset to current config value if invalid
+                    mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Manga OCR overlap allowed percent: {ex.Message}");
+            }
+        }
+        
         // Update OCR-specific settings visibility
         private void UpdateOcrSpecificSettings(string selectedOcr)
         {
@@ -865,12 +958,27 @@ namespace UGTLive
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
                 bool isDocTRSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
+                bool isMangaOcrSelected = string.Equals(selectedOcr, "Manga OCR", StringComparison.OrdinalIgnoreCase);
 
                 // Show/hide docTR-specific settings
                 if (glueDoctrLinesLabel != null)
                     glueDoctrLinesLabel.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (glueDoctrLinesCheckBox != null)
                     glueDoctrLinesCheckBox.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
+
+                // Show/hide Manga OCR-specific settings
+                if (mangaOcrMinWidthLabel != null)
+                    mangaOcrMinWidthLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrMinWidthTextBox != null)
+                    mangaOcrMinWidthTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrMinHeightLabel != null)
+                    mangaOcrMinHeightLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrMinHeightTextBox != null)
+                    mangaOcrMinHeightTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrOverlapLabel != null)
+                    mangaOcrOverlapLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrOverlapTextBox != null)
+                    mangaOcrOverlapTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
 
                 // Show/hide Google Vision-specific settings
                 if (googleVisionApiKeyLabel != null)
@@ -915,6 +1023,25 @@ namespace UGTLive
                     if (googleVisionKeepLinefeedsCheckBox != null)
                     {
                         googleVisionKeepLinefeedsCheckBox.IsChecked = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
+                    }
+                }
+
+                // Load Manga OCR settings if it's being shown
+                if (isMangaOcrSelected)
+                {
+                    if (mangaOcrMinWidthTextBox != null)
+                    {
+                        mangaOcrMinWidthTextBox.Text = ConfigManager.Instance.GetMangaOcrMinRegionWidth().ToString();
+                    }
+                    
+                    if (mangaOcrMinHeightTextBox != null)
+                    {
+                        mangaOcrMinHeightTextBox.Text = ConfigManager.Instance.GetMangaOcrMinRegionHeight().ToString();
+                    }
+                    
+                    if (mangaOcrOverlapTextBox != null)
+                    {
+                        mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1");
                     }
                 }
             }

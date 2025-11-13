@@ -1556,7 +1556,16 @@ namespace UGTLive
                     }
                     
                     // If we got here, socket is connected - explicitly request character-level OCR
-                    await SocketManager.Instance.SendDataAsync($"read_image|{sourceLanguage}|{implementation}|char_level");
+                    // For Manga OCR, also include min_region_width, min_region_height, and overlap_allowed_percent
+                    string command = $"read_image|{sourceLanguage}|{implementation}|char_level";
+                    if (ocrMethod == "Manga OCR")
+                    {
+                        int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
+                        int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
+                        double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
+                        command += $"|{minWidth}|{minHeight}|{overlapPercent}";
+                    }
+                    await SocketManager.Instance.SendDataAsync(command);
                 }
             }
             catch (Exception ex)

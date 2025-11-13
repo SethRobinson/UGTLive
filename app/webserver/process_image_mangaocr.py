@@ -101,7 +101,8 @@ def upscale_image(image, min_width=1024, min_height=768):
     return image, scale
 
 def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regular.ttf',
-                  preprocess_images=False, upscale_if_needed=False, char_level=True):
+                  preprocess_images=False, upscale_if_needed=False, char_level=True,
+                  min_region_width=10, min_region_height=10, overlap_allowed_percent=50.0):
     """
     Process an image using a hybrid approach:
     1. Use Manga109 YOLO model to detect text regions (bounding boxes)
@@ -117,6 +118,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         preprocess_images (bool): Flag to determine whether to preprocess the image.
         upscale_if_needed (bool): Flag to determine whether to upscale the image if it's low resolution.
         char_level (bool): If True, split text into characters with estimated positions.
+        min_region_width (int): Minimum width in pixels for YOLO-detected text regions. Smaller regions will be filtered out.
+        min_region_height (int): Minimum height in pixels for YOLO-detected text regions. Smaller regions will be filtered out.
+        overlap_allowed_percent (float): Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed.
     
     Returns:
         dict: JSON-serializable dictionary with OCR results.
@@ -202,30 +206,18 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         detections = detection_result.get("detections", [])
         print(f"Found {len(detections)} text regions")
         
-        # Step 2: Initialize Manga OCR for recognition
-        manga_ocr = initialize_manga_ocr()
-        
-        # Step 3: Process each detected region with Manga OCR
-        ocr_results = []
-        
-        # Track color detection timing
-        total_color_time_ms = 0.0
-        color_detection_count = 0
-        
+        # Step 2: Filter detections by size and prepare for overlap checking
+        filtered_detections = []
         for idx, detection in enumerate(detections):
             # Get the bounding box and polygon
             bbox = detection.get("bbox")
-            polygon = detection.get("polygon")
-            detection_confidence = detection.get("confidence", 1.0)
             label = detection.get("label", "unknown")
             
             # Only process "text" regions (ignore body, face, frame)
             if label != "text":
-                print(f"Region {idx+1}: Skipping non-text region (label: {label})")
                 continue
             
             if not bbox:
-                print(f"Region {idx+1}: No bbox found")
                 continue
             
             # Extract bounding box coordinates
@@ -241,9 +233,9 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 x_max = x_max - padding_x
                 y_max = y_max - padding_y
             
-            # Skip regions that are too small (likely noise)
-            if (x_max - x_min) < 10 or (y_max - y_min) < 10:
-                print(f"Region {idx+1}: Skipping (too small)")
+            # Skip regions that are too small (likely noise or furigana)
+            if (x_max - x_min) < min_region_width or (y_max - y_min) < min_region_height:
+                print(f"Region {idx+1}: Skipping (too small: {x_max - x_min}x{y_max - y_min} < {min_region_width}x{min_region_height})")
                 continue
             
             # Ensure coordinates are within image bounds
@@ -251,6 +243,92 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
             y_min = max(0, y_min)
             x_max = min(original_width, x_max)
             y_max = min(original_height, y_max)
+            
+            # Store detection with adjusted coordinates for overlap checking
+            filtered_detections.append({
+                "detection": detection,
+                "x_min": x_min,
+                "y_min": y_min,
+                "x_max": x_max,
+                "y_max": y_max,
+                "width": x_max - x_min,
+                "height": y_max - y_min,
+                "area": (x_max - x_min) * (y_max - y_min)
+            })
+        
+        print(f"After size filtering: {len(filtered_detections)} regions")
+        
+        # Step 3: Filter overlapping regions
+        def calculate_overlap_percent(bbox1, bbox2):
+            """Calculate overlap percentage based on the smaller region's area."""
+            # Calculate intersection
+            x_overlap = max(0, min(bbox1["x_max"], bbox2["x_max"]) - max(bbox1["x_min"], bbox2["x_min"]))
+            y_overlap = max(0, min(bbox1["y_max"], bbox2["y_max"]) - max(bbox1["y_min"], bbox2["y_min"]))
+            intersection_area = x_overlap * y_overlap
+            
+            if intersection_area == 0:
+                return 0.0
+            
+            # Use the smaller region's area as the denominator
+            smaller_area = min(bbox1["area"], bbox2["area"])
+            if smaller_area == 0:
+                return 0.0
+            
+            overlap_percent = (intersection_area / smaller_area) * 100.0
+            return overlap_percent
+        
+        # Mark regions to remove based on overlap
+        regions_to_remove = set()
+        for i in range(len(filtered_detections)):
+            if i in regions_to_remove:
+                continue
+            bbox1 = filtered_detections[i]
+            
+            for j in range(i + 1, len(filtered_detections)):
+                if j in regions_to_remove:
+                    continue
+                bbox2 = filtered_detections[j]
+                
+                overlap_percent = calculate_overlap_percent(bbox1, bbox2)
+                
+                if overlap_percent > overlap_allowed_percent:
+                    # Remove the smaller region
+                    if bbox1["area"] < bbox2["area"]:
+                        regions_to_remove.add(i)
+                        print(f"Removing region {i+1} (overlap: {overlap_percent:.1f}%, smaller: {bbox1['width']}x{bbox1['height']})")
+                        break  # bbox1 is removed, no need to check more overlaps for it
+                    else:
+                        regions_to_remove.add(j)
+                        print(f"Removing region {j+1} (overlap: {overlap_percent:.1f}%, smaller: {bbox2['width']}x{bbox2['height']})")
+        
+        # Create final list of detections to process
+        final_detections = []
+        for idx, filtered_det in enumerate(filtered_detections):
+            if idx not in regions_to_remove:
+                final_detections.append(filtered_det)
+        
+        print(f"After overlap filtering: {len(final_detections)} regions (removed {len(regions_to_remove)} overlapping regions)")
+        
+        # Step 4: Initialize Manga OCR for recognition
+        manga_ocr = initialize_manga_ocr()
+        
+        # Step 5: Process each detected region with Manga OCR
+        ocr_results = []
+        
+        # Track color detection timing
+        total_color_time_ms = 0.0
+        color_detection_count = 0
+        
+        for idx, filtered_det in enumerate(final_detections):
+            detection = filtered_det["detection"]
+            x_min = filtered_det["x_min"]
+            y_min = filtered_det["y_min"]
+            x_max = filtered_det["x_max"]
+            y_max = filtered_det["y_max"]
+            
+            # Get the polygon and detection confidence (bbox coordinates already extracted)
+            polygon = detection.get("polygon")
+            detection_confidence = detection.get("confidence", 1.0)
             
             # Crop the region from the image
             try:
