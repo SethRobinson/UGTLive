@@ -1371,7 +1371,7 @@ namespace UGTLive
         // Save prompt button clicked
         private void SavePromptButton_Click(object sender, RoutedEventArgs e)
         {
-            SaveCurrentPrompt();
+            SaveCurrentPrompt(clearContextAndRefresh: true);
         }
         
         // Restore default prompt button clicked
@@ -1398,11 +1398,11 @@ namespace UGTLive
         // Text box lost focus - save prompt
         private void PromptTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            SaveCurrentPrompt();
+            SaveCurrentPrompt(clearContextAndRefresh: false);
         }
         
         // Save the current prompt to the selected service
-        private void SaveCurrentPrompt()
+        private void SaveCurrentPrompt(bool clearContextAndRefresh = false)
         {
             if (translationServiceComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
@@ -1417,6 +1417,29 @@ namespace UGTLive
                     if (success)
                     {
                         Console.WriteLine($"Prompt saved for {selectedService}");
+                        
+                        // Clear context and refresh if requested (button click)
+                        if (clearContextAndRefresh)
+                        {
+                            // Clear context (same as "Clear Context" button)
+                            Console.WriteLine("Clearing translation context and history after prompt save");
+                            
+                            // Clear translation history in MainWindow
+                            MainWindow.Instance.ClearTranslationHistory();
+                            
+                            // Reset hash to force new translation on next capture
+                            Logic.Instance.ResetHash();
+                            
+                            // Clear any existing text objects
+                            Logic.Instance.ClearAllTextObjects();
+                            
+                            // Force OCR/translation to run again if active
+                            if (MainWindow.Instance.GetIsStarted())
+                            {
+                                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                                Console.WriteLine("Triggered OCR/translation refresh after prompt save");
+                            }
+                        }
                     }
                 }
             }
