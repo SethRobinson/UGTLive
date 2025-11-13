@@ -133,6 +133,13 @@ namespace UGTLive
                 {
                     await ConnectToSocketServerAsync();
                 }
+                else if (ocrMethod == "Google Vision")
+                {
+                    Console.WriteLine("Using Google Cloud Vision - socket connection not needed");
+                    
+                    // Update status message in the UI
+                    MainWindow.Instance.SetStatus("Using Google Cloud Vision (non-local, costs $)");
+                }
                 else
                 {
                     Console.WriteLine("Using Windows OCR - socket connection not needed");
