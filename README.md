@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.51-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-0.52-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
@@ -36,6 +36,8 @@ Features:
 </table>
 
 # History
+
+**V0.52 Nov 13th, 2025** - Manga OCR mode now ignores furigana by default, improved Ollama support, misc improvements
 
 **V0.51 Nov 11th, 2025** - Added llama.cpp support (llm), added Google Cloud Vision support (OCR), added OCR fps display
 
