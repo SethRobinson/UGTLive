@@ -48,9 +48,6 @@ if errorlevel 1 (
 copy app\win-x64\publish\*.dll tempbuild
 copy app\win-x64\publish\*.deps.json tempbuild
 copy app\win-x64\publish\*.runtimeconfig.json tempbuild
-copy app\chatgpt_config.txt tempbuild
-copy app\gemini_config.txt tempbuild
-copy app\ollama_config.txt tempbuild
 copy README.md tempbuild
 copy media\readme.txt tempbuild
 
