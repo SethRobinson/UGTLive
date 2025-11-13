@@ -1202,18 +1202,8 @@ namespace UGTLive
                 // Raise event to notify listeners (MonitorWindow)
                 TextObjectAdded?.Invoke(this, textObject);
 
-                if (ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled()
-                    && ConfigManager.Instance.IsAutoTranslateEnabled())
-                {
-                    //do nothing, don't want to show the source language
-                } else
-                {
-                    Stopwatch createUiStopwatch = Stopwatch.StartNew();
-                    textObject.UIElement = textObject.CreateUIElement();
-                    createUiStopwatch.Stop();
-                    OverlayProfiler.Record("Logic.TextObjectCreateUIElement", createUiStopwatch.ElapsedMilliseconds);
-                }
-                    MonitorWindow.Instance.CreateMonitorOverlayFromTextObject(this, textObject);
+                // Notify MonitorWindow to update overlay
+                MonitorWindow.Instance.CreateMonitorOverlayFromTextObject(this, textObject);
 
                 // Console.WriteLine($"Added text '{text}' at position ({x}, {y}) with size {width}x{height}");
             }
