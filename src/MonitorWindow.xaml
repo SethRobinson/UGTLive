@@ -9,12 +9,16 @@
         WindowStyle="SingleBorderWindow"
         AllowsTransparency="False"
         Background="Black"
-        Icon="/media/Icon1.ico">
+        Icon="/media/Icon1.ico"
+        PreviewMouseWheel="Window_PreviewMouseWheel">
+    <!-- Root Grid to contain both main content and overlay -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <!-- Main content grid -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
         
         <!-- Control Panel -->
         <WrapPanel Grid.Row="0" Background="#202020" Margin="10,5,10,5">
@@ -25,17 +29,36 @@
                     Click="ZoomInButton_Click" Background="#404040" Foreground="White"/>
             <TextBox x:Name="zoomTextBox" Width="60" Margin="2" Text="100" TextAlignment="Center"
                      VerticalContentAlignment="Center" Background="#404040" Foreground="White" BorderBrush="#606060"/>
+            
+            <!-- View in Browser Button -->
+            <Button x:Name="viewInBrowserButton" Content="View in browser" Margin="10,2,2,2" 
+                    Click="ViewInBrowserButton_Click" Background="#404040" Foreground="White"
+                    Padding="8,2"/>
                     
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
             
-            <!-- Hidden controls for settings synchronization -->
-            <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" SelectedIndex="1">
-                <ComboBoxItem Content="EasyOCR"/>
-                <ComboBoxItem Content="Windows OCR"/>
-            </ComboBox>
+            <!-- Overlay Controls -->
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="Overlay:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <RadioButton x:Name="overlayHideRadio" Content="Hide" Foreground="White" VerticalAlignment="Center" 
+                             Margin="0,0,10,0" GroupName="OverlayMode" 
+                             Checked="OverlayRadioButton_Checked" Tag="Hide"/>
+                <RadioButton x:Name="overlaySourceRadio" Content="Source" Foreground="White" VerticalAlignment="Center" 
+                             Margin="0,0,10,0" GroupName="OverlayMode"
+                             Checked="OverlayRadioButton_Checked" Tag="Source"/>
+                <RadioButton x:Name="overlayTranslatedRadio" Content="Translated" Foreground="White" VerticalAlignment="Center" 
+                             GroupName="OverlayMode" 
+                             Checked="OverlayRadioButton_Checked" Tag="Translated"/>
+            </StackPanel>
             
-            <CheckBox x:Name="autoTranslateCheckBox" IsChecked="True" Visibility="Collapsed"/>
+            <!-- Separator -->
+            <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
+            
+            <!-- Hidden controls for settings synchronization -->
+            <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" />
+            
+            <CheckBox x:Name="autoTranslateCheckBox" IsChecked="False" Visibility="Collapsed"/>
             
             <TextBox x:Name="blockDetectionPowerTextBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" 
                      Text="5" VerticalContentAlignment="Center"/>
@@ -49,17 +72,19 @@
         <ScrollViewer Grid.Row="1" x:Name="imageScrollViewer" 
                       HorizontalScrollBarVisibility="Auto" 
                       VerticalScrollBarVisibility="Auto"
-                      Background="Black">
+                      Background="Black"
+                      Panel.ZIndex="0">
             <Grid x:Name="imageContainer" Background="Black">
                 <Image x:Name="captureImage" Stretch="None" 
                        RenderOptions.BitmapScalingMode="NearestNeighbor"
                        HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Canvas x:Name="textOverlayCanvas"/>
+                <Canvas x:Name="textOverlayCanvas" Panel.ZIndex="1"/>
             </Grid>
         </ScrollViewer>
         
-        <!-- Translation status as overlay -->
-        <Border x:Name="translationStatusBorder" Grid.Row="1" 
+        <!-- Translation status overlay -->
+        <Border x:Name="translationStatusBorder" 
+                Grid.Row="1"
                 Background="#DD202020" 
                 VerticalAlignment="Bottom" 
                 HorizontalAlignment="Center"
@@ -69,7 +94,7 @@
                 BorderThickness="1"
                 BorderBrush="#444444"
                 Visibility="Collapsed"
-                Panel.ZIndex="10">
+                Panel.ZIndex="1000">
             <Grid>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="translationStatusLabel" 
@@ -81,5 +106,6 @@
                 </StackPanel>
             </Grid>
         </Border>
+        </Grid>
     </Grid>
 </Window>

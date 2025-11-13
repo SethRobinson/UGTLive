@@ -1,0 +1,388 @@
+---
+description: Patterns for integrating external services (APIs, OCR, TTS)
+globs: ["**/*Service.cs", "**/*Manager.cs"]
+alwaysApply: false
+---
+
+# Service Integration Patterns
+
+## Translation Service Interface
+
+### ITranslationService Pattern
+All translation services implement a common interface:
+
+```csharp
+public interface ITranslationService
+{
+    Task<TranslationResult?> TranslateAsync(
+        string sourceText,
+        string targetLanguage,
+        string context);
+}
+```
+
+### TranslationResult Structure
+```csharp
+public class TranslationResult
+{
+    public string TranslatedText { get; set; } = "";
+    public string SourceLanguage { get; set; } = "";
+    public double Confidence { get; set; } = 1.0;
+}
+```
+
+## HTTP Client Usage
+
+### Service HTTP Client Pattern
+Each service creates its own HttpClient:
+
+```csharp
+public class GeminiTranslationService : ITranslationService
+{
+    private static readonly HttpClient _httpClient = new HttpClient();
+    private readonly string _apiKey;
+    
+    public GeminiTranslationService(string apiKey)
+    {
+        _apiKey = apiKey;
+        _httpClient.DefaultRequestHeaders.Add("x-goog-api-key", apiKey);
+    }
+    
+    public async Task<TranslationResult?> TranslateAsync(string text, string lang, string context)
+    {
+        // Implementation
+    }
+}
+```
+
+### Request Building
+```csharp
+var requestBody = new
+{
+    contents = new[]
+    {
+        new
+        {
+            parts = new[]
+            {
+                new { text = prompt }
+            }
+        }
+    }
+};
+
+var json = JsonSerializer.Serialize(requestBody);
+var content = new StringContent(json, Encoding.UTF8, "application/json");
+var response = await _httpClient.PostAsync(url, content);
+```
+
+## Error Handling in Services
+
+### HTTP Error Handling Pattern
+```csharp
+if (response.IsSuccessStatusCode)
+{
+    var result = await response.Content.ReadAsStringAsync();
+    return ParseResult(result);
+}
+else
+{
+    string errorMessage = await response.Content.ReadAsStringAsync();
+    Console.WriteLine($"API error: {response.StatusCode}, {errorMessage}");
+    
+    // Try to parse JSON error
+    try
+    {
+        using JsonDocument errorDoc = JsonDocument.Parse(errorMessage);
+        if (errorDoc.RootElement.TryGetProperty("error", out JsonElement errorElement))
+        {
+            // Extract detailed error
+            return null;
+        }
+    }
+    catch (JsonException)
+    {
+        // Fallback to raw message
+    }
+    
+    // Show user-friendly error
+    Application.Current.Dispatcher.Invoke(() =>
+    {
+        MessageBox.Show($"API error: {errorMessage}", "Error", 
+            MessageBoxButton.OK, MessageBoxImage.Error);
+    });
+    
+    return null;
+}
+```
+
+### Exception Handling
+```csharp
+try
+{
+    var response = await _httpClient.PostAsync(url, content);
+    // Process response
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Service error: {ex.Message}");
+    LogManager.Instance.LogError("Translation failed", ex);
+    
+    Application.Current.Dispatcher.Invoke(() =>
+    {
+        MessageBox.Show($"Error: {ex.Message}", "Error", 
+            MessageBoxButton.OK, MessageBoxImage.Error);
+    });
+    
+    return null;
+}
+```
+
+## Service Factory Pattern
+
+### TranslationServiceFactory
+```csharp
+public static class TranslationServiceFactory
+{
+    public static ITranslationService CreateService(string serviceName)
+    {
+        return serviceName switch
+        {
+            "Gemini" => new GeminiTranslationService(
+                ConfigManager.Instance.GetGeminiApiKey()),
+            "ChatGPT" => new ChatGptTranslationService(
+                ConfigManager.Instance.GetChatGptApiKey()),
+            "Ollama" => new OllamaTranslationService(
+                ConfigManager.Instance.GetOllamaUrl(),
+                ConfigManager.Instance.GetOllamaPort()),
+            _ => throw new ArgumentException($"Unknown service: {serviceName}")
+        };
+    }
+}
+```
+
+## OCR Service Integration
+
+### Windows OCR Pattern
+```csharp
+public class WindowsOCRManager
+{
+    public async Task<List<TextObject>> ProcessImageAsync(Bitmap bitmap)
+    {
+        return await Task.Run(() =>
+        {
+            // Convert bitmap to Windows bitmap
+            // Process with Windows OCR API
+            // Return TextObject list
+        });
+    }
+}
+```
+
+### EasyOCR Socket Pattern
+```csharp
+public class SocketManager
+{
+    private static readonly HttpClient _httpClient = new HttpClient();
+    private const string ServerUrl = "http://localhost:3928";
+    
+    public async Task<List<TextObject>> ProcessImageAsync(Bitmap bitmap)
+    {
+        // Convert bitmap to base64
+        string base64Image = ConvertToBase64(bitmap);
+        
+        // Send to Python server
+        var request = new
+        {
+            image = base64Image,
+            lang = "japan"
+        };
+        
+        var json = JsonSerializer.Serialize(request);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync($"{ServerUrl}/ocr", content);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadAsStringAsync();
+            return ParseOCRResult(result);
+        }
+        
+        return new List<TextObject>();
+    }
+}
+```
+
+## Text-to-Speech Integration
+
+### TTS Service Pattern
+```csharp
+public interface ITTSService
+{
+    Task<byte[]?> SynthesizeAsync(string text, string language);
+}
+
+public class GoogleTTSService : ITTSService
+{
+    public async Task<byte[]?> SynthesizeAsync(string text, string language)
+    {
+        var url = $"https://texttospeech.googleapis.com/v1/text:synthesize";
+        // Build request and get audio bytes
+        return audioBytes;
+    }
+}
+```
+
+## Audio Processing
+
+### NAudio Integration
+```csharp
+using NAudio.Wave;
+
+public class AudioPlayer
+{
+    private WaveOutEvent? _waveOut;
+    
+    public void PlayAudio(byte[] audioData)
+    {
+        _waveOut?.Stop();
+        _waveOut?.Dispose();
+        
+        using var ms = new MemoryStream(audioData);
+        using var reader = new Mp3FileReader(ms);
+        
+        _waveOut = new WaveOutEvent();
+        _waveOut.Init(reader);
+        _waveOut.Play();
+    }
+}
+```
+
+## Real-time Audio Streaming
+
+### WebSocket Pattern
+```csharp
+public class OpenAIRealtimeAudioService
+{
+    private ClientWebSocket? _webSocket;
+    
+    public async Task ConnectAsync()
+    {
+        _webSocket = new ClientWebSocket();
+        await _webSocket.ConnectAsync(new Uri("wss://api.openai.com/v1/realtime"), CancellationToken.None);
+        
+        // Start receiving loop
+        _ = Task.Run(ReceiveLoop);
+    }
+    
+    private async Task ReceiveLoop()
+    {
+        var buffer = new byte[4096];
+        while (_webSocket?.State == WebSocketState.Open)
+        {
+            var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            ProcessMessage(buffer, result.Count);
+        }
+    }
+}
+```
+
+## Service Configuration
+
+### Service-Specific Settings
+Each service reads its configuration from ConfigManager:
+
+```csharp
+public class GeminiTranslationService
+{
+    private readonly string _apiKey;
+    private readonly string _model;
+    private readonly string _prompt;
+    
+    public GeminiTranslationService()
+    {
+        _apiKey = ConfigManager.Instance.GetGeminiApiKey();
+        _model = ConfigManager.Instance.GetGeminiModel();
+        _prompt = ConfigManager.Instance.GetGeminiPrompt();
+    }
+}
+```
+
+## Retry Logic
+
+### Exponential Backoff Pattern
+```csharp
+public async Task<TranslationResult?> TranslateWithRetryAsync(string text, int maxRetries = 3)
+{
+    for (int attempt = 0; attempt < maxRetries; attempt++)
+    {
+        try
+        {
+            return await TranslateAsync(text);
+        }
+        catch (Exception ex)
+        {
+            if (attempt == maxRetries - 1)
+            {
+                throw;
+            }
+            
+            int delay = (int)Math.Pow(2, attempt) * 1000; // Exponential backoff
+            await Task.Delay(delay);
+        }
+    }
+    
+    return null;
+}
+```
+
+## Timeout Handling
+
+### Request Timeout
+```csharp
+private static readonly HttpClient _httpClient = new HttpClient
+{
+    Timeout = TimeSpan.FromSeconds(30)
+};
+```
+
+### Cancellation Token
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var response = await _httpClient.PostAsync(url, content, cts.Token);
+```
+
+## JSON Serialization
+
+### System.Text.Json Pattern
+```csharp
+using System.Text.Json;
+
+var options = new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    WriteIndented = false
+};
+
+var json = JsonSerializer.Serialize(requestObject, options);
+var responseObject = JsonSerializer.Deserialize<ResponseType>(jsonString, options);
+```
+
+## Service Health Checks
+
+### Connection Testing
+```csharp
+public async Task<bool> TestConnectionAsync()
+{
+    try
+    {
+        var testRequest = new { text = "test" };
+        var result = await TranslateAsync("test", "en", "");
+        return result != null;
+    }
+    catch
+    {
+        return false;
+    }
+}
+```

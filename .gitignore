@@ -405,16 +405,12 @@ tempbuild/
 unused/
 #disable everything in the app directory except a few things
 /app/*
-!app/webserver/
 app/webserver/*
 #but keep a few things...
 !app/webserver/*.bat
 !app/webserver/*.py
 
-!app/ollama_config.txt
-!app/gemini_config.txt
-!app/chatgpt_config.txt
-
 UniversalGameTranslatorLive_Windows.zip
 
 **/.claude/settings.local.json
+

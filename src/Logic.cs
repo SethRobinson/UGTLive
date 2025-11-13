@@ -127,8 +127,9 @@ namespace UGTLive
                 // Load force cursor visible setting
                 // Force cursor visibility is now handled by MouseManager
                 
-                // Only connect to socket server if using EasyOCR
-                if (MainWindow.Instance.GetSelectedOcrMethod() == "EasyOCR")
+                // Only connect to socket server if using EasyOCR, Manga OCR, or docTR
+                string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+                if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR")
                 {
                     await ConnectToSocketServerAsync();
                 }
@@ -194,8 +195,9 @@ namespace UGTLive
         // Reconnect timer tick event
         private async void ReconnectTimer_Tick(object? sender, EventArgs e)
         {
-            // Only try to reconnect if we're using EasyOCR
-            if (MainWindow.Instance.GetSelectedOcrMethod() != "EasyOCR")
+            // Only try to reconnect if we're using EasyOCR, Manga OCR, or docTR
+            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR" && ocrMethod != "docTR")
             {
                 _reconnectTimer.Stop();
                 _reconnectAttempts = 0;
@@ -215,56 +217,31 @@ namespace UGTLive
                     _reconnectAttempts = 0;
                     //_hasShownConnectionErrorMessage = false;
                 }
-                // Show error message after several failed attempts (approximately 15 seconds)
+                // Show setup dialog after several failed attempts (approximately 15 seconds)
                 else if (_reconnectAttempts >= 1 && !_hasShownConnectionErrorMessage)
                 {
                     _hasShownConnectionErrorMessage = true;
-                    string serverUrl = $"localhost:{SocketManager.Instance.GetPort()}";
                     
-                    string message = $"Connection Error: AI server not running at {serverUrl}\n\n" +
-                                     "To fix this problem:\n\n" +
-                                     "1. Navigate to the 'app/webserver' folder in your UGTLive installation\n" +
-                                     "2. Run \"SetupServerCondaEnv.bat\" (only need to do this once during initial setup)\n" +
-                                     "3. Run \"RunServer.bat\" to start the EasyOCR server\n\n" +
-                                     "The server window should remain open while using UGTLive with EasyOCR.\n\n" +
-                                     "Alternatively, you can switch to Windows OCR in the settings (no server needed).";
-                    
-                    MessageBoxResult result = MessageBox.Show(message + "\n\nAttempt to start server using RunServer.bat?", 
-                                              "Server Connection Error", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
-                    
-                    if (result == MessageBoxResult.Yes)
+                    // Show the server setup dialog on the UI thread
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         try
                         {
-                            // Try to run the RunServer.bat file
-                            System.Diagnostics.Process.Start(new ProcessStartInfo
-                            {
-                                FileName = "RunServer.bat",
-                                UseShellExecute = true,
-                                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory+"webserver\\"
-                            });
+                            ServerSetupDialog.ShowDialogSafe();
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Failed to start server: {ex.Message}");
-                            MessageBox.Show($"Failed to start server: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            Console.WriteLine($"Error showing server setup dialog: {ex.Message}");
+                            // Fallback to MessageBox if dialog fails
+                            string serverUrl = $"localhost:{SocketManager.Instance.GetPort()}";
+                            MessageBox.Show(
+                                $"Connection Error: UGTLive AI backend server not running at {serverUrl}\n\n" +
+                                "Please use the Server Setup dialog to configure and start the server.",
+                                "Server Connection Error", 
+                                MessageBoxButton.OK, 
+                                MessageBoxImage.Warning);
                         }
-                    }
-                    else if (result == MessageBoxResult.Cancel)
-                    {
-                        try
-                        {
-                            System.Diagnostics.Process.Start(new ProcessStartInfo
-                            {
-                                FileName = "https://github.com/SethRobinson/UGTLive",
-                                UseShellExecute = true
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Failed to open browser: {ex.Message}");
-                        }
-                    }
+                    });
                 }
             }
             else
@@ -288,8 +265,9 @@ namespace UGTLive
         // Socket connection changed event handler
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
         {
-            // If not connected and we're using EasyOCR, start the reconnect timer
-            if (!isConnected && MainWindow.Instance.GetSelectedOcrMethod() == "EasyOCR")
+            // If not connected and we're using EasyOCR, Manga OCR, or docTR, start the reconnect timer
+            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+            if (!isConnected && (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR"))
             {
                 Console.WriteLine("Connection status changed to disconnected. Starting reconnect timer.");
                 SocketManager.Instance._isConnected = false;
@@ -359,6 +337,9 @@ namespace UGTLive
                                 {
                                     // Cập nhật text object với bản dịch
                                     matchingTextObj.TextTranslated = translatedText;
+
+                                    // Don't modify the original text orientation - it should remain as detected by OCR
+
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with Google translation");
                                 }
@@ -370,8 +351,11 @@ namespace UGTLive
                                     {
                                         // Cập nhật theo index nếu ID khớp định dạng
                                         _textObjects[index].TextTranslated = translatedText;
+
+                                        // Don't modify the original text orientation - it should remain as detected by OCR
+
                                         _textObjects[index].UpdateUIElement();
-                                        Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                         Console.WriteLine($"Updated text object at index {index} with Google translation");
                                     }
                                     else
                                     {
@@ -418,6 +402,9 @@ namespace UGTLive
         {
             _ocrProcessingStopwatch.Restart();
             MainWindow.Instance.SetOCRCheckIsWanted(true);
+            
+            // Notify that OCR has completed
+            MonitorWindow.Instance.NotifyOCRCompleted();
 
             if (GetWaitingForTranslationToFinish())
             {
@@ -454,9 +441,26 @@ namespace UGTLive
                                 // Pre-filter low-confidence characters before block detection
                                 JsonElement filteredResults = FilterLowConfidenceCharacters(resultsElement);
                                 
-                                // Process character-level OCR data using CharacterBlockDetectionManager
-                                // Use the filtered results for consistency
-                                JsonElement modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                // Check if block detection should be skipped (e.g., for Google Vision results)
+                                bool skipBlockDetection = false;
+                                if (root.TryGetProperty("skip_block_detection", out JsonElement skipElement))
+                                {
+                                    skipBlockDetection = skipElement.GetBoolean();
+                                }
+                                
+                                JsonElement modifiedResults;
+                                if (skipBlockDetection)
+                                {
+                                    // Skip block detection for pre-grouped results (e.g., Google Vision)
+                                    modifiedResults = filteredResults;
+                                    Console.WriteLine("Skipping block detection for pre-grouped results");
+                                }
+                                else
+                                {
+                                    // Process character-level OCR data using CharacterBlockDetectionManager
+                                    // Use the filtered results for consistency
+                                    modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                }
                                 
                                 // Filter out text objects that should be ignored based on ignore phrases
                                 modifiedResults = FilterIgnoredPhrases(modifiedResults);
@@ -879,7 +883,13 @@ namespace UGTLive
                             {
                                 continue;
                             }
-                            
+
+                            string textOrientation = "horizontal";
+                            if (item.TryGetProperty("text_orientation", out JsonElement textOrientationElement))
+                            {
+                                textOrientation = textOrientationElement.GetString() ?? "horizontal";
+                            }
+
                             // Note: We no longer need to filter ignore phrases here
                             // as it's now done earlier in ProcessReceivedTextJsonData before hash generation
 
@@ -921,6 +931,20 @@ namespace UGTLive
                                     y = minY;
                                     width = maxX - minX;
                                     height = maxY - minY;
+                                    
+                                    // Apply text area size expansion
+                                    int expansionWidth = ConfigManager.Instance.GetMonitorTextAreaExpansionWidth();
+                                    int expansionHeight = ConfigManager.Instance.GetMonitorTextAreaExpansionHeight();
+                                    
+                                    // Expand width symmetrically (add expansionWidth/2 to each side)
+                                    double expansionWidthHalf = expansionWidth / 2.0;
+                                    x = minX - expansionWidthHalf;
+                                    width = width + expansionWidth;
+                                    
+                                    // Expand height symmetrically (add expansionHeight/2 to top and bottom)
+                                    double expansionHeightHalf = expansionHeight / 2.0;
+                                    y = minY - expansionHeightHalf;
+                                    height = height + expansionHeight;
                                 }
                                 catch (Exception ex)
                                 {
@@ -928,10 +952,48 @@ namespace UGTLive
                                 }
                             }
                          
-                            // Create text object with bounding box coordinates
-                            CreateTextObjectAtPosition(text, x, y, width, height, confidence);
+                            // Extract colors from JSON if available
+                            // Use Color? instead of SolidColorBrush? to avoid threading issues
+                            Color? foregroundColor = null;
+                            Color? backgroundColor = null;
+                            
+                            if (item.TryGetProperty("foreground_color", out JsonElement foregroundColorElement))
+                            {
+                                foregroundColor = ParseColorFromJson(foregroundColorElement, isBackground: false);
+                                
+                                // Debug: Log the RGB values we're parsing
+                                if (foregroundColorElement.TryGetProperty("rgb", out JsonElement fgRgb) && 
+                                    fgRgb.ValueKind == JsonValueKind.Array && fgRgb.GetArrayLength() >= 3)
+                                {
+                                    int r = fgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)fgRgb[0].GetDouble();
+                                    int g = fgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)fgRgb[1].GetDouble();
+                                    int b = fgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)fgRgb[2].GetDouble();
+                                    Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                }
+                            }
+                            
+                            if (item.TryGetProperty("background_color", out JsonElement backgroundColorElement))
+                            {
+                                backgroundColor = ParseColorFromJson(backgroundColorElement, isBackground: true);
+                                
+                                // Debug: Log the RGB values we're parsing
+                                if (backgroundColorElement.TryGetProperty("rgb", out JsonElement bgRgb) && 
+                                    bgRgb.ValueKind == JsonValueKind.Array && bgRgb.GetArrayLength() >= 3)
+                                {
+                                    int r = bgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)bgRgb[0].GetDouble();
+                                    int g = bgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)bgRgb[1].GetDouble();
+                                    int b = bgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)bgRgb[2].GetDouble();
+                                    Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                }
+                            }
+                         
+                            // Create text object with bounding box coordinates and colors
+                            CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor);
                         }
                     }
+                    
+                    // Refresh monitor window overlays to ensure they're displayed
+                    MonitorWindow.Instance.RefreshOverlays();
                 }
             }
             catch (Exception ex)
@@ -941,8 +1003,97 @@ namespace UGTLive
             }
         }
         
+        // Helper method to parse color from JSON element
+        // Returns Color? instead of SolidColorBrush? to avoid threading issues
+        // Brushes should be created on the UI thread in CreateTextObjectAtPosition
+        private Color? ParseColorFromJson(JsonElement colorElement, bool isBackground = false)
+        {
+            try
+            {
+                // Try to get RGB array first
+                if (colorElement.TryGetProperty("rgb", out JsonElement rgbElement) && 
+                    rgbElement.ValueKind == JsonValueKind.Array && 
+                    rgbElement.GetArrayLength() >= 3)
+                {
+                    // Extract RGB values - handle both int and double
+                    int r, g, b;
+                    if (rgbElement[0].ValueKind == JsonValueKind.Number)
+                    {
+                        // Try int first, fall back to double if needed
+                        if (rgbElement[0].TryGetInt32(out int rInt))
+                        {
+                            r = rInt;
+                        }
+                        else
+                        {
+                            r = (int)Math.Round(rgbElement[0].GetDouble());
+                        }
+                        
+                        if (rgbElement[1].TryGetInt32(out int gInt))
+                        {
+                            g = gInt;
+                        }
+                        else
+                        {
+                            g = (int)Math.Round(rgbElement[1].GetDouble());
+                        }
+                        
+                        if (rgbElement[2].TryGetInt32(out int bInt))
+                        {
+                            b = bInt;
+                        }
+                        else
+                        {
+                            b = (int)Math.Round(rgbElement[2].GetDouble());
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: RGB values are not numbers in color JSON");
+                        return null;
+                    }
+                    
+                    // Clamp to 0-255
+                    r = Math.Max(0, Math.Min(255, r));
+                    g = Math.Max(0, Math.Min(255, g));
+                    b = Math.Max(0, Math.Min(255, b));
+                    
+                    // Use fully opaque (alpha 255) for both foreground and background
+                    byte alpha = (byte)255;
+                    
+                    return Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b);
+                }
+                
+                // Fallback: try hex value if RGB is not available
+                if (colorElement.TryGetProperty("hex", out JsonElement hexElement))
+                {
+                    string hex = hexElement.GetString() ?? "";
+                    if (!string.IsNullOrEmpty(hex) && hex.StartsWith("#") && hex.Length == 7)
+                    {
+                        // Parse hex color (#RRGGBB)
+                        int r = Convert.ToInt32(hex.Substring(1, 2), 16);
+                        int g = Convert.ToInt32(hex.Substring(3, 2), 16);
+                        int b = Convert.ToInt32(hex.Substring(5, 2), 16);
+                        
+                        // Use fully opaque (alpha 255) for both foreground and background
+                        byte alpha = (byte)255;
+                        return Color.FromArgb(alpha, (byte)r, (byte)g, (byte)b);
+                    }
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing color from JSON: {ex.Message}");
+            }
+            
+            return null; // Return null to indicate fallback to defaults
+        }
+        
         // Create a text object at the specified position with confidence info
-        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence)
+        // Accepts Color? instead of SolidColorBrush? to avoid threading issues
+        // Creates brushes on the UI thread
+        private void CreateTextObjectAtPosition(string text, double x, double y, double width, double height, double confidence, string textOrientation = "horizontal", Color? foregroundColor = null, Color? backgroundColor = null)
         {
 
             try
@@ -952,7 +1103,7 @@ namespace UGTLive
                 {
                     // Run on UI thread to ensure STA compliance
                     Application.Current.Dispatcher.Invoke(() => 
-                        CreateTextObjectAtPosition(text, x, y, width, height, confidence));
+                        CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor));
                     return;
                 }
                 
@@ -998,9 +1149,20 @@ namespace UGTLive
                     fontSize = Math.Max(10, Math.Min(36, (int)(height * 0.9)));
                 }
                 
-                // Create text object with white text on semi-transparent black background
-                SolidColorBrush textColor = new SolidColorBrush(Colors.White);
-                SolidColorBrush bgColor = new SolidColorBrush(Color.FromArgb(190, 0, 0, 0));
+                // Create SolidColorBrush objects from Color structs on the UI thread
+                // Use provided colors or fall back to defaults (white text on fully opaque black background)
+                SolidColorBrush textColor = foregroundColor.HasValue 
+                    ? new SolidColorBrush(foregroundColor.Value) 
+                    : new SolidColorBrush(Colors.White);
+                SolidColorBrush bgColor = backgroundColor.HasValue 
+                    ? new SolidColorBrush(backgroundColor.Value) 
+                    : new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
+                
+                // Debug: Log final colors being used
+                if (foregroundColor.HasValue || backgroundColor.HasValue)
+                {
+                    Console.WriteLine($"Creating TextObject '{text.Substring(0, Math.Min(20, text.Length))}...' - TextColor: {textColor.Color}, BackgroundColor: {bgColor.Color}");
+                }
                 
                 // Add the text object to the UI
                 TextObject textObject = new TextObject(
@@ -1008,15 +1170,13 @@ namespace UGTLive
                     x, y, width, height,
                     textColor,
                     bgColor,
-                    captureX, captureY  // Store original capture coordinates
+                    captureX, captureY,  // Store original capture coordinates
+                    textOrientation
                 );
                 textObject.ID = "text_"+GetNextTextID();
 
                 // Adjust font size
-                if (textObject.UIElement is Border border && border.Child is TextBlock textBlock)
-                {
-                    textBlock.FontSize = fontSize;
-                }
+                textObject.SetFontSize(fontSize);
                 
                 // Add to our collection
                 _textObjects.Add(textObject);
@@ -1250,7 +1410,65 @@ namespace UGTLive
                 }
 
                 MainWindow.Instance.SetOCRCheckIsWanted(true);
+                
+                // Notify that OCR has completed
+                MonitorWindow.Instance.NotifyOCRCompleted();
+            }
+        }
+        
+        // Process bitmap directly with Google Vision API (no file saving)
+        public async void ProcessWithGoogleVision(System.Drawing.Bitmap bitmap, string sourceLanguage)
+        {
+            try
+            {
+                Console.WriteLine("Starting Google Vision OCR processing...");
+                
+                try
+                {
+                    // Get the text objects from Google Vision API
+                    var textObjects = await GoogleVisionOCRService.Instance.ProcessImageAsync(bitmap, sourceLanguage);
+                    Console.WriteLine($"Google Vision OCR found {textObjects.Count} text objects");
+                    
+                    // Process the OCR results
+                    await GoogleVisionOCRService.Instance.ProcessGoogleVisionResults(textObjects);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Google Vision OCR error: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    
+                    // Show error to user if API key might be missing
+                    if (ex.Message.Contains("API key", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show("Google Cloud Vision API key not configured. Please set your API key in Settings.", 
+                            "Google Cloud Vision Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing bitmap with Google Vision: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            finally
+            {
+                // Make sure bitmap is properly disposed
+                try
+                {
+                    if (bitmap != null)
+                    {
+                        bitmap.Dispose();
+                    }
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
 
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                
+                // Notify that OCR has completed
+                MonitorWindow.Instance.NotifyOCRCompleted();
             }
         }
         
@@ -1272,6 +1490,12 @@ namespace UGTLive
                     Console.WriteLine("Using Windows OCR (built-in)");
                     // ProcessScreenshot will handle the Windows OCR logic
                 }
+                else if (ocrMethod == "Google Vision")
+                {
+                    // Google Vision doesn't require socket connection
+                    Console.WriteLine("Using Google Vision API");
+                    // ProcessScreenshot will handle the Google Vision API logic
+                }
                 else
                 {
                     if (SocketManager.Instance.IsWaitingForSomething())
@@ -1284,9 +1508,20 @@ namespace UGTLive
                     // Get the source language from MainWindow
                     string sourceLanguage = GetSourceLanguage()!;
                     
-                    Console.WriteLine($"Processing screenshot with EasyOCR character-level OCR, language: {sourceLanguage}");
+                    // Map OCR method to server implementation parameter
+                    string implementation = "easyocr"; // Default
+                    if (ocrMethod == "Manga OCR")
+                    {
+                        implementation = "mangaocr";
+                    }
+                    else if (ocrMethod == "docTR")
+                    {
+                        implementation = "doctr";
+                    }
                     
-                    // Check socket connection for EasyOCR
+                    Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    
+                    // Check socket connection
                     if (!SocketManager.Instance.IsConnected)
                     {
                         Console.WriteLine("Socket not connected, attempting to reconnect...");
@@ -1300,7 +1535,7 @@ namespace UGTLive
                         // Check if reconnection succeeded
                         if (!reconnected || !SocketManager.Instance.IsConnected)
                         {
-                            Console.WriteLine("Reconnection failed, cannot perform OCR with EasyOCR");
+                            Console.WriteLine($"Reconnection failed, cannot perform OCR with {ocrMethod}");
                             
                             // Make sure the reconnect timer is running to keep trying
                             if (!_reconnectTimer.IsEnabled)
@@ -1321,7 +1556,16 @@ namespace UGTLive
                     }
                     
                     // If we got here, socket is connected - explicitly request character-level OCR
-                    await SocketManager.Instance.SendDataAsync($"read_image|{sourceLanguage}|easyocr|char_level");
+                    // For Manga OCR, also include min_region_width, min_region_height, and overlap_allowed_percent
+                    string command = $"read_image|{sourceLanguage}|{implementation}|char_level";
+                    if (ocrMethod == "Manga OCR")
+                    {
+                        int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
+                        int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
+                        double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
+                        command += $"|{minWidth}|{minHeight}|{overlapPercent}";
+                    }
+                    await SocketManager.Instance.SendDataAsync(command);
                 }
             }
             catch (Exception ex)
@@ -1495,6 +1739,9 @@ namespace UGTLive
                                 {
                                     // Update the corresponding text object
                                     matchingTextObj.TextTranslated = translatedText;
+
+                                    // Don't modify the original text orientation - it should remain as detected by OCR
+
                                     matchingTextObj.UpdateUIElement();
                                     Console.WriteLine($"Updated text object {id} with translation");
                                 }
@@ -1576,13 +1823,13 @@ namespace UGTLive
                 JsonElement textToProcess;
                 
                 // Different services have different response formats
-                if (currentService == "ChatGPT")
+                if (currentService == "ChatGPT" || currentService == "llama.cpp")
                 {
-                    // ChatGPT format: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
+                    // ChatGPT/llama.cpp format: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
                     if (doc.RootElement.TryGetProperty("translated_text", out JsonElement translatedTextElement))
                     {
                         string translatedTextJson = translatedTextElement.GetString() ?? "";
-                        Console.WriteLine($"ChatGPT translated_text: {translatedTextJson}");
+                        Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
                         
                         // If the translated_text is a JSON string, parse it
                         if (!string.IsNullOrEmpty(translatedTextJson) && 
@@ -1762,6 +2009,12 @@ namespace UGTLive
 
                 // Get the prompt template
                 string prompt = GetLlmPrompt();
+                
+                // Replace language placeholders in prompt with actual language names
+                string sourceLanguageName = GetLanguageName(GetSourceLanguage() ?? "en");
+                string targetLanguageName = GetLanguageName(GetTargetLanguage());
+                prompt = prompt.Replace("source_language", sourceLanguageName);
+                prompt = prompt.Replace("target_language", targetLanguageName);
                
                
                 // Log the LLM request
@@ -1843,6 +2096,33 @@ namespace UGTLive
             return "en";
         }
         
+        // Convert language code to full language name
+        private string GetLanguageName(string languageCode)
+        {
+            return languageCode.ToLower() switch
+            {
+                "ja" => "Japanese",
+                "en" => "English",
+                "ch_sim" => "Chinese",
+                "es" => "Spanish",
+                "fr" => "French",
+                "it" => "Italian",
+                "de" => "German",
+                "ru" => "Russian",
+                "id" => "Indonesian",
+                "pl" => "Polish",
+                "hi" => "Hindi",
+                "ko" => "Korean",
+                "vi" => "Vietnamese",
+                "ar" => "Arabic",
+                "tr" => "Turkish",
+                "pt" => "Portuguese",
+                "nl" => "Dutch",
+                "th" => "Thai",
+                _ => languageCode
+            };
+        }
+        
         // Get previous context based on configuration settings
         private List<string> GetPreviousContext()
         {
@@ -1863,6 +2143,20 @@ namespace UGTLive
             }
             
             return new List<string>();
+        }
+
+        private bool LanguageCanOnlyBeDrawnHorizontally(string language)
+        {
+            switch (language.ToLower())
+            {
+                case "ja": //japanese
+                case "ko": //korean
+                case "vi": //vietnamese
+                case "ch_sim": //chinese
+                    return false;
+                default:
+                    return true;
+            }
         }
     }
 }

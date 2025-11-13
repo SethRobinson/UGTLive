@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -12,6 +12,7 @@ using System.Drawing.Drawing2D;
 using System.Diagnostics;
 using System.Text;
 using System.Windows.Shell;
+using System.Threading.Tasks;
 using MessageBox = System.Windows.MessageBox;
 
 
@@ -73,7 +74,7 @@ namespace UGTLive
         private int previousCaptureY;
         
         // Auto translation
-        private bool isAutoTranslateEnabled = true;
+        private bool isAutoTranslateEnabled = false;
         
         // ChatBox management
         private ChatBoxWindow? chatBoxWindow;
@@ -192,6 +193,18 @@ namespace UGTLive
                 {
                     SetStatus("Using Windows OCR (built-in)");
                 }
+                else if (method == "Google Vision")
+                {
+                    SetStatus("Using Google Cloud Vision (non-local, costs $)");
+                }
+                else if (method == "Manga OCR")
+                {
+                    SetStatus("Using Manga OCR");
+                }
+                else if (method == "docTR")
+                {
+                    SetStatus("Using docTR");
+                }
                 else
                 {
                     SetStatus("Using EasyOCR");
@@ -208,6 +221,74 @@ namespace UGTLive
                 if (method == "Windows OCR")
                 {
                     SetStatus("Using Windows OCR (built-in)");
+                }
+                else if (method == "Google Vision")
+                {
+                    SetStatus("Using Google Cloud Vision (non-local, costs $)");
+                }
+                else if (method == "Manga OCR")
+                {
+                    SetStatus("Using Manga OCR");
+                    
+                    // Ensure we're connected when switching to Manga OCR
+                    if (!SocketManager.Instance.IsConnected)
+                    {
+                        Console.WriteLine("Socket not connected when switching to Manga OCR");
+                        _ = Task.Run(async () => {
+                            try {
+                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
+                                
+                                if (!reconnected || !SocketManager.Instance.IsConnected)
+                                {
+                                    // Only show an error message if explicitly requested by user action
+                                    Console.WriteLine("Failed to connect to socket server - Manga OCR will not be available");
+                                }
+
+                                
+                            }
+                            catch (Exception ex) {
+                                Console.WriteLine($"Error reconnecting: {ex.Message}");
+                                
+                                // Show an error message
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
+                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                });
+                            }
+                        });
+                    }
+                }
+                else if (method == "docTR")
+                {
+                    SetStatus("Using docTR");
+                    
+                    // Ensure we're connected when switching to docTR
+                    if (!SocketManager.Instance.IsConnected)
+                    {
+                        Console.WriteLine("Socket not connected when switching to docTR");
+                        _ = Task.Run(async () => {
+                            try {
+                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
+                                
+                                if (!reconnected || !SocketManager.Instance.IsConnected)
+                                {
+                                    // Only show an error message if explicitly requested by user action
+                                    Console.WriteLine("Failed to connect to socket server - docTR will not be available");
+                                }
+
+                                
+                            }
+                            catch (Exception ex) {
+                                Console.WriteLine($"Error reconnecting: {ex.Message}");
+                                
+                                // Show an error message
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
+                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                });
+                            }
+                        });
+                    }
                 }
                 else
                 {
@@ -311,6 +392,11 @@ namespace UGTLive
             KeyboardShortcuts.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
             KeyboardShortcuts.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
             KeyboardShortcuts.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
+            KeyboardShortcuts.ClearOverlaysRequested += (s, e) => {
+                Logic.Instance.ClearAllTextObjects();
+                MonitorWindow.Instance.RefreshOverlays();
+                Console.WriteLine("Overlays cleared (Shift+X)");
+            };
             
             // Set up global keyboard hook to handle shortcuts even when console has focus
             KeyboardShortcuts.InitializeGlobalHook();
@@ -379,9 +465,7 @@ namespace UGTLive
                 }
             }
             
-            // Initialize the Logic
-            Logic.Instance.Init();
-            
+           
             // Load OCR method from config
             string savedOcrMethod = ConfigManager.Instance.GetOcrMethod();
             Console.WriteLine($"MainWindow_Loaded: Loading OCR method from config: '{savedOcrMethod}'");
@@ -419,7 +503,10 @@ namespace UGTLive
             string configOcrMethod = ConfigManager.Instance.GetOcrMethod();
             Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
             ConfigManager.Instance.SetOcrMethod(configOcrMethod);
-            
+
+            // Initialize the Logic
+            Logic.Instance.Init();
+
             // Load language settings from config
             LoadLanguageSettingsFromConfig();
             
@@ -540,20 +627,32 @@ namespace UGTLive
                 isStarted = false;
                 btn.Content = "Start";
                 btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
-                //erase any active text objects
-                Logic.Instance.ClearAllTextObjects();
+                // Don't clear text objects when stopping - keep them for overlay switching
+                // Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.HideTranslationStatus();
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
+                
+                // Hide OCR status when stopping
+                MonitorWindow.Instance.HideOCRStatus();
+                
+                // Optional: Add a way to clear overlays manually if needed
+                // You could add a separate "Clear" button or keyboard shortcut
             }
             else
             {
+                // Clear old text objects when starting again
+                Logic.Instance.ClearAllTextObjects();
+                MonitorWindow.Instance.RefreshOverlays();
+                
                 isStarted = true;
                 btn.Content = "Stop";
                 UpdateCaptureRect();
                 SetOCRCheckIsWanted(true);
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
-
+                
+                // Show OCR status when starting
+                MonitorWindow.Instance.ShowOCRStatus();
             }
         }
 
@@ -632,25 +731,87 @@ namespace UGTLive
             }
         }
 
-        protected override void OnClosed(EventArgs e)
+        private bool _isShuttingDown = false;
+        
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Remove global keyboard hook
-            KeyboardShortcuts.CleanupGlobalHook();
-            
-            // Clean up MouseManager resources
-            MouseManager.Instance.Cleanup();
-            
-            Logic.Instance.Finish();
-            
-            // Make sure the console is closed
-            if (consoleWindow != IntPtr.Zero)
+            // If we're already shutting down, allow the close
+            if (_isShuttingDown)
             {
-                ShowWindow(consoleWindow, SW_HIDE);
+                base.OnClosing(e);
+                return;
             }
             
-            // Make sure the application exits when the main window is closed
-            System.Windows.Application.Current.Shutdown();
+            // Cancel the close for now
+            e.Cancel = true;
             
+            // Close Monitor window immediately before showing shutdown dialog
+            if (MonitorWindow.Instance.IsVisible)
+            {
+                MonitorWindow.Instance.ForceClose();
+            }
+            
+            // Show shutdown dialog
+            ShutdownDialog shutdownDialog = new ShutdownDialog();
+            shutdownDialog.Show();
+            shutdownDialog.UpdateStatus("Closing connections...");
+            
+            // Process UI messages to ensure dialog is visible
+            System.Windows.Application.Current.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+            
+            // Perform shutdown operations
+            PerformShutdown(shutdownDialog);
+        }
+        
+        private async void PerformShutdown(ShutdownDialog shutdownDialog)
+        {
+            try
+            {
+                // Remove global keyboard hook
+                shutdownDialog.UpdateStatus("Closing connections...");
+                await Task.Delay(50); // Small delay to allow UI update
+                KeyboardShortcuts.CleanupGlobalHook();
+                
+                shutdownDialog.UpdateStatus("Cleaning up resources...");
+                await Task.Delay(50);
+                MouseManager.Instance.Cleanup();
+                
+                shutdownDialog.UpdateStatus("Finalizing...");
+                await Task.Delay(50);
+                Logic.Instance.Finish();
+                
+                shutdownDialog.UpdateStatus("Stopping server...");
+                await Task.Delay(50);
+                ServerProcessManager.Instance.StopServer();
+                
+                // Make sure the console is closed
+                if (consoleWindow != IntPtr.Zero)
+                {
+                    ShowWindow(consoleWindow, SW_HIDE);
+                }
+                
+                // Close shutdown dialog
+                shutdownDialog.Close();
+                
+                // Mark as shutting down and close the window
+                _isShuttingDown = true;
+                this.Close();
+                
+                // Make sure the application exits
+                System.Windows.Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during shutdown: {ex.Message}");
+                shutdownDialog.Close();
+                _isShuttingDown = true;
+                this.Close();
+                System.Windows.Application.Current.Shutdown();
+            }
+        }
+        
+        protected override void OnClosed(EventArgs e)
+        {
             base.OnClosed(e);
         }
         
@@ -777,12 +938,21 @@ namespace UGTLive
                     stopwatch.Start();
 
                     SetOCRCheckIsWanted(false);
+                    
+                    // Notify that OCR is starting
+                    MonitorWindow.Instance.NotifyOCRStarted();
 
-                    // Check if we're using Windows OCR - if so, process in memory without saving
-                    if (GetSelectedOcrMethod() == "Windows OCR")
+                    // Check if we're using Windows OCR or Google Vision - if so, process in memory without saving
+                    string ocrMethod = GetSelectedOcrMethod();
+                    if (ocrMethod == "Windows OCR")
                     {
                         string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
                         Logic.Instance.ProcessWithWindowsOCR(bitmap, sourceLanguage);
+                    }
+                    else if (ocrMethod == "Google Vision")
+                    {
+                        string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
+                        Logic.Instance.ProcessWithGoogleVision(bitmap, sourceLanguage);
                     }
                     else
                     {
@@ -875,7 +1045,8 @@ namespace UGTLive
         {
             if (sender is System.Windows.Controls.ComboBox comboBox)
             {
-                string? ocrMethod = (comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+                // Get internal ID from Tag property
+                string? ocrMethod = (comboBox.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag?.ToString();
                 
                 if (!string.IsNullOrEmpty(ocrMethod))
                 {
@@ -893,6 +1064,32 @@ namespace UGTLive
                         // Using Windows OCR, no need for socket connection
                         SocketManager.Instance.Disconnect();
                         SetStatus("Using Windows OCR (built-in)");
+                    }
+                    else if (ocrMethod == "Manga OCR")
+                    {
+                        // Using Manga OCR, try to connect to the socket server
+                        if (!SocketManager.Instance.IsConnected)
+                        {
+                            _ = SocketManager.Instance.TryReconnectAsync();
+                            SetStatus("Connecting to Python backend for Manga OCR...");
+                        }
+                        else
+                        {
+                            SetStatus("Using Manga OCR");
+                        }
+                    }
+                    else if (ocrMethod == "docTR")
+                    {
+                        // Using docTR, try to connect to the socket server
+                        if (!SocketManager.Instance.IsConnected)
+                        {
+                            _ = SocketManager.Instance.TryReconnectAsync();
+                            SetStatus("Connecting to Python backend for docTR...");
+                        }
+                        else
+                        {
+                            SetStatus("Using docTR");
+                        }
                     }
                     else
                     {

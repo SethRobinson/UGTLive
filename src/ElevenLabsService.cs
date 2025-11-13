@@ -20,20 +20,7 @@ namespace UGTLive
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl = "https://api.elevenlabs.io/v1";
         
-        // Dictionary of default voices with their IDs
-        public static readonly Dictionary<string, string> DefaultVoices = new Dictionary<string, string>
-        {
-            { "Rachel", "21m00Tcm4TlvDq8ikWAM" },
-            { "Domi", "AZnzlk1XvdvUeBnXmlld" },
-            { "Bella", "EXAVITQu4vr4xnSDxMaL" },
-            { "Antoni", "ErXwobaYiN019PkySvjV" },
-            { "Elli", "MF3mGyEYCl7XYWbV9V6O" },
-            { "Josh", "TxGEqnHWrfWFTfGW9XjX" },
-            { "Arnold", "VR6AewLTigWG4xSOukaG" },
-            { "Adam", "pNInz6obpgDQGcFmaJgB" },
-            { "Sam", "yoZ06aMxZJJ28mfd3POQ" }
-        };
-        
+    
         public static ElevenLabsService Instance
         {
             get
@@ -73,23 +60,39 @@ namespace UGTLive
                 
                 // Get voice ID
                 string voice = ConfigManager.Instance.GetElevenLabsVoice();
+
+                // Override with custom voice ID if enabled
+                try
+                {
+                    if (ConfigManager.Instance.GetElevenLabsUseCustomVoiceId())
+                    {
+                        string customVoice = ConfigManager.Instance.GetElevenLabsCustomVoiceId();
+                        if (!string.IsNullOrWhiteSpace(customVoice))
+                        {
+                            voice = customVoice;
+                        }
+                    }
+                }
+                catch {}
                 
                 // Set API key in headers
                 _httpClient.DefaultRequestHeaders.Remove("xi-api-key");
                 _httpClient.DefaultRequestHeaders.Add("xi-api-key", apiKey);
                 
                 // Ensure we have a valid voice ID
-                if (string.IsNullOrWhiteSpace(voice) || !DefaultVoices.ContainsValue(voice))
+                if (string.IsNullOrWhiteSpace(voice) )
                 {
                     // Use Rachel as default
-                    voice = DefaultVoices["Rachel"];
+                    voice = "21m00Tcm4TlvDq8ikWAM"; //rachel
                 }
                 
                 // Create request payload
                 var requestData = new
                 {
                     text = text,
-                    model_id = "eleven_multilingual_v2",
+                    //model_id = "eleven_multilingual_v2",
+                    //model_id = "eleven_v2_5_flash",
+                    model_id = "eleven_v3",
                     voice_settings = new
                     {
                         stability = 0.5,

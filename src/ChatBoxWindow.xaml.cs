@@ -743,7 +743,6 @@ namespace UGTLive
             this.Dispatcher.Invoke(() => 
             {
                 // Get styling from window's properties and config
-                var fontFamily = this.FontFamily;
                 var fontSize = this.ChatFontSize;
                 var originalTextColor = ConfigManager.Instance.GetOriginalTextColor();
                 var translatedTextColor = ConfigManager.Instance.GetTranslatedTextColor();
@@ -813,10 +812,15 @@ namespace UGTLive
                         // Create a run for the original text
                         Run originalRun = new Run(entry.OriginalText);
                         
+                        // Get source language font settings
+                        string sourceFontFamily = ConfigManager.Instance.GetSourceLanguageFontFamily();
+                        bool sourceFontBold = ConfigManager.Instance.GetSourceLanguageFontBold();
+                        
                         // Format it appropriately
                         originalRun.Foreground = new SolidColorBrush(originalTextColor);
-                        originalRun.FontFamily = fontFamily;
+                        originalRun.FontFamily = new FontFamily(sourceFontFamily);
                         originalRun.FontSize = Math.Max(fontSize - 2, 10);
+                        originalRun.FontWeight = sourceFontBold ? FontWeights.Bold : FontWeights.Normal;
                         
                         // Add it to the paragraph
                         para.Inlines.Add(originalRun);
@@ -834,11 +838,15 @@ namespace UGTLive
                         // Create a run for the translated text
                         Run translatedRun = new Run(entry.TranslatedText);
                         
+                        // Get target language font settings
+                        string targetFontFamily = ConfigManager.Instance.GetTargetLanguageFontFamily();
+                        bool targetFontBold = ConfigManager.Instance.GetTargetLanguageFontBold();
+                        
                         // Format it appropriately
                         translatedRun.Foreground = new SolidColorBrush(translatedTextColor);
-                        translatedRun.FontFamily = fontFamily;
+                        translatedRun.FontFamily = new FontFamily(targetFontFamily);
                         translatedRun.FontSize = fontSize;
-                        translatedRun.FontWeight = FontWeights.SemiBold;
+                        translatedRun.FontWeight = targetFontBold ? FontWeights.Bold : FontWeights.SemiBold;
                         
                         // Add it to the paragraph
                         para.Inlines.Add(translatedRun);

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -5,15 +6,32 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
+using System.Windows.Input;
+using Microsoft.Web.WebView2.Wpf;
+using Color = System.Windows.Media.Color;
+using System.Diagnostics;
+using System.Text;
 
 
 namespace UGTLive
 {
+    public enum OverlayMode
+    {
+        Hide,
+        Source,
+        Translated
+    }
+    
     public partial class MonitorWindow : Window
     {
         private double currentZoom = 1.0;
         private const double zoomIncrement = 0.1;
         private string lastImagePath = string.Empty;
+        private readonly Dictionary<string, Border> _overlayElements = new();
+        private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
+        private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -29,6 +47,18 @@ namespace UGTLive
             }
         }
         
+        // Flag to allow proper closing during shutdown
+        private bool _isShuttingDown = false;
+        
+        public void ForceClose()
+        {
+            _isShuttingDown = true;
+            Close();
+        }
+        
+        // Getter for current overlay mode
+        public OverlayMode CurrentOverlayMode => _currentOverlayMode;
+        
         // Settle time is stored in ConfigManager, no need for a local variable
         
         public MonitorWindow()
@@ -40,6 +70,12 @@ namespace UGTLive
             InitializeComponent();
             
             Console.WriteLine("MonitorWindow constructor started");
+
+            PopulateOcrMethodOptions();
+            if (ocrMethodComboBox.Items.Count > 0)
+            {
+                ocrMethodComboBox.SelectedIndex = 0;
+            }
             
             // Subscribe to TextObject events from Logic
             //Logic.Instance.TextObjectAdded += CreateMonitorOverlayFromTextObject;
@@ -64,6 +100,9 @@ namespace UGTLive
             
             // Add KeyDown event handlers for TextBoxes to handle Enter key
             zoomTextBox.KeyDown += TextBox_KeyDown;
+            
+            // Add MouseWheel event handler for Ctrl+Wheel zoom
+            this.MouseWheel += MonitorWindow_MouseWheel;
 
             SocketManager.Instance.ConnectionChanged += OnSocketConnectionChanged;
 
@@ -78,6 +117,21 @@ namespace UGTLive
             this.PreviewKeyDown += Application_KeyDown;
 
             Console.WriteLine("MonitorWindow constructor completed");
+        }
+
+        private void PopulateOcrMethodOptions()
+        {
+            ocrMethodComboBox.Items.Clear();
+
+            foreach (string method in ConfigManager.SupportedOcrMethods)
+            {
+                string displayName = ConfigManager.GetOcrMethodDisplayName(method);
+                ocrMethodComboBox.Items.Add(new ComboBoxItem 
+                { 
+                    Content = displayName,
+                    Tag = method  // Store internal ID in Tag
+                });
+            }
         }
 
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
@@ -97,6 +151,15 @@ namespace UGTLive
         private DispatcherTimer? _translationStatusTimer;
         private DateTime _translationStartTime;
         
+        // OCR timing and FPS tracking
+        private DateTime _lastOCRTime = DateTime.MinValue;
+        private DateTime _currentOCRStartTime = DateTime.MinValue;
+        private readonly Queue<double> _ocrFrameTimes = new Queue<double>();
+        private const int MAX_FPS_SAMPLES = 10; // Keep last 10 samples for averaging
+        private bool _isOCRActive = false;
+        private DispatcherTimer? _ocrStatusTimer;
+        private bool _isShowingSettling = false; // Track if settling message is showing
+        
         // OCR Method Selection Changed
         public void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -110,7 +173,8 @@ namespace UGTLive
             
             if (ocrMethodComboBox.SelectedItem == null) return;
             
-            string? ocrMethod = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            // Get internal ID from Tag property
+            string? ocrMethod = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
             if (string.IsNullOrEmpty(ocrMethod)) return;
             
             // Reset the OCR hash to force a fresh comparison after changing OCR method
@@ -138,13 +202,30 @@ namespace UGTLive
                     }
                 });
             }
+            else if (ocrMethod == "Google Vision")
+            {
+                // Using Google Vision API, no need for socket connection
+                _ = Task.Run(() => 
+                {
+                    try
+                    {
+                       SocketManager.Instance.Disconnect();
+                        UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error disconnecting socket: {ex.Message}");
+                    }
+                });
+            }
             else
             {
                 // Using EasyOCR, check connection status first
                 _ = Task.Run(async () => 
                 {
-                   
-                        Console.WriteLine("Switching to EasyOCR, checking socket connection...");
+                    try
+                    {
+                        Console.WriteLine("Checking local socket connection...");
 
                         // If already connected, we're good to go
                         if (SocketManager.Instance.IsConnected)
@@ -159,7 +240,24 @@ namespace UGTLive
 
                         // Connect without disconnecting first (TryReconnectAsync handles cleanup)
                         bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                   
+                        
+                        // Update status based on reconnection result
+                        if (reconnected && SocketManager.Instance.IsConnected)
+                        {
+                            Console.WriteLine("Successfully connected to socket server");
+                            UpdateStatus("Connected to Python backend");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to connect to socket server - will retry when needed");
+                            UpdateStatus("Not connected to Python backend");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during socket reconnection: {ex.Message}");
+                        UpdateStatus("Error connecting to Python backend");
+                    }
                 });
             }
             
@@ -216,6 +314,21 @@ namespace UGTLive
             PreviewKeyDown -= Application_KeyDown;
             PreviewKeyDown += Application_KeyDown;
             
+            // Hook into Windows messages to intercept WM_MOUSEWHEEL before WebView2 handles it
+            HwndSource source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+            if (source != null)
+            {
+                source.AddHook(WndProc);
+            }
+
+            // Store window handle for low-level hook
+            _monitorWindowHandle = new WindowInteropHelper(this).Handle;
+
+            // Install low-level mouse hook to catch messages before they reach WebView2
+            _mouseHookProc = LowLevelMouseHookProc;
+            _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseHookProc, 
+                GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName), 0);
+            
             // Try to load the last screenshot if available
             if (!string.IsNullOrEmpty(lastImagePath) && File.Exists(lastImagePath))
             {
@@ -233,16 +346,16 @@ namespace UGTLive
                 // a new connection while initializing
                 ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
                 
-                // Find the matching ComboBoxItem
+                // Find the matching ComboBoxItem by Tag (internal ID)
                 bool foundMatch = false;
                 foreach (ComboBoxItem comboItem in ocrMethodComboBox.Items)
                 {
-                    string itemText = comboItem.Content.ToString() ?? "";
-                    Console.WriteLine($"Comparing OCR method: '{itemText}' with config value: '{ocrMethod}'");
+                    string itemId = comboItem.Tag?.ToString() ?? "";
+                    Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
                     
-                    if (string.Equals(itemText, ocrMethod, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(itemId, ocrMethod, StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Found matching OCR method: '{itemText}'");
+                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
                         ocrMethodComboBox.SelectedItem = comboItem;
                         foundMatch = true;
                         break;
@@ -254,14 +367,14 @@ namespace UGTLive
                     Console.WriteLine($"WARNING: Could not find OCR method '{ocrMethod}' in ComboBox. Available items:");
                     foreach (ComboBoxItem listItem in ocrMethodComboBox.Items)
                     {
-                        Console.WriteLine($"  - '{listItem.Content}'");
+                        Console.WriteLine($"  - '{listItem.Tag}' (display: '{listItem.Content}')");
                     }
                 }
                 
                 // Log what we actually set
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Content}'");
+                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
                 }
                 
                 // Re-attach the event handler
@@ -270,12 +383,44 @@ namespace UGTLive
                 // Make sure MainWindow has the same OCR method
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedComboItem)
                 {
-                    string selectedOcrMethod = selectedComboItem.Content.ToString() ?? "";
+                    string selectedOcrMethod = selectedComboItem.Tag?.ToString() ?? "";
                     MainWindow.Instance.SetOcrMethod(selectedOcrMethod);
                 }
                 
                 // Get auto-translate state from MainWindow
                 bool isTranslateEnabled = MainWindow.Instance.GetTranslateEnabled();
+                
+                // Load overlay mode from config
+                string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
+                Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                
+                // Temporarily remove event handlers to prevent triggering saves during initialization
+                overlayHideRadio.Checked -= OverlayRadioButton_Checked;
+                overlaySourceRadio.Checked -= OverlayRadioButton_Checked;
+                overlayTranslatedRadio.Checked -= OverlayRadioButton_Checked;
+                
+                // Set the appropriate radio button based on config
+                switch (overlayMode)
+                {
+                    case "Hide":
+                        _currentOverlayMode = OverlayMode.Hide;
+                        overlayHideRadio.IsChecked = true;
+                        break;
+                    case "Source":
+                        _currentOverlayMode = OverlayMode.Source;
+                        overlaySourceRadio.IsChecked = true;
+                        break;
+                    case "Translated":
+                    default: // Default to Translated if not set or invalid
+                        _currentOverlayMode = OverlayMode.Translated;
+                        overlayTranslatedRadio.IsChecked = true;
+                        break;
+                }
+                
+                // Reattach event handlers
+                overlayHideRadio.Checked += OverlayRadioButton_Checked;
+                overlaySourceRadio.Checked += OverlayRadioButton_Checked;
+                overlayTranslatedRadio.Checked += OverlayRadioButton_Checked;
                 
                 // Initialization complete, now we can save settings changes
                 _isInitializing = false;
@@ -314,6 +459,32 @@ namespace UGTLive
         {
             // Update scrollbars when window size changes
             UpdateScrollViewerSettings();
+        }
+        
+        // Handle Ctrl+MouseWheel for zooming
+        private void MonitorWindow_MouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            // Only handle wheel events when Ctrl is pressed
+            if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+            {
+                // Determine zoom direction based on wheel delta
+                if (e.Delta > 0)
+                {
+                    // Scroll up = Zoom in
+                    currentZoom += zoomIncrement;
+                }
+                else if (e.Delta < 0)
+                {
+                    // Scroll down = Zoom out
+                    currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
+                }
+                
+                // Apply the new zoom level
+                ApplyZoom();
+                
+                // Mark the event as handled to prevent scrolling
+                e.Handled = true;
+            }
         }
         
         // Update the monitor with a bitmap directly (no file saving required)
@@ -566,28 +737,99 @@ namespace UGTLive
                     return;
                 }
                 
-                // We need to create a NEW UI element with positioning appropriate for Canvas
-                // but we'll use the existing Border and TextBlock references so updates work
-                if (textObject.Border != null)
+                // Store original colors if not already stored
+                if (!_originalColors.ContainsKey(textObject.ID))
                 {
-                    // Reset margin to zero - we'll position with Canvas instead
-                    textObject.Border.Margin = new Thickness(0);
-                    
-                    // Position the element on the canvas using Canvas.SetLeft/Top
-                    Canvas.SetLeft(textObject.Border, textObject.X);
-                    Canvas.SetTop(textObject.Border, textObject.Y);
-                    
-                    // Add to canvas
-                    textOverlayCanvas.Children.Add(textObject.Border);
-                    
-                    // Add additional status update when text is copied
-                    textObject.Border.MouseLeftButtonDown += (s, e) => {
-                        UpdateStatus("Text copied to clipboard");
-                    };
+                    _originalColors[textObject.ID] = (
+                        textObject.BackgroundColor?.Clone() ?? new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)),
+                        textObject.TextColor?.Clone() ?? new SolidColorBrush(Colors.White)
+                    );
+                }
+                
+                // Get original colors
+                var (originalBgColor, originalTextColor) = _originalColors[textObject.ID];
+                
+                // Apply override colors if enabled, otherwise restore originals
+                if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                {
+                    Color overrideBgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                    textObject.BackgroundColor = new SolidColorBrush(overrideBgColor);
                 }
                 else
                 {
+                    // Restore original background color
+                    textObject.BackgroundColor = originalBgColor.Clone();
+                }
+                
+                if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                {
+                    Color overrideFontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                    textObject.TextColor = new SolidColorBrush(overrideFontColor);
+                }
+                else
+                {
+                    // Restore original text color
+                    textObject.TextColor = originalTextColor.Clone();
+                }
+                
+                // We need to create a NEW UI element with positioning appropriate for Canvas
+                // but we'll use the existing Border and WebView references so updates work
+                Border? border = textObject.Border;
+                if (border == null || border.Child == null)
+                {
+                    textObject.CreateUIElement(useRelativePosition: false);
+                    border = textObject.Border;
+                }
+                else
+                {
+                    // Update existing UI element with current colors (override or original)
+                    border.Background = textObject.BackgroundColor;
+                }
+                
+                // Update WebView overlays with the current overlay mode
+                // This ensures correct text and orientation are displayed
+                if (textObject.WebView != null)
+                {
+                    textObject.UpdateUIElement(_currentOverlayMode);
+                }
+
+                if (border == null)
+                {
                     Console.WriteLine("Warning: TextObject.Border is null");
+                    return;
+                }
+
+                border.Margin = new Thickness(0);
+
+                textObject.TextCopied -= TextObject_TextCopied;
+                textObject.TextCopied += TextObject_TextCopied;
+
+                if (!_overlayElements.TryGetValue(textObject.ID, out Border? existingBorder) || existingBorder != border)
+                {
+                    if (existingBorder != null)
+                    {
+                        textOverlayCanvas.Children.Remove(existingBorder);
+                    }
+
+                    if (!textOverlayCanvas.Children.Contains(border))
+                    {
+                        textOverlayCanvas.Children.Add(border);
+                    }
+
+                    _overlayElements[textObject.ID] = border;
+                }
+
+                Canvas.SetLeft(border, textObject.X);
+                Canvas.SetTop(border, textObject.Y);
+                
+                // Set visibility last, after all content updates and positioning
+                if (_currentOverlayMode == OverlayMode.Hide)
+                {
+                    border.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    border.Visibility = Visibility.Visible;
                 }
             }
             catch (Exception ex)
@@ -597,6 +839,11 @@ namespace UGTLive
             }
         }
         
+        private void TextObject_TextCopied(object? sender, EventArgs e)
+        {
+            UpdateStatus("Text copied to clipboard");
+        }
+
         // Zoom controls
         private void ZoomInButton_Click(object sender, RoutedEventArgs e)
         {
@@ -610,16 +857,510 @@ namespace UGTLive
             ApplyZoom();
         }
         
+        // View in Browser button handler
+        private void ViewInBrowserButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportToBrowser();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error exporting to browser: {ex.Message}");
+                UpdateStatus($"Export failed: {ex.Message}");
+            }
+        }
+        
+        // Export current view to browser
+        private void ExportToBrowser()
+        {
+            // Check if we have an image to export
+            if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
+            {
+                UpdateStatus("No image to export");
+                return;
+            }
+            
+            // Create temp directory
+            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+            Directory.CreateDirectory(tempDir);
+            
+            // Generate filenames with timestamp to avoid conflicts
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string imagePath = Path.Combine(tempDir, $"monitor_image_{timestamp}.png");
+            string htmlPath = Path.Combine(tempDir, $"monitor_view_{timestamp}.html");
+            
+            // Save the image with zoom applied
+            SaveImageWithZoom(bitmapSource, imagePath);
+            
+            // Generate HTML
+            string html = GenerateHtml(imagePath, bitmapSource.PixelWidth, bitmapSource.PixelHeight);
+            
+            // Save HTML
+            File.WriteAllText(htmlPath, html);
+            
+            // Open in browser
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = htmlPath,
+                UseShellExecute = true
+            });
+            
+            UpdateStatus($"Exported to browser: {Path.GetFileName(htmlPath)}");
+        }
+        
+        private void SaveImageWithZoom(BitmapSource source, string path)
+        {
+            // Create a new bitmap with zoom applied
+            int width = (int)(source.PixelWidth * currentZoom);
+            int height = (int)(source.PixelHeight * currentZoom);
+            
+            // Create a DrawingVisual to render the zoomed image
+            DrawingVisual visual = new DrawingVisual();
+            using (DrawingContext context = visual.RenderOpen())
+            {
+                context.DrawImage(source, new Rect(0, 0, width, height));
+            }
+            
+            // Render to bitmap
+            RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
+                width, height, 96, 96, PixelFormats.Pbgra32);
+            renderBitmap.Render(visual);
+            
+            // Save as PNG
+            PngBitmapEncoder encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+            
+            using (FileStream stream = new FileStream(path, FileMode.Create))
+            {
+                encoder.Save(stream);
+            }
+        }
+        
+        private string GenerateHtml(string imagePath, int originalWidth, int originalHeight)
+        {
+            StringBuilder html = new StringBuilder();
+            
+            // Get relative path for the image
+            string imageFileName = Path.GetFileName(imagePath);
+            
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset=\"UTF-8\">");
+            html.AppendLine("<title>UGTLive Monitor View</title>");
+            html.AppendLine("<style>");
+            
+            // CSS styles
+            html.AppendLine("body { margin: 0; padding: 0; background-color: #000; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }");
+            html.AppendLine(".content-wrapper { display: flex; flex-direction: column; align-items: center; padding-top: 60px; }");
+            html.AppendLine(".container { position: relative; display: inline-block; transform: translateZ(0); will-change: auto; }");
+            html.AppendLine(".monitor-image { display: block; transform: translateZ(0); will-change: auto; }");
+            html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: hidden; }");
+            html.AppendLine(".text-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
+            html.AppendLine(".controls-container { position: fixed; top: 10px; left: 0; right: 0; z-index: 1000; display: flex; justify-content: center; }");
+            html.AppendLine(".controls { background-color: #202020; padding: 10px 20px; border-radius: 5px; display: inline-block; }");
+            html.AppendLine(".controls button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }");
+            html.AppendLine(".controls label { color: white; margin-right: 15px; cursor: pointer; display: inline-block; }");
+            html.AppendLine(".controls input[type='radio'] { margin-right: 5px; cursor: pointer; }");
+            html.AppendLine(".footer { background-color: rgba(0,0,0,0.8); color: white; padding: 10px; text-align: center; font-size: 14px; width: 100%; }");
+            html.AppendLine(".footer a { color: #00aaff; text-decoration: none; }");
+            html.AppendLine(".footer a:hover { text-decoration: underline; }");
+            
+            // Add font imports if needed
+            html.AppendLine("</style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            
+            // Controls container
+            html.AppendLine("<div class=\"controls-container\">");
+            html.AppendLine("<div class=\"controls\">");
+            // Set radio button checked state based on current overlay mode
+            string hideChecked = _currentOverlayMode == OverlayMode.Hide ? " checked" : "";
+            string sourceChecked = _currentOverlayMode == OverlayMode.Source ? " checked" : "";
+            string translatedChecked = _currentOverlayMode == OverlayMode.Translated ? " checked" : "";
+            
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"hide\" onchange=\"setOverlayMode('hide')\"{hideChecked}> Hide</label>");
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"source\" onchange=\"setOverlayMode('source')\"{sourceChecked}> Source</label>");
+            html.AppendLine($"<label><input type=\"radio\" name=\"overlayMode\" value=\"translated\" onchange=\"setOverlayMode('translated')\"{translatedChecked}> Translated</label>");
+            html.AppendLine("</div>");
+            html.AppendLine("</div>");
+            
+            // Content wrapper for centering
+            html.AppendLine("<div class=\"content-wrapper\">");
+            
+            // Container with image
+            html.AppendLine("<div class=\"container\">");
+            html.AppendLine($"<img class=\"monitor-image\" src=\"{imageFileName}\" width=\"{(int)(originalWidth * currentZoom)}\" height=\"{(int)(originalHeight * currentZoom)}\">");
+            
+            // Add text overlays
+            foreach (var kvp in _overlayElements)
+            {
+                string textObjectId = kvp.Key;
+                Border border = kvp.Value;
+                
+                // Get the corresponding TextObject
+                TextObject? textObj = Logic.Instance.GetTextObjects().FirstOrDefault(t => t.ID == textObjectId);
+                if (textObj == null) continue;
+                
+                // Get position with zoom applied
+                double left = Canvas.GetLeft(border) * currentZoom;
+                double top = Canvas.GetTop(border) * currentZoom;
+                
+                // Use TextObject dimensions when border is collapsed (Hidden mode)
+                // If ActualWidth/Height are 0 (collapsed), use TextObject dimensions
+                double width = border.ActualWidth > 0 
+                    ? border.ActualWidth * currentZoom
+                    : textObj.Width > 0 
+                        ? textObj.Width * currentZoom 
+                        : 200 * currentZoom; // Default fallback width
+                        
+                double height = border.ActualHeight > 0 
+                    ? border.ActualHeight * currentZoom
+                    : textObj.Height > 0 
+                        ? textObj.Height * currentZoom 
+                        : 100 * currentZoom; // Default fallback height
+                
+                // Get colors
+                string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
+                string textColor = ColorToHex(textObj.TextColor?.Color ?? Colors.White);
+                
+                // Determine font settings based on translation state
+                bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
+                string fontFamily = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                bool isBold = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                    : ConfigManager.Instance.GetSourceLanguageFontBold();
+                
+                // Get both source and translated text
+                string sourceText = textObj.Text;
+                string translatedText = textObj.TextTranslated;
+                
+                // Escape both texts for HTML
+                string escapedSourceText = System.Web.HttpUtility.HtmlEncode(sourceText).Replace("\n", "<br>");
+                string escapedTranslatedText = System.Web.HttpUtility.HtmlEncode(translatedText).Replace("\n", "<br>");
+                
+                // Default to source text for initial display (matching the radio button default)
+                string displayText = escapedSourceText;
+                
+                // Calculate font size with zoom
+                double fontSize = 24 * currentZoom; // Default font size with zoom
+                
+                // Generate overlay div with unique ID for text fitting and data attributes for both texts
+                html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObjectId}\" " +
+                    $"data-source-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceText)}\" " +
+                    $"data-translated-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(translatedText)}\" " +
+                    $"data-original-font-size=\"{fontSize}\" style=\"");
+                html.AppendLine($"  left: {left}px;");
+                html.AppendLine($"  top: {top}px;");
+                html.AppendLine($"  width: {width}px;");
+                html.AppendLine($"  height: {height}px;");
+                html.AppendLine($"  background-color: {bgColor};");
+                html.AppendLine($"  color: {textColor};");
+                html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
+                html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
+                html.AppendLine($"  font-size: {fontSize}px;");
+                html.AppendLine($"  padding: 0;");
+                html.AppendLine($"  margin: 0;");
+                html.AppendLine($"  line-height: 1.2;");
+                
+                // Add data attributes for orientation
+                html.AppendLine($"\" data-orientation=\"{textObj.TextOrientation}\">");
+                
+                // Add inner div for text content with orientation support
+                string initialOrientation = textObj.TextOrientation;
+                
+                // Only modify orientation if we're in Translated mode AND showing translated text
+                if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) && textObj.TextOrientation == "vertical")
+                {
+                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                    if (!IsVerticalSupportedLanguage(targetLang))
+                    {
+                        initialOrientation = "horizontal";
+                    }
+                }
+                
+                html.AppendLine($"<div class=\"text-content\" style=\"");
+                if (initialOrientation == "vertical")
+                {
+                    html.AppendLine($"  writing-mode: vertical-rl;");
+                    html.AppendLine($"  text-orientation: upright;");
+                    html.AppendLine($"  display: flex;");
+                    html.AppendLine($"  align-items: center;");
+                    html.AppendLine($"  justify-content: center;");
+                    html.AppendLine($"  width: 100%;");
+                    html.AppendLine($"  height: 100%;");
+                }
+                
+                html.AppendLine($"\">");
+                html.AppendLine($"<span class=\"overlay-content\">{displayText}</span>");
+                html.AppendLine("</div>");
+                html.AppendLine("</div>");
+            }
+            
+            html.AppendLine("</div>"); // End container
+            
+            // Footer
+            html.AppendLine("<div class=\"footer\">");
+            html.AppendLine("Generated by UGTLive - ");
+            html.AppendLine("<a href=\"https://github.com/SethRobinson/UGTLive\" target=\"_blank\">https://github.com/SethRobinson/UGTLive</a>");
+            html.AppendLine("<br><br>");
+            html.AppendLine("Studying Japanese and want a nice Chrome/Brave plugin that will explain Kanji?  Grab <a href=\"https://chromewebstore.google.com/detail/10ten-japanese-reader-rik/pnmaklegiibbioifkmfkgpfnmdehdfan\" target=\"_blank\">10ten Japanese Reader</a>.  After installing, click Manage Extensions, Details and set \"Allow access to file URLs\" to on.");
+            html.AppendLine("</div>");
+            
+            html.AppendLine("</div>"); // End content-wrapper
+            
+            // JavaScript
+            html.AppendLine("<script>");
+            // Set initial mode based on current overlay mode
+            string initialMode = _currentOverlayMode switch
+            {
+                OverlayMode.Hide => "hide",
+                OverlayMode.Translated => "translated",
+                _ => "source"
+            };
+            html.AppendLine($"let currentOverlayMode = '{initialMode}';");
+            html.AppendLine("");
+            // Add target language info for JavaScript
+            string targetLangCode = ConfigManager.Instance.GetTargetLanguage().ToLower();
+            bool targetSupportsVertical = IsVerticalSupportedLanguage(targetLangCode);
+            html.AppendLine($"const targetSupportsVertical = {(targetSupportsVertical ? "true" : "false")};");
+            html.AppendLine("");
+            
+            html.AppendLine("function setOverlayMode(mode) {");
+            html.AppendLine("  currentOverlayMode = mode;");
+            html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
+            html.AppendLine("  ");
+            html.AppendLine("  for (let overlay of overlays) {");
+            html.AppendLine("    if (mode === 'hide') {");
+            html.AppendLine("      overlay.style.display = 'none';");
+            html.AppendLine("    } else {");
+            html.AppendLine("      overlay.style.display = 'block';");
+            html.AppendLine("      ");
+            html.AppendLine("      // Get the appropriate text based on mode");
+            html.AppendLine("      const sourceText = overlay.getAttribute('data-source-text') || '';");
+            html.AppendLine("      const translatedText = overlay.getAttribute('data-translated-text') || '';");
+            html.AppendLine("      const originalOrientation = overlay.getAttribute('data-orientation') || 'horizontal';");
+            html.AppendLine("      const contentSpan = overlay.querySelector('.overlay-content');");
+            html.AppendLine("      const textContentDiv = overlay.querySelector('.text-content');");
+            html.AppendLine("      ");
+            html.AppendLine("      if (contentSpan) {");
+            html.AppendLine("        if (mode === 'translated' && translatedText) {");
+            html.AppendLine("          contentSpan.innerHTML = translatedText.replace(/\\n/g, '<br>');");
+            html.AppendLine("        } else {");
+            html.AppendLine("          // Default to source for 'source' mode or when translated is empty");
+            html.AppendLine("          contentSpan.innerHTML = sourceText.replace(/\\n/g, '<br>');");
+            html.AppendLine("        }");
+            html.AppendLine("      }");
+            html.AppendLine("      ");
+            html.AppendLine("      // Handle orientation");
+            html.AppendLine("      if (textContentDiv) {");
+            html.AppendLine("        if (mode === 'source' || (mode === 'translated' && !translatedText)) {");
+            html.AppendLine("          // Show source orientation");
+            html.AppendLine("          if (originalOrientation === 'vertical') {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("          } else {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("          }");
+            html.AppendLine("        } else if (mode === 'translated') {");
+            html.AppendLine("          // For translated, check if target supports vertical");
+            html.AppendLine("          if (originalOrientation === 'vertical' && targetSupportsVertical) {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("          } else {");
+            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("          }");
+            html.AppendLine("        }");
+            html.AppendLine("      }");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  // Refit text after changing content");
+            html.AppendLine("  if (mode !== 'hide') {");
+            html.AppendLine("    setTimeout(fitAllText, 0);");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Function to scale text to fit within its container");
+            html.AppendLine("function fitTextToContainer(overlay) {");
+            html.AppendLine("  try {");
+            html.AppendLine("    const originalFontSize = parseFloat(overlay.getAttribute('data-original-font-size')) || parseFloat(getComputedStyle(overlay).fontSize);");
+            html.AppendLine("    const containerWidth = overlay.offsetWidth;");
+            html.AppendLine("    const containerHeight = overlay.offsetHeight;");
+            html.AppendLine("    ");
+            html.AppendLine("    if (containerWidth <= 0 || containerHeight <= 0) return;");
+            html.AppendLine("    ");
+            html.AppendLine("    // Check if this is vertical text");
+            html.AppendLine("    const computedStyle = getComputedStyle(overlay);");
+            html.AppendLine("    const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
+            html.AppendLine("    ");
+            html.AppendLine("    // Temporarily change overflow to auto to measure scroll dimensions");
+            html.AppendLine("    const originalOverflow = overlay.style.overflow;");
+            html.AppendLine("    overlay.style.overflow = 'auto';");
+            html.AppendLine("    ");
+            html.AppendLine("    // Check current scroll dimensions");
+            html.AppendLine("    const scrollWidth = overlay.scrollWidth;");
+            html.AppendLine("    const scrollHeight = overlay.scrollHeight;");
+            html.AppendLine("    ");
+            html.AppendLine("    // Restore overflow");
+            html.AppendLine("    overlay.style.overflow = originalOverflow || 'hidden';");
+            html.AppendLine("    ");
+            html.AppendLine("    // Check if text already fits");
+            html.AppendLine("    const fitsWidth = scrollWidth <= containerWidth;");
+            html.AppendLine("    const fitsHeight = scrollHeight <= containerHeight;");
+            html.AppendLine("    ");
+            html.AppendLine("    if (fitsWidth && fitsHeight) {");
+            html.AppendLine("      return; // Text already fits");
+            html.AppendLine("    }");
+            html.AppendLine("    ");
+            html.AppendLine("    // Calculate scale factor needed");
+            html.AppendLine("    let scaleFactor = 1;");
+            html.AppendLine("    if (!fitsWidth) {");
+            html.AppendLine("      scaleFactor = Math.min(scaleFactor, containerWidth / scrollWidth);");
+            html.AppendLine("    }");
+            html.AppendLine("    if (!fitsHeight) {");
+            html.AppendLine("      scaleFactor = Math.min(scaleFactor, containerHeight / scrollHeight);");
+            html.AppendLine("    }");
+            html.AppendLine("    ");
+            html.AppendLine("    // Apply scaled font size (with a small safety margin to prevent edge cases)");
+            html.AppendLine("    const newFontSize = Math.max(1, originalFontSize * scaleFactor * 0.98);");
+            html.AppendLine("    overlay.style.fontSize = newFontSize + 'px';");
+            html.AppendLine("    ");
+            html.AppendLine("    // Verify it fits after scaling (iterative refinement if needed)");
+            html.AppendLine("    overlay.style.overflow = 'auto';");
+            html.AppendLine("    let iterations = 0;");
+            html.AppendLine("    while (iterations < 5 && (overlay.scrollWidth > containerWidth || overlay.scrollHeight > containerHeight)) {");
+            html.AppendLine("      const currentScale = Math.min(containerWidth / overlay.scrollWidth, containerHeight / overlay.scrollHeight);");
+            html.AppendLine("      const currentFontSize = parseFloat(getComputedStyle(overlay).fontSize);");
+            html.AppendLine("      overlay.style.fontSize = (currentFontSize * currentScale * 0.98) + 'px';");
+            html.AppendLine("      iterations++;");
+            html.AppendLine("    }");
+            html.AppendLine("    overlay.style.overflow = originalOverflow || 'hidden';");
+            html.AppendLine("  } catch (e) {");
+            html.AppendLine("    console.error('Error fitting text:', e);");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Fit all text overlays on page load");
+            html.AppendLine("function fitAllText() {");
+            html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
+            html.AppendLine("  for (let overlay of overlays) {");
+            html.AppendLine("    // Only fit if overlay has dimensions");
+            html.AppendLine("    if (overlay.offsetWidth > 0 && overlay.offsetHeight > 0) {");
+            html.AppendLine("      fitTextToContainer(overlay);");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Run when everything is loaded");
+            html.AppendLine("function initializeTextFitting() {");
+            html.AppendLine("  // Wait for image to load first");
+            html.AppendLine("  const img = document.querySelector('.monitor-image');");
+            html.AppendLine("  if (img && !img.complete) {");
+            html.AppendLine("    img.addEventListener('load', function() {");
+            html.AppendLine("      setTimeout(function() {");
+            html.AppendLine("        // Wait for fonts to load before fitting text");
+            html.AppendLine("        if (document.fonts && document.fonts.ready) {");
+            html.AppendLine("          document.fonts.ready.then(fitAllText);");
+            html.AppendLine("        } else {");
+            html.AppendLine("          setTimeout(fitAllText, 200);");
+            html.AppendLine("        }");
+            html.AppendLine("      }, 100);");
+            html.AppendLine("    }, { once: true });");
+            html.AppendLine("  } else {");
+            html.AppendLine("    setTimeout(function() {");
+            html.AppendLine("      if (document.fonts && document.fonts.ready) {");
+            html.AppendLine("        document.fonts.ready.then(fitAllText);");
+            html.AppendLine("      } else {");
+            html.AppendLine("        setTimeout(fitAllText, 200);");
+            html.AppendLine("      }");
+            html.AppendLine("    }, 100);");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Run when DOM is ready");
+            html.AppendLine("if (document.readyState === 'loading') {");
+            html.AppendLine("  document.addEventListener('DOMContentLoaded', function() {");
+            html.AppendLine("    initializeTextFitting();");
+            html.AppendLine("    // Apply initial overlay mode");
+            html.AppendLine("    setOverlayMode(currentOverlayMode);");
+            html.AppendLine("  });");
+            html.AppendLine("} else {");
+            html.AppendLine("  initializeTextFitting();");
+            html.AppendLine("  // Apply initial overlay mode");
+            html.AppendLine("  setOverlayMode(currentOverlayMode);");
+            html.AppendLine("}");
+            html.AppendLine("</script>");
+            
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+            
+            return html.ToString();
+        }
+        
+        private string ColorToHex(Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+        
+        // Check if a language supports vertical text
+        private bool IsVerticalSupportedLanguage(string languageCode)
+        {
+            // Languages that typically support vertical text (CJK languages)
+            string[] verticalLanguages = { "ja", "zh", "ko", "zh-cn", "zh-tw", "zh-hk", "ja-jp", "ko-kr" };
+            return verticalLanguages.Any(lang => languageCode.StartsWith(lang, StringComparison.OrdinalIgnoreCase));
+        }
+        
         // Removed ResetZoomButton_Click as it's no longer needed with the TextBox
         
-        private void ApplyZoom()
+        private void ApplyZoom(System.Windows.Point? mousePosition = null)
         {
+            // Store old zoom for scroll calculation
+            double oldZoom = imageContainer.LayoutTransform is ScaleTransform oldTransform 
+                ? oldTransform.ScaleX 
+                : 1.0;
+
             // Set the transform on the container to scale both image and overlays together
             ScaleTransform scaleTransform = new ScaleTransform(currentZoom, currentZoom);
             imageContainer.LayoutTransform = scaleTransform;
             
             // Make sure scroll bars are correctly shown after zoom change
             UpdateScrollViewerSettings();
+            
+            // Adjust scroll position to zoom towards mouse cursor if position provided
+            if (mousePosition.HasValue && oldZoom > 0)
+            {
+                try
+                {
+                    // Get mouse position relative to ScrollViewer
+                    System.Windows.Point mouseInScrollViewer = imageScrollViewer.PointFromScreen(mousePosition.Value);
+                    
+                    // Calculate the content point under the mouse before zoom
+                    double contentX = (imageScrollViewer.HorizontalOffset + mouseInScrollViewer.X) / oldZoom;
+                    double contentY = (imageScrollViewer.VerticalOffset + mouseInScrollViewer.Y) / oldZoom;
+                    
+                    // Calculate new scroll offsets to keep the same content point under the mouse
+                    double newHorizontalOffset = (contentX * currentZoom) - mouseInScrollViewer.X;
+                    double newVerticalOffset = (contentY * currentZoom) - mouseInScrollViewer.Y;
+                    
+                    // Clamp to valid scroll ranges
+                    newHorizontalOffset = Math.Max(0, Math.Min(newHorizontalOffset, imageScrollViewer.ScrollableWidth));
+                    newVerticalOffset = Math.Max(0, Math.Min(newVerticalOffset, imageScrollViewer.ScrollableHeight));
+                    
+                    // Apply the new scroll position
+                    imageScrollViewer.ScrollToHorizontalOffset(newHorizontalOffset);
+                    imageScrollViewer.ScrollToVerticalOffset(newVerticalOffset);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error adjusting scroll position during zoom: {ex.Message}");
+                }
+            }
             
             // Update zoom textbox
             zoomTextBox.Text = ((int)(currentZoom * 100)).ToString();
@@ -649,9 +1390,8 @@ namespace UGTLive
                 
                 // Now we're on the UI thread, safe to update UI elements
                 
-                // Clear canvas
-                textOverlayCanvas.Children.Clear();
-                
+                var remainingIds = new HashSet<string>(_overlayElements.Keys);
+
                 // Check if Logic is initialized
                 if (Logic.Instance == null)
                 {
@@ -673,7 +1413,19 @@ namespace UGTLive
                     {
                         // Call our OnTextObjectAdded method to add it to the canvas
                         CreateMonitorOverlayFromTextObject(this, textObj);
+                        remainingIds.Remove(textObj.ID);
                     }
+                }
+
+                foreach (string id in remainingIds)
+                {
+                    if (_overlayElements.TryGetValue(id, out Border? border))
+                    {
+                        textOverlayCanvas.Children.Remove(border);
+                        _overlayElements.Remove(id);
+                    }
+                    // Clean up stored original colors
+                    _originalColors.Remove(id);
                 }
                 
                 //UpdateStatus("Text overlays refreshed");
@@ -727,14 +1479,19 @@ namespace UGTLive
 
             if (bSettling)
             {
+                _isShowingSettling = true;
                 Dispatcher.Invoke(() =>
                 {
                     translationStatusLabel.Text = $"Settling...";
+                    
+                    
                     translationStatusBorder.Visibility = Visibility.Visible;
                 });
 
                     return;
             }
+            
+            _isShowingSettling = false;
 
 
             _translationStartTime = DateTime.Now;
@@ -743,6 +1500,8 @@ namespace UGTLive
             Dispatcher.Invoke(() =>
             {
                 translationStatusLabel.Text = $"Waiting for {service}... 0:00";
+                
+                
                 translationStatusBorder.Visibility = Visibility.Visible;
                 
                 // Start the timer if not already running
@@ -761,6 +1520,8 @@ namespace UGTLive
         // Hide the translation status
         public void HideTranslationStatus()
         {
+            _isShowingSettling = false;
+            
             Dispatcher.Invoke(() =>
             {
                 translationStatusBorder.Visibility = Visibility.Collapsed;
@@ -770,15 +1531,291 @@ namespace UGTLive
                 {
                     _translationStatusTimer.Stop();
                 }
+                
+                // Show OCR status if OCR is still active and running
+                if (_isOCRActive && MainWindow.Instance.GetIsStarted())
+                {
+                    ShowOCRStatus();
+                }
             });
+        }
+        
+        // OCR Status Methods
+        
+        // Calculate average FPS from recent samples
+        private double CalculateAverageFPS()
+        {
+            if (_ocrFrameTimes.Count == 0) return 0.0;
+            
+            double averageFrameTime = _ocrFrameTimes.Average();
+            return averageFrameTime > 0 ? 1.0 / averageFrameTime : 0.0;
+        }
+        
+        // Initialize the OCR status timer
+        private void InitializeOCRStatusTimer()
+        {
+            _ocrStatusTimer = new DispatcherTimer();
+            _ocrStatusTimer.Interval = TimeSpan.FromMilliseconds(250); // Update 4 times per second
+            _ocrStatusTimer.Tick += OCRStatusTimer_Tick;
+        }
+        
+        // Update the OCR status display
+        private void OCRStatusTimer_Tick(object sender, EventArgs e)
+        {
+            // Check if OCR is still running
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                // OCR has been stopped, hide the status
+                HideOCRStatus();
+                return;
+            }
+            
+            if (_isOCRActive)
+            {
+                // Don't update if showing settling or translation
+                if (_isShowingSettling || _translationStatusTimer?.IsEnabled == true)
+                {
+                    return;
+                }
+                
+                double fps = CalculateAverageFPS();
+                string ocrMethod = GetCurrentOCRMethodDisplayName();
+                
+                Dispatcher.Invoke(() =>
+                {
+                    translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
+                });
+            }
+        }
+        
+        // Get the display name for the current OCR method
+        private string GetCurrentOCRMethodDisplayName()
+        {
+            if (ocrMethodComboBox.SelectedItem == null) return "OCR";
+            
+            // Get the short name (key) from the Tag property
+            string? shortName = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+            return shortName ?? "OCR";
+        }
+        
+        // Show OCR status
+        public void ShowOCRStatus()
+        {
+            // Only show if OCR is actually running (Start button is active)
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                return; // Don't show if stopped
+            }
+            
+            // Only show if no translation is in progress
+            if (_translationStatusTimer?.IsEnabled == true)
+            {
+                return; // Don't override translation status
+            }
+            
+            
+            _isOCRActive = true;
+            double fps = CalculateAverageFPS();
+            string ocrMethod = GetCurrentOCRMethodDisplayName();
+            
+            Dispatcher.Invoke(() =>
+            {
+                translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
+                
+                translationStatusBorder.Visibility = Visibility.Visible;
+                
+                // Start the timer if not already running
+                if (_ocrStatusTimer == null)
+                {
+                    InitializeOCRStatusTimer();
+                }
+                
+                if (!_ocrStatusTimer!.IsEnabled)
+                {
+                    _ocrStatusTimer.Start();
+                }
+            });
+        }
+        
+        // Hide OCR status
+        public void HideOCRStatus()
+        {
+            _isOCRActive = false;
+            
+            // Clear frame times when stopping
+            _ocrFrameTimes.Clear();
+            
+            Dispatcher.Invoke(() =>
+            {
+                // Only hide if we're showing OCR status (not translation status)
+                if (translationStatusLabel.Text.Contains("fps"))
+                {
+                    translationStatusBorder.Visibility = Visibility.Collapsed;
+                }
+                
+                // Stop the timer
+                if (_ocrStatusTimer != null && _ocrStatusTimer.IsEnabled)
+                {
+                    _ocrStatusTimer.Stop();
+                }
+            });
+        }
+        
+        // Notify that OCR has started
+        public void NotifyOCRStarted()
+        {
+            _currentOCRStartTime = DateTime.Now;
+        }
+        
+        // Notify that OCR has completed
+        public void NotifyOCRCompleted()
+        {
+            if (_currentOCRStartTime != DateTime.MinValue)
+            {
+                // Calculate frame time
+                double frameTime = (DateTime.Now - _currentOCRStartTime).TotalSeconds;
+                
+                // Add to queue
+                _ocrFrameTimes.Enqueue(frameTime);
+                
+                // Keep only the last N samples
+                while (_ocrFrameTimes.Count > MAX_FPS_SAMPLES)
+                {
+                    _ocrFrameTimes.Dequeue();
+                }
+                
+                _lastOCRTime = DateTime.Now;
+            }
+            
+            // Only show OCR status if OCR is still running AND no other status is showing
+            if (MainWindow.Instance.GetIsStarted() && 
+                translationStatusBorder.Visibility != Visibility.Visible)
+            {
+                ShowOCRStatus();
+            }
         }
         
         // Override closing to hide instead
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
+            if (_isShuttingDown)
+            {
+                // Allow closing during shutdown
+                Console.WriteLine("Monitor window closing during shutdown");
+                return;
+            }
+            
             e.Cancel = true;  // Cancel the close
             Hide();           // Hide the window instead
             Console.WriteLine("Monitor window closing operation converted to hide");
+        }
+
+        // Clean up the low-level hook when window is actually closed
+        protected override void OnClosed(EventArgs e)
+        {
+            // Unhook the low-level mouse hook
+            if (_mouseHookId != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(_mouseHookId);
+                _mouseHookId = IntPtr.Zero;
+            }
+
+            base.OnClosed(e);
+        }
+
+        // Low-level mouse hook to intercept WM_MOUSEWHEEL before it reaches WebView2
+        private IntPtr LowLevelMouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0)
+            {
+                int msg = wParam.ToInt32();
+                if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
+                {
+                    try
+                    {
+                        // Check if Ctrl key is pressed
+                        short ctrlState = GetKeyState(VK_CONTROL);
+                        bool ctrlPressed = (ctrlState & 0x8000) != 0;
+
+                        if (ctrlPressed)
+                        {
+                            // Get the mouse position from the hook structure
+                            MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                            System.Windows.Point screenPoint = new System.Windows.Point(hookStruct.pt.x, hookStruct.pt.y);
+
+                            // Check if the target window is our MonitorWindow or a child of it
+                            IntPtr targetWindow = WindowFromPoint(hookStruct.pt);
+                            bool isOurWindow = false;
+
+                            // Check if it's our window or a child of our window
+                            if (targetWindow == _monitorWindowHandle)
+                            {
+                                isOurWindow = true;
+                            }
+                            else if (targetWindow != IntPtr.Zero)
+                            {
+                                // Check if it's a child window of our window
+                                IntPtr parent = GetParent(targetWindow);
+                                while (parent != IntPtr.Zero)
+                                {
+                                    if (parent == _monitorWindowHandle)
+                                    {
+                                        isOurWindow = true;
+                                        break;
+                                    }
+                                    parent = GetParent(parent);
+                                }
+                            }
+
+                            if (isOurWindow)
+                            {
+                                // Capture delta before async call (lParam may become invalid)
+                                int delta = unchecked((short)(hookStruct.mouseData >> 16));
+
+                                // Check if mouse is over the ScrollViewer area
+                                // Use Dispatcher to ensure we're on UI thread for UI element access
+                                Dispatcher.BeginInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        System.Windows.Point scrollViewerPoint = imageScrollViewer.PointFromScreen(screenPoint);
+
+                                        if (scrollViewerPoint.X >= 0 && scrollViewerPoint.Y >= 0 &&
+                                            scrollViewerPoint.X <= imageScrollViewer.ActualWidth &&
+                                            scrollViewerPoint.Y <= imageScrollViewer.ActualHeight)
+                                        {
+                                            // Perform zoom towards mouse cursor
+                                            if (delta > 0)
+                                            {
+                                                currentZoom += zoomIncrement;
+                                                ApplyZoom(screenPoint);
+                                            }
+                                            else
+                                            {
+                                                currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
+                                                ApplyZoom(screenPoint);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"Error in low-level hook zoom: {ex.Message}");
+                                    }
+                                }, DispatcherPriority.Normal);
+
+                                // Block the message from reaching WebView2
+                                return new IntPtr(1);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in LowLevelMouseHookProc: {ex.Message}");
+                    }
+                }
+            }
+
+            return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
         }
         
        
@@ -798,6 +1835,36 @@ namespace UGTLive
                 
                 // Mark the event as handled
                 e.Handled = true;
+            }
+        }
+        
+        // Handle Overlay Radio Button selection
+        private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing to prevent saving during load
+            if (_isInitializing)
+                return;
+                
+            if (sender is System.Windows.Controls.RadioButton radioButton && radioButton.Tag is string mode)
+            {
+                switch (mode)
+                {
+                    case "Hide":
+                        _currentOverlayMode = OverlayMode.Hide;
+                        break;
+                    case "Source":
+                        _currentOverlayMode = OverlayMode.Source;
+                        break;
+                    case "Translated":
+                        _currentOverlayMode = OverlayMode.Translated;
+                        break;
+                }
+                
+                // Save the overlay mode to config
+                ConfigManager.Instance.SetMonitorOverlayMode(mode);
+                
+                // Refresh the overlays with the new mode
+                RefreshOverlays();
             }
         }
         
@@ -871,6 +1938,208 @@ namespace UGTLive
                 
                 // Update status
                 UpdateStatus("Zoom reset to default (100%)");
+            }
+        }
+        
+        // Windows message constants
+        private const int WM_MOUSEWHEEL = 0x020A;
+        private const int WM_MOUSEHWHEEL = 0x020E;
+        private const int VK_CONTROL = 0x11;
+        private const int WH_MOUSE_LL = 14;
+        private const int WM_MOUSEWHEEL_LL = 0x020A;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern short GetKeyState(int nVirtKey);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr WindowFromPoint(POINT Point);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr GetParent(IntPtr hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        private LowLevelMouseProc _mouseHookProc;
+        private IntPtr _mouseHookId = IntPtr.Zero;
+        private IntPtr _monitorWindowHandle = IntPtr.Zero;
+
+        // Windows message hook to intercept WM_MOUSEWHEEL before WebView2 handles it
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
+            {
+                try
+                {
+                    // Check if Ctrl key is pressed using GetKeyState
+                    short ctrlState = GetKeyState(VK_CONTROL);
+                    bool ctrlPressed = (ctrlState & 0x8000) != 0;
+                    
+                    // Also check WPF keyboard state as backup
+                    if (ctrlPressed || Keyboard.Modifiers == ModifierKeys.Control)
+                    {
+                        // Get mouse position (screen coordinates) - extract safely
+                        int lParamValue = lParam.ToInt32();
+                        int x = unchecked((short)(lParamValue & 0xFFFF));
+                        int y = unchecked((short)((lParamValue >> 16) & 0xFFFF));
+                        
+                        // Convert screen coordinates to window coordinates
+                        System.Windows.Point screenPoint = new System.Windows.Point(x, y);
+                        
+                        // Check if mouse is over the ScrollViewer area (not the control panel)
+                        // Message hooks run on the UI thread, so we can access UI elements directly
+                        System.Windows.Point scrollViewerPoint = imageScrollViewer.PointFromScreen(screenPoint);
+                        
+                        if (scrollViewerPoint.X >= 0 && scrollViewerPoint.Y >= 0 && 
+                            scrollViewerPoint.X <= imageScrollViewer.ActualWidth && 
+                            scrollViewerPoint.Y <= imageScrollViewer.ActualHeight)
+                        {
+                            // Get wheel delta (positive = scroll up, negative = scroll down)
+                            // Extract signed 16-bit value from high word of wParam safely
+                            int wParamValue = wParam.ToInt32();
+                            // Shift right 16 bits and mask to get high word, then cast to short
+                            int highWord = (wParamValue >> 16) & 0xFFFF;
+                            int delta = unchecked((short)highWord);
+                            
+                            // Always prevent the message from reaching WebView2 (to prevent font scaling)
+                            // and always perform zoom, regardless of what's under the mouse
+                            handled = true;
+                            
+                            // Zoom in or out based on wheel direction, towards mouse cursor
+                            if (delta > 0)
+                            {
+                                // Zoom in
+                                currentZoom += zoomIncrement;
+                                ApplyZoom(screenPoint);
+                            }
+                            else
+                            {
+                                // Zoom out
+                                currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
+                                ApplyZoom(screenPoint);
+                            }
+                            
+                            return IntPtr.Zero;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in WndProc: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                }
+            }
+            
+            return IntPtr.Zero;
+        }
+
+        // Check if the mouse is over a WebView2 control
+        private bool IsMouseOverWebView2(System.Windows.Point screenPoint)
+        {
+            try
+            {
+                // Convert screen point to window-relative point
+                System.Windows.Point windowPoint = this.PointFromScreen(screenPoint);
+                
+                // Use HitTest to find what element is at this point
+                HitTestResult hitTestResult = VisualTreeHelper.HitTest(this, windowPoint);
+                if (hitTestResult != null && hitTestResult.VisualHit != null)
+                {
+                    // Walk up the visual tree to find if we're over a WebView2
+                    DependencyObject current = hitTestResult.VisualHit;
+                    while (current != null)
+                    {
+                        if (current is WebView2)
+                        {
+                            return true;
+                        }
+                        // Also check if it's a Border containing a WebView2
+                        if (current is Border border && border.Child is WebView2)
+                        {
+                            return true;
+                        }
+                        current = VisualTreeHelper.GetParent(current);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking WebView2 hit test: {ex.Message}");
+            }
+            
+            return false;
+        }
+
+        // Handle mouse wheel zoom when Ctrl is held - at Window level to capture before WebView2
+        private void Window_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            // Check if Ctrl key is pressed
+            if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+            {
+                // Get the mouse position relative to the window
+                System.Windows.Point mousePos = e.GetPosition(this);
+                
+                // Check if mouse is over the ScrollViewer area (not the control panel)
+                // The control panel is in Grid.Row="0", ScrollViewer is in Grid.Row="1"
+                System.Windows.Point scrollViewerPos = e.GetPosition(imageScrollViewer);
+                
+                // Check if the mouse is actually within the ScrollViewer bounds
+                if (scrollViewerPos.X >= 0 && scrollViewerPos.Y >= 0 && 
+                    scrollViewerPos.X <= imageScrollViewer.ActualWidth && 
+                    scrollViewerPos.Y <= imageScrollViewer.ActualHeight)
+                {
+                    // Prevent default scrolling/zooming behavior (including WebView2 font scaling)
+                    e.Handled = true;
+                    
+                    // Get mouse position in screen coordinates for zoom centering
+                    System.Windows.Point screenPoint = this.PointToScreen(e.GetPosition(this));
+                    
+                    // Zoom in or out based on wheel direction, towards mouse cursor
+                    if (e.Delta > 0)
+                    {
+                        // Zoom in
+                        currentZoom += zoomIncrement;
+                        ApplyZoom(screenPoint);
+                    }
+                    else
+                    {
+                        // Zoom out
+                        currentZoom = Math.Max(0.1, currentZoom - zoomIncrement);
+                        ApplyZoom(screenPoint);
+                    }
+                }
             }
         }
         

@@ -7,82 +7,39 @@ using System.Threading.Tasks;
 
 namespace UGTLive
 {
-    public class ChatGptTranslationService : ITranslationService
+    public class LlamaCppTranslationService : ITranslationService
     {
         private static readonly HttpClient _httpClient = new HttpClient();
-        private readonly string _configFilePath;
         
-        public ChatGptTranslationService()
+        public LlamaCppTranslationService()
         {
-            // Set the base address for OpenAI API
+            // Set the user agent
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "WPFScreenCapture");
-            
-            // Get the configuration file path
-            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            _configFilePath = System.IO.Path.Combine(appDirectory, "chatgpt_config.txt");
-            
-            // Ensure the config file exists
-            if (!System.IO.File.Exists(_configFilePath))
-            {
-                CreateDefaultConfigFile();
-            }
-        }
-        
-        private void CreateDefaultConfigFile()
-        {
-            try
-            {
-                string defaultPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
-                string content = $"<llm_prompt_multi_start>\n{defaultPrompt}\n<llm_prompt_multi_end>";
-                System.IO.File.WriteAllText(_configFilePath, content);
-                Console.WriteLine("Created default ChatGPT config file");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error creating default ChatGPT config file: {ex.Message}");
-            }
         }
 
         public async Task<string?> TranslateAsync(string jsonData, string prompt)
         {
             try
             {
-                // Get API key and model from config
-                string apiKey = ConfigManager.Instance.GetChatGptApiKey();
-                string model = ConfigManager.Instance.GetChatGptModel();
+                // Get the llama.cpp API endpoint from config
+                string llamaCppEndpoint = ConfigManager.Instance.GetLlamaCppApiEndpoint();
                 
-                // Validate we have an API key
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    Console.WriteLine("ChatGPT API key is missing. Please set it in the settings.");
-                    return null;
-                }
-                
-                // Log the original input
-                //Console.WriteLine($"ChatGPT input JSON: {jsonData}");
+                Console.WriteLine($"Sending request to llama.cpp API at: {llamaCppEndpoint}");
                 
                 // Parse the input JSON
                 JsonElement inputJson = JsonSerializer.Deserialize<JsonElement>(jsonData);
                 
                 // Get custom prompt from config
-                string customPrompt = ConfigManager.Instance.GetServicePrompt("ChatGPT");
+                string customPrompt = ConfigManager.Instance.GetServicePrompt("llama.cpp");
                 
-                // Build messages array for ChatGPT API
+                // Build messages array for OpenAI-compatible API
                 var messages = new List<Dictionary<string, string>>();
                 
-                // Use the exact prompt format as specified
-                StringBuilder systemPrompt = new StringBuilder();
-     
-                // Add any custom instructions from the config file
-                if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
-                {
-                     systemPrompt.AppendLine(customPrompt);
-                }
-                
+                // Add system message with the prompt
                 messages.Add(new Dictionary<string, string> 
                 {
                     { "role", "system" },
-                    { "content", systemPrompt.ToString() }
+                    { "content", customPrompt }
                 });
                 
                 // Add the text to translate as the user message
@@ -92,27 +49,26 @@ namespace UGTLive
                     { "content", "Here is the input JSON:\n\n" + jsonData }
                 });
                 
-                // Get max completion tokens from config
-                int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
-                
-                // Create request body
+                // Create request body (OpenAI-compatible format)
                 var requestBody = new Dictionary<string, object>
                 {
-                    { "model", model },
                     { "messages", messages },
-                    { "max_completion_tokens", maxCompletionTokens }   // Configurable max tokens (ChatGPT 5+ uses max_completion_tokens)
-                    // Note: temperature parameter removed - ChatGPT 5 only supports default value of 1
+                    { "temperature", 0.1 },  // Low temperature for more deterministic output
+                    { "max_tokens", 2048 }   // Reasonable limit for translation
                 };
                 
                 // Serialize the request body
-                string requestJson = JsonSerializer.Serialize(requestBody);
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                string requestJson = JsonSerializer.Serialize(requestBody, jsonOptions);
                 
                 // Set up HTTP request
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
-                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                var request = new HttpRequestMessage(HttpMethod.Post, llamaCppEndpoint);
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
-                // Send request to OpenAI API
+                // Send request to llama.cpp API
                 var response = await _httpClient.SendAsync(request);
                 string responseContent = await response.Content.ReadAsStringAsync();
                 
@@ -125,16 +81,16 @@ namespace UGTLive
                     // Log to console for debugging (limited to first 500 chars)
                     if (responseContent.Length > 500)
                     {
-                        Console.WriteLine($"ChatGPT API response: {responseContent.Substring(0, 500)}...");
+                        Console.WriteLine($"llama.cpp API response: {responseContent.Substring(0, 500)}...");
                     }
                     else
                     {
-                        Console.WriteLine($"ChatGPT API response: {responseContent}");
+                        Console.WriteLine($"llama.cpp API response: {responseContent}");
                     }
                     
                     try
                     {
-                        // Parse response
+                        // Parse response (OpenAI format)
                         var responseObj = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseContent);
                         if (responseObj != null && responseObj.TryGetValue("choices", out JsonElement choices) && choices.GetArrayLength() > 0)
                         {
@@ -144,11 +100,11 @@ namespace UGTLive
                             // Log the extracted translation
                             if (translatedText.Length > 100)
                             {
-                                Console.WriteLine($"ChatGPT translation extracted: {translatedText.Substring(0, 100)}...");
+                                Console.WriteLine($"llama.cpp translation extracted: {translatedText.Substring(0, 100)}...");
                             }
                             else
                             {
-                                Console.WriteLine($"ChatGPT translation extracted: {translatedText}");
+                                Console.WriteLine($"llama.cpp translation extracted: {translatedText}");
                             }
                             
                             // Clean up the response - sometimes there might be markdown code block markers
@@ -171,25 +127,18 @@ namespace UGTLive
                             // Clean up escape sequences and newlines in the JSON
                             if (translatedText.StartsWith("{") && translatedText.EndsWith("}"))
                             {
-                                // Properly escape newlines within JSON strings - don't convert to literal newlines
-                                // as it will break JSON parsing
-                                
-                                // Make sure it doesn't have additional newlines that could cause issues
-                                
                                 if (translatedText.Contains("\r\n"))
                                 {
-                                    // We'll replace literal Windows newlines with spaces to avoid formatting issues
                                     translatedText = translatedText.Replace("\r\n", " ");
                                 }
-                               
                                 
-                                // Replace nicely formatted JSON (with newlines) with compact JSON for better parsing
+                                // Replace nicely formatted JSON with compact JSON for better parsing
                                 try
                                 {
                                     var tempJson = JsonSerializer.Deserialize<object>(translatedText);
                                     var options = new JsonSerializerOptions 
                                     { 
-                                        WriteIndented = false // This ensures compact JSON without any newlines
+                                        WriteIndented = false
                                     };
                                     translatedText = JsonSerializer.Serialize(tempJson, options);
                                     Console.WriteLine("Successfully normalized JSON format");
@@ -209,7 +158,7 @@ namespace UGTLive
                                     var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
                                     
                                     // Log that we got valid JSON
-                                    Console.WriteLine("ChatGPT returned valid JSON");
+                                    Console.WriteLine("llama.cpp returned valid JSON");
                                     
                                     // Check if this is a game JSON translation with text_blocks
                                     if (translatedJson.TryGetProperty("text_blocks", out _))
@@ -217,20 +166,6 @@ namespace UGTLive
                                         // For game JSON format, we need to match the format that the other translation services use
                                         Console.WriteLine("This is a game JSON format - wrapping in the standard format");
                                         
-                                        // Save the translated JSON to a debug file for inspection
-                                        try 
-                                        {
-                                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                                            string debugFilePath = System.IO.Path.Combine(appDirectory, "chatgpt_translation_debug.txt");
-                                            System.IO.File.WriteAllText(debugFilePath, translatedText);
-                                            Console.WriteLine($"Debug translation saved to {debugFilePath}");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Console.WriteLine($"Failed to write debug file: {ex.Message}");
-                                        }
-                                        
-                                        // Based on the format of other translators, we need the text to be wrapped
                                         var outputJson = new Dictionary<string, object>
                                         {
                                             { "translated_text", translatedText },
@@ -254,8 +189,6 @@ namespace UGTLive
                                         };
                                         
                                         string finalOutput = JsonSerializer.Serialize(compatibilityOutput);
-                                        
-                                        // Log the final output format
                                         Console.WriteLine($"Final output format: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
                                         
                                         return finalOutput;
@@ -284,91 +217,57 @@ namespace UGTLive
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error processing ChatGPT response: {ex.Message}");
+                        Console.WriteLine($"Error processing llama.cpp response: {ex.Message}");
                         return null;
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Error calling ChatGPT API: {response.StatusCode}");
+                    Console.WriteLine($"Error calling llama.cpp API: {response.StatusCode}");
                     Console.WriteLine($"Response: {responseContent}");
                     
-                    string errorMessage = $"ChatGPT API error: {response.StatusCode}";
-                    string detailedMessage = $"The ChatGPT API returned an error.\n\nStatus: {response.StatusCode}";
+                    // Common error: server not running or rejected request
+                    string errorMessage = $"llama.cpp server error: {response.StatusCode}";
+                    string detailedMessage = $"The llama.cpp server returned an error.\n\nStatus: {response.StatusCode}";
                     
-                    // Try to parse error details from response
-                    try
+                    if (!string.IsNullOrWhiteSpace(responseContent))
                     {
-                        if (!string.IsNullOrWhiteSpace(responseContent))
-                        {
-                            using JsonDocument errorDoc = JsonDocument.Parse(responseContent);
-                            if (errorDoc.RootElement.TryGetProperty("error", out JsonElement errorElement))
-                            {
-                                if (errorElement.TryGetProperty("message", out JsonElement messageElement))
-                                {
-                                    string apiErrorMessage = messageElement.GetString() ?? "";
-                                    detailedMessage += $"\n\nError: {apiErrorMessage}";
-                                }
-                                
-                                if (errorElement.TryGetProperty("type", out JsonElement typeElement))
-                                {
-                                    string errorType = typeElement.GetString() ?? "";
-                                    detailedMessage += $"\n\nType: {errorType}";
-                                }
-                            }
-                            else
-                            {
-                                detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
-                            }
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        // If we can't parse as JSON, include raw response
-                        if (!string.IsNullOrWhiteSpace(responseContent))
-                        {
-                            detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
-                        }
+                        detailedMessage += $"\n\nResponse: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}";
                     }
                     
-                    // Add helpful hints based on status code
-                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || 
+                        response.StatusCode == System.Net.HttpStatusCode.NotFound ||
+                        response.StatusCode == System.Net.HttpStatusCode.BadGateway)
                     {
-                        detailedMessage += "\n\nPlease check your API key in settings.";
-                    }
-                    else if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || 
-                             response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        detailedMessage += "\n\nThe service may be temporarily unavailable or rate limited. Please try again later.";
-                    }
-                    else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                    {
-                        detailedMessage += "\n\nPlease check your request format and settings.";
+                        detailedMessage += "\n\nHint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080";
+                        Console.WriteLine("Hint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080");
                     }
                     
-                    ErrorPopupManager.ShowError(detailedMessage, "ChatGPT Translation Error");
+                    ErrorPopupManager.ShowError(detailedMessage, "llama.cpp Translation Error");
                 }
                 
                 return null;
             }
             catch (HttpRequestException ex)
             {
-                Console.WriteLine($"Error connecting to ChatGPT API: {ex.Message}");
+                Console.WriteLine($"Error connecting to llama.cpp server: {ex.Message}");
+                Console.WriteLine("Hint: Make sure llama.cpp server is running. Start it with: llama-server -m model.gguf --port 8080");
                 
-                string errorMessage = $"Failed to connect to ChatGPT API.\n\nError: {ex.Message}\n\nPlease check:\n" +
-                    "1. Your internet connection\n" +
-                    "2. Your API key is correct in settings\n" +
-                    "3. Your firewall/antivirus isn't blocking the connection";
+                string errorMessage = $"Failed to connect to llama.cpp server.\n\nError: {ex.Message}\n\nPlease check:\n" +
+                    "1. The llama.cpp server is running\n" +
+                    "2. The server URL in settings is correct\n" +
+                    "3. Your firewall/antivirus isn't blocking the connection\n\n" +
+                    "Start the server with: llama-server -m model.gguf --port 8080";
                 
-                ErrorPopupManager.ShowError(errorMessage, "ChatGPT Connection Error");
+                ErrorPopupManager.ShowError(errorMessage, "llama.cpp Connection Error");
                 return null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in ChatGptTranslationService.TranslateAsync: {ex.Message}");
+                Console.WriteLine($"Error in LlamaCppTranslationService.TranslateAsync: {ex.Message}");
                 
-                string errorMessage = $"An unexpected error occurred with ChatGPT translation.\n\nError: {ex.Message}";
-                ErrorPopupManager.ShowError(errorMessage, "ChatGPT Translation Error");
+                string errorMessage = $"An unexpected error occurred with llama.cpp translation.\n\nError: {ex.Message}";
+                ErrorPopupManager.ShowError(errorMessage, "llama.cpp Translation Error");
                 return null;
             }
         }

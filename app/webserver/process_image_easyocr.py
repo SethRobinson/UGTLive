@@ -6,6 +6,11 @@ import easyocr
 from PIL import Image, ImageEnhance, ImageFilter
 import torch
 
+from color_analysis import (
+    attach_color_info,
+    extract_foreground_background_colors,
+)
+
 # Global variables to manage OCR engine
 OCR_ENGINE = None
 CURRENT_LANG = None
@@ -133,11 +138,12 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         # Start timing the OCR process
         start_time = time.time()
         
-        # Open the image using PIL
-        image = Image.open(image_path)
+        # Open the image in RGB for color analysis and create a working copy for OCR processing
+        color_image = Image.open(image_path).convert('RGB')
+        image = color_image.copy()
         
         # Store original size for coordinate scaling later
-        original_width, original_height = image.size
+        original_width, original_height = color_image.size
         
         # Preprocess image if the flag is set
         if preprocess_images:
@@ -163,6 +169,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
         
         # Prepare the results
         ocr_results = []
+        
+        # Track color detection timing
+        total_color_time_ms = 0.0
+        color_detection_count = 0
+        
         if result and len(result) > 0:
             for detection in result:
                 # EasyOCR format: [[[x1,y1],[x2,y2],[x3,y3],[x4,y4]], text, confidence]
@@ -189,18 +200,35 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 text = detection[1]
                 confidence = float(detection[2])
                 
+                # Time color detection
+                color_start_time = time.perf_counter()
+                color_info = extract_foreground_background_colors(color_image, box_native)
+                color_time_ms = (time.perf_counter() - color_start_time) * 1000
+                if color_info:
+                    total_color_time_ms += color_time_ms
+                    color_detection_count += 1
                 if char_level and len(text) > 1:
                     # Estimate character positions - EasyOCR doesn't natively provide char-level boxes
                     char_results = split_into_characters(text, box_native, confidence)
+                    for char_entry in char_results:
+                        attach_color_info(char_entry, color_info)
                     ocr_results.extend(char_results)
                 else:
                     # Keep the original word-level detection
-                    ocr_results.append({
+                    result_entry = {
                         "rect": box_native,
                         "text": text,
                         "confidence": confidence,
-                        "is_character": False
-                    })
+                        "is_character": False,
+                        "text_orientation": "horizontal"
+                    }
+                    attach_color_info(result_entry, color_info)
+                    ocr_results.append(result_entry)
+        
+        # Print color detection summary
+        if color_detection_count > 0:
+            total_color_time_sec = total_color_time_ms / 1000.0
+            print(f"UGT CuPy Color VX - {color_detection_count} objects - {total_color_time_sec:.1f} seconds")
         
         return {
             "status": "success",
@@ -234,7 +262,8 @@ def split_into_characters(text, box, confidence):
             "rect": box,
             "text": text,
             "confidence": confidence,
-            "is_character": True
+            "is_character": True,
+            "text_orientation": "horizontal"
         }]
     
     char_results = []
@@ -288,7 +317,8 @@ def split_into_characters(text, box, confidence):
             "rect": char_box,
             "text": char,
             "confidence": confidence,
-            "is_character": True
+            "is_character": True,
+            "text_orientation": "horizontal"
         })
     
     return char_results

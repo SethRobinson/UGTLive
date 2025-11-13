@@ -17,6 +17,7 @@ namespace UGTLive
         public static event EventHandler? SettingsToggleRequested;
         public static event EventHandler? LogToggleRequested;
         public static event EventHandler? MainWindowVisibilityToggleRequested;
+        public static event EventHandler? ClearOverlaysRequested;
         
         #endregion
         
@@ -239,6 +240,13 @@ namespace UGTLive
                 else if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.Shift)
                 {
                     MainWindowVisibilityToggleRequested?.Invoke(null, EventArgs.Empty);
+                    e.Handled = true;
+                    return true;
+                }
+                // Shift+X: Clear Overlays
+                else if (e.Key == Key.X && Keyboard.Modifiers == ModifierKeys.Shift)
+                {
+                    ClearOverlaysRequested?.Invoke(null, EventArgs.Empty);
                     e.Handled = true;
                     return true;
                 }

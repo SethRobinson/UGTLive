@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using Application = System.Windows.Application;
@@ -12,38 +13,59 @@ public partial class App : Application
 {
     private MainWindow? _mainWindow;
     
-    protected override void OnStartup(StartupEventArgs e)
-    {
-        base.OnStartup(e);
-        
-        // Set up application-wide keyboard handling
-        this.DispatcherUnhandledException += App_DispatcherUnhandledException;
-        
-        // We'll hook keyboard events in the main window and other windows instead
-        // of at the application level (which isn't supported in this context)
-        
-        // Show splash screen first
-        SplashManager.Instance.ShowSplash();
-        
-        // Initialize ChatBoxWindow instance without showing it
-        // This ensures ChatBoxWindow.Instance is available immediately
-        new ChatBoxWindow();
-        
-        // Create main window but don't show it yet
-        _mainWindow = new MainWindow();
-        
-        // We'll attach the keyboard handlers when the windows are loaded
-        // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
-        
-        // Add event handler to show main window after splash closes
-        SplashManager.Instance.SplashClosed += (sender, args) =>
+        protected override void OnStartup(StartupEventArgs e)
         {
-            _mainWindow?.Show();
+            base.OnStartup(e);
             
-            // Attach key handler to other windows once main window is shown
-            AttachKeyHandlersToAllWindows();
-        };
-    }
+            // Set up application-wide keyboard handling
+            this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+            
+            // We'll hook keyboard events in the main window and other windows instead
+            // of at the application level (which isn't supported in this context)
+            
+            // Initialize ChatBoxWindow instance without showing it
+            // This ensures ChatBoxWindow.Instance is available immediately
+            new ChatBoxWindow();
+            
+            // Create main window but don't show it yet
+            _mainWindow = new MainWindow();
+            
+            // We'll attach the keyboard handlers when the windows are loaded
+            // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
+            
+            // Show ServerSetupDialog as the startup/splash screen
+            ShowServerSetupDialogAsStartup();
+        }
+        
+        private void ShowServerSetupDialogAsStartup()
+        {
+            try
+            {
+                // Show the server setup dialog (which now acts as our startup screen)
+                ServerSetupDialog dialog = ServerSetupDialog.Instance;
+                
+                // Set up event handler for when dialog closes
+                dialog.Closed += (s, args) =>
+                {
+                    // Show main window after dialog closes
+                    _mainWindow?.Show();
+                    
+                    // Attach key handler to other windows once main window is shown
+                    AttachKeyHandlersToAllWindows();
+                };
+                
+                // Show the dialog (modal - blocks until closed)
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error showing server setup dialog at startup: {ex.Message}");
+                // Fallback: show main window if dialog fails
+                _mainWindow?.Show();
+                AttachKeyHandlersToAllWindows();
+            }
+        }
+    
     
     // Ensure all windows are initialized and loaded
     private void AttachKeyHandlersToAllWindows()
@@ -74,6 +96,8 @@ public partial class App : Application
     
     protected override void OnExit(ExitEventArgs e)
     {
+        // Ensure server cleanup happens on exit
+        ServerProcessManager.Instance.StopServer();
         base.OnExit(e);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.IO;
 
 namespace UGTLive
@@ -139,7 +139,68 @@ namespace UGTLive
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 Console.WriteLine($"Filtered out {lowConfidenceLineCount} lines with confidence < {minLineConfidence}");
                 
-                // PHASE 4: Group lines into paragraphs
+                // If there are NO character-level elements but we do have non-character items
+                // (e.g., docTR returns line-level rectangles), treat those non-character items
+                // as lines and glue them into paragraphs.
+                string currentOcrMethod = ConfigManager.Instance.GetOcrMethod();
+                bool isDocTR = string.Equals(currentOcrMethod, "docTR", StringComparison.OrdinalIgnoreCase);
+                
+                if (characters.Count == 0 && nonCharacters.Count > 0
+                    && isDocTR
+                    && ConfigManager.Instance.GetGlueDocTRLinesEnabled())
+                {
+                    Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    
+                    // Map non-character elements into line elements
+                    var fallbackLines = new List<TextElement>();
+                    foreach (var nc in nonCharacters)
+                    {
+                        // Skip empty text just in case
+                        if (string.IsNullOrWhiteSpace(nc.Text))
+                        {
+                            continue;
+                        }
+                        
+                        // Construct a line element from the non-character item
+                        var lineFromNonChar = new TextElement
+                        {
+                            ElementType = ElementType.Line,
+                            Bounds = nc.Bounds.Clone(),
+                            Text = nc.Text,
+                            Confidence = nc.Confidence,
+                            TextOrientation = string.IsNullOrEmpty(nc.TextOrientation) ? "horizontal" : nc.TextOrientation,
+                            OriginalItem = nc.OriginalItem,
+                            Children = new List<TextElement>()
+                        };
+                        
+                        fallbackLines.Add(lineFromNonChar);
+                    }
+                    
+                    // Apply minimum line confidence filter
+                    fallbackLines = fallbackLines.Where(l => l.Confidence >= minLineConfidence).ToList();
+                    
+                    // Group lines into vertical columns by horizontal overlap before paragraph gluing,
+                    // so we don't interleave separate speech bubbles/columns.
+                    var columnGroups = GroupLinesIntoColumnsByHorizontalOverlap(fallbackLines);
+                    Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    
+                    // PHASE 4 (fallback): For each column, group lines into paragraphs
+                    var gluedParagraphs = new List<TextElement>();
+                    foreach (var group in columnGroups)
+                    {
+                        // Be more permissive when starting from pre-made lines (docTR); increase block power.
+                        var groupParagraphs = GroupLinesIntoParagraphs(group.OrderBy(l => l.Bounds.Y).ToList(), Math.Max(blockPower * 2.5, blockPower + 1.0));
+                        gluedParagraphs.AddRange(groupParagraphs);
+                    }
+                    
+                    Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    
+                    // Return ONLY the glued paragraphs; do not append original non-character items
+                    // to avoid duplicate overlays.
+                    return CreateJsonOutput(gluedParagraphs, new List<TextElement>());
+                }
+                
+                // PHASE 4 (normal): Group lines into paragraphs
                 var paragraphs = GroupLinesIntoParagraphs(lines, blockPower);
                 //Console.WriteLine($"Grouped lines into {paragraphs.Count} paragraphs");
                 
@@ -186,7 +247,13 @@ namespace UGTLive
                 {
                     isCharacter = isCharElement.GetBoolean();
                 }
-                
+
+                string textOrientation = "unknown";
+                if (item.TryGetProperty("text_orientation", out JsonElement textOrientationElement))
+                {
+                    textOrientation = textOrientationElement.GetString() ?? "unknown";
+                }
+
                 // Skip empty text
                 if (string.IsNullOrEmpty(text))
                 {
@@ -224,7 +291,8 @@ namespace UGTLive
                     IsCharacter = isCharacter,
                     IsProcessed = !isCharacter, // Mark non-characters as already processed
                     OriginalItem = item,
-                    ElementType = isCharacter ? ElementType.Character : ElementType.Other
+                    ElementType = isCharacter ? ElementType.Character : ElementType.Other,
+                    TextOrientation = textOrientation
                 };
                 
                 characters.Add(element);
@@ -302,7 +370,8 @@ namespace UGTLive
                             LineIndex = lineIndex,
                             ElementType = ElementType.Word,
                             Children = new List<TextElement> { character },
-                            CenterY = character.CenterY
+                            CenterY = character.CenterY,
+                            TextOrientation = character.TextOrientation
                         };
                     }
                     else
@@ -343,7 +412,8 @@ namespace UGTLive
                                 LineIndex = lineIndex,
                                 ElementType = ElementType.Word,
                                 Children = new List<TextElement> { character },
-                                CenterY = character.CenterY
+                                CenterY = character.CenterY,
+                                TextOrientation = character.TextOrientation
                             };
                         }
                     }
@@ -466,6 +536,11 @@ namespace UGTLive
                         Children = segment.ToList()
                     };
                     
+                    if (segment.Any())
+                    {
+                        line.TextOrientation = segment.First().TextOrientation;
+                    }
+
                     // Set line bounds based on segment words
                     double minX = segment.Min(w => w.Bounds.X);
                     double minY = segment.Min(w => w.Bounds.Y);
@@ -537,7 +612,8 @@ namespace UGTLive
                         Bounds = line.Bounds.Clone(),
                         Children = new List<TextElement> { line },
                         Text = line.Text,
-                        Confidence = line.Confidence
+                        Confidence = line.Confidence,
+                        TextOrientation = line.TextOrientation
                     };
                 }
                 else
@@ -546,6 +622,18 @@ namespace UGTLive
                     
                     // Get the last line in the paragraph to properly calculate gaps
                     var lastLine = currentParagraph.Children.Last();
+                    
+                    // Calculate horizontal overlap ratio to ensure lines belong to the same column/bubble
+                    double lastLeft = lastLine.Bounds.X;
+                    double lastRight = lastLine.Bounds.X + lastLine.Bounds.Width;
+                    double currLeft = line.Bounds.X;
+                    double currRight = line.Bounds.X + line.Bounds.Width;
+                    double overlapWidth = Math.Max(0, Math.Min(lastRight, currRight) - Math.Max(lastLeft, currLeft));
+                    double minWidth = Math.Max(1.0, Math.Min(lastLine.Bounds.Width, line.Bounds.Width));
+                    double horizontalOverlapRatio = overlapWidth / minWidth;
+                    
+                    // Require a minimum horizontal overlap so we don't glue distant columns/bubbles
+                    double minHorizontalOverlapRequired = 0.35; // 35% of the narrower width must overlap
                     
                     // Calculate vertical distance between line centers instead of using bounding boxes
                     // This handles overlapping character descenders/ascenders better
@@ -563,17 +651,44 @@ namespace UGTLive
                     // Log for debugging
                     //Console.WriteLine($"Line vertical gap (adjusted): {verticalGap:F1}px, Center distance: {centerDistance:F1}px, Normal spacing: {normalLineSpacing:F1}px, Threshold: {lineVerticalGapThreshold:F1}px");
                     
+                    // First, if columns don't horizontally overlap enough, split paragraphs
+                    if (horizontalOverlapRatio < minHorizontalOverlapRequired)
+                    {
+                        startNewParagraph = true;
+                        //Console.WriteLine($"New paragraph: insufficient horizontal overlap ({horizontalOverlapRatio:F2})");
+                    }
+                    
                     // Large center distance indicates paragraph break
-                    if (centerDistance > (averageHeight * 1.5) + paragraphBreakThreshold)
+                    // Make the spacing multiplier adaptive to block power so higher block power is more permissive
+                    double spacingMultiplierForBreak = 1.2 + Math.Min(0.8, Math.Max(0.0, (blockPower - 1.0) * 0.1));
+                    
+                    // If these lines look like fallback docTR lines (no word children) and overlap well horizontally,
+                    // be more tolerant to vertical spacing to better join multi-line bubbles.
+                    bool isDocTrFallbackLike = (lastLine.Children == null || lastLine.Children.Count == 0) &&
+                                               (line.Children == null || line.Children.Count == 0);
+                    if (isDocTrFallbackLike && horizontalOverlapRatio >= 0.6)
+                    {
+                        spacingMultiplierForBreak += 0.35;
+                    }
+                    
+                    if (centerDistance > (averageHeight * spacingMultiplierForBreak) + paragraphBreakThreshold)
                     {
                         startNewParagraph = true;
                         Console.WriteLine("New paragraph: Large gap detected");
                     }
                     // Moderate gap more than normal line spacing threshold indicates line break
-                    else if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * 1.2))
+                    else
+                    {
+                        double spacingMultiplierForLine = 1.1 + Math.Min(0.6, Math.Max(0.0, (blockPower - 1.0) * 0.08));
+                        if (isDocTrFallbackLike && horizontalOverlapRatio >= 0.6)
+                        {
+                            spacingMultiplierForLine += 0.25;
+                        }
+                        if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * spacingMultiplierForLine))
                     {
                         startNewParagraph = true;
                         //Console.WriteLine("New paragraph: Line spacing exceeded threshold");
+                    }
                     }
                     
                     // Check indentation - significant indent may indicate new paragraph
@@ -613,7 +728,8 @@ namespace UGTLive
                             Bounds = line.Bounds.Clone(),
                             Children = new List<TextElement> { line },
                             Text = line.Text,
-                            Confidence = line.Confidence
+                            Confidence = line.Confidence,
+                            TextOrientation = line.TextOrientation
                         };
                     }
                     else
@@ -672,6 +788,209 @@ namespace UGTLive
         #region Json Output Creation
         
         /// <summary>
+        /// Group docTR fallback lines into columns by horizontal overlap.
+        /// Lines are assigned to the first column where the horizontal overlap ratio
+        /// (overlap / min(lineWidth, columnWidth)) exceeds a threshold.
+        /// </summary>
+        private List<List<TextElement>> GroupLinesIntoColumnsByHorizontalOverlap(List<TextElement> lines)
+        {
+            var groups = new List<List<TextElement>>();
+            var groupBounds = new List<Rect>();
+            
+            // Sort by horizontal center for stable grouping
+            var sorted = lines.OrderBy(l => l.Bounds.X + (l.Bounds.Width * 0.5)).ToList();
+            
+            const double requiredOverlapRatio = 0.35; // 35% of the narrower width must overlap
+            
+            foreach (var line in sorted)
+            {
+                bool assigned = false;
+                double lineLeft = line.Bounds.X;
+                double lineRight = line.Bounds.X + line.Bounds.Width;
+                
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    var gb = groupBounds[i];
+                    double gbLeft = gb.X;
+                    double gbRight = gb.X + gb.Width;
+                    
+                    double overlap = Math.Max(0, Math.Min(lineRight, gbRight) - Math.Max(lineLeft, gbLeft));
+                    double minWidth = Math.Max(1.0, Math.Min(line.Bounds.Width, gb.Width));
+                    double ratio = overlap / minWidth;
+                    
+                    if (ratio >= requiredOverlapRatio)
+                    {
+                        groups[i].Add(line);
+                        
+                        // Update group bounds to include this line
+                        double newLeft = Math.Min(gbLeft, lineLeft);
+                        double newRight = Math.Max(gbRight, lineRight);
+                        double newTop = Math.Min(gb.Y, line.Bounds.Y);
+                        double newBottom = Math.Max(gb.Y + gb.Height, line.Bounds.Y + line.Bounds.Height);
+                        groupBounds[i] = new Rect(newLeft, newTop, newRight - newLeft, newBottom - newTop);
+                        
+                        assigned = true;
+                        break;
+                    }
+                }
+                
+                if (!assigned)
+                {
+                    groups.Add(new List<TextElement> { line });
+                    groupBounds.Add(line.Bounds.Clone());
+                }
+            }
+            
+            return groups;
+        }
+        
+        /// <summary>
+        /// Write an averaged color to JSON, weighted by confidence
+        /// Uses the most common color if all colors are identical, otherwise averages
+        /// </summary>
+        private void WriteAveragedColor(Utf8JsonWriter writer, List<(JsonElement color, double confidence)> colors)
+        {
+            if (colors.Count == 0)
+                return;
+            
+            // If only one color, just write it directly
+            if (colors.Count == 1)
+            {
+                colors[0].color.WriteTo(writer);
+                return;
+            }
+            
+            // Check if all colors are identical (common case when characters come from same word)
+            bool allIdentical = true;
+            string? firstHex = null;
+            JsonElement firstColor = colors[0].color;
+            
+            foreach (var (color, _) in colors)
+            {
+                // Compare RGB values
+                if (firstColor.TryGetProperty("rgb", out JsonElement firstRgb) &&
+                    color.TryGetProperty("rgb", out JsonElement rgb) &&
+                    firstRgb.ValueKind == JsonValueKind.Array && rgb.ValueKind == JsonValueKind.Array &&
+                    firstRgb.GetArrayLength() >= 3 && rgb.GetArrayLength() >= 3)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        double firstVal = firstRgb[i].ValueKind == JsonValueKind.Number ? 
+                            (firstRgb[i].TryGetInt32(out int firstInt) ? firstInt : (int)firstRgb[i].GetDouble()) : 0;
+                        double val = rgb[i].ValueKind == JsonValueKind.Number ? 
+                            (rgb[i].TryGetInt32(out int valInt) ? valInt : (int)rgb[i].GetDouble()) : 0;
+                        
+                        if (Math.Abs(firstVal - val) > 0.5) // Allow small floating point differences
+                        {
+                            allIdentical = false;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    allIdentical = false;
+                }
+                
+                if (!allIdentical) break;
+            }
+            
+            // If all colors are identical, just use the first one
+            if (allIdentical)
+            {
+                colors[0].color.WriteTo(writer);
+                return;
+            }
+            
+            // Otherwise, calculate weighted average of RGB values
+            double totalWeight = 0;
+            double rSum = 0, gSum = 0, bSum = 0;
+            string? hexValue = null;
+            double totalPercentage = 0;
+            
+            foreach (var (color, confidence) in colors)
+            {
+                double weight = Math.Max(0.1, confidence); // Ensure minimum weight
+                totalWeight += weight;
+                
+                // Try to get RGB array
+                if (color.TryGetProperty("rgb", out JsonElement rgbElement) && 
+                    rgbElement.ValueKind == JsonValueKind.Array && 
+                    rgbElement.GetArrayLength() >= 3)
+                {
+                    double r = 0, g = 0, b = 0;
+                    
+                    if (rgbElement[0].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[0].TryGetInt32(out int rInt))
+                            r = rInt;
+                        else
+                            r = rgbElement[0].GetDouble();
+                    }
+                    
+                    if (rgbElement[1].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[1].TryGetInt32(out int gInt))
+                            g = gInt;
+                        else
+                            g = rgbElement[1].GetDouble();
+                    }
+                    
+                    if (rgbElement[2].ValueKind == JsonValueKind.Number)
+                    {
+                        if (rgbElement[2].TryGetInt32(out int bInt))
+                            b = bInt;
+                        else
+                            b = rgbElement[2].GetDouble();
+                    }
+                    
+                    rSum += r * weight;
+                    gSum += g * weight;
+                    bSum += b * weight;
+                }
+                
+                // Try to get hex value (use first one found)
+                if (hexValue == null && color.TryGetProperty("hex", out JsonElement hexElement))
+                {
+                    hexValue = hexElement.GetString();
+                }
+                
+                // Sum up percentage
+                if (color.TryGetProperty("percentage", out JsonElement percElement))
+                {
+                    if (percElement.ValueKind == JsonValueKind.Number)
+                    {
+                        totalPercentage += percElement.GetDouble() * weight;
+                    }
+                }
+            }
+            
+            // Calculate averages
+            int avgR = (int)Math.Round(Math.Max(0, Math.Min(255, rSum / totalWeight)));
+            int avgG = (int)Math.Round(Math.Max(0, Math.Min(255, gSum / totalWeight)));
+            int avgB = (int)Math.Round(Math.Max(0, Math.Min(255, bSum / totalWeight)));
+            
+            // Generate hex if not found
+            if (hexValue == null)
+            {
+                hexValue = $"#{avgR:X2}{avgG:X2}{avgB:X2}";
+            }
+            
+            double avgPercentage = totalPercentage / totalWeight;
+            
+            // Write the averaged color object
+            writer.WriteStartObject();
+            writer.WriteStartArray("rgb");
+            writer.WriteNumberValue(avgR);
+            writer.WriteNumberValue(avgG);
+            writer.WriteNumberValue(avgB);
+            writer.WriteEndArray();
+            writer.WriteString("hex", hexValue);
+            writer.WriteNumber("percentage", avgPercentage);
+            writer.WriteEndObject();
+        }
+        
+        /// <summary>
         /// Create JSON output from processed paragraphs
         /// </summary>
         private JsonElement CreateJsonOutput(List<TextElement> paragraphs, List<TextElement> nonCharacters)
@@ -699,7 +1018,8 @@ namespace UGTLive
                         // Write paragraph text and confidence
                         writer.WriteString("text", paragraph.Text);
                         writer.WriteNumber("confidence", paragraph.Confidence);
-                        
+                        writer.WriteString("text_orientation", paragraph.TextOrientation);
+
                         // Write bounding box rectangle as a polygon with 4 corners
                         writer.WriteStartArray("rect");
                         
@@ -728,6 +1048,71 @@ namespace UGTLive
                         writer.WriteEndArray();
                         
                         writer.WriteEndArray(); // End rect
+                        
+                        // Preserve color information from original items
+                        // Average colors from all characters weighted by confidence
+                        List<(JsonElement color, double confidence)> foregroundColors = new List<(JsonElement, double)>();
+                        List<(JsonElement color, double confidence)> backgroundColors = new List<(JsonElement, double)>();
+                        
+                        foreach (var line in paragraph.Children)
+                        {
+                            foreach (var word in line.Children)
+                            {
+                                foreach (var character in word.Children)
+                                {
+                                    if (character.OriginalItem.ValueKind != JsonValueKind.Undefined)
+                                    {
+                                        if (character.OriginalItem.TryGetProperty("foreground_color", out JsonElement fgColor))
+                                        {
+                                            foregroundColors.Add((fgColor, character.Confidence));
+                                        }
+                                        if (character.OriginalItem.TryGetProperty("background_color", out JsonElement bgColor))
+                                        {
+                                            backgroundColors.Add((bgColor, character.Confidence));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Fallback color aggregation: if no character-level colors were found
+                        // (e.g., when gluing non-character docTR lines), try to aggregate
+                        // directly from each child line's OriginalItem color properties.
+                        if (foregroundColors.Count == 0 || backgroundColors.Count == 0)
+                        {
+                            foreach (var line in paragraph.Children)
+                            {
+                                if (line.OriginalItem.ValueKind != JsonValueKind.Undefined)
+                                {
+                                    if (foregroundColors.Count == 0 && line.OriginalItem.TryGetProperty("foreground_color", out JsonElement lineFg))
+                                    {
+                                        foregroundColors.Add((lineFg, line.Confidence));
+                                    }
+                                    if (backgroundColors.Count == 0 && line.OriginalItem.TryGetProperty("background_color", out JsonElement lineBg))
+                                    {
+                                        backgroundColors.Add((lineBg, line.Confidence));
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Debug: Log color collection for diagnosis
+                        if (foregroundColors.Count > 0 || backgroundColors.Count > 0)
+                        {
+                            Console.WriteLine($"Paragraph '{paragraph.Text.Substring(0, Math.Min(20, paragraph.Text.Length))}...' - Found {foregroundColors.Count} foreground colors, {backgroundColors.Count} background colors");
+                        }
+                        
+                        // Write averaged color information if found
+                        if (foregroundColors.Count > 0)
+                        {
+                            writer.WritePropertyName("foreground_color");
+                            WriteAveragedColor(writer, foregroundColors);
+                        }
+                        if (backgroundColors.Count > 0)
+                        {
+                            writer.WritePropertyName("background_color");
+                            WriteAveragedColor(writer, backgroundColors);
+                        }
                         
                         // Add metadata
                         writer.WriteNumber("line_count", paragraph.Children.Count);
@@ -815,7 +1200,8 @@ namespace UGTLive
             public double Confidence { get; set; }
             public Rect Bounds { get; set; } = new Rect(0, 0, 0, 0);
             public List<Point> Points { get; set; } = new List<Point>();
-            
+            public string TextOrientation { get; set; } = "unknown";
+
             // Type and state
             public ElementType ElementType { get; set; } = ElementType.Other;
             public bool IsCharacter { get; set; }
