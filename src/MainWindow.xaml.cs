@@ -951,10 +951,8 @@ namespace UGTLive
                 {
 
                     // Update Monitor window with the copy (without saving to file)
-                    if (MonitorWindow.Instance.IsVisible)
-                    {
-                        MonitorWindow.Instance.UpdateScreenshotFromBitmap(bitmap);
-                    }
+                    // Always update, even when not visible, so "View in browser" has the latest image
+                    MonitorWindow.Instance.UpdateScreenshotFromBitmap(bitmap, showWindow: false);
 
                     //do we actually want to do OCR right now?  
                     if (!GetIsStarted()) return;

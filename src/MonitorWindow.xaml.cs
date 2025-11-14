@@ -1093,7 +1093,7 @@ namespace UGTLive
         }
         
         // Update the monitor with a bitmap directly (no file saving required)
-        public void UpdateScreenshotFromBitmap(System.Drawing.Bitmap bitmap)
+        public void UpdateScreenshotFromBitmap(System.Drawing.Bitmap bitmap, bool showWindow = true)
         {
             if (!Dispatcher.CheckAccess())
             {
@@ -1126,8 +1126,8 @@ namespace UGTLive
                         {
                             captureImage.Source = bitmapSource;
                             
-                            // Show window if needed
-                            if (!IsVisible)
+                            // Show window if needed and requested
+                            if (showWindow && !IsVisible)
                             {
                                 Show();
                             }
@@ -1170,8 +1170,8 @@ namespace UGTLive
                     DeleteObject(hBitmap);
                 }
                 
-                // Show the window if not visible
-                if (!IsVisible)
+                // Show the window if not visible and requested
+                if (showWindow && !IsVisible)
                 {
                     Show();
                 }
