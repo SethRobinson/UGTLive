@@ -112,32 +112,30 @@ namespace UGTLive
 
                 if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
                 {
-                    // Check if foreground window belongs to our application
-                   // if (IsOurApplicationActive())
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    
+                    // Convert the virtual key code to a Key
+                    Key key = KeyInterop.KeyFromVirtualKey(vkCode);
+                    
+                    // Determine which modifiers are currently pressed
+                    Keys formsModifiers = Control.ModifierKeys;
+                    ModifierKeys modifiers = ModifierKeys.None;
+                    
+                    if ((formsModifiers & Keys.Shift) == Keys.Shift)
+                        modifiers |= ModifierKeys.Shift;
+                    if ((formsModifiers & Keys.Control) == Keys.Control)
+                        modifiers |= ModifierKeys.Control;
+                    if ((formsModifiers & Keys.Alt) == Keys.Alt)
+                        modifiers |= ModifierKeys.Alt;
+                    
+                    // Also ignore if either Windows key is held down
+                    bool isWinPressed = Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin);
+                    
+                    if (!isWinPressed)
                     {
-                        int vkCode = Marshal.ReadInt32(lParam);
-                        
-                        // Determine which modifiers are currently pressed
-                        Keys modifiers = Control.ModifierKeys;
-                        bool isShiftOnly = modifiers == Keys.Shift;
-
-                        // Also ignore if either Windows key is held down (not reported in Control.ModifierKeys)
-                        bool isWinPressed = Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin);
-
-                        if (isShiftOnly && !isWinPressed)
-                        {
-                            // Convert the virtual key code to a Key
-                            Key key = KeyInterop.KeyFromVirtualKey(vkCode);
-
-                            // Check if it's one of our shortcuts (S, M, C, P, L, H with Shift)
-                            if (IsShortcutKey(key, ModifierKeys.Shift))
-                            {
-                                // Only process if one of our app windows has focus (or console window)
-                                // Handle the shortcut
-                                HandleRawKeyDown(key, ModifierKeys.Shift);
-                                // Do NOT block the key from other global hooks or applications
-                            }
-                        }
+                        // Forward to HotkeyManager for processing
+                        bool handled = HotkeyManager.Instance.HandleKeyDown(key, modifiers);
+                        // Do NOT block the key from other global hooks or applications
                     }
                 }
                 

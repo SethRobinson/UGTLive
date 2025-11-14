@@ -1132,6 +1132,104 @@
                         </GroupBox>
                     </Grid>
                 </GroupBox>
+                
+                <!-- Hotkey Settings -->
+                <GroupBox Header="Hotkey Settings" Margin="0,0,0,15" Padding="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Global Hotkeys Enabled Checkbox -->
+                        <CheckBox x:Name="globalHotkeysEnabledCheckBox" Grid.Row="0"
+                                 Margin="0,0,0,10" IsChecked="True" 
+                                 Checked="GlobalHotkeysEnabledCheckBox_CheckedChanged" 
+                                 Unchecked="GlobalHotkeysEnabledCheckBox_CheckedChanged"
+                                 Content="Enable global hotkeys (when unchecked, app must be in focus)"
+                                 ToolTip="If enabled, hotkeys work system-wide. If disabled, hotkeys only work when the application is in focus."/>
+                        
+                        <!-- ListView for hotkeys -->
+                        <ListView x:Name="hotkeyListView" Grid.Row="1"
+                                 Margin="0,5" Height="250" SelectionMode="Single" SelectionChanged="HotkeyListView_SelectionChanged">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Action" Width="200" DisplayMemberBinding="{Binding ActionName}"/>
+                                    <GridViewColumn Header="Keyboard" Width="150" DisplayMemberBinding="{Binding KeyboardHotkey}"/>
+                                    <GridViewColumn Header="Gamepad" Width="150" DisplayMemberBinding="{Binding GamepadHotkey}"/>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                        
+                        <!-- Hotkey editor -->
+                        <GroupBox Header="Edit Selected Hotkey" Grid.Row="2" Padding="10" Margin="0,10,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Action Name -->
+                                <TextBlock Text="Action:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock x:Name="selectedActionNameText" Grid.Row="0" Grid.Column="1" 
+                                          VerticalAlignment="Center" Margin="0,5" FontWeight="Bold"/>
+                                
+                                <!-- Keyboard Hotkey -->
+                                <TextBlock Text="Keyboard:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="keyboardHotkeyTextBox" Grid.Column="0" 
+                                            IsReadOnly="True" Margin="0,0,5,0" PreviewKeyDown="KeyboardHotkeyTextBox_PreviewKeyDown"/>
+                                    <Button x:Name="setKeyboardHotkeyButton" Content="Set Key" Grid.Column="1" 
+                                           Margin="0,0,5,0" Width="70" Click="SetKeyboardHotkeyButton_Click"/>
+                                    <Button x:Name="clearKeyboardHotkeyButton" Content="Clear" Grid.Column="2" 
+                                           Width="50" Click="ClearKeyboardHotkeyButton_Click"/>
+                                </Grid>
+                                
+                                <!-- Gamepad Hotkey -->
+                                <TextBlock Text="Gamepad:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0"/>
+                                <Grid Grid.Row="2" Grid.Column="1" Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="gamepadHotkeyTextBox" Grid.Column="0" 
+                                            IsReadOnly="True" Margin="0,0,5,0"/>
+                                    <Button x:Name="setGamepadHotkeyButton" Content="Set Buttons" Grid.Column="1" 
+                                           Margin="0,0,5,0" Width="90" Click="SetGamepadHotkeyButton_Click"/>
+                                    <Button x:Name="clearGamepadHotkeyButton" Content="Clear" Grid.Column="2" 
+                                           Width="50" Click="ClearGamepadHotkeyButton_Click"/>
+                                </Grid>
+                                
+                                <!-- Buttons -->
+                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" 
+                                           HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button x:Name="saveHotkeyButton" Content="Save Hotkey" 
+                                           Margin="0,0,10,0" Padding="10,5" Width="100"
+                                           Click="SaveHotkeyButton_Click"/>
+                                    <Button x:Name="resetHotkeysButton" Content="Reset All to Defaults" 
+                                           Padding="10,5" Width="150"
+                                           Click="ResetHotkeysButton_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                    </Grid>
+                </GroupBox>
             </StackPanel>
         </ScrollViewer>
     </Grid>

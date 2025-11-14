@@ -385,22 +385,105 @@ namespace UGTLive
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
             
-            // Register keyboard shortcuts events
-            KeyboardShortcuts.StartStopRequested += (s, e) => OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
-            KeyboardShortcuts.MonitorToggleRequested += (s, e) => MonitorButton_Click(monitorButton, new RoutedEventArgs());
-            KeyboardShortcuts.ChatBoxToggleRequested += (s, e) => ChatBoxButton_Click(chatBoxButton, new RoutedEventArgs());
-            KeyboardShortcuts.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
-            KeyboardShortcuts.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
-            KeyboardShortcuts.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
-            KeyboardShortcuts.ClearOverlaysRequested += (s, e) => {
+            // Register hotkey events with the new HotkeyManager
+            HotkeyManager.Instance.StartStopRequested += (s, e) => OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
+            HotkeyManager.Instance.MonitorToggleRequested += (s, e) => MonitorButton_Click(monitorButton, new RoutedEventArgs());
+            HotkeyManager.Instance.ChatBoxToggleRequested += (s, e) => ChatBoxButton_Click(chatBoxButton, new RoutedEventArgs());
+            HotkeyManager.Instance.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
+            HotkeyManager.Instance.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
+            HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
+            HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
                 Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.RefreshOverlays();
-                Console.WriteLine("Overlays cleared (Shift+X)");
+                Console.WriteLine("Overlays cleared");
             };
+            HotkeyManager.Instance.PassthroughToggleRequested += (s, e) => TogglePassthrough();
+            HotkeyManager.Instance.OverlayModeToggleRequested += (s, e) => ToggleOverlayMode();
+            
+            // Start gamepad manager
+            GamepadManager.Instance.Start();
             
             // Set up global keyboard hook to handle shortcuts even when console has focus
             KeyboardShortcuts.InitializeGlobalHook();
+            
+            // Set up tooltip exclusion from screenshots
+            SetupTooltipExclusion();
         }
+        
+        // Setup tooltip exclusion from screenshots
+        private void SetupTooltipExclusion()
+        {
+            // Use ToolTipService to add an event handler for when any tooltip opens
+            this.AddHandler(ToolTipService.ToolTipOpeningEvent, new RoutedEventHandler(OnToolTipOpening));
+        }
+        
+        private void OnToolTipOpening(object sender, RoutedEventArgs e)
+        {
+            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExcludeTooltipFromCapture();
+            }), DispatcherPriority.Background);
+        }
+        
+        private void ExcludeTooltipFromCapture()
+        {
+            try
+            {
+                // Find all tooltip windows and exclude them
+                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
+                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
+                
+                foreach (var window in tooltipWindows)
+                {
+                    var helper = new WindowInteropHelper(window);
+                    IntPtr hwnd = helper.Handle;
+                    
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                    }
+                }
+                
+                // Also try to find popup windows via interop
+                // WPF tooltips are displayed in Popup windows which are top-level HWND windows
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+                foreach (System.Diagnostics.ProcessThread thread in currentProcess.Threads)
+                {
+                    try
+                    {
+                        EnumThreadWindows((uint)thread.Id, (hWnd, lParam) =>
+                        {
+                            var className = new StringBuilder(256);
+                            GetClassName(hWnd, className, className.Capacity);
+                            string cls = className.ToString();
+                            
+                            // WPF tooltip windows typically have these class names
+                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls == "HwndWrapper[DefaultDomain;;")
+                            {
+                                SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
+                            }
+                            
+                            return true; // Continue enumeration
+                        }, IntPtr.Zero);
+                    }
+                    catch
+                    {
+                        // Thread may have terminated, ignore
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
+            }
+        }
+        
+        [DllImport("user32.dll")]
+        private static extern bool EnumThreadWindows(uint dwThreadId, EnumThreadDelegate lpfn, IntPtr lParam);
+        
+        private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
+        
        
         // add method for show/hide the main window
         private void ToggleMainWindowVisibility()
@@ -417,6 +500,97 @@ namespace UGTLive
                 }
             }
 
+        }
+        
+        // Toggle passthrough mode
+        private void TogglePassthrough()
+        {
+            if (mousePassthroughCheckBox != null)
+            {
+                bool newState = !(mousePassthroughCheckBox.IsChecked ?? false);
+                mousePassthroughCheckBox.IsChecked = newState;
+                Console.WriteLine($"Passthrough toggled: {(newState ? "enabled" : "disabled")}");
+            }
+        }
+        
+        // Toggle overlay mode between Hide, Source, and Translated
+        private void ToggleOverlayMode()
+        {
+            if (_currentOverlayMode == OverlayMode.Hide)
+            {
+                _currentOverlayMode = OverlayMode.Source;
+                overlaySourceRadio.IsChecked = true;
+            }
+            else if (_currentOverlayMode == OverlayMode.Source)
+            {
+                _currentOverlayMode = OverlayMode.Translated;
+                overlayTranslatedRadio.IsChecked = true;
+            }
+            else
+            {
+                _currentOverlayMode = OverlayMode.Hide;
+                overlayHideRadio.IsChecked = true;
+            }
+            
+            Console.WriteLine($"Overlay mode toggled to: {_currentOverlayMode}");
+        }
+        
+        // Update tooltips with current hotkey bindings
+        public void UpdateTooltips()
+        {
+            UpdateHotkeyTooltips();
+        }
+        
+        private void UpdateHotkeyTooltips()
+        {
+            var hotkeys = HotkeyManager.Instance.GetHotkeys();
+            
+            // Helper function to get hotkey string
+            string GetHotkeyString(string actionId)
+            {
+                var hotkey = hotkeys.FirstOrDefault(h => h.ActionId == actionId);
+                if (hotkey == null)
+                    return "";
+                    
+                List<string> parts = new List<string>();
+                if (hotkey.HasKeyboardHotkey())
+                    parts.Add(hotkey.GetKeyboardHotkeyString());
+                if (hotkey.HasGamepadHotkey())
+                    parts.Add($"Gamepad: {hotkey.GetGamepadHotkeyString()}");
+                    
+                return parts.Count > 0 ? $" ({string.Join(" or ", parts)})" : "";
+            }
+            
+            // Update button tooltips
+            if (toggleButton != null)
+                toggleButton.ToolTip = $"Start/Stop OCR{GetHotkeyString("start_stop")}";
+                
+            if (monitorButton != null)
+                monitorButton.ToolTip = $"Toggle Monitor Window{GetHotkeyString("toggle_monitor")}";
+                
+            if (chatBoxButton != null)
+                chatBoxButton.ToolTip = $"Toggle ChatBox{GetHotkeyString("toggle_chatbox")}";
+                
+            if (settingsButton != null)
+                settingsButton.ToolTip = $"Toggle Settings{GetHotkeyString("toggle_settings")}";
+                
+            if (logButton != null)
+                logButton.ToolTip = $"Toggle Log Console{GetHotkeyString("toggle_log")}";
+                
+            if (hideButton != null)
+                hideButton.ToolTip = $"Toggle Main Window{GetHotkeyString("toggle_main_window")}";
+                
+            if (mousePassthroughCheckBox != null)
+                mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{GetHotkeyString("toggle_passthrough")}";
+            
+            // Update overlay radio buttons
+            string overlayHotkey = GetHotkeyString("toggle_overlay_mode");
+            if (overlayHideRadio != null)
+                overlayHideRadio.ToolTip = $"Hide overlay{overlayHotkey}";
+            if (overlaySourceRadio != null)
+                overlaySourceRadio.ToolTip = $"Show source text{overlayHotkey}";
+            if (overlayTranslatedRadio != null)
+                overlayTranslatedRadio.ToolTip = $"Show translated text{overlayHotkey}";
         }
 
         public void SetStatus(string text)
@@ -442,6 +616,9 @@ namespace UGTLive
         
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Update tooltips with hotkeys
+            UpdateHotkeyTooltips();
+            
             // Update capture rectangle
             UpdateCaptureRect();
            
@@ -553,8 +730,20 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Forward to the central keyboard shortcuts handler
-            KeyboardShortcuts.HandleKeyDown(e);
+            // Check if global hotkeys are enabled, or if app is in focus
+            bool canUseHotkeys = HotkeyManager.Instance.GetGlobalHotkeysEnabled() || this.IsActive;
+            
+            if (canUseHotkeys)
+            {
+                // Forward to the HotkeyManager
+                var modifiers = System.Windows.Input.Keyboard.Modifiers;
+                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+                
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
         }
        
         private void TestConfigLoading()
@@ -874,8 +1063,8 @@ namespace UGTLive
                 Console.WriteLine($"Saving settings position: {settingsWindowLeft}, {settingsWindowTop}");
                 
                 SettingsWindow.Instance.Hide();
-                // Re-enable global shortcuts now that the Settings window is hidden
-                KeyboardShortcuts.SetShortcutsEnabled(true);
+                // Re-enable hotkeys now that the Settings window is hidden
+                HotkeyManager.Instance.SetEnabled(true);
                 Console.WriteLine("Settings window hidden");
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(176, 125, 69)); // Orange
             }
@@ -901,8 +1090,8 @@ namespace UGTLive
                 }
                 
                 SettingsWindow.Instance.Show();
-                // Disable shortcuts while the Settings window is active so we can type normally
-                KeyboardShortcuts.SetShortcutsEnabled(false);
+                // Disable hotkeys while the Settings window is active so we can type normally
+                HotkeyManager.Instance.SetEnabled(false);
                 Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(69, 125, 176)); // Blue-ish
             }

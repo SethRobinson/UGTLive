@@ -62,17 +62,26 @@ namespace UGTLive
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
             
-            // Disable shortcuts while this window has focus so we can type freely
-            this.Activated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(false);
+            // Disable hotkeys while this window has focus so we can type freely
+            this.Activated += (s, e) => 
+            {
+                HotkeyManager.Instance.SetEnabled(false);
+                KeyboardShortcuts.SetShortcutsEnabled(false);
+            };
             // Re-enable when focus leaves (but not yet hidden)
-            this.Deactivated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(true);
+            this.Deactivated += (s, e) => 
+            {
+                HotkeyManager.Instance.SetEnabled(true);
+                KeyboardShortcuts.SetShortcutsEnabled(true);
+            };
             
             // Set up closing behavior (hide instead of close)
             this.Closing += (s, e) => 
             {
                 e.Cancel = true;  // Cancel the close
                 this.Hide();      // Just hide the window
-                // Re-enable shortcuts when settings window is hidden
+                // Re-enable hotkeys when settings window is hidden
+                HotkeyManager.Instance.SetEnabled(true);
                 KeyboardShortcuts.SetShortcutsEnabled(true);
             };
         }
@@ -129,6 +138,9 @@ namespace UGTLive
                 // Make sure service-specific settings are properly initialized
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
                 UpdateServiceSpecificSettings(currentService);
+                
+                // Load hotkeys
+                loadHotkeys();
                 
                 // Now that initialization is complete, allow saving changes
                 _isInitializing = false;
@@ -3526,5 +3538,283 @@ namespace UGTLive
                 maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             }
         }
+        
+        #region Hotkey Editor
+        
+        // Class to represent hotkey display items
+        public class HotkeyDisplayItem
+        {
+            public string ActionId { get; set; } = "";
+            public string ActionName { get; set; } = "";
+            public string KeyboardHotkey { get; set; } = "";
+            public string GamepadHotkey { get; set; } = "";
+            
+            public HotkeyDisplayItem(HotkeyEntry entry)
+            {
+                ActionId = entry.ActionId;
+                ActionName = entry.ActionName;
+                KeyboardHotkey = entry.GetKeyboardHotkeyString();
+                GamepadHotkey = entry.GetGamepadHotkeyString();
+            }
+        }
+        
+        private HotkeyEntry? _selectedHotkey;
+        private bool _isCapturingKeyboard = false;
+        private bool _isCapturingGamepad = false;
+        
+        // Load hotkeys into the list
+        private void loadHotkeys()
+        {
+            var hotkeys = HotkeyManager.Instance.GetHotkeys();
+            var displayItems = hotkeys.Select(h => new HotkeyDisplayItem(h)).ToList();
+            
+            hotkeyListView.ItemsSource = displayItems;
+            
+            // Load global hotkeys enabled state
+            globalHotkeysEnabledCheckBox.IsChecked = HotkeyManager.Instance.GetGlobalHotkeysEnabled();
+            
+            Console.WriteLine($"Loaded {displayItems.Count} hotkeys into settings");
+        }
+        
+        // Hotkey list selection changed
+        private void HotkeyListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (hotkeyListView.SelectedItem is HotkeyDisplayItem displayItem)
+            {
+                // Get the actual hotkey entry
+                _selectedHotkey = HotkeyManager.Instance.GetHotkey(displayItem.ActionId);
+                
+                if (_selectedHotkey != null)
+                {
+                    selectedActionNameText.Text = _selectedHotkey.ActionName;
+                    keyboardHotkeyTextBox.Text = _selectedHotkey.GetKeyboardHotkeyString();
+                    gamepadHotkeyTextBox.Text = _selectedHotkey.GetGamepadHotkeyString();
+                }
+            }
+            else
+            {
+                _selectedHotkey = null;
+                selectedActionNameText.Text = "";
+                keyboardHotkeyTextBox.Text = "";
+                gamepadHotkeyTextBox.Text = "";
+            }
+        }
+        
+        // Set keyboard hotkey button click
+        private void SetKeyboardHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedHotkey == null)
+            {
+                MessageBox.Show("Please select a hotkey to edit.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            _isCapturingKeyboard = true;
+            keyboardHotkeyTextBox.Text = "Press a key combination...";
+            keyboardHotkeyTextBox.Focus();
+        }
+        
+        // Clear keyboard hotkey
+        private void ClearKeyboardHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedHotkey == null)
+                return;
+                
+            _selectedHotkey.KeyboardKey = System.Windows.Input.Key.None;
+            _selectedHotkey.UseShift = false;
+            _selectedHotkey.UseCtrl = false;
+            _selectedHotkey.UseAlt = false;
+            
+            keyboardHotkeyTextBox.Text = "None";
+        }
+        
+        // Capture keyboard input
+        private void KeyboardHotkeyTextBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (!_isCapturingKeyboard || _selectedHotkey == null)
+                return;
+                
+            e.Handled = true;
+            
+            // Get the key and modifiers
+            var key = e.Key;
+            
+            // Handle system keys (like F10)
+            if (key == System.Windows.Input.Key.System)
+            {
+                key = e.SystemKey;
+            }
+            
+            // Skip modifier keys themselves
+            if (key == System.Windows.Input.Key.LeftShift || key == System.Windows.Input.Key.RightShift ||
+                key == System.Windows.Input.Key.LeftCtrl || key == System.Windows.Input.Key.RightCtrl ||
+                key == System.Windows.Input.Key.LeftAlt || key == System.Windows.Input.Key.RightAlt ||
+                key == System.Windows.Input.Key.LWin || key == System.Windows.Input.Key.RWin)
+            {
+                return;
+            }
+            
+            // Get modifiers
+            bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) == System.Windows.Input.ModifierKeys.Shift;
+            bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control;
+            bool alt = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == System.Windows.Input.ModifierKeys.Alt;
+            
+            // Update the hotkey
+            _selectedHotkey.KeyboardKey = key;
+            _selectedHotkey.UseShift = shift;
+            _selectedHotkey.UseCtrl = ctrl;
+            _selectedHotkey.UseAlt = alt;
+            
+            keyboardHotkeyTextBox.Text = _selectedHotkey.GetKeyboardHotkeyString();
+            _isCapturingKeyboard = false;
+        }
+        
+        // Set gamepad hotkey button click
+        private void SetGamepadHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedHotkey == null)
+            {
+                MessageBox.Show("Please select a hotkey to edit.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            _isCapturingGamepad = true;
+            gamepadHotkeyTextBox.Text = "Press and hold gamepad button(s), then release...";
+            
+            List<string> maxButtons = new List<string>();
+            int stableCount = 0;
+            const int STABLE_FRAMES = 5; // Wait for buttons to be stable for 5 frames
+            
+            // Start a timer to capture gamepad input
+            var timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(100);
+            timer.Tick += (s, args) =>
+            {
+                if (!_isCapturingGamepad)
+                {
+                    timer.Stop();
+                    return;
+                }
+                
+                // Get current gamepad state
+                var pressedButtons = GamepadManager.Instance.GetCurrentlyPressedButtons();
+                
+                // Track the maximum number of buttons pressed at once
+                if (pressedButtons.Count > maxButtons.Count)
+                {
+                    maxButtons = new List<string>(pressedButtons);
+                    stableCount = 0;
+                    gamepadHotkeyTextBox.Text = $"Holding: {string.Join("+", maxButtons)}... (release when ready)";
+                }
+                else if (pressedButtons.Count == maxButtons.Count && pressedButtons.Count > 0)
+                {
+                    // Same number of buttons, check if they're the same
+                    bool same = pressedButtons.All(b => maxButtons.Contains(b));
+                    if (same)
+                    {
+                        stableCount++;
+                    }
+                    else
+                    {
+                        maxButtons = new List<string>(pressedButtons);
+                        stableCount = 0;
+                    }
+                }
+                else if (pressedButtons.Count == 0 && maxButtons.Count > 0 && stableCount >= STABLE_FRAMES)
+                {
+                    // Buttons released and we had a stable combo
+                    _selectedHotkey.GamepadButtons = maxButtons;
+                    gamepadHotkeyTextBox.Text = _selectedHotkey.GetGamepadHotkeyString();
+                    _isCapturingGamepad = false;
+                    timer.Stop();
+                }
+            };
+            timer.Start();
+        }
+        
+        // Clear gamepad hotkey
+        private void ClearGamepadHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedHotkey == null)
+                return;
+                
+            _selectedHotkey.GamepadButtons.Clear();
+            gamepadHotkeyTextBox.Text = "None";
+        }
+        
+        // Save hotkey changes
+        private void SaveHotkeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedHotkey == null)
+            {
+                MessageBox.Show("Please select a hotkey to save.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            HotkeyManager.Instance.SetHotkey(_selectedHotkey);
+            MessageBox.Show("Hotkey saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            
+            // Refresh the list
+            loadHotkeys();
+            
+            // Update tooltips in MainWindow
+            try
+            {
+                var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
+                mainWindow?.UpdateTooltips();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating tooltips: {ex.Message}");
+            }
+        }
+        
+        // Reset all hotkeys to defaults
+        private void ResetHotkeysButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to reset all hotkeys to defaults?", 
+                "Confirm Reset", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                
+            if (result == MessageBoxResult.Yes)
+            {
+                // Delete the hotkeys file to trigger default creation
+                if (System.IO.File.Exists("hotkeys.txt"))
+                {
+                    System.IO.File.Delete("hotkeys.txt");
+                }
+                
+                // Reload defaults
+                HotkeyManager.Instance.SaveHotkeys();
+                loadHotkeys();
+                
+                // Update tooltips in MainWindow
+                try
+                {
+                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
+                    mainWindow?.UpdateTooltips();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
+                }
+                
+                MessageBox.Show("Hotkeys reset to defaults!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        
+        // Global hotkeys enabled checkbox changed
+        private void GlobalHotkeysEnabledCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            bool enabled = globalHotkeysEnabledCheckBox.IsChecked ?? true;
+            HotkeyManager.Instance.SetGlobalHotkeysEnabled(enabled);
+            HotkeyManager.Instance.SaveHotkeys();
+            
+            Console.WriteLine($"Global hotkeys {(enabled ? "enabled" : "disabled")}");
+        }
+        
+        #endregion
     }
 }

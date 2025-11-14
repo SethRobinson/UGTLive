@@ -149,8 +149,8 @@
                                          Checked="OverlayRadioButton_Checked" Tag="Translated"
                                          WindowChrome.IsHitTestVisibleInChrome="True"/>
                             
-                            <!-- Mouse Passthrough Checkbox -->
-                            <CheckBox x:Name="mousePassthroughCheckBox" Content="Mouse passthrough" Foreground="White" 
+                            <!-- Passthrough Checkbox -->
+                            <CheckBox x:Name="mousePassthroughCheckBox" Content="Passthrough" Foreground="White" 
                                      VerticalAlignment="Center" Margin="5,0,0,0"
                                      Checked="MousePassthroughCheckBox_Changed" Unchecked="MousePassthroughCheckBox_Changed"
                                      WindowChrome.IsHitTestVisibleInChrome="True"/>
