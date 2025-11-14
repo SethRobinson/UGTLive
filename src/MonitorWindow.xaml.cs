@@ -683,13 +683,19 @@ namespace UGTLive
                             .Replace("\r", " ")
                             .Replace("\n", " ");
                         
+                        // Apply zoom factor to positions and dimensions
+                        double left = textObj.X * currentZoom;
+                        double top = textObj.Y * currentZoom;
+                        double width = textObj.Width * currentZoom;
+                        double height = textObj.Height * currentZoom;
+                        
                         // Build the div for this text object (all on one line to avoid newline issues)
-                        string styleAttr = $"left: {textObj.X}px; top: {textObj.Y}px; width: {textObj.Width}px; height: {textObj.Height}px; " +
+                        string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
                             $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
                             $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
-                            $"font-size: 16px;";
+                            $"font-size: {16 * currentZoom}px;";
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
                         html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}'>");
@@ -1752,6 +1758,9 @@ namespace UGTLive
             zoomTextBox.Text = ((int)(currentZoom * 100)).ToString();
             UpdateStatus($"Zoom: {(int)(currentZoom * 100)}%");
             Console.WriteLine($"Zoom level changed to {(int)(currentZoom * 100)}%");
+            
+            // Refresh overlays to apply new zoom factor
+            RefreshOverlays();
         }
         
         // Method to refresh text overlays
