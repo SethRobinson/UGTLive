@@ -113,7 +113,7 @@ namespace UGTLive
                 if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
                 {
                     // Check if foreground window belongs to our application
-                    if (IsOurApplicationActive())
+                   // if (IsOurApplicationActive())
                     {
                         int vkCode = Marshal.ReadInt32(lParam);
                         
