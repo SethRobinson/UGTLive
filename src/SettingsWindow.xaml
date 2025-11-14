@@ -346,6 +346,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Override BG Color Checkbox -->
@@ -441,6 +442,35 @@
                         <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="11" Grid.Column="1" 
                                 Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
                                 ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
+                        
+                        <!-- Windows Visible in Screenshots Checkbox -->
+                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,15,0,5" IsChecked="False" 
+                                 Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
+                                 Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
+                                 Content="Make our windows visible in screenshots"
+                                 ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures."/>
+                    </Grid>
+                </GroupBox>
+                
+                <!-- Main Window Settings -->
+                <GroupBox Header="Main Window Settings" Margin="0,0,0,15" Padding="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Main Window Texts Can Be Interacted With Checkbox -->
+                        <CheckBox x:Name="mainWindowTextsCanInteractCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,5" IsChecked="True" 
+                                 Checked="MainWindowTextsCanInteractCheckBox_CheckedChanged" 
+                                 Unchecked="MainWindowTextsCanInteractCheckBox_CheckedChanged"
+                                 Content="Main Window texts can be interacted with"
+                                 ToolTip="If checked (default), you can select and copy text overlays on the Main Window. Uncheck for click-through mode (for mouse-based games)."/>
                     </Grid>
                 </GroupBox>
                 

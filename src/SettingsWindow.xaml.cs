@@ -396,6 +396,8 @@ namespace UGTLive
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
+            windowsVisibleInScreenshotsCheckBox.IsChecked = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+            mainWindowTextsCanInteractCheckBox.IsChecked = ConfigManager.Instance.GetMainWindowTextsCanInteract();
             
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
@@ -1240,6 +1242,36 @@ namespace UGTLive
             
             // Refresh overlays to apply changes immediately
             MonitorWindow.Instance.RefreshOverlays();
+        }
+        
+        private void WindowsVisibleInScreenshotsCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool visible = windowsVisibleInScreenshotsCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetWindowsVisibleInScreenshots(visible);
+            Console.WriteLine($"Windows visible in screenshots: {visible}");
+            
+            // Update all windows to apply the new capture exclusion setting
+            ChatBoxWindow.Instance?.UpdateCaptureExclusion();
+            MonitorWindow.Instance?.UpdateCaptureExclusion();
+            MainWindow.Instance?.UpdateCaptureExclusion();
+        }
+        
+        private void MainWindowTextsCanInteractCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool canInteract = mainWindowTextsCanInteractCheckBox.IsChecked ?? true;
+            ConfigManager.Instance.SetMainWindowTextsCanInteract(canInteract);
+            Console.WriteLine($"Main Window texts can interact: {canInteract}");
+            
+            // Update MainWindow to apply the new interaction setting
+            MainWindow.Instance?.UpdateMainWindowTextInteraction();
         }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)

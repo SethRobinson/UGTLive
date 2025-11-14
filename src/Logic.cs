@@ -299,6 +299,7 @@ namespace UGTLive
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
             MonitorWindow.Instance.RefreshOverlays();
+            MainWindow.Instance.RefreshMainWindowOverlays();
 
             // Hide translation status
             if (bResetTranslationStatus)
@@ -395,6 +396,7 @@ namespace UGTLive
                     
                     // Cập nhật MonitorWindow
                     MonitorWindow.Instance.RefreshOverlays();
+                    MainWindow.Instance.RefreshMainWindowOverlays();
                 }
                 else
                 {
@@ -1005,6 +1007,7 @@ namespace UGTLive
                     
                     // Refresh monitor window overlays to ensure they're displayed
                     MonitorWindow.Instance.RefreshOverlays();
+                    MainWindow.Instance.RefreshMainWindowOverlays();
                 }
             }
             catch (Exception ex)
@@ -1262,6 +1265,7 @@ namespace UGTLive
                 {
                     MonitorWindow.Instance.RefreshOverlays();
                 }
+                MainWindow.Instance.RefreshMainWindowOverlays();
             }
             catch (Exception ex)
             {

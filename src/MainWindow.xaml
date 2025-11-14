@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="Transparent Screen Capture" 
         Height="600" Width="800"
@@ -110,6 +111,35 @@
                             <Button x:Name="settingsButton" Content="Settings" Padding="8,3" Margin="5,0"
                                     Background="#FFB07D45" Foreground="White" BorderThickness="1" BorderBrush="White"
                                     Click="SettingsButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                    
+                            <!-- Separator -->
+                            <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch" 
+                                      WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            
+                            <!-- View in Browser Button -->
+                            <Button x:Name="exportButton" Content="View in browser" Padding="8,3" Margin="5,0"
+                                    Background="#FF5F8FD4" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                    Click="ExportButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            
+                            <!-- Separator -->
+                            <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch" 
+                                      WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            
+                            <!-- Overlay Controls -->
+                            <TextBlock Text="Overlay:" Foreground="White" VerticalAlignment="Center" Margin="10,0,10,0"
+                                      WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            <RadioButton x:Name="overlayHideRadio" Content="Hide" Foreground="White" VerticalAlignment="Center" 
+                                         Margin="0,0,10,0" GroupName="MainOverlayMode" 
+                                         Checked="OverlayRadioButton_Checked" Tag="Hide"
+                                         WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            <RadioButton x:Name="overlaySourceRadio" Content="Source" Foreground="White" VerticalAlignment="Center" 
+                                         Margin="0,0,10,0" GroupName="MainOverlayMode"
+                                         Checked="OverlayRadioButton_Checked" Tag="Source"
+                                         WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            <RadioButton x:Name="overlayTranslatedRadio" Content="Translated" Foreground="White" VerticalAlignment="Center" 
+                                         GroupName="MainOverlayMode" 
+                                         Checked="OverlayRadioButton_Checked" Tag="Translated"
+                                         WindowChrome.IsHitTestVisibleInChrome="True"/>
                         </StackPanel>
                         
                         <Button Content="X" Width="30" Height="30" 
@@ -121,16 +151,16 @@
                 </Grid>
                 
                 <!-- UI elements to hide during capture - HIDDEN DURING SCREENSHOT -->
-                <Grid Name="OverlayContent" Margin="0,50,0,0">
-                    <!-- Overlay text (will not appear in screenshots) -->
-                    <!-- 
-                    <TextBlock Text="This overlay text will NOT appear in screenshots"
-                              Foreground="#FFFF0000" FontWeight="Bold" FontSize="24"
-                              HorizontalAlignment="Left" VerticalAlignment="Top"
-                              Margin="50,60,0,0"/> 
-                    -->
-                    
-                    <!-- Add other elements here that should not appear in screenshots -->
+                <!-- Note: Grid needs a background (even 1% opacity) for WebView2 hit testing to work in transparent windows -->
+                <Grid Name="OverlayContent" Margin="0,50,0,0" IsHitTestVisible="True" Background="#01000000">
+                    <!-- WebView2 for text overlays - with margins to avoid blocking resize borders -->
+                    <wv2:WebView2 x:Name="textOverlayWebView" 
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"
+                                  DefaultBackgroundColor="Transparent"
+                                  Margin="15,0,15,15"
+                                  IsHitTestVisible="True"
+                                  Panel.ZIndex="100"/>
                 </Grid>
                 
                 

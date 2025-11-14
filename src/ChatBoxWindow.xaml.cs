@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Web;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -26,6 +28,13 @@ namespace UGTLive
     {
         // Constants
         private const int MAX_CONTEXT_HISTORY_SIZE = 100; // Max entries to keep for context purposes
+        
+        // Win32 API for WDA_EXCLUDEFROMCAPTURE
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
+        
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
         
         // We'll use MainWindow.Instance.translationHistory instead of maintaining our own
         private int _maxHistorySize; // Display history size from config
@@ -85,6 +94,7 @@ namespace UGTLive
             _animationTimer.Tick += AnimationTimer_Tick;
             
             // Subscribe to events
+            this.SourceInitialized += ChatBoxWindow_SourceInitialized;
             this.Loaded += ChatBoxWindow_Loaded;
             this.Closing += ChatBoxWindow_Closing;
             
@@ -390,6 +400,12 @@ namespace UGTLive
             }
         }
 
+        private void ChatBoxWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible
+            SetExcludeFromCapture();
+        }
+        
         private void ChatBoxWindow_Loaded(object sender, RoutedEventArgs e)
         {
             // Position the window based on screen bounds if not already positioned
@@ -405,6 +421,48 @@ namespace UGTLive
             
             // Add SizeChanged event handler for reflowing text when window is resized
             this.SizeChanged += ChatBoxWindow_SizeChanged;
+        }
+        
+        private void SetExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                var helper = new WindowInteropHelper(this);
+                IntPtr hwnd = helper.Handle;
+                
+                if (hwnd != IntPtr.Zero)
+                {
+                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
+                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
+                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"ChatBox window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set ChatBox capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("ChatBox window HWND is null, cannot set capture mode");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting ChatBox capture mode: {ex.Message}");
+            }
+        }
+        
+        public void UpdateCaptureExclusion()
+        {
+            SetExcludeFromCapture();
         }
         
         // Handler for application-level keyboard shortcuts

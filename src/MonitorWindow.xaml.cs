@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -83,7 +84,8 @@ namespace UGTLive
             // Set initial status
             UpdateStatus("Ready");
              
-            // Add loaded event handler
+            // Add event handlers
+            this.SourceInitialized += MonitorWindow_SourceInitialized;
             this.Loaded += MonitorWindow_Loaded;
             
             // Add size changed handler to update scrollbars
@@ -451,6 +453,114 @@ namespace UGTLive
             Console.WriteLine("MonitorWindow initialization complete");
         }
         
+        private void MonitorWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
+            SetExcludeFromCapture();
+        }
+        
+        private void SetExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                var helper = new WindowInteropHelper(this);
+                IntPtr hwnd = helper.Handle;
+                
+                if (hwnd != IntPtr.Zero)
+                {
+                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
+                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
+                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"Monitor window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set Monitor window capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Monitor window HWND is null, cannot set capture mode");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Monitor window capture mode: {ex.Message}");
+            }
+        }
+        
+        public void UpdateCaptureExclusion()
+        {
+            // Update the main window
+            SetExcludeFromCapture();
+            
+            // Update WebView2 child windows
+            if (_overlayWebViewInitialized && textOverlayWebView?.CoreWebView2 != null)
+            {
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                SetWebView2ExcludeFromCapture(visibleInScreenshots);
+            }
+        }
+        
+        private void SetWebView2ExcludeFromCapture(bool visibleInScreenshots)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    // WebView2 is based on Chromium and doesn't create traditional Win32 child windows
+                    // Instead, we need to get the WebView2 control's HWND using HwndSource
+                    var presentationSource = PresentationSource.FromVisual(textOverlayWebView);
+                    if (presentationSource is HwndSource hwndSource)
+                    {
+                        IntPtr webViewHwnd = hwndSource.Handle;
+                        
+                        if (webViewHwnd != IntPtr.Zero)
+                        {
+                            uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                            bool success = SetWindowDisplayAffinity(webViewHwnd, affinity);
+                            
+                            if (success)
+                            {
+                                Console.WriteLine($"Monitor WebView2 excluded from screen capture successfully (HWND: {webViewHwnd})");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Failed to set Monitor WebView2 capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Monitor WebView2 HWND is null");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Monitor WebView2: Could not get HwndSource, WebView2 may share parent window HWND");
+                        // WebView2 shares the parent window's HWND, so the main window exclusion covers it
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Monitor WebView2 capture mode: {ex.Message}");
+            }
+        }
+        
+        // Win32 API for enumerating child windows
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        
         private bool _overlayWebViewInitialized = false;
         
         private async void InitializeOverlayWebView()
@@ -475,6 +585,17 @@ namespace UGTLive
                     
                     // Initial empty render
                     UpdateOverlayWebView();
+                    
+                    // Apply WDA_EXCLUDEFROMCAPTURE to WebView2 child windows
+                    // Use a longer delay to ensure child windows are fully created
+                    _ = Task.Delay(1500).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                            SetWebView2ExcludeFromCapture(visibleInScreenshots);
+                        });
+                    });
                     
                     Console.WriteLine("Overlay WebView2 initialized successfully");
                 }
@@ -1270,7 +1391,7 @@ namespace UGTLive
         }
         
         // Export current view to browser
-        private void ExportToBrowser()
+        public void ExportToBrowser()
         {
             // Check if we have an image to export
             if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
@@ -1701,7 +1822,7 @@ namespace UGTLive
         }
         
         // Check if a language supports vertical text
-        private bool IsVerticalSupportedLanguage(string languageCode)
+        public static bool IsVerticalSupportedLanguage(string languageCode)
         {
             // Languages that typically support vertical text (CJK languages)
             string[] verticalLanguages = { "ja", "zh", "ko", "zh-cn", "zh-tw", "zh-hk", "ja-jp", "ko-kr" };
@@ -2358,6 +2479,13 @@ namespace UGTLive
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+        
+        // Win32 API for WDA_EXCLUDEFROMCAPTURE
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
+        
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
         private struct POINT

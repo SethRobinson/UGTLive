@@ -512,6 +512,36 @@ namespace UGTLive
             
             // Load auto-translate setting from config
             isAutoTranslateEnabled = ConfigManager.Instance.IsAutoTranslateEnabled();
+            
+            // Initialize the overlay WebView2
+            InitializeMainWindowOverlayWebView();
+            
+            // Load overlay mode from config
+            string overlayMode = ConfigManager.Instance.GetMainWindowOverlayMode();
+            switch (overlayMode)
+            {
+                case "Hide":
+                    _currentOverlayMode = OverlayMode.Hide;
+                    overlayHideRadio.IsChecked = true;
+                    break;
+                case "Source":
+                    _currentOverlayMode = OverlayMode.Source;
+                    overlaySourceRadio.IsChecked = true;
+                    break;
+                case "Translated":
+                default:
+                    _currentOverlayMode = OverlayMode.Translated;
+                    overlayTranslatedRadio.IsChecked = true;
+                    break;
+            }
+            
+            // Set initial text interaction state
+            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
+            if (textOverlayWebView != null)
+            {
+                textOverlayWebView.IsHitTestVisible = canInteract;
+                Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled")}");
+            }
         }
         
         // Handler for application-level keyboard shortcuts
@@ -1111,6 +1141,20 @@ namespace UGTLive
         {
             return selectedOcrMethod;
         }
+        
+        // Track overlay mode for MainWindow
+        private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
+        private bool _overlayWebViewInitialized = false;
+        private string _lastOverlayHtml = string.Empty;
+        private string? _currentMainWindowContextMenuTextObjectId;
+        private string? _currentMainWindowContextMenuSelection;
+        
+        // Win32 API for WDA_EXCLUDEFROMCAPTURE
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
+        
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
        
         // Toggle the monitor window
         private void MonitorButton_Click(object sender, RoutedEventArgs e)
@@ -1661,6 +1705,633 @@ namespace UGTLive
                 // Call new method to update the specific entry
                 UpdateTranslationInHistory(lineId, translatedWithIcon);
             });
+        }
+        
+        // Initialize the overlay WebView2 for MainWindow
+        private async void InitializeMainWindowOverlayWebView()
+        {
+            try
+            {
+                var environment = await WebViewEnvironmentManager.GetEnvironmentAsync();
+                await textOverlayWebView.EnsureCoreWebView2Async(environment);
+                
+                if (textOverlayWebView.CoreWebView2 != null)
+                {
+                    textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
+                    
+                    // Enable interaction with the WebView2 control
+                    textOverlayWebView.IsHitTestVisible = true;
+                    
+                    // Add event handlers for context menu
+                    textOverlayWebView.CoreWebView2.WebMessageReceived += MainWindowOverlayWebView_WebMessageReceived;
+                    textOverlayWebView.CoreWebView2.ContextMenuRequested += MainWindowOverlayWebView_ContextMenuRequested;
+                    
+                    _overlayWebViewInitialized = true;
+                    
+                    // Initial empty render
+                    UpdateMainWindowOverlayWebView();
+                    
+                    // Exclude WebView2 from capture - use a longer delay to ensure child windows are fully created
+                    _ = Task.Delay(1500).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            SetWebViewExcludeFromCapture();
+                        });
+                    });
+                    
+                    Console.WriteLine("MainWindow overlay WebView2 initialized successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing MainWindow overlay WebView2: {ex.Message}");
+            }
+        }
+        
+        private void SetWebViewExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    // WebView2 is based on Chromium and doesn't create traditional Win32 child windows
+                    // Instead, we need to get the WebView2 control's HWND using HwndSource
+                    var presentationSource = PresentationSource.FromVisual(textOverlayWebView);
+                    if (presentationSource is HwndSource hwndSource)
+                    {
+                        IntPtr webViewHwnd = hwndSource.Handle;
+                        
+                        if (webViewHwnd != IntPtr.Zero)
+                        {
+                            uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                            bool success = SetWindowDisplayAffinity(webViewHwnd, affinity);
+                            
+                            if (success)
+                            {
+                                Console.WriteLine($"MainWindow WebView2 excluded from screen capture successfully (HWND: {webViewHwnd})");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Failed to set MainWindow WebView2 capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("MainWindow WebView2 HWND is null");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("MainWindow WebView2: Could not get HwndSource, WebView2 may share parent window HWND");
+                        // WebView2 shares the parent window's HWND, so we don't need to do anything special
+                        // The translucent/transparent parts won't be captured anyway
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting MainWindow WebView2 capture mode: {ex.Message}");
+            }
+        }
+        
+        // Win32 API for enumerating child windows
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        
+        public void UpdateCaptureExclusion()
+        {
+            // Update the WebView2 child windows
+            SetWebViewExcludeFromCapture();
+        }
+        
+        public void UpdateMainWindowTextInteraction()
+        {
+            // Update the IsHitTestVisible property based on setting
+            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
+            
+            if (textOverlayWebView != null)
+            {
+                textOverlayWebView.IsHitTestVisible = canInteract;
+                Console.WriteLine($"MainWindow text interaction: {(canInteract ? "enabled" : "disabled (click-through)")}");
+            }
+            
+            // Regenerate overlay HTML with updated interaction settings
+            RefreshMainWindowOverlays();
+        }
+        
+        private void UpdateMainWindowOverlayWebView()
+        {
+            if (!_overlayWebViewInitialized || textOverlayWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+            
+            try
+            {
+                string html = GenerateMainWindowOverlayHtml();
+                
+                // Only update if HTML changed
+                if (html == _lastOverlayHtml)
+                {
+                    return;
+                }
+                
+                _lastOverlayHtml = html;
+                textOverlayWebView.CoreWebView2.NavigateToString(html);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating MainWindow overlay WebView: {ex.Message}");
+            }
+        }
+        
+        private string GenerateMainWindowOverlayHtml()
+        {
+            // Check if click-through is enabled (declare once at the top)
+            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
+            
+            var html = new StringBuilder();
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset='utf-8'/>");
+            html.AppendLine("<style>");
+            html.AppendLine("html, body {");
+            html.AppendLine("  margin: 0;");
+            html.AppendLine("  padding: 0;");
+            html.AppendLine("  width: 100%;");
+            html.AppendLine("  height: 100%;");
+            html.AppendLine("  overflow: hidden;");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  pointer-events: none;"); // Body itself is non-interactive
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  box-sizing: border-box;");
+            html.AppendLine("  overflow: hidden;");
+            html.AppendLine("  white-space: normal;");
+            html.AppendLine("  word-wrap: break-word;");
+            
+            if (canInteract)
+            {
+                html.AppendLine("  pointer-events: auto;");
+                html.AppendLine("  user-select: text;");
+            }
+            else
+            {
+                html.AppendLine("  pointer-events: none;");
+                html.AppendLine("  user-select: none;");
+            }
+            
+            html.AppendLine("  padding: 0;");
+            html.AppendLine("  margin: 0;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: flex-start;");
+            html.AppendLine("}");
+            html.AppendLine(".vertical-text {");
+            html.AppendLine("  writing-mode: vertical-rl;");
+            html.AppendLine("  text-orientation: upright;");
+            html.AppendLine("  align-items: flex-start;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("}");
+            html.AppendLine("</style>");
+            html.AppendLine("<script>");
+            html.AppendLine("function fitTextToBox(element) {");
+            html.AppendLine("  const minSize = 8;");
+            html.AppendLine("  const maxSize = 64;");
+            html.AppendLine("  let bestSize = minSize;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Binary search for the best font size");
+            html.AppendLine("  let low = minSize;");
+            html.AppendLine("  let high = maxSize;");
+            html.AppendLine("  ");
+            html.AppendLine("  while (high - low > 0.5) {");
+            html.AppendLine("    const mid = (low + high) / 2;");
+            html.AppendLine("    element.style.fontSize = mid + 'px';");
+            html.AppendLine("    ");
+            html.AppendLine("    if (element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth) {");
+            html.AppendLine("      bestSize = mid;");
+            html.AppendLine("      low = mid;");
+            html.AppendLine("    } else {");
+            html.AppendLine("      high = mid;");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  element.style.fontSize = bestSize + 'px';");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("window.addEventListener('load', function() {");
+            html.AppendLine("  const overlays = document.querySelectorAll('.text-overlay');");
+            html.AppendLine("  overlays.forEach(overlay => fitTextToBox(overlay));");
+            html.AppendLine("});");
+            html.AppendLine("");
+            
+            // Only add context menu handling if interaction is enabled (use variable declared at top)
+            if (canInteract)
+            {
+                html.AppendLine("document.addEventListener('contextmenu', function(event) {");
+                html.AppendLine("  try {");
+                html.AppendLine("    // Find which text overlay was clicked");
+                html.AppendLine("    let target = event.target;");
+                html.AppendLine("    while (target && !target.classList.contains('text-overlay')) {");
+                html.AppendLine("      target = target.parentElement;");
+                html.AppendLine("    }");
+                html.AppendLine("    if (target && target.id) {");
+                html.AppendLine("      const selection = window.getSelection();");
+                html.AppendLine("      const message = {");
+                html.AppendLine("        kind: 'contextmenu',");
+                html.AppendLine("        textObjectId: target.id.replace('overlay-', ''),");
+                html.AppendLine("        x: event.clientX,");
+                html.AppendLine("        y: event.clientY,");
+                html.AppendLine("        selection: selection ? selection.toString() : ''");
+                html.AppendLine("      };");
+                html.AppendLine("      if (window.chrome && window.chrome.webview) {");
+                html.AppendLine("        window.chrome.webview.postMessage(JSON.stringify(message));");
+                html.AppendLine("      }");
+                html.AppendLine("    }");
+                html.AppendLine("    event.preventDefault();");
+                html.AppendLine("  } catch (error) {");
+                html.AppendLine("    console.error(error);");
+                html.AppendLine("  }");
+                html.AppendLine("});");
+            }
+            
+            html.AppendLine("</script>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            
+            // Add all text overlays if mode is not Hide
+            if (_currentOverlayMode != OverlayMode.Hide && Logic.Instance != null)
+            {
+                var textObjects = Logic.Instance.GetTextObjects();
+                if (textObjects != null)
+                {
+                    foreach (var textObj in textObjects)
+                    {
+                        if (textObj == null) continue;
+                        
+                        // Determine which text to show
+                        string textToShow;
+                        bool isTranslated = false;
+                        string displayOrientation = textObj.TextOrientation;
+                        
+                        if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated))
+                        {
+                            textToShow = textObj.TextTranslated;
+                            isTranslated = true;
+                            
+                            // Check if target language supports vertical
+                            if (textObj.TextOrientation == "vertical")
+                            {
+                                string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                                if (!MonitorWindow.IsVerticalSupportedLanguage(targetLang))
+                                {
+                                    displayOrientation = "horizontal";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            textToShow = textObj.Text;
+                        }
+                        
+                        // Get colors
+                        Color bgColor = textObj.BackgroundColor?.Color ?? Colors.Black;
+                        Color textColor = textObj.TextColor?.Color ?? Colors.White;
+                        
+                        // Get font settings
+                        string fontFamily = isTranslated
+                            ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                            : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                        bool isBold = isTranslated
+                            ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                            : ConfigManager.Instance.GetSourceLanguageFontBold();
+                        
+                        // Encode text for HTML
+                        string encodedText = System.Web.HttpUtility.HtmlEncode(textToShow.Trim())
+                            .Replace("\r\n", " ")
+                            .Replace("\r", " ")
+                            .Replace("\n", " ");
+                        
+                        // Use text object positions directly (no zoom on main window)
+                        double left = textObj.X;
+                        double top = textObj.Y;
+                        double width = textObj.Width;
+                        double height = textObj.Height;
+                        
+                        // Build the div for this text object
+                        string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
+                            $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
+                            $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
+                            $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
+                            $"font-weight: {(isBold ? "bold" : "normal")}; " +
+                            $"font-size: 16px;";
+                        
+                        string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
+                        html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}'>");
+                        html.Append(encodedText);
+                        html.AppendLine("</div>");
+                    }
+                }
+            }
+            
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+            
+            return html.ToString();
+        }
+        
+        public void RefreshMainWindowOverlays()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => RefreshMainWindowOverlays());
+                return;
+            }
+            
+            try
+            {
+                UpdateMainWindowOverlayWebView();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error refreshing MainWindow overlays: {ex.Message}");
+            }
+        }
+        
+        // Export to HTML button handler
+        private void ExportButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                MonitorWindow.Instance.ExportToBrowser();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error exporting to HTML: {ex.Message}");
+                MessageBox.Show($"Error exporting to HTML: {ex.Message}", "Export Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        // Overlay radio button handler
+        private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.RadioButton radioButton && radioButton.Tag != null)
+            {
+                string mode = radioButton.Tag.ToString() ?? "Translated";
+                
+                switch (mode)
+                {
+                    case "Hide":
+                        _currentOverlayMode = OverlayMode.Hide;
+                        break;
+                    case "Source":
+                        _currentOverlayMode = OverlayMode.Source;
+                        break;
+                    case "Translated":
+                        _currentOverlayMode = OverlayMode.Translated;
+                        break;
+                }
+                
+                Console.WriteLine($"MainWindow overlay mode changed to: {_currentOverlayMode}");
+                
+                // Save to config
+                ConfigManager.Instance.SetMainWindowOverlayMode(mode);
+                
+                // Update overlay display
+                RefreshMainWindowOverlays();
+            }
+        }
+        
+        // Handle WebView2 web messages for context menu
+        private void MainWindowOverlayWebView_WebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                string message = e.TryGetWebMessageAsString();
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return;
+                }
+                
+                using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(message);
+                System.Text.Json.JsonElement root = document.RootElement;
+                
+                if (root.TryGetProperty("kind", out System.Text.Json.JsonElement kindElement) &&
+                    kindElement.GetString() == "contextmenu")
+                {
+                    string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idElement) 
+                        ? idElement.GetString() ?? string.Empty : string.Empty;
+                    double x = root.TryGetProperty("x", out System.Text.Json.JsonElement xElement) ? xElement.GetDouble() : 0;
+                    double y = root.TryGetProperty("y", out System.Text.Json.JsonElement yElement) ? yElement.GetDouble() : 0;
+                    string selection = root.TryGetProperty("selection", out System.Text.Json.JsonElement selectionElement)
+                        ? selectionElement.GetString() ?? string.Empty : string.Empty;
+                    
+                    ShowMainWindowOverlayContextMenu(textObjectId, x, y, selection);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling MainWindow overlay WebView message: {ex.Message}");
+            }
+        }
+        
+        private void MainWindowOverlayWebView_ContextMenuRequested(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2ContextMenuRequestedEventArgs e)
+        {
+            try
+            {
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error suppressing default WebView2 context menu: {ex.Message}");
+            }
+        }
+        
+        private void ShowMainWindowOverlayContextMenu(string textObjectId, double clientX, double clientY, string? selection)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(textObjectId))
+                {
+                    return;
+                }
+                
+                _currentMainWindowContextMenuTextObjectId = textObjectId;
+                _currentMainWindowContextMenuSelection = string.IsNullOrWhiteSpace(selection) ? null : selection.Trim();
+                
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        System.Windows.Point contentPoint = new System.Windows.Point(clientX, clientY);
+                        System.Windows.Point relativeToWebView = textOverlayWebView.TranslatePoint(contentPoint, this);
+                        System.Windows.Point screenPoint = this.PointToScreen(relativeToWebView);
+                        
+                        System.Windows.Controls.ContextMenu contextMenu = CreateMainWindowOverlayContextMenu();
+                        contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+                        contextMenu.HorizontalOffset = screenPoint.X;
+                        contextMenu.VerticalOffset = screenPoint.Y;
+                        contextMenu.IsOpen = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error showing MainWindow context menu: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error preparing MainWindow context menu: {ex.Message}");
+            }
+        }
+        
+        private System.Windows.Controls.ContextMenu CreateMainWindowOverlayContextMenu()
+        {
+            System.Windows.Controls.ContextMenu contextMenu = new System.Windows.Controls.ContextMenu();
+            
+            // Copy menu item
+            System.Windows.Controls.MenuItem copyMenuItem = new System.Windows.Controls.MenuItem();
+            copyMenuItem.Header = "Copy";
+            copyMenuItem.Click += MainWindowOverlayContextMenu_Copy_Click;
+            contextMenu.Items.Add(copyMenuItem);
+            
+            // Copy Translated menu item (only shown when in Source mode)
+            System.Windows.Controls.MenuItem copyTranslatedMenuItem = new System.Windows.Controls.MenuItem();
+            copyTranslatedMenuItem.Header = "Copy Translated";
+            copyTranslatedMenuItem.Click += MainWindowOverlayContextMenu_CopyTranslated_Click;
+            contextMenu.Items.Add(copyTranslatedMenuItem);
+            
+            // Separator
+            contextMenu.Items.Add(new System.Windows.Controls.Separator());
+            
+            // Learn menu item
+            System.Windows.Controls.MenuItem learnMenuItem = new System.Windows.Controls.MenuItem();
+            learnMenuItem.Header = "Learn";
+            learnMenuItem.Click += MainWindowOverlayContextMenu_Learn_Click;
+            contextMenu.Items.Add(learnMenuItem);
+            
+            // Speak menu item
+            System.Windows.Controls.MenuItem speakMenuItem = new System.Windows.Controls.MenuItem();
+            speakMenuItem.Header = "Speak";
+            speakMenuItem.Click += MainWindowOverlayContextMenu_Speak_Click;
+            contextMenu.Items.Add(speakMenuItem);
+            
+            // Update menu visibility when opened
+            contextMenu.Opened += (s, e) =>
+            {
+                TextObject? textObj = GetMainWindowTextObjectById(_currentMainWindowContextMenuTextObjectId);
+                if (textObj != null)
+                {
+                    copyTranslatedMenuItem.Visibility = _currentOverlayMode == OverlayMode.Source ? Visibility.Visible : Visibility.Collapsed;
+                    copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(textObj.TextTranslated);
+                }
+            };
+            
+            contextMenu.Closed += (s, e) =>
+            {
+                _currentMainWindowContextMenuTextObjectId = null;
+                _currentMainWindowContextMenuSelection = null;
+            };
+            
+            return contextMenu;
+        }
+        
+        private TextObject? GetMainWindowTextObjectById(string? id)
+        {
+            if (string.IsNullOrEmpty(id) || Logic.Instance == null)
+            {
+                return null;
+            }
+            
+            var textObjects = Logic.Instance.GetTextObjects();
+            return textObjects?.FirstOrDefault(t => t.ID == id);
+        }
+        
+        private void MainWindowOverlayContextMenu_Copy_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetMainWindowTextObjectById(_currentMainWindowContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToCopy = !string.IsNullOrWhiteSpace(_currentMainWindowContextMenuSelection) 
+                    ? _currentMainWindowContextMenuSelection 
+                    : (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) 
+                        ? textObj.TextTranslated 
+                        : textObj.Text);
+                
+                System.Windows.Forms.Clipboard.SetText(textToCopy);
+                SetStatus("Text copied to clipboard");
+            }
+        }
+        
+        private void MainWindowOverlayContextMenu_CopyTranslated_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetMainWindowTextObjectById(_currentMainWindowContextMenuTextObjectId);
+            if (textObj != null && !string.IsNullOrEmpty(textObj.TextTranslated))
+            {
+                System.Windows.Forms.Clipboard.SetText(textObj.TextTranslated);
+                SetStatus("Translated text copied to clipboard");
+            }
+        }
+        
+        private void MainWindowOverlayContextMenu_Learn_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetMainWindowTextObjectById(_currentMainWindowContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToLearn = !string.IsNullOrWhiteSpace(_currentMainWindowContextMenuSelection) 
+                    ? _currentMainWindowContextMenuSelection 
+                    : textObj.Text;
+                
+                if (!string.IsNullOrWhiteSpace(textToLearn))
+                {
+                    string url = $"https://jisho.org/search/{Uri.EscapeDataString(textToLearn)}";
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+            }
+        }
+        
+        private async void MainWindowOverlayContextMenu_Speak_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetMainWindowTextObjectById(_currentMainWindowContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToSpeak = !string.IsNullOrWhiteSpace(_currentMainWindowContextMenuSelection)
+                    ? _currentMainWindowContextMenuSelection
+                    : (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated)
+                        ? textObj.TextTranslated
+                        : textObj.Text);
+                
+                if (!string.IsNullOrWhiteSpace(textToSpeak))
+                {
+                    // Use the configured TTS service
+                    string ttsService = ConfigManager.Instance.GetTtsService();
+                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await GoogleTTSService.Instance.SpeakText(textToSpeak);
+                    }
+                    else // Default to ElevenLabs
+                    {
+                        await ElevenLabsService.Instance.SpeakText(textToSpeak);
+                    }
+                }
+            }
         }
     }
 }
