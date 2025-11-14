@@ -1799,6 +1799,126 @@ namespace UGTLive
             }
         }
         
+        private void ExcludeContextMenuFromCapture(System.Windows.Controls.ContextMenu contextMenu)
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                // If visible in screenshots, don't exclude
+                if (visibleInScreenshots)
+                {
+                    return;
+                }
+                
+                // Use Dispatcher.BeginInvoke with a small delay to allow the popup window to be created
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        // Try to get the PresentationSource from the ContextMenu
+                        var presentationSource = PresentationSource.FromVisual(contextMenu);
+                        if (presentationSource is HwndSource hwndSource)
+                        {
+                            IntPtr popupHwnd = hwndSource.Handle;
+                            
+                            if (popupHwnd != IntPtr.Zero)
+                            {
+                                bool success = SetWindowDisplayAffinity(popupHwnd, WDA_EXCLUDEFROMCAPTURE);
+                                
+                                if (success)
+                                {
+                                    Console.WriteLine($"Context menu popup excluded from screen capture successfully (HWND: {popupHwnd})");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Failed to set context menu popup capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // If we can't get HwndSource directly, try finding the popup window using Win32 APIs
+                            // WPF ContextMenu creates a popup that might not be directly accessible via PresentationSource
+                            // Try to find it by looking for child windows or popup windows
+                            TryFindAndExcludePopupWindow();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error excluding context menu from capture: {ex.Message}");
+                        // Fallback: try to find popup window using Win32 APIs
+                        TryFindAndExcludePopupWindow();
+                    }
+                }), DispatcherPriority.Background, new object[] { });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting up context menu exclusion: {ex.Message}");
+            }
+        }
+        
+        private void TryFindAndExcludePopupWindow()
+        {
+            try
+            {
+                // Get the main window's HWND
+                var helper = new WindowInteropHelper(this);
+                IntPtr mainHwnd = helper.Handle;
+                
+                if (mainHwnd == IntPtr.Zero)
+                {
+                    return;
+                }
+                
+                // Try to find popup windows by enumerating child windows
+                // WPF ContextMenu popups are typically top-level windows, not children
+                // But we can try to find them by looking for windows with menu class names
+                IntPtr foundPopup = IntPtr.Zero;
+                
+                // Look for popup windows by checking child windows
+                EnumChildWindows(mainHwnd, (hWnd, lParam) =>
+                {
+                    StringBuilder className = new StringBuilder(256);
+                    GetClassName(hWnd, className, className.Capacity);
+                    
+                    // WPF popup windows might have class names like "#32768" (menu class) or other popup classes
+                    string classNameStr = className.ToString();
+                    if (classNameStr.Contains("Popup") || classNameStr == "#32768" || classNameStr.Contains("Menu"))
+                    {
+                        foundPopup = hWnd;
+                        return false; // Stop enumeration
+                    }
+                    
+                    return true; // Continue enumeration
+                }, IntPtr.Zero);
+                
+                if (foundPopup != IntPtr.Zero)
+                {
+                    bool success = SetWindowDisplayAffinity(foundPopup, WDA_EXCLUDEFROMCAPTURE);
+                    if (success)
+                    {
+                        Console.WriteLine($"Context menu popup found and excluded from screen capture (HWND: {foundPopup})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error finding popup window: {ex.Message}");
+            }
+        }
+        
+        // Win32 API for finding popup windows
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        
+        private const uint GW_CHILD = 5;
+        private const uint GW_HWNDNEXT = 2;
+        
         // Win32 API for enumerating child windows
         [DllImport("user32.dll")]
         private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
@@ -2236,6 +2356,9 @@ namespace UGTLive
                     copyTranslatedMenuItem.Visibility = _currentOverlayMode == OverlayMode.Source ? Visibility.Visible : Visibility.Collapsed;
                     copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(textObj.TextTranslated);
                 }
+                
+                // Exclude context menu popup from screen capture
+                ExcludeContextMenuFromCapture(contextMenu);
             };
             
             contextMenu.Closed += (s, e) =>
