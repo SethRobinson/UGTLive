@@ -164,6 +164,7 @@ namespace UGTLive
         public const string MONITOR_OVERLAY_MODE = "monitor_overlay_mode";
         public const string MAIN_WINDOW_OVERLAY_MODE = "main_window_overlay_mode";
         public const string MAIN_WINDOW_TEXTS_CAN_INTERACT = "main_window_texts_can_interact";
+        public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
         public const string WINDOWS_VISIBLE_IN_SCREENSHOTS = "windows_visible_in_screenshots";
         
         // docTR-specific glue toggle
@@ -2266,6 +2267,19 @@ Here is the input JSON:";
             _configValues[MAIN_WINDOW_TEXTS_CAN_INTERACT] = canInteract.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Main window texts can interact set to: {canInteract}");
+        }
+        
+        public bool GetMainWindowMousePassthrough()
+        {
+            string value = GetValue(MAIN_WINDOW_MOUSE_PASSTHROUGH, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetMainWindowMousePassthrough(bool enabled)
+        {
+            _configValues[MAIN_WINDOW_MOUSE_PASSTHROUGH] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Main window mouse passthrough set to: {enabled}");
         }
         
         public bool GetWindowsVisibleInScreenshots()

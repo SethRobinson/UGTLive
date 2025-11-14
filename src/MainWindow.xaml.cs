@@ -542,6 +542,12 @@ namespace UGTLive
                 textOverlayWebView.IsHitTestVisible = canInteract;
                 Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled")}");
             }
+            
+            // Set initial mouse passthrough state
+            bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
+            mousePassthroughCheckBox.IsChecked = mousePassthrough;
+            updateMousePassthrough(mousePassthrough);
+            Console.WriteLine($"MainWindow mouse passthrough initialized: {(mousePassthrough ? "enabled" : "disabled")}");
         }
         
         // Handler for application-level keyboard shortcuts
@@ -2230,6 +2236,46 @@ namespace UGTLive
                 
                 // Update overlay display
                 RefreshMainWindowOverlays();
+            }
+        }
+        
+        // Mouse passthrough checkbox handler
+        private void MousePassthroughCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (mousePassthroughCheckBox == null)
+                return;
+                
+            bool isEnabled = mousePassthroughCheckBox.IsChecked ?? false;
+            
+            // Save to config
+            ConfigManager.Instance.SetMainWindowMousePassthrough(isEnabled);
+            
+            // Update mouse passthrough state
+            updateMousePassthrough(isEnabled);
+            
+            Console.WriteLine($"Mouse passthrough {(isEnabled ? "enabled" : "disabled")}");
+        }
+        
+        // Helper method to update mouse passthrough state
+        private void updateMousePassthrough(bool enabled)
+        {
+            if (OverlayContent == null)
+                return;
+                
+            if (enabled)
+            {
+                // Enable mouse passthrough - clicks go through to apps behind
+                OverlayContent.IsHitTestVisible = false;
+                OverlayContent.Background = System.Windows.Media.Brushes.Transparent;
+                Console.WriteLine("Mouse passthrough: overlay now transparent and non-interactive");
+            }
+            else
+            {
+                // Disable mouse passthrough - allow interaction with text overlays
+                OverlayContent.IsHitTestVisible = true;
+                OverlayContent.Background = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromArgb(1, 0, 0, 0)); // #01000000
+                Console.WriteLine("Mouse passthrough: overlay now interactive with minimal background");
             }
         }
         
