@@ -20,8 +20,24 @@
       
     
     <Grid Background="Transparent">
-        <!-- Main border for resizing - ALWAYS VISIBLE -->
-        <Border Name="MainBorder" BorderThickness="1" BorderBrush="#CFFF0000" Background="Transparent">
+        <!-- UI elements to hide during capture - HIDDEN DURING SCREENSHOT -->
+        <!-- Note: Grid needs a background (even 1% opacity) for WebView2 hit testing to work in transparent windows -->
+        <!-- OverlayContent is outside MainBorder so it remains visible when MainBorder is hidden -->
+        <!-- Top margin of 50px prevents covering the header buttons -->
+        <Grid Name="OverlayContent" Margin="0,50,0,0" IsHitTestVisible="True" Background="#01000000">
+            <!-- WebView2 for text overlays - with margins to avoid blocking resize borders -->
+            <wv2:WebView2 x:Name="textOverlayWebView" 
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          DefaultBackgroundColor="Transparent"
+                          Margin="15,0,15,15"
+                          IsHitTestVisible="True"
+                          Panel.ZIndex="100"/>
+        </Grid>
+        
+        <!-- Main border for resizing - can be hidden via Hide button -->
+        <!-- Higher Z-index ensures buttons are clickable above the overlay -->
+        <Border Name="MainBorder" BorderThickness="1" BorderBrush="#CFFF0000" Background="Transparent" Panel.ZIndex="200">
             <Grid>
                 <!-- Top control bar with dedicated resize area -->
                 <Grid Height="50" VerticalAlignment="Top">
@@ -149,20 +165,6 @@
                     </Grid>
                 </Border>
                 </Grid>
-                
-                <!-- UI elements to hide during capture - HIDDEN DURING SCREENSHOT -->
-                <!-- Note: Grid needs a background (even 1% opacity) for WebView2 hit testing to work in transparent windows -->
-                <Grid Name="OverlayContent" Margin="0,50,0,0" IsHitTestVisible="True" Background="#01000000">
-                    <!-- WebView2 for text overlays - with margins to avoid blocking resize borders -->
-                    <wv2:WebView2 x:Name="textOverlayWebView" 
-                                  HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Stretch"
-                                  DefaultBackgroundColor="Transparent"
-                                  Margin="15,0,15,15"
-                                  IsHitTestVisible="True"
-                                  Panel.ZIndex="100"/>
-                </Grid>
-                
                 
                 <!-- Resize grip indicators -->
                 <Rectangle Width="24" Height="24" Fill="#80808080"
