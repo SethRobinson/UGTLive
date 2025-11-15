@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -15,11 +16,14 @@ namespace UGTLive
         /// </summary>
         /// <param name="jsonData">The JSON data to translate</param>
         /// <param name="prompt">The prompt to guide the translation</param>
+        /// <param name="cancellationToken">Cancellation token to cancel the translation</param>
         /// <returns>The translation result as a JSON string or null if translation failed</returns>
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 string apiKey = ConfigManager.Instance.GetGeminiApiKey();
                 if (string.IsNullOrEmpty(apiKey))
                 {
@@ -58,11 +62,11 @@ namespace UGTLive
                 // Get model from config
                 string model = ConfigManager.Instance.GetGeminiModel();
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
-                HttpResponseMessage response = await _httpClient.PostAsync(url, content);
+                HttpResponseMessage response = await _httpClient.PostAsync(url, content, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
                     
                     // Log the raw Gemini response before returning it
                     LogManager.Instance.LogLlmReply(jsonResponse);
@@ -114,6 +118,11 @@ namespace UGTLive
                     
                     return null;
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Gemini translation was cancelled");
+                return null;
             }
             catch (Exception ex)
             {

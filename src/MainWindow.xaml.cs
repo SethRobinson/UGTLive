@@ -406,6 +406,9 @@ namespace UGTLive
             HotkeyManager.Instance.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
             HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
             HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
+                // Cancel any in-progress translation
+                Logic.Instance.CancelTranslation();
+                
                 // Clear text objects instantly
                 Logic.Instance.ClearAllTextObjects();
                 

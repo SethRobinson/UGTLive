@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.IO;
@@ -29,10 +30,11 @@ namespace UGTLive
         /// <summary>
         /// Translate text using Google Translate API
         /// </summary>
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Phân tích JSON đầu vào
                 using JsonDocument doc = JsonDocument.Parse(jsonData);
                 JsonElement root = doc.RootElement;
@@ -95,14 +97,15 @@ namespace UGTLive
                         }
                         
                         // Dịch văn bản bằng Google Translate
+                        cancellationToken.ThrowIfCancellationRequested();
                         string translatedText;
                         if (_useCloudApi)
                         {
-                            translatedText = await TranslateWithCloudApiAsync(originalText, sourceLanguage, targetLanguage);
+                            translatedText = await TranslateWithCloudApiAsync(originalText, sourceLanguage, targetLanguage, cancellationToken);
                         }
                         else
                         {
-                            translatedText = await TranslateWithFreeServiceAsync(originalText, sourceLanguage, targetLanguage);
+                            translatedText = await TranslateWithFreeServiceAsync(originalText, sourceLanguage, targetLanguage, cancellationToken);
                         }
                         
                         // Ghi khối đã dịch vào đầu ra
@@ -129,6 +132,11 @@ namespace UGTLive
                 
                 return result;
             }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Google Translate translation was cancelled");
+                return null;
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in GoogleTranslateService: {ex.Message}");
@@ -139,7 +147,7 @@ namespace UGTLive
         /// <summary>
         /// Translate a single text using Google Cloud Translation API (paid)
         /// </summary>
-        private async Task<string> TranslateWithCloudApiAsync(string text, string sourceLanguage, string targetLanguage)
+        private async Task<string> TranslateWithCloudApiAsync(string text, string sourceLanguage, string targetLanguage, CancellationToken cancellationToken)
         {
             try
             {
@@ -166,12 +174,12 @@ namespace UGTLive
                 var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
                 
                 // Send the request
-                var response = await _httpClient.PostAsync(url, content);
+                var response = await _httpClient.PostAsync(url, content, cancellationToken);
                 
                 // Check if the request was successful
                 if (response.IsSuccessStatusCode)
                 {
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
                     using JsonDocument doc = JsonDocument.Parse(jsonResponse);
                     
                     // Extract the translated text from the response
@@ -197,10 +205,11 @@ namespace UGTLive
         /// <summary>
         /// Translate a single text using Google Translate free web service
         /// </summary>
-        private async Task<string> TranslateWithFreeServiceAsync(string text, string sourceLanguage, string targetLanguage)
+        private async Task<string> TranslateWithFreeServiceAsync(string text, string sourceLanguage, string targetLanguage, CancellationToken cancellationToken)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Store original text format information
                 bool hasLineBreaks = text.Contains("\n");
                 string[] originalLines = hasLineBreaks ? text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None) : null;
@@ -235,12 +244,12 @@ namespace UGTLive
                 Console.WriteLine($"Translating with free service: {logText}");
                 
                 // Send the request
-                var response = await _httpClient.GetAsync(url);
+                var response = await _httpClient.GetAsync(url, cancellationToken);
                 
                 // Check if the request was successful
                 if (response.IsSuccessStatusCode)
                 {
-                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
                     
                     try
                     {
@@ -351,10 +360,10 @@ namespace UGTLive
                     Console.WriteLine("Trying alternative endpoint...");
                     url = $"https://translate.google.com/translate_a/single?client=at&dt=t&dt=ld&dt=qca&dt=rm&dt=bd&dj=1&sl={sourceLanguage}&tl={targetLanguage}&q={encodedText}";
                     
-                    response = await _httpClient.GetAsync(url);
+                    response = await _httpClient.GetAsync(url, cancellationToken);
                     if (response.IsSuccessStatusCode)
                     {
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
                         try
                         {
                             using JsonDocument doc = JsonDocument.Parse(jsonResponse);

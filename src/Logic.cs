@@ -11,6 +11,7 @@ using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace UGTLive
 {
@@ -71,6 +72,9 @@ namespace UGTLive
         }
         Stopwatch _translationStopwatch = new Stopwatch();
         Stopwatch _ocrProcessingStopwatch = new Stopwatch();
+        
+        // Cancellation token source for in-progress translations
+        private CancellationTokenSource? _translationCancellationTokenSource;
 
         // Constructor
         private Logic()
@@ -2003,9 +2007,29 @@ namespace UGTLive
             }
         }
 
+        //!Cancel any in-progress translation
+        public void CancelTranslation()
+        {
+            if (_translationCancellationTokenSource != null && !_translationCancellationTokenSource.Token.IsCancellationRequested)
+            {
+                Console.WriteLine("Cancelling in-progress translation");
+                _translationCancellationTokenSource.Cancel();
+                _translationCancellationTokenSource.Dispose();
+                _translationCancellationTokenSource = null;
+                SetWaitingForTranslationToFinish(false);
+            }
+        }
+
         //!Convert textobjects to json and send for translation
         public async Task TranslateTextObjectsAsync()
         {
+            // Cancel any existing translation
+            CancelTranslation();
+            
+            // Create new cancellation token source for this translation
+            _translationCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = _translationCancellationTokenSource.Token;
+            
             try
             {
                 // Show translation status at the beginning
@@ -2032,6 +2056,8 @@ namespace UGTLive
                     return;
                 }
 
+                // Check for cancellation before proceeding
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Prepare JSON data for translation with rectangle coordinates
                 var textsToTranslate = new List<object>();
@@ -2092,12 +2118,22 @@ namespace UGTLive
 
                 SetWaitingForTranslationToFinish(true);
 
+                // Check for cancellation before making API call
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Create translation service based on current configuration
                 ITranslationService translationService = TranslationServiceFactory.CreateService();
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
                 
                 // Call the translation API with the modified prompt if context exists
-                string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt);
+                string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt, cancellationToken);
+                
+                // Check if translation was cancelled
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Console.WriteLine("Translation was cancelled");
+                    return;
+                }
                 
                 if (string.IsNullOrEmpty(translationResponse))
                 {
@@ -2116,10 +2152,24 @@ namespace UGTLive
                 ProcessTranslatedJSON(translationResponse);
               
             }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Translation was cancelled");
+                SetWaitingForTranslationToFinish(false);
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error translating text objects: {ex.Message}");
                 OnFinishedThings(true);
+            }
+            finally
+            {
+                // Clean up cancellation token source
+                if (_translationCancellationTokenSource != null)
+                {
+                    _translationCancellationTokenSource.Dispose();
+                    _translationCancellationTokenSource = null;
+                }
             }
 
             //all done

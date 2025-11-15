@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -17,10 +18,12 @@ namespace UGTLive
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "WPFScreenCapture");
         }
 
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 // Get the llama.cpp API endpoint from config
                 string llamaCppEndpoint = ConfigManager.Instance.GetLlamaCppApiEndpoint();
                 
@@ -69,8 +72,8 @@ namespace UGTLive
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
                 // Send request to llama.cpp API
-                var response = await _httpClient.SendAsync(request);
-                string responseContent = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 
                 // Check if request was successful
                 if (response.IsSuccessStatusCode)
@@ -246,6 +249,11 @@ namespace UGTLive
                     ErrorPopupManager.ShowError(detailedMessage, "llama.cpp Translation Error");
                 }
                 
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("llama.cpp translation was cancelled");
                 return null;
             }
             catch (HttpRequestException ex)

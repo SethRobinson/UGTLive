@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -43,10 +44,12 @@ namespace UGTLive
             }
         }
 
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 // Get API key and model from config
                 string apiKey = ConfigManager.Instance.GetChatGptApiKey();
                 string model = ConfigManager.Instance.GetChatGptModel();
@@ -113,8 +116,8 @@ namespace UGTLive
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
                 // Send request to OpenAI API
-                var response = await _httpClient.SendAsync(request);
-                string responseContent = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 
                 // Check if request was successful
                 if (response.IsSuccessStatusCode)
@@ -349,6 +352,11 @@ namespace UGTLive
                     ErrorPopupManager.ShowError(detailedMessage, "ChatGPT Translation Error");
                 }
                 
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("ChatGPT translation was cancelled");
                 return null;
             }
             catch (HttpRequestException ex)
