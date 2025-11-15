@@ -744,7 +744,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
                         <!-- Monitor Window Settings -->
-                        <GroupBox Header="Monitor Window Settings" Margin="0,0,0,15" Padding="10">
+                        <GroupBox Header="Text Overlay Settings" Margin="0,0,0,15" Padding="10">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
