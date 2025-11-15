@@ -39,6 +39,8 @@ namespace UGTLive
         public event EventHandler? ClearOverlaysRequested;
         public event EventHandler? PassthroughToggleRequested;
         public event EventHandler? OverlayModeToggleRequested;
+        public event EventHandler? ListenToggleRequested;
+        public event EventHandler? ViewInBrowserRequested;
         
         private HotkeyManager()
         {
@@ -243,6 +245,12 @@ namespace UGTLive
                 case "toggle_overlay_mode":
                     OverlayModeToggleRequested?.Invoke(this, EventArgs.Empty);
                     break;
+                case "toggle_listen":
+                    ListenToggleRequested?.Invoke(this, EventArgs.Empty);
+                    break;
+                case "view_in_browser":
+                    ViewInBrowserRequested?.Invoke(this, EventArgs.Empty);
+                    break;
             }
         }
         
@@ -392,6 +400,18 @@ namespace UGTLive
             toggleOverlayMode.KeyboardKey = Key.O;
             toggleOverlayMode.UseShift = true;
             _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
+            
+            // Toggle Listen - Shift+I
+            var toggleListen = new HotkeyEntry("toggle_listen", "Toggle Listen");
+            toggleListen.KeyboardKey = Key.I;
+            toggleListen.UseShift = true;
+            _actionBindings["toggle_listen"] = new List<HotkeyEntry> { toggleListen };
+            
+            // View in Browser - Shift+B
+            var viewInBrowser = new HotkeyEntry("view_in_browser", "View in Browser");
+            viewInBrowser.KeyboardKey = Key.B;
+            viewInBrowser.UseShift = true;
+            _actionBindings["view_in_browser"] = new List<HotkeyEntry> { viewInBrowser };
             
             SaveHotkeys();
             Console.WriteLine("Created default hotkeys");

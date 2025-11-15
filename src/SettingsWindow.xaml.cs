@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -58,6 +59,9 @@ namespace UGTLive
             
             InitializeComponent();
             _instance = this;
+            
+            // Setup tooltip exclusion from screenshots
+            SetupTooltipExclusion();
             
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
@@ -3627,6 +3631,8 @@ namespace UGTLive
                 new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle ChatBox" },
                 new ActionDisplayItem { ActionId = "toggle_settings", ActionName = "Toggle Settings" },
                 new ActionDisplayItem { ActionId = "toggle_log", ActionName = "Toggle Log" },
+                new ActionDisplayItem { ActionId = "toggle_listen", ActionName = "Toggle Listen" },
+                new ActionDisplayItem { ActionId = "view_in_browser", ActionName = "View in Browser" },
                 new ActionDisplayItem { ActionId = "toggle_main_window", ActionName = "Toggle Main Window" },
                 new ActionDisplayItem { ActionId = "clear_overlays", ActionName = "Clear Overlays" },
                 new ActionDisplayItem { ActionId = "toggle_passthrough", ActionName = "Toggle Passthrough" },
@@ -3778,15 +3784,7 @@ namespace UGTLive
                 loadBindingsForSelectedAction();
                 
                 // Update tooltips in MainWindow
-                try
-                {
-                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
-                    mainWindow?.UpdateTooltips();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
-                }
+                MainWindow.Instance.UpdateTooltips();
             }
         }
         
@@ -3878,15 +3876,7 @@ namespace UGTLive
                 loadBindingsForSelectedAction();
                 
                 // Update tooltips in MainWindow
-                try
-                {
-                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
-                    mainWindow?.UpdateTooltips();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
-                }
+                MainWindow.Instance.UpdateTooltips();
             }
         }
         
@@ -3915,15 +3905,7 @@ namespace UGTLive
                     loadBindingsForSelectedAction();
                     
                     // Update tooltips in MainWindow
-                    try
-                    {
-                        var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
-                        mainWindow?.UpdateTooltips();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error updating tooltips: {ex.Message}");
-                    }
+                    MainWindow.Instance.UpdateTooltips();
                 }
             }
             else
@@ -3948,15 +3930,7 @@ namespace UGTLive
                 loadBindingsForSelectedAction();
                 
                 // Update tooltips in MainWindow
-                try
-                {
-                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
-                    mainWindow?.UpdateTooltips();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
-                }
+                MainWindow.Instance.UpdateTooltips();
                 
                 MessageBox.Show("Hotkeys reset to defaults!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -3974,6 +3948,102 @@ namespace UGTLive
             
             Console.WriteLine($"Global hotkeys {(enabled ? "enabled" : "disabled")}");
         }
+        
+        #endregion
+        
+        #region Tooltip Exclusion from Screenshots
+        
+        // Setup tooltip exclusion from screenshots
+        private void SetupTooltipExclusion()
+        {
+            // Use ToolTipService to add an event handler for when any tooltip opens
+            this.AddHandler(ToolTipService.ToolTipOpeningEvent, new RoutedEventHandler(OnToolTipOpening));
+        }
+        
+        private void OnToolTipOpening(object sender, RoutedEventArgs e)
+        {
+            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExcludeTooltipFromCapture();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        
+        private void ExcludeTooltipFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                // If visible in screenshots, don't exclude
+                if (visibleInScreenshots)
+                {
+                    return;
+                }
+                
+                // Find all tooltip windows and exclude them
+                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
+                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
+                
+                foreach (var window in tooltipWindows)
+                {
+                    var helper = new System.Windows.Interop.WindowInteropHelper(window);
+                    IntPtr hwnd = helper.Handle;
+                    
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                    }
+                }
+                
+                // Also try to find popup windows via interop
+                // WPF tooltips are displayed in Popup windows which are top-level HWND windows
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+                foreach (System.Diagnostics.ProcessThread thread in currentProcess.Threads)
+                {
+                    try
+                    {
+                        EnumThreadWindows((uint)thread.Id, (hWnd, lParam) =>
+                        {
+                            var className = new System.Text.StringBuilder(256);
+                            GetClassName(hWnd, className, className.Capacity);
+                            string cls = className.ToString();
+                            
+                            // WPF tooltip windows typically have these class names
+                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls.Contains("HwndWrapper"))
+                            {
+                                SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
+                            }
+                            
+                            return true; // Continue enumeration
+                        }, IntPtr.Zero);
+                    }
+                    catch
+                    {
+                        // Thread may have terminated, ignore
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
+            }
+        }
+        
+        // Windows API for excluding windows from screen capture
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+        
+        [DllImport("user32.dll")]
+        private static extern bool EnumThreadWindows(uint dwThreadId, EnumThreadDelegate lpfn, IntPtr lParam);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+        
+        private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
+        
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
         
         #endregion
     }

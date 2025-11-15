@@ -1188,12 +1188,16 @@
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Global Hotkeys Enabled Checkbox -->
-                                <CheckBox x:Name="globalHotkeysEnabledCheckBox" Grid.Row="0"
-                                         Margin="0,0,0,10" IsChecked="True" 
-                                         Checked="GlobalHotkeysEnabledCheckBox_CheckedChanged" 
-                                         Unchecked="GlobalHotkeysEnabledCheckBox_CheckedChanged"
-                                         Content="Enable global hotkeys (when unchecked, app must be in focus)"
-                                         ToolTip="If enabled, hotkeys work system-wide. If disabled, hotkeys only work when the application is in focus."/>
+                                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                                    <CheckBox x:Name="globalHotkeysEnabledCheckBox"
+                                             IsChecked="True" 
+                                             Checked="GlobalHotkeysEnabledCheckBox_CheckedChanged" 
+                                             Unchecked="GlobalHotkeysEnabledCheckBox_CheckedChanged"
+                                             Content="Enable global hotkeys (when unchecked, app must be in focus)"
+                                             ToolTip="If enabled, hotkeys work system-wide. If disabled, hotkeys only work when the application is in focus."/>
+                                    <TextBlock Text="Note: Hotkeys don't work while the Settings window is open. Close it before testing 'em."
+                                              Foreground="Orange" FontStyle="Italic" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
                                 
                                 <!-- Grid for actions and bindings -->
                                 <Grid Grid.Row="1" Margin="0,5">

@@ -533,7 +533,6 @@ namespace UGTLive
                             
                             if (success)
                             {
-                                Console.WriteLine($"Monitor WebView2 excluded from screen capture successfully (HWND: {webViewHwnd})");
                             }
                             else
                             {
@@ -600,7 +599,6 @@ namespace UGTLive
                         });
                     });
                     
-                    Console.WriteLine("Overlay WebView2 initialized successfully");
                 }
             }
             catch (Exception ex)

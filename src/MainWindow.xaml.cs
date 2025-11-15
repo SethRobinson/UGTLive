@@ -404,6 +404,8 @@ namespace UGTLive
             HotkeyManager.Instance.ChatBoxToggleRequested += (s, e) => ChatBoxButton_Click(chatBoxButton, new RoutedEventArgs());
             HotkeyManager.Instance.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
             HotkeyManager.Instance.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
+            HotkeyManager.Instance.ListenToggleRequested += (s, e) => ListenButton_Click(listenButton, new RoutedEventArgs());
+            HotkeyManager.Instance.ViewInBrowserRequested += (s, e) => ExportButton_Click(exportButton, new RoutedEventArgs());
             HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
             HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
                 // Cancel any in-progress translation
@@ -490,6 +492,15 @@ namespace UGTLive
         {
             try
             {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                // If visible in screenshots, don't exclude
+                if (visibleInScreenshots)
+                {
+                    return;
+                }
+                
                 // Find all tooltip windows and exclude them
                 var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
                     .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
@@ -519,7 +530,7 @@ namespace UGTLive
                             string cls = className.ToString();
                             
                             // WPF tooltip windows typically have these class names
-                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls == "HwndWrapper[DefaultDomain;;")
+                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls.Contains("HwndWrapper"))
                             {
                                 SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
                             }
@@ -622,6 +633,10 @@ namespace UGTLive
                 return parts.Count > 0 ? $" ({string.Join(" or ", parts)})" : "";
             }
             
+            // Force close any currently open tooltips so they refresh with new content
+            ToolTipService.SetIsEnabled(this, false);
+            ToolTipService.SetIsEnabled(this, true);
+            
             // Update button tooltips
             if (toggleButton != null)
                 toggleButton.ToolTip = $"Start/Stop OCR{GetHotkeyString("start_stop")}";
@@ -638,6 +653,12 @@ namespace UGTLive
             if (logButton != null)
                 logButton.ToolTip = $"Toggle Log Console{GetHotkeyString("toggle_log")}";
                 
+            if (listenButton != null)
+                listenButton.ToolTip = $"Toggle voice listening{GetHotkeyString("toggle_listen")}";
+                
+            if (exportButton != null)
+                exportButton.ToolTip = $"View current capture in browser{GetHotkeyString("view_in_browser")}";
+                
             if (hideButton != null)
                 hideButton.ToolTip = $"Toggle Main Window{GetHotkeyString("toggle_main_window")}";
                 
@@ -652,6 +673,34 @@ namespace UGTLive
                 overlaySourceRadio.ToolTip = $"Show source text{overlayHotkey}";
             if (overlayTranslatedRadio != null)
                 overlayTranslatedRadio.ToolTip = $"Show translated text{overlayHotkey}";
+            
+            // Setup individual tooltip opened handlers for each control
+            SetupIndividualTooltipHandlers();
+        }
+        
+        private void SetupIndividualTooltipHandlers()
+        {
+            var controls = new FrameworkElement[] 
+            { 
+                toggleButton, monitorButton, chatBoxButton, settingsButton, logButton, 
+                listenButton, exportButton, hideButton, mousePassthroughCheckBox,
+                overlayHideRadio, overlaySourceRadio, overlayTranslatedRadio
+            };
+            
+            foreach (var control in controls)
+            {
+                if (control != null)
+                {
+                    ToolTipService.SetToolTip(control, control.ToolTip);
+                    control.ToolTipOpening += (s, e) =>
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            ExcludeTooltipFromCapture();
+                        }), DispatcherPriority.Background);
+                    };
+                }
+            }
         }
 
         public void SetStatus(string text)
