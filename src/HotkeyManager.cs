@@ -162,20 +162,6 @@ namespace UGTLive
             if (!_isEnabled)
                 return false;
                 
-            // Check if we should process the hotkey based on global setting
-            // If global is disabled, only process if app has focus
-            if (!_globalHotkeysEnabled)
-            {
-                // Check if any window from our application has focus
-                bool appActive = KeyboardShortcuts.IsOurApplicationActive();
-                Console.WriteLine($"HotkeyManager.HandleKeyDown: key={key}, globalHotkeys={_globalHotkeysEnabled}, appActive={appActive}");
-                if (!appActive)
-                {
-                    Console.WriteLine($"Hotkey blocked: global disabled and app not active");
-                    return false;
-                }
-            }
-                
             // Check all bindings for all actions
             foreach (var kvp in _actionBindings)
             {
@@ -198,15 +184,11 @@ namespace UGTLive
             if (!_isEnabled)
                 return;
                 
-            // Check if we should process the hotkey based on global setting
-            // If global is disabled, only process if app has focus
-            if (!_globalHotkeysEnabled)
+            // When global hotkeys are disabled, check if app has focus
+            // (Gamepad events are always "global" so we need this check)
+            if (!_globalHotkeysEnabled && !KeyboardShortcuts.IsOurApplicationActive())
             {
-                // Check if any window from our application has focus
-                if (!KeyboardShortcuts.IsOurApplicationActive())
-                {
-                    return;
-                }
+                return;
             }
                 
             // Check all bindings for all actions

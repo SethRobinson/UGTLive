@@ -471,8 +471,18 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Forward to the central keyboard shortcuts handler
-            KeyboardShortcuts.HandleKeyDown(e);
+            // Only process hotkeys at window level if global hotkeys are disabled
+            // (When global hotkeys are enabled, the global hook handles them)
+            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            {
+                var modifiers = System.Windows.Input.Keyboard.Modifiers;
+                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+                
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
         }
         
         private void ChatBoxWindow_SizeChanged(object sender, SizeChangedEventArgs e)

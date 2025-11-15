@@ -76,10 +76,21 @@ public partial class App : Application
     }
     
     // Handle application-level keyboard events
+    // NOTE: This is currently unused - each window handles its own keyboard events
     private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        // No need to check window focus since this is only called when a window has focus
-        KeyboardShortcuts.HandleKeyDown(e);
+        // Only process hotkeys at window level if global hotkeys are disabled
+        // (When global hotkeys are enabled, the global hook handles them)
+        if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+        {
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+            
+            if (handled)
+            {
+                e.Handled = true;
+            }
+        }
     }
     
     // Handle any unhandled exceptions to prevent app crashes

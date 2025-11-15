@@ -133,9 +133,14 @@ namespace UGTLive
                     
                     if (!isWinPressed)
                     {
-                        // Forward to HotkeyManager for processing
-                        bool handled = HotkeyManager.Instance.HandleKeyDown(key, modifiers);
-                        // Do NOT block the key from other global hooks or applications
+                        // Only process hotkeys from global hook if global hotkeys are enabled
+                        // If disabled, let window-level PreviewKeyDown handlers deal with it
+                        if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+                        {
+                            // Forward to HotkeyManager for processing
+                            bool handled = HotkeyManager.Instance.HandleKeyDown(key, modifiers);
+                            // Do NOT block the key from other global hooks or applications
+                        }
                     }
                 }
                 

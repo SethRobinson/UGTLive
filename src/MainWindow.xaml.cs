@@ -790,10 +790,9 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Check if global hotkeys are enabled, or if app is in focus
-            bool canUseHotkeys = HotkeyManager.Instance.GetGlobalHotkeysEnabled() || this.IsActive;
-            
-            if (canUseHotkeys)
+            // Only process hotkeys at window level if global hotkeys are disabled
+            // (When global hotkeys are enabled, the global hook handles them)
+            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
             {
                 // Forward to the HotkeyManager
                 var modifiers = System.Windows.Input.Keyboard.Modifiers;
