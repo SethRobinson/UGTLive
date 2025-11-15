@@ -442,14 +442,6 @@
                         <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="11" Grid.Column="1" 
                                 Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
                                 ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
-                        
-                        <!-- Windows Visible in Screenshots Checkbox -->
-                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,15,0,5" IsChecked="False" 
-                                 Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
-                                 Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
-                                 Content="Make our windows visible in screenshots"
-                                 ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures."/>
                     </Grid>
                 </GroupBox>
                 
@@ -462,6 +454,7 @@
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Main Window Texts Can Be Interacted With Checkbox -->
@@ -471,6 +464,14 @@
                                  Unchecked="MainWindowTextsCanInteractCheckBox_CheckedChanged"
                                  Content="Main Window texts can be interacted with"
                                  ToolTip="If checked (default), you can select and copy text overlays on the Main Window. Uncheck for click-through mode (for mouse-based games)."/>
+                        
+                        <!-- Windows Visible in Screenshots Checkbox -->
+                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,15,0,5" IsChecked="False" 
+                                 Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
+                                 Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
+                                 Content="Make our windows visible in screenshots (Don't turn this on!)"
+                                 ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
                     </Grid>
                 </GroupBox>
                 

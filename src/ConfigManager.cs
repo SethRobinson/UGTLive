@@ -213,6 +213,10 @@ namespace UGTLive
             // Load main config values
             LoadConfig();
             
+            // Force "windows visible in screenshots" to false at startup (dangerous option)
+            SetWindowsVisibleInScreenshots(false);
+            Console.WriteLine("Forced 'windows visible in screenshots' to false at startup (dangerous option disabled)");
+            
             // Load translation service from config
             if (_configValues.TryGetValue(TRANSLATION_SERVICE, out string? service))
             {
