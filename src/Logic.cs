@@ -306,6 +306,13 @@ namespace UGTLive
             {
                 MonitorWindow.Instance.HideTranslationStatus();
             }
+            
+            // Re-enable OCR if it was paused during translation
+            if (ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled())
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                Console.WriteLine("Translation finished - re-enabling OCR");
+            }
         }
 
         public void ResetHash()
@@ -414,12 +421,25 @@ namespace UGTLive
         public void ProcessReceivedTextJsonData(string data)
         {
             _ocrProcessingStopwatch.Restart();
-            MainWindow.Instance.SetOCRCheckIsWanted(true);
+            
+            // Check if we should pause OCR while translating
+            bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+            bool waitingForTranslation = GetWaitingForTranslationToFinish();
+            
+            // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+            if (!waitingForTranslation || !pauseOcrWhileTranslating)
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                Console.WriteLine("Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+            }
             
             // Notify that OCR has completed
             MonitorWindow.Instance.NotifyOCRCompleted();
 
-            if (GetWaitingForTranslationToFinish())
+            if (waitingForTranslation)
             {
                 Console.WriteLine("Skipping OCR results - waiting for translation to finish");
                 return;
@@ -1424,7 +1444,19 @@ namespace UGTLive
                     // Ignore disposal errors
                 }
 
-                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                // Check if we should pause OCR while translating
+                bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+                bool waitingForTranslation = GetWaitingForTranslationToFinish();
+                
+                // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+                if (!waitingForTranslation || !pauseOcrWhileTranslating)
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
+                else
+                {
+                    Console.WriteLine("Windows OCR: Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
                 
                 // Notify that OCR has completed
                 MonitorWindow.Instance.NotifyOCRCompleted();
@@ -1480,7 +1512,19 @@ namespace UGTLive
                     // Ignore disposal errors
                 }
 
-                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                // Check if we should pause OCR while translating
+                bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+                bool waitingForTranslation = GetWaitingForTranslationToFinish();
+                
+                // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+                if (!waitingForTranslation || !pauseOcrWhileTranslating)
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
+                else
+                {
+                    Console.WriteLine("Google Vision: Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
                 
                 // Notify that OCR has completed
                 MonitorWindow.Instance.NotifyOCRCompleted();

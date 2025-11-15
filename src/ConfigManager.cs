@@ -70,6 +70,7 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
+        public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -395,6 +396,7 @@ namespace UGTLive
             _configValues[AUTO_TRANSLATE_ENABLED] = "false";
             _configValues[IGNORE_PHRASES] = "";
             _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = "0.1";
+            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = "false";
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
@@ -954,6 +956,21 @@ Here is the input JSON:";
             _configValues[AUTO_TRANSLATE_ENABLED] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Auto translate enabled: {enabled}");
+        }
+        
+        // Check if pause OCR while translating is enabled
+        public bool IsPauseOcrWhileTranslatingEnabled()
+        {
+            string value = GetValue(PAUSE_OCR_WHILE_TRANSLATING, "false");
+            return value.ToLower() == "true";
+        }
+        
+        // Set pause OCR while translating enabled
+        public void SetPauseOcrWhileTranslatingEnabled(bool enabled)
+        {
+            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Pause OCR while translating enabled: {enabled}");
         }
         
         // Get ChatBox font family

@@ -400,6 +400,10 @@ namespace UGTLive
             autoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAutoTranslateEnabled();
             Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
             
+            // Get pause OCR while translating setting from config
+            pauseOcrWhileTranslatingCheckBox.IsChecked = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+            Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
+            
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
             
@@ -845,6 +849,21 @@ namespace UGTLive
             {
                 MonitorWindow.Instance.autoTranslateCheckBox.IsChecked = autoTranslateCheckBox.IsChecked;
             }
+        }
+        
+        private void PauseOcrWhileTranslatingCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing to prevent overriding values from config
+            if (_isInitializing)
+            {
+                return;
+            }
+            
+            bool isEnabled = pauseOcrWhileTranslatingCheckBox.IsChecked ?? false;
+            Console.WriteLine($"Settings window: Pause OCR while translating changed to {isEnabled}");
+            
+            // Save to config
+            ConfigManager.Instance.SetPauseOcrWhileTranslatingEnabled(isEnabled);
         }
         
         private void LeaveTranslationOnscreenCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
