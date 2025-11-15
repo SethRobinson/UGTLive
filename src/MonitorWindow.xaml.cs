@@ -1895,13 +1895,13 @@ namespace UGTLive
                 // Check if we need to invoke on the UI thread
                 if (!Dispatcher.CheckAccess())
                 {
-                    Dispatcher.Invoke(() => RefreshOverlays());
+                    // Use Invoke with high priority for immediate update
+                    Dispatcher.Invoke(new Action(() => RefreshOverlays()), DispatcherPriority.Send);
                     return;
                 }
                 
-                using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.RefreshOverlays");
-                
-                // Trigger WebView update
+                // Skip profiler for faster refresh
+                // Trigger WebView update immediately
                 UpdateOverlayWebView();
             }
             catch (Exception ex)
@@ -1935,15 +1935,18 @@ namespace UGTLive
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => ClearOverlays());
+                // Use Invoke with high priority for immediate update
+                Dispatcher.Invoke(new Action(() => ClearOverlays()), DispatcherPriority.Send);
                 return;
             }
 
-            using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.ClearOverlays");
-            
+            // Skip profiler for faster clearing
             _originalColors.Clear();
             
-            // Trigger WebView update
+            // Clear the HTML cache to force WebView update even if HTML is the same
+            _lastOverlayHtml = string.Empty;
+            
+            // Trigger WebView update immediately
             UpdateOverlayWebView();
         }
 

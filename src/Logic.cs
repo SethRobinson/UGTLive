@@ -1678,12 +1678,12 @@ namespace UGTLive
                 // Check if we need to run on the UI thread
                 if (!Application.Current.Dispatcher.CheckAccess())
                 {
-                    // Run on UI thread to ensure STA compliance
-                    Application.Current.Dispatcher.Invoke(() => ClearAllTextObjects());
+                    // Run on UI thread asynchronously to avoid blocking
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() => ClearAllTextObjects()), DispatcherPriority.Send);
                     return;
                 }
                 
-                using IDisposable profiler = OverlayProfiler.Measure("Logic.ClearAllTextObjects");
+                // Skip profiler for instant clearing
                 foreach (TextObject textObject in _textObjects)
                 {
                     MonitorWindow.Instance?.RemoveOverlay(textObject);
@@ -1697,7 +1697,6 @@ namespace UGTLive
                 _textIDCounter = 0;
                 // No need to remove from the main window UI anymore
                 
-                OverlayProfiler.DumpSummary();
                 Console.WriteLine("All text objects cleared");
             }
             catch (Exception ex)

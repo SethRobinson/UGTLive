@@ -393,9 +393,44 @@ namespace UGTLive
             HotkeyManager.Instance.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
             HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
             HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
+                // Clear text objects instantly
                 Logic.Instance.ClearAllTextObjects();
-                MonitorWindow.Instance.RefreshOverlays();
+                
+                // Clear hash so OCR will recreate text if active
+                Logic.Instance.ResetHash();
+                
+                // Refresh overlays immediately and synchronously for instant visual update
+                if (System.Windows.Application.Current.Dispatcher.CheckAccess())
+                {
+                    // Clear HTML cache to force WebView update
+                    _lastOverlayHtml = string.Empty;
+                    MonitorWindow.Instance.RefreshOverlays();
+                    RefreshMainWindowOverlays();
+                }
+                else
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        // Clear HTML cache to force WebView update
+                        _lastOverlayHtml = string.Empty;
+                        MonitorWindow.Instance.RefreshOverlays();
+                        RefreshMainWindowOverlays();
+                    }, DispatcherPriority.Send);
+                }
+                
                 Console.WriteLine("Overlays cleared");
+                
+                // If OCR is active, trigger it again after 300ms delay
+                if (GetIsStarted())
+                {
+                    _ = Task.Delay(300).ContinueWith(_ =>
+                    {
+                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            SetOCRCheckIsWanted(true);
+                        }), DispatcherPriority.Normal);
+                    });
+                }
             };
             HotkeyManager.Instance.PassthroughToggleRequested += (s, e) => TogglePassthrough();
             HotkeyManager.Instance.OverlayModeToggleRequested += (s, e) => ToggleOverlayMode();
