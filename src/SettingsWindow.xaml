@@ -13,1055 +13,374 @@
     ResizeMode="CanResizeWithGrip"
     Icon="/media/Icon1.ico">
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="20">
-                <!-- Server Setup Button -->
-                <Button x:Name="serverSetupButton" Content="Open UGTLive backend server install/fix screen" 
-                        Padding="10,5" Margin="0,0,0,15" HorizontalAlignment="Stretch"
-                        Click="ServerSetupButton_Click" FontWeight="Bold"/>
-                
-                <!-- Language Settings -->
-                <GroupBox Header="Language Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+        <TabControl Margin="0">
+            <!-- General Tab -->
+            <TabItem Header="General">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Server Setup Button -->
+                        <Button x:Name="serverSetupButton" Content="Open UGTLive backend server install/fix screen" 
+                                Padding="10,5" Margin="0,0,0,15" HorizontalAlignment="Stretch"
+                                Click="ServerSetupButton_Click" FontWeight="Bold"/>
                         
-                        <!-- Source Language -->
-                        <TextBlock Text="Source Language:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="sourceLanguageComboBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" SelectedIndex="0" SelectionChanged="SourceLanguageComboBox_SelectionChanged">
-                            <ComboBoxItem Content="ja"/>
-                            <ComboBoxItem Content="en"/>
-                            <ComboBoxItem Content="ch_sim"/>
-                            <ComboBoxItem Content="es"/>
-                            <ComboBoxItem Content="fr"/>
-                            <ComboBoxItem Content="it"/>
-                            <ComboBoxItem Content="de"/>
-                            <ComboBoxItem Content="ru"/>
-                            <ComboBoxItem Content="id"/>
-                            <ComboBoxItem Content="pl"/>
-                            <ComboBoxItem Content="hi"/>
-                            <ComboBoxItem Content="ko"/>
-                            <ComboBoxItem Content="vi"/>
-                            <ComboBoxItem Content="ar"/>
-                            <ComboBoxItem Content="tr"/>
-                        </ComboBox>
-                        
-                        <!-- Swap Languages Button placed between source and target in its own column -->
-                        <Button x:Name="swapLanguagesButton" Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
-                                VerticalAlignment="Center" Width="30" Height="30" Margin="10,0"
-                                Click="SwapLanguagesButton_Click" ToolTip="Swap source and target languages">
-                            <TextBlock Text="⇄" FontSize="16" FontWeight="Bold" />
-                        </Button>
-                        
-                        <!-- Target Language -->
-                        <TextBlock Text="Target Language:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="targetLanguageComboBox" Grid.Row="1" Grid.Column="1" 
-                                 Margin="0,5" SelectedIndex="1" SelectionChanged="TargetLanguageComboBox_SelectionChanged">
-                            <ComboBoxItem Content="ja"/>
-                            <ComboBoxItem Content="en"/>
-                            <ComboBoxItem Content="ch_sim"/>
-                            <ComboBoxItem Content="es"/>
-                            <ComboBoxItem Content="fr"/>
-                            <ComboBoxItem Content="it"/>
-                            <ComboBoxItem Content="de"/>
-                            <ComboBoxItem Content="ru"/>
-                            <ComboBoxItem Content="id"/>
-                            <ComboBoxItem Content="pl"/>
-                            <ComboBoxItem Content="hi"/>
-                            <ComboBoxItem Content="ko"/>
-                            <ComboBoxItem Content="vi"/>
-                            <ComboBoxItem Content="ar"/>
-                            <ComboBoxItem Content="tr"/>
-                        </ComboBox>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- OCR Settings -->
-                <GroupBox Header="OCR Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- OCR Method -->
-                        <TextBlock Text="OCR Method:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="ocrMethodComboBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="OcrMethodComboBox_SelectionChanged"/>
-                        
-                        <!-- Auto Translate -->
-                        <TextBlock Text="Auto Translate:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <CheckBox x:Name="autoTranslateCheckBox" Grid.Row="1" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="AutoTranslateCheckBox_CheckedChanged" 
-                                 Unchecked="AutoTranslateCheckBox_CheckedChanged"/>
-                                 
-                        <!-- Pause OCR While Translating -->
-                        <TextBlock Text="Pause OCR while translating:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
-                        <CheckBox x:Name="pauseOcrWhileTranslatingCheckBox" Grid.Row="2" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="PauseOcrWhileTranslatingCheckBox_CheckedChanged" 
-                                 Unchecked="PauseOcrWhileTranslatingCheckBox_CheckedChanged"
-                                 ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
-                                 
-                        <!-- Minimum Text Fragment Size -->
-                        <TextBlock Text="Smallest text fragment:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
-                        <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="3" Grid.Column="1" 
-                                Margin="0,5" Text="2" LostFocus="MinTextFragmentSizeTextBox_LostFocus"
-                                ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
-                        
-                        <!-- Minimum Letter Confidence -->
-                        <TextBlock Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
-                        <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
-                                Margin="0,5" Text="0.1" LostFocus="MinLetterConfidenceTextBox_LostFocus"
-                                ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
-                        
-                        <!-- Minimum Line Confidence -->
-                        <TextBlock Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
-                        <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="5" Grid.Column="1" 
-                                Margin="0,5" Text="0.2" LostFocus="MinLineConfidenceTextBox_LostFocus"
-                                ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
-                        
-                        <!-- Leave Translation Onscreen -->
-                        <TextBlock Grid.Row="6" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made">
-                            <Run Text="Leave translation onscreen:"/>
-                            <LineBreak/>
-                            <Run Text="(this option is broken)"/>
-                        </TextBlock>
-                        <CheckBox x:Name="leaveTranslationOnscreenCheckBox" Grid.Row="6" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="LeaveTranslationOnscreenCheckBox_CheckedChanged" 
-                                 Unchecked="LeaveTranslationOnscreenCheckBox_CheckedChanged"
-                                 ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
-                        
-                        <!-- Glue docTR lines into paragraphs -->
-                        <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="7" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
-                        <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="7" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="True"
-                                 Checked="GlueDoctrLinesCheckBox_CheckedChanged"
-                                 Unchecked="GlueDoctrLinesCheckBox_CheckedChanged"
-                                 ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
-                        
-                        <!-- Manga OCR Minimum Region Width - Only visible when Manga OCR is selected -->
-                        <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="8" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
-                                  ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                        <TextBox x:Name="mangaOcrMinWidthTextBox" Grid.Row="8" Grid.Column="1" 
-                                Margin="0,5" Text="10" Visibility="Collapsed"
-                                LostFocus="MangaOcrMinWidthTextBox_LostFocus"
-                                ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                        
-                        <!-- Manga OCR Minimum Region Height - Only visible when Manga OCR is selected -->
-                        <TextBlock x:Name="mangaOcrMinHeightLabel" Text="Min Text Region Height (px):" Grid.Row="9" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
-                                  ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                        <TextBox x:Name="mangaOcrMinHeightTextBox" Grid.Row="9" Grid.Column="1" 
-                                Margin="0,5" Text="10" Visibility="Collapsed"
-                                LostFocus="MangaOcrMinHeightTextBox_LostFocus"
-                                ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                        
-                        <!-- Manga OCR Overlap Allowed - Only visible when Manga OCR is selected -->
-                        <TextBlock x:Name="mangaOcrOverlapLabel" Text="Overlap Allowed (%):" Grid.Row="10" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
-                                  ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
-                        <TextBox x:Name="mangaOcrOverlapTextBox" Grid.Row="10" Grid.Column="1" 
-                                Margin="0,5" Text="90" Visibility="Collapsed"
-                                LostFocus="MangaOcrOverlapTextBox_LostFocus"
-                                ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
-                        
-                        <!-- Google Vision API Key - Only visible when Google Vision is selected -->
-                        <TextBlock x:Name="googleVisionApiKeyLabel" Text="Google Cloud Vision API Key:" Grid.Row="11" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="11" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionApiKeyGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <PasswordBox x:Name="googleVisionApiKeyPasswordBox" Grid.Row="0" Grid.Column="0"
-                                     VerticalAlignment="Top" Margin="0,0,5,2" 
-                                     PasswordChanged="GoogleVisionApiKeyPasswordBox_PasswordChanged"/>
-                            <Button x:Name="googleVisionApiKeyHelpButton" Grid.Row="0" Grid.Column="1"
-                                    Content="How to get API key" Padding="5,2" 
-                                    Click="GoogleVisionApiKeyHelpButton_Click"/>
-                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,2,0,2" FontSize="11">
-                                <Run>Learn more at </Run>
-                                <Hyperlink Click="GoogleVisionApiLink_Click">cloud.google.com/vision</Hyperlink>
-                            </TextBlock>
-                            <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,0">
+                        <!-- Language Settings -->
+                        <GroupBox Header="Language Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Button x:Name="googleVisionTestApiKeyButton" Grid.Column="0"
-                                        Content="Test API Key" Padding="8,3" 
-                                        Click="GoogleVisionTestApiKeyButton_Click"/>
-                                <TextBlock x:Name="googleVisionTestResultText" Grid.Column="1"
-                                          Margin="10,0,0,0" VerticalAlignment="Center"
-                                          Foreground="Gray" Text=""/>
-                                <ProgressBar x:Name="googleVisionTestProgressBar" Grid.Column="2"
-                                            Width="100" Height="20" Margin="10,0,0,0"
-                                            Visibility="Collapsed" IsIndeterminate="True"/>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Source Language -->
+                                <TextBlock Text="Source Language:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="sourceLanguageComboBox" Grid.Row="0" Grid.Column="1" 
+                                         Margin="0,5" SelectedIndex="0" SelectionChanged="SourceLanguageComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="ja"/>
+                                    <ComboBoxItem Content="en"/>
+                                    <ComboBoxItem Content="ch_sim"/>
+                                    <ComboBoxItem Content="es"/>
+                                    <ComboBoxItem Content="fr"/>
+                                    <ComboBoxItem Content="it"/>
+                                    <ComboBoxItem Content="de"/>
+                                    <ComboBoxItem Content="ru"/>
+                                    <ComboBoxItem Content="id"/>
+                                    <ComboBoxItem Content="pl"/>
+                                    <ComboBoxItem Content="hi"/>
+                                    <ComboBoxItem Content="ko"/>
+                                    <ComboBoxItem Content="vi"/>
+                                    <ComboBoxItem Content="ar"/>
+                                    <ComboBoxItem Content="tr"/>
+                                </ComboBox>
+                                
+                                <!-- Swap Languages Button placed between source and target in its own column -->
+                                <Button x:Name="swapLanguagesButton" Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+                                        VerticalAlignment="Center" Width="30" Height="30" Margin="10,0"
+                                        Click="SwapLanguagesButton_Click" ToolTip="Swap source and target languages">
+                                    <TextBlock Text="⇄" FontSize="16" FontWeight="Bold" />
+                                </Button>
+                                
+                                <!-- Target Language -->
+                                <TextBlock Text="Target Language:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="targetLanguageComboBox" Grid.Row="1" Grid.Column="1" 
+                                         Margin="0,5" SelectedIndex="1" SelectionChanged="TargetLanguageComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="ja"/>
+                                    <ComboBoxItem Content="en"/>
+                                    <ComboBoxItem Content="ch_sim"/>
+                                    <ComboBoxItem Content="es"/>
+                                    <ComboBoxItem Content="fr"/>
+                                    <ComboBoxItem Content="it"/>
+                                    <ComboBoxItem Content="de"/>
+                                    <ComboBoxItem Content="ru"/>
+                                    <ComboBoxItem Content="id"/>
+                                    <ComboBoxItem Content="pl"/>
+                                    <ComboBoxItem Content="hi"/>
+                                    <ComboBoxItem Content="ko"/>
+                                    <ComboBoxItem Content="vi"/>
+                                    <ComboBoxItem Content="ar"/>
+                                    <ComboBoxItem Content="tr"/>
+                                </ComboBox>
                             </Grid>
-                        </Grid>
+                        </GroupBox>
                         
-                        <!-- Google Vision Grouping Settings - Only visible when Google Vision is selected -->
-                        <TextBlock x:Name="googleVisionGroupingLabel" Text="Text Grouping Settings:" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
-                                  VerticalAlignment="Center" Margin="0,8,10,0" Visibility="Collapsed" FontWeight="SemiBold"/>
-                        
-                        <TextBlock x:Name="googleVisionHorizontalGlueLabel" Text="Horizontal glue distance:" Grid.Row="13" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="Maximum horizontal distance (in character widths) to group words together. Lower values create more separate text blocks."/>
-                        <Grid Grid.Row="13" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHorizontalGlueGrid" Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="googleVisionHorizontalGlueTextBox" Grid.Column="0"
-                                     VerticalAlignment="Top" Margin="0,0,5,0" Text="1.5"
-                                     LostFocus="GoogleVisionHorizontalGlueTextBox_LostFocus"
-                                     ToolTip="Default: 1.5 (1.5 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
-                            <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
-                        </Grid>
-                        
-                        <TextBlock x:Name="googleVisionVerticalGlueLabel" Text="Vertical glue distance:" Grid.Row="14" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="Maximum vertical distance (in line heights) to consider text on the same line. Lower values separate lines more."/>
-                        <Grid Grid.Row="14" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueGrid" Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="googleVisionVerticalGlueTextBox" Grid.Column="0"
-                                     VerticalAlignment="Top" Margin="0,0,5,0" Text="0.5"
-                                     LostFocus="GoogleVisionVerticalGlueTextBox_LostFocus"
-                                     ToolTip="Default: 0.5 (half a line height). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
-                            <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
-                        </Grid>
-                        
-                        <!-- Try to keep original text linefeeds -->
-                        <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="15" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
-                        <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="15" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="True" Visibility="Collapsed"
-                                 Checked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged" 
-                                 Unchecked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged"
-                                 ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Block Detection Settings -->
-                <GroupBox Header="Block Detection Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Block Power -->
-                        <TextBlock Text="Block Power:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="If higher, text is more likely to be glued together to make a large paragraph. Lower does the opposite, good for say, tiny buttons or menu options. Also affects character-level grouping."/>
-                        <TextBox x:Name="blockDetectionPowerTextBox" Grid.Row="0" Grid.Column="1" 
-                                Margin="0,5" Text="5" LostFocus="BlockDetectionPowerTextBox_LostFocus"
-                                ToolTip="If higher, text is more likely to be glued together to make a large paragraph. Lower does the opposite, good for say, tiny buttons or menu options. Also affects character-level grouping."/>
-                        
-                        <!-- Settle Time -->
-                        <TextBlock Text="Settle Time (s):" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Time in seconds to wait for the text to settle before capturing"/>
-                        <TextBox x:Name="settleTimeTextBox" Grid.Row="1" Grid.Column="1" 
-                                Margin="0,5" Text="0.5" LostFocus="SettleTimeTextBox_LostFocus"
-                                ToolTip="Time in seconds to wait for the text to settle before capturing"/>
-
-                        <!-- Max Settle Time -->
-                        <TextBlock Text="Max Settle Time (s):" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Maximum time allowed for settling before translation is forced"/>
-                        <TextBox x:Name="maxSettleTimeTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,5" Text="1.0" LostFocus="MaxSettleTimeTextBox_LostFocus"
-                                ToolTip="Maximum time allowed for settling before translation is forced"/>
-
-                        <!-- Overlay Clear Delay -->
-                        <TextBlock Text="Overlay Clear Delay (s):" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
-                        <TextBox x:Name="overlayClearDelayTextBox" Grid.Row="3" Grid.Column="1" 
-                                Margin="0,5" Text="0.5" LostFocus="OverlayClearDelayTextBox_LostFocus"
-                                ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Monitor Window Settings -->
-                <GroupBox Header="Monitor Window Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Override BG Color Checkbox -->
-                        <CheckBox x:Name="overrideBgColorCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="OverrideBgColorCheckBox_CheckedChanged" 
-                                 Unchecked="OverrideBgColorCheckBox_CheckedChanged"
-                                 Content="Override BG Color"
-                                 ToolTip="Override the background color for text overlays in the Monitor window"/>
-                        
-                        <!-- BG Color Picker -->
-                        <TextBlock Text="BG Color:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="20,5,10,5"/>
-                        <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
-                            <Button x:Name="overrideBgColorButton" 
-                                    Width="30" Height="20" 
-                                    Margin="0,0,5,0"
-                                    Click="OverrideBgColorButton_Click"/>
-                            <TextBlock x:Name="overrideBgColorText" 
-                                       Text="#FF000000" 
-                                       VerticalAlignment="Center"/>
-                        </DockPanel>
-                        
-                        <!-- Override Font Color Checkbox -->
-                        <CheckBox x:Name="overrideFontColorCheckBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="OverrideFontColorCheckBox_CheckedChanged" 
-                                 Unchecked="OverrideFontColorCheckBox_CheckedChanged"
-                                 Content="Override Font Color"
-                                 ToolTip="Override the font color for text overlays in the Monitor window"/>
-                        
-                        <!-- Font Color Picker -->
-                        <TextBlock Text="Font Color:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="20,5,10,5"/>
-                        <DockPanel Grid.Row="3" Grid.Column="1" Margin="0,5">
-                            <Button x:Name="overrideFontColorButton" 
-                                    Width="30" Height="20" 
-                                    Margin="0,0,5,0"
-                                    Click="OverrideFontColorButton_Click"/>
-                            <TextBlock x:Name="overrideFontColorText" 
-                                       Text="#FFFFFFFF" 
-                                       VerticalAlignment="Center"/>
-                        </DockPanel>
-                        
-                        <!-- Font Settings Header -->
-                        <TextBlock Text="Font Settings" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-                                  FontWeight="Bold" Margin="0,10,0,5"/>
-                        
-                        <!-- Source Language Font Family -->
-                        <TextBlock Text="Source Language Font:" Grid.Row="5" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="sourceLanguageFontFamilyComboBox" Grid.Row="5" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="SourceLanguageFontFamilyComboBox_SelectionChanged"/>
-                        
-                        <!-- Source Language Font Bold -->
-                        <TextBlock Text="Source Language Bold:" Grid.Row="6" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <CheckBox x:Name="sourceLanguageFontBoldCheckBox" Grid.Row="6" Grid.Column="1" 
-                                 Margin="0,5" VerticalAlignment="Center"
-                                 Checked="SourceLanguageFontBoldCheckBox_CheckedChanged" 
-                                 Unchecked="SourceLanguageFontBoldCheckBox_CheckedChanged"/>
-                        
-                        <!-- Target Language Font Family -->
-                        <TextBlock Text="Target Language Font:" Grid.Row="7" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="targetLanguageFontFamilyComboBox" Grid.Row="7" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="TargetLanguageFontFamilyComboBox_SelectionChanged"/>
-                        
-                        <!-- Target Language Font Bold -->
-                        <TextBlock Text="Target Language Bold:" Grid.Row="8" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <CheckBox x:Name="targetLanguageFontBoldCheckBox" Grid.Row="8" Grid.Column="1" 
-                                 Margin="0,5" VerticalAlignment="Center"
-                                 Checked="TargetLanguageFontBoldCheckBox_CheckedChanged" 
-                                 Unchecked="TargetLanguageFontBoldCheckBox_CheckedChanged"/>
-                        
-                        <!-- Text Area Size Expansion Header -->
-                        <TextBlock Text="Text Area Size Expansion" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
-                                  FontWeight="Bold" Margin="0,10,0,5"/>
-                        
-                        <!-- Text Area Expansion Width -->
-                        <TextBlock Text="Width (pixels):" Grid.Row="10" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
-                        <TextBox x:Name="textAreaExpansionWidthTextBox" Grid.Row="10" Grid.Column="1" 
-                                Margin="0,5" Text="6" LostFocus="TextAreaExpansionWidthTextBox_LostFocus"
-                                ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
-                        
-                        <!-- Text Area Expansion Height -->
-                        <TextBlock Text="Height (pixels):" Grid.Row="11" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
-                        <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="11" Grid.Column="1" 
-                                Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
-                                ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Main Window Settings -->
-                <GroupBox Header="Main Window Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <!-- Windows Visible in Screenshots Checkbox -->
-                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,5" IsChecked="False" 
-                                 Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
-                                 Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
-                                 Content="Make our windows visible in screenshots (Don't turn this on!)"
-                                 ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Translation Context Settings -->
-                <GroupBox Header="Translation Context Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Context Settings -->
-                        <TextBlock Text="Max Previous Context:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Maximum number of previous text pieces to include as context. Set to 0 to disable context."/>
-                        <TextBox x:Name="maxContextPiecesTextBox" Grid.Row="0" Grid.Column="1" 
-                                Margin="0,5" Text="3" LostFocus="MaxContextPiecesTextBox_LostFocus"
-                                ToolTip="Maximum number of previous text pieces to include as context. Set to 0 to disable context."/>
-                        
-                        <TextBlock Text="Min Context Size:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Minimum size in characters for a text piece to be included as context. Helps avoid adding tiny menu labels or buttons as context."/>
-                        <TextBox x:Name="minContextSizeTextBox" Grid.Row="1" Grid.Column="1" 
-                                Margin="0,5" Text="20" LostFocus="MinContextSizeTextBox_LostFocus"
-                                ToolTip="Minimum size in characters for a text piece to be included as context. Helps avoid adding tiny menu labels or buttons as context."/>
+                        <!-- Main Window Settings -->
+                        <GroupBox Header="Main Window Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Windows Visible in Screenshots Checkbox -->
+                                <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
+                                         Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
+                                         Content="Make our windows visible in screenshots (Don't turn this on!)"
+                                         ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- OCR & Detection Tab -->
+            <TabItem Header="OCR &amp; Detection">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- OCR Settings -->
+                        <GroupBox Header="OCR Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
                                 
-                        <TextBlock Text="Min ChatBox Text Size:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
-                        <TextBox x:Name="minChatBoxTextSizeTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,5" Text="2" LostFocus="MinChatBoxTextSizeTextBox_LostFocus"
-                                ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
-                        
-                        <TextBlock Text="Info about the game:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" 
-                                  ToolTip="Information about the game being played to help the LLM translate more accurately."/>
-                        <TextBox x:Name="gameInfoTextBox" Grid.Row="3" Grid.Column="1" 
-                                Margin="0,5" TextChanged="GameInfoTextBox_TextChanged"
-                                ToolTip="Information about the game being played to help the LLM translate more accurately."
-                                AcceptsReturn="True" TextWrapping="Wrap" Height="60" VerticalScrollBarVisibility="Auto"/>
-                        
-                        <!-- Clear Context Button -->
-                        <TextBlock Text="Clear Translation Context:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,8,10,0"
-                                  ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
-                        <Button x:Name="clearContextButton" Content="Clear Context" Grid.Row="4" Grid.Column="1"
-                               HorizontalAlignment="Left" Width="100" Margin="0,8,0,10" Padding="5,3" Click="ClearContextButton_Click"
-                               ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Ignore Phrases Settings -->
-                <GroupBox Header="Ignore Phrases Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Header for list -->
-                        <TextBlock Text="Phrases to ignore:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="List of phrases that will be ignored during translation. If exact match is enabled, the whole text will be ignored if it matches. If disabled, the phrase will be removed from the text."/>
-                        
-                        <!-- ListView for phrases -->
-                        <ListView x:Name="ignorePhraseListView" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4"
-                                 Margin="0,5" Height="150" SelectionMode="Single" SelectionChanged="IgnorePhraseListView_SelectionChanged">
-                            <ListView.View>
-                                <GridView>
-                                    <GridViewColumn Header="Phrase" Width="350" DisplayMemberBinding="{Binding Phrase}"/>
-                                    <GridViewColumn Header="Exact Match" Width="100">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding ExactMatch}" Checked="IgnorePhrase_CheckedChanged" Unchecked="IgnorePhrase_CheckedChanged" Tag="{Binding Phrase}"/>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                        
-                        <!-- Input for new phrase -->
-                        <TextBlock Text="Add new phrase:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,8,10,0"/>
-                        <TextBox x:Name="newIgnorePhraseTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,8,10,0"/>
-                        <CheckBox x:Name="newExactMatchCheckBox" Content="Exact Match" Grid.Row="2" Grid.Column="2" 
-                                 VerticalAlignment="Center" Margin="0,8,10,0" IsChecked="True"/>
-                        <StackPanel Orientation="Horizontal" Grid.Row="2" Grid.Column="3">
-                            <Button x:Name="addIgnorePhraseButton" Content="Add" Margin="0,8,5,0" Width="60" Click="AddIgnorePhraseButton_Click"/>
-                            <Button x:Name="removeIgnorePhraseButton" Content="Remove" Margin="0,8,0,0" Width="60" Click="RemoveIgnorePhraseButton_Click" IsEnabled="False"/>
-                        </StackPanel>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Translation Service Settings -->
-                <GroupBox Header="Translation Service Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Translation Service -->
-                        <TextBlock Text="Translation Service:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="translationServiceComboBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" SelectedIndex="0" SelectionChanged="TranslationServiceComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Gemini"/>
-                            <ComboBoxItem Content="Ollama"/>
-                            <ComboBoxItem Content="ChatGPT"/>
-                            <ComboBoxItem Content="llama.cpp"/>
-                            <ComboBoxItem Content="Google Translate"/>
-                        </ComboBox>
-                        
-                        <!-- Gemini API Key - Only visible when Gemini is selected -->
-                        <TextBlock x:Name="geminiApiKeyLabel" Text="Gemini API Key:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="geminiApiKeyPasswordBox" Grid.Row="0"
-                                     VerticalAlignment="Top" Margin="0,0,0,2" 
-                                     PasswordChanged="GeminiApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock x:Name="geminiApiKeyHelpText" Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="GeminiApiLink_Click">https://ai.google.dev/tutorials/setup</Hyperlink>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- Gemini Model - Only visible when Gemini is selected -->
-                        <TextBlock x:Name="geminiModelLabel" Text="Gemini Model:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0"/>
-                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,5" x:Name="geminiModelGrid">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="geminiModelComboBox" Grid.Column="0"
-                                    SelectionChanged="GeminiModelComboBox_SelectionChanged"
-                                    LostFocus="GeminiModelComboBox_LostFocus"
-                                    IsEditable="True">
-                                <ComboBoxItem Content="gemini-2.5-pro"/>
-                                <ComboBoxItem Content="gemini-2.5-flash"/>
-                                <ComboBoxItem Content="gemini-2.5-flash-lite"/>
-                            </ComboBox>
-                            <Button x:Name="viewGeminiModelsButton" Content="View Models" Grid.Column="1"
-                                   Margin="5,0,0,0" Padding="5,0" Click="ViewGeminiModelsButton_Click"
-                                   ToolTip="Open Gemini models documentation in browser"/>
-                        </Grid>
-                        
-                        <!-- Ollama URL - Only visible when Ollama is selected -->
-                        <TextBlock x:Name="ollamaUrlLabel" Text="Ollama URL:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="ollamaUrlGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBox x:Name="ollamaUrlTextBox" Grid.Row="0"
-                                    VerticalAlignment="Top" Margin="0,0,0,2" Text="http://localhost"
-                                    TextChanged="OllamaUrlTextBox_TextChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Download Ollama from </Run>
-                                <Hyperlink Click="OllamaDownloadLink_Click">https://ollama.com</Hyperlink>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- Ollama Port - Only visible when Ollama is selected -->
-                        <TextBlock x:Name="ollamaPortLabel" Text="Ollama Port:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="ollamaPortTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,5" Text="11434" Visibility="Collapsed"
-                                TextChanged="OllamaPortTextBox_TextChanged"/>
-                        
-                        <!-- Ollama Model - Only visible when Ollama is selected -->
-                        <TextBlock x:Name="ollamaModelLabel" Text="Ollama Model:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="The model to use for translation (e.g. llama3, llama3:8b, phi3, phi3:mini)"/>
-                        <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="ollamaModelGrid">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ollamaModelTextBox" Grid.Column="0"
-                                    Text="llama3" TextChanged="OllamaModelTextBox_TextChanged"
-                                    ToolTip="Common models: llama3, llama3:8b, phi3, phi3:mini, mistral, mixtral, gemma2, neural-chat"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button x:Name="listInstalledModelsButton" Content="List 'em" 
-                                       Margin="5,0,5,0" Padding="5,0" Click="ListInstalledModelsButton_Click"
-                                       ToolTip="Fetch and select from installed Ollama models"/>
-                                <Button x:Name="testModelButton" Content="Test &amp; Download" 
-                                       Margin="0,0,5,0" Padding="5,0" Click="TestModelButton_Click"
-                                       ToolTip="Test if the model exists and download it if needed"/>
-                                <Button x:Name="viewModelsButton" Content="View Models" 
-                                       Margin="0,0,0,0" Padding="5,0" Click="ViewModelsButton_Click"
-                                       ToolTip="Open Ollama models gallery in browser"/>
-                            </StackPanel>
-                        </Grid>
-                        
-                        <!-- ChatGPT API Key - Only visible when ChatGPT is selected -->
-                        <TextBlock x:Name="chatGptApiKeyLabel" Text="ChatGPT API Key:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="chatGptApiKeyGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="chatGptApiKeyPasswordBox" Grid.Row="0"
-                                     VerticalAlignment="Top" Margin="0,0,0,2" 
-                                     PasswordChanged="ChatGptApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="ChatGptApiLink_Click">https://platform.openai.com/api-keys</Hyperlink>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- ChatGPT Model - Only visible when ChatGPT is selected -->
-                        <TextBlock x:Name="chatGptModelLabel" Text="ChatGPT Model:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="The OpenAI model to use for translation"/>
-                        <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="chatGptModelGrid">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="chatGptModelComboBox" Grid.Column="0"
-                                    SelectionChanged="ChatGptModelComboBox_SelectionChanged">
-                                <ComboBoxItem Content="GPT-4.1 Nano (Fastest)" Tag="gpt-4.1-nano"/>
-                                <ComboBoxItem Content="GPT-5 Nano" Tag="gpt-5-nano"/>
-                                <ComboBoxItem Content="GPT-5 Mini" Tag="gpt-5-mini"/>
-                                <ComboBoxItem Content="GPT-5" Tag="gpt-5"/>
-                                <ComboBoxItem Content="GPT-5 Pro" Tag="gpt-5-pro"/>
-                            </ComboBox>
-                            <Button x:Name="viewChatGptModelsButton" Content="View Models" Grid.Column="1"
-                                   Margin="5,0,0,0" Padding="5,0" Click="ViewChatGptModelsButton_Click"
-                                   ToolTip="Open OpenAI models documentation in browser"/>
-                        </Grid>
-                        
-                        <!-- ChatGPT Max Completion Tokens - Only visible when ChatGPT is selected -->
-                        <TextBlock x:Name="chatGptMaxTokensLabel" Text="Max Completion Tokens:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="Maximum number of tokens in the completion response"/>
-                        <TextBox x:Name="chatGptMaxTokensTextBox" Grid.Row="4" Grid.Column="1" 
-                                Margin="0,5" Visibility="Collapsed"
-                                TextChanged="ChatGptMaxTokensTextBox_TextChanged"
-                                ToolTip="Maximum number of tokens in the completion response (default: 32768)"/>
-                        
-                        <!-- llama.cpp URL - Only visible when llama.cpp is selected -->
-                        <TextBlock x:Name="llamacppUrlLabel" Text="llama.cpp URL:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="llamacppUrlGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBox x:Name="llamacppUrlTextBox" Grid.Row="0"
-                                    VerticalAlignment="Top" Margin="0,0,0,2"
-                                    TextChanged="LlamacppUrlTextBox_TextChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Start server with: </Run>
-                                <Run FontFamily="Consolas">llama-server -m model.gguf</Run>
-                                <Run> | </Run>
-                                <Hyperlink Click="LlamacppDocsLink_Click">llama.cpp on github</Hyperlink>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- llama.cpp Port - Only visible when llama.cpp is selected -->
-                        <TextBlock x:Name="llamacppPortLabel" Text="llama.cpp Port:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <TextBox x:Name="llamacppPortTextBox" Grid.Row="2" Grid.Column="1" 
-                                Margin="0,5" Visibility="Collapsed"
-                                TextChanged="LlamacppPortTextBox_TextChanged"/>
-                        
-                        <!-- Google Translate API Key - Only visible when Google Translate is selected -->
-                        <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="googleTranslateApiKeyGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="googleTranslateApiKeyPasswordBox" Grid.Row="0"
-                                     VerticalAlignment="Top" Margin="0,0,0,2" 
-                                     PasswordChanged="GoogleTranslateApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="GoogleTranslateApiLink_Click">https://cloud.google.com/translate/docs/setup</Hyperlink>
-                            </TextBlock>
-                        </Grid>
-
-                        <!-- Google Translate Service Type - Only visible when Google Translate is selected -->
-                        <TextBlock x:Name="googleTranslateServiceTypeLabel" Text="Google Translate Service:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="Choose between cloud API (paid) or free web service"/>
-                        <ComboBox x:Name="googleTranslateServiceTypeComboBox" Grid.Row="2" Grid.Column="1" 
-                                 Margin="0,5" Visibility="Collapsed" SelectionChanged="GoogleTranslateServiceTypeComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Free Web Service"/>
-                            <ComboBoxItem Content="Cloud API (paid)"/>
-                        </ComboBox>
-                        
-                        <!-- Google Translate Language Mapping -->
-                        <TextBlock x:Name="googleTranslateMappingLabel" Text="Language Mapping:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
-                                  ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
-                        <CheckBox x:Name="googleTranslateMappingCheckBox" Grid.Row="3" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="True" Content="Auto-map language codes" Visibility="Collapsed"
-                                 Checked="GoogleTranslateMappingCheckBox_CheckedChanged" 
-                                 Unchecked="GoogleTranslateMappingCheckBox_CheckedChanged"
-                                 ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
-                        
-                        <!-- Prompt Label -->
-                        <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="5" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,10,10,0"/>
-                        
-                        <!-- Prompt Editor -->
-                        <TextBox x:Name="promptTemplateTextBox" Grid.Row="5" Grid.Column="1" 
-                                Margin="0,10,0,0" AcceptsReturn="True" TextWrapping="Wrap"
-                                MinHeight="150" MaxHeight="300" VerticalScrollBarVisibility="Auto"
-                                FontFamily="Consolas" FontSize="12" 
-                                LostFocus="PromptTemplateTextBox_LostFocus"/>
-                        
-                        <!-- Save and Restore Buttons -->
-                        <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" 
-                                   HorizontalAlignment="Right" Margin="0,10,0,0">
-                            <Button x:Name="restoreDefaultPromptButton" Content="Restore Default Prompt" 
-                                   Margin="0,0,10,0" Padding="10,5"
-                                   Click="RestoreDefaultPromptButton_Click"/>
-                            <Button x:Name="savePromptButton" Content="Save Prompt" 
-                                   Padding="10,5"
-                                   Click="SavePromptButton_Click"/>
-                        </StackPanel>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Text-to-Speech Settings -->
-                <GroupBox Header="Text-to-Speech Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- TTS Enabled -->
-                        <TextBlock Text="Enable TTS:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <CheckBox x:Name="ttsEnabledCheckBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" IsChecked="True" 
-                                 Checked="TtsEnabledCheckBox_CheckedChanged" 
-                                 Unchecked="TtsEnabledCheckBox_CheckedChanged"/>
-                        
-                        <!-- TTS Service -->
-                        <TextBlock Text="TTS Service:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="ttsServiceComboBox" Grid.Row="1" Grid.Column="1" 
-                                 Margin="0,5" SelectedIndex="0" SelectionChanged="TtsServiceComboBox_SelectionChanged">
-                            <ComboBoxItem Content="ElevenLabs"/>
-                            <ComboBoxItem Content="Google Cloud TTS"/>
-                        </ComboBox>
-                        
-                        <!-- ElevenLabs API Key - Only visible when ElevenLabs is selected -->
-                        <TextBlock x:Name="elevenLabsApiKeyLabel" Text="ElevenLabs API Key:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0"/>
-                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,5,0,0" x:Name="elevenLabsApiKeyGrid">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="elevenLabsApiKeyPasswordBox" Grid.Row="0"
-                                     VerticalAlignment="Top" Margin="0,0,0,2" 
-                                     PasswordChanged="ElevenLabsApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" x:Name="elevenLabsApiKeyHelpText">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="ElevenLabsApiLink_Click">https://elevenlabs.io/app/developers/api-keys</Hyperlink>
+                                <!-- OCR Method -->
+                                <TextBlock Text="OCR Method:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="ocrMethodComboBox" Grid.Row="0" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="OcrMethodComboBox_SelectionChanged"/>
                                 
-                            </TextBlock>
-                        </Grid>
+                                <!-- Auto Translate -->
+                                <TextBlock Text="Auto Translate:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <CheckBox x:Name="autoTranslateCheckBox" Grid.Row="1" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="AutoTranslateCheckBox_CheckedChanged" 
+                                         Unchecked="AutoTranslateCheckBox_CheckedChanged"/>
+                                         
+                                <!-- Pause OCR While Translating -->
+                                <TextBlock Text="Pause OCR while translating:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
+                                <CheckBox x:Name="pauseOcrWhileTranslatingCheckBox" Grid.Row="2" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="PauseOcrWhileTranslatingCheckBox_CheckedChanged" 
+                                         Unchecked="PauseOcrWhileTranslatingCheckBox_CheckedChanged"
+                                         ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
+                                         
+                                <!-- Minimum Text Fragment Size -->
+                                <TextBlock Text="Smallest text fragment:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
+                                <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="3" Grid.Column="1" 
+                                        Margin="0,5" Text="2" LostFocus="MinTextFragmentSizeTextBox_LostFocus"
+                                        ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
+                                
+                                <!-- Minimum Letter Confidence -->
+                                <TextBlock Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
+                                <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,5" Text="0.1" LostFocus="MinLetterConfidenceTextBox_LostFocus"
+                                        ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
+                                
+                                <!-- Minimum Line Confidence -->
+                                <TextBlock Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
+                                <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="5" Grid.Column="1" 
+                                        Margin="0,5" Text="0.2" LostFocus="MinLineConfidenceTextBox_LostFocus"
+                                        ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
+                                
+                                <!-- Leave Translation Onscreen -->
+                                <TextBlock Grid.Row="6" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made">
+                                    <Run Text="Leave translation onscreen:"/>
+                                    <LineBreak/>
+                                    <Run Text="(this option is broken)"/>
+                                </TextBlock>
+                                <CheckBox x:Name="leaveTranslationOnscreenCheckBox" Grid.Row="6" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="LeaveTranslationOnscreenCheckBox_CheckedChanged" 
+                                         Unchecked="LeaveTranslationOnscreenCheckBox_CheckedChanged"
+                                         ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
+                                
+                                <!-- Glue docTR lines into paragraphs -->
+                                <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="7" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
+                                <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="7" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="True"
+                                         Checked="GlueDoctrLinesCheckBox_CheckedChanged"
+                                         Unchecked="GlueDoctrLinesCheckBox_CheckedChanged"
+                                         ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
+                                
+                                <!-- Manga OCR Minimum Region Width - Only visible when Manga OCR is selected -->
+                                <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="8" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
+                                          ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
+                                <TextBox x:Name="mangaOcrMinWidthTextBox" Grid.Row="8" Grid.Column="1" 
+                                        Margin="0,5" Text="10" Visibility="Collapsed"
+                                        LostFocus="MangaOcrMinWidthTextBox_LostFocus"
+                                        ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
+                                
+                                <!-- Manga OCR Minimum Region Height - Only visible when Manga OCR is selected -->
+                                <TextBlock x:Name="mangaOcrMinHeightLabel" Text="Min Text Region Height (px):" Grid.Row="9" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
+                                          ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
+                                <TextBox x:Name="mangaOcrMinHeightTextBox" Grid.Row="9" Grid.Column="1" 
+                                        Margin="0,5" Text="10" Visibility="Collapsed"
+                                        LostFocus="MangaOcrMinHeightTextBox_LostFocus"
+                                        ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
+                                
+                                <!-- Manga OCR Overlap Allowed - Only visible when Manga OCR is selected -->
+                                <TextBlock x:Name="mangaOcrOverlapLabel" Text="Overlap Allowed (%):" Grid.Row="10" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
+                                          ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
+                                <TextBox x:Name="mangaOcrOverlapTextBox" Grid.Row="10" Grid.Column="1" 
+                                        Margin="0,5" Text="90" Visibility="Collapsed"
+                                        LostFocus="MangaOcrOverlapTextBox_LostFocus"
+                                        ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
+                                
+                                <!-- Google Vision API Key - Only visible when Google Vision is selected -->
+                                <TextBlock x:Name="googleVisionApiKeyLabel" Text="Google Cloud Vision API Key:" Grid.Row="11" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="11" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <PasswordBox x:Name="googleVisionApiKeyPasswordBox" Grid.Row="0" Grid.Column="0"
+                                             VerticalAlignment="Top" Margin="0,0,5,2" 
+                                             PasswordChanged="GoogleVisionApiKeyPasswordBox_PasswordChanged"/>
+                                    <Button x:Name="googleVisionApiKeyHelpButton" Grid.Row="0" Grid.Column="1"
+                                            Content="How to get API key" Padding="5,2" 
+                                            Click="GoogleVisionApiKeyHelpButton_Click"/>
+                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,2,0,2" FontSize="11">
+                                        <Run>Learn more at </Run>
+                                        <Hyperlink Click="GoogleVisionApiLink_Click">cloud.google.com/vision</Hyperlink>
+                                    </TextBlock>
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="googleVisionTestApiKeyButton" Grid.Column="0"
+                                                Content="Test API Key" Padding="8,3" 
+                                                Click="GoogleVisionTestApiKeyButton_Click"/>
+                                        <TextBlock x:Name="googleVisionTestResultText" Grid.Column="1"
+                                                  Margin="10,0,0,0" VerticalAlignment="Center"
+                                                  Foreground="Gray" Text=""/>
+                                        <ProgressBar x:Name="googleVisionTestProgressBar" Grid.Column="2"
+                                                    Width="100" Height="20" Margin="10,0,0,0"
+                                                    Visibility="Collapsed" IsIndeterminate="True"/>
+                                    </Grid>
+                                </Grid>
+                                
+                                <!-- Google Vision Grouping Settings - Only visible when Google Vision is selected -->
+                                <TextBlock x:Name="googleVisionGroupingLabel" Text="Text Grouping Settings:" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
+                                          VerticalAlignment="Center" Margin="0,8,10,0" Visibility="Collapsed" FontWeight="SemiBold"/>
+                                
+                                <TextBlock x:Name="googleVisionHorizontalGlueLabel" Text="Horizontal glue distance:" Grid.Row="13" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Maximum horizontal distance (in character widths) to group words together. Lower values create more separate text blocks."/>
+                                <Grid Grid.Row="13" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHorizontalGlueGrid" Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="googleVisionHorizontalGlueTextBox" Grid.Column="0"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="1.5"
+                                             LostFocus="GoogleVisionHorizontalGlueTextBox_LostFocus"
+                                             ToolTip="Default: 1.5 (1.5 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
+                                    <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                                </Grid>
+                                
+                                <TextBlock x:Name="googleVisionVerticalGlueLabel" Text="Vertical glue distance:" Grid.Row="14" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Maximum vertical distance (in line heights) to consider text on the same line. Lower values separate lines more."/>
+                                <Grid Grid.Row="14" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueGrid" Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="googleVisionVerticalGlueTextBox" Grid.Column="0"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="0.5"
+                                             LostFocus="GoogleVisionVerticalGlueTextBox_LostFocus"
+                                             ToolTip="Default: 0.5 (half a line height). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
+                                    <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                                </Grid>
+                                
+                                <!-- Try to keep original text linefeeds -->
+                                <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="15" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
+                                <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="15" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="True" Visibility="Collapsed"
+                                         Checked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged" 
+                                         Unchecked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged"
+                                         ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
+                            </Grid>
+                        </GroupBox>
                         
-                        <!-- ElevenLabs Custom Voice ID - Only visible when ElevenLabs is selected -->
-                        <TextBlock x:Name="elevenLabsCustomVoiceLabel" Text="Custom Voice ID:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0"/>
-                        <Grid Grid.Row="3" Grid.Column="1" Margin="0,5,0,0" x:Name="elevenLabsCustomVoiceGrid">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <CheckBox x:Name="elevenLabsCustomVoiceCheckBox" Grid.Row="0"
-                                      Margin="0,0,0,2"
-                                      Content="Use custom ID"
-                                      Checked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"
-                                      Unchecked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"/>
-                            <TextBox x:Name="elevenLabsCustomVoiceIdTextBox" Grid.Row="1"
-                                     Margin="0,0,0,0"
-                                     LostFocus="ElevenLabsCustomVoiceIdTextBox_LostFocus"/>
-                        </Grid>
-                        
-                        <!-- ElevenLabs Voice - Only visible when ElevenLabs is selected -->
-                        <TextBlock x:Name="elevenLabsVoiceLabel" Text="ElevenLabs Voice:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0"/>
-                        <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="ElevenLabsVoiceComboBox_SelectionChanged">
-                            <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
-                            <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
-                            <ComboBoxItem Content="Bella" Tag="EXAVITQu4vr4xnSDxMaL"/>
-                            <ComboBoxItem Content="Antoni" Tag="ErXwobaYiN019PkySvjV"/>
-                            <ComboBoxItem Content="Elli" Tag="MF3mGyEYCl7XYWbV9V6O"/>
-                            <ComboBoxItem Content="Josh" Tag="TxGEqnHWrfWFTfGW9XjX"/>
-                            <ComboBoxItem Content="Arnold" Tag="VR6AewLTigWG4xSOukaG"/>
-                            <ComboBoxItem Content="Adam" Tag="pNInz6obpgDQGcFmaJgB"/>
-                            <ComboBoxItem Content="Sam" Tag="yoZ06aMxZJJ28mfd3POQ"/>
-                        </ComboBox>
-                        
-                        <!-- Google TTS API Key - Only visible when Google TTS is selected -->
-                        <TextBlock x:Name="googleTtsApiKeyLabel" Text="Google API Key:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
-                        <Grid Grid.Row="2" Grid.Column="1" Visibility="Collapsed" x:Name="googleTtsApiKeyGrid" Margin="0,5,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="googleTtsApiKeyPasswordBox" Grid.Row="0"
-                                     VerticalAlignment="Top" Margin="0,0,0,2" 
-                                     PasswordChanged="GoogleTtsApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="GoogleTtsApiLink_Click">https://cloud.google.com/text-to-speech</Hyperlink>
-                                <Run> (free tier: 4M chars/month)</Run>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- Google TTS Voice - Only visible when Google TTS is selected -->
-                        <TextBlock x:Name="googleTtsVoiceLabel" Text="Google Voice:" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
-                        <ComboBox x:Name="googleTtsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="GoogleTtsVoiceComboBox_SelectionChanged" Visibility="Collapsed">
-                            <!-- Japanese Voices -->
-                            <ComboBoxItem Content="Japanese (Female) - Neural2" Tag="ja-JP-Neural2-B"/>
-                            <ComboBoxItem Content="Japanese (Male) - Neural2" Tag="ja-JP-Neural2-C"/>
-                            <ComboBoxItem Content="Japanese (Male Deep) - Neural2" Tag="ja-JP-Neural2-D"/>
-                            
-                            <!-- English Voices -->
-                            <ComboBoxItem Content="English US (Female) - Studio" Tag="en-US-Studio-O"/>
-                            <ComboBoxItem Content="English US (Male) - Studio" Tag="en-US-Studio-M"/>
-                            <ComboBoxItem Content="English UK (Female) - Neural2" Tag="en-GB-Neural2-F"/>
-                            
-                            <!-- French Voices -->
-                            <ComboBoxItem Content="French (Female) - Neural2" Tag="fr-FR-Neural2-A"/>
-                            <ComboBoxItem Content="French (Male) - Neural2" Tag="fr-FR-Neural2-D"/>
-                            
-                            <!-- German Voices -->
-                            <ComboBoxItem Content="German (Female) - Neural2" Tag="de-DE-Neural2-F"/>
-                            <ComboBoxItem Content="German (Male) - Neural2" Tag="de-DE-Neural2-B"/>
-                            
-                            <!-- Spanish Voices -->
-                            <ComboBoxItem Content="Spanish (Female) - Neural2" Tag="es-ES-Neural2-F"/>
-                            <ComboBoxItem Content="Spanish (Male) - Neural2" Tag="es-ES-Neural2-C"/>
-                            
-                            <!-- Korean Voices -->
-                            <ComboBoxItem Content="Korean (Female) - Neural2" Tag="ko-KR-Neural2-A"/>
-                            <ComboBoxItem Content="Korean (Male) - Neural2" Tag="ko-KR-Neural2-C"/>
-                            
-                            <!-- Chinese Voices -->
-                            <ComboBoxItem Content="Chinese (Female) - Neural2" Tag="cmn-CN-Neural2-A"/>
-                            <ComboBoxItem Content="Chinese (Male) - Neural2" Tag="cmn-CN-Neural2-C"/>
-                            
-                            <!-- Vietnamese Voices -->
-                            <ComboBoxItem Content="Vietnamese (Female) - Neural2" Tag="vi-VN-Neural2-A"/>
-                            <ComboBoxItem Content="Vietnamese (Male) - Neural2" Tag="vi-VN-Neural2-D"/>
-                        </ComboBox>
-                    </Grid>
-                </GroupBox>
+                        <!-- Block Detection Settings -->
+                        <GroupBox Header="Block Detection Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Block Power -->
+                                <TextBlock Text="Block Power:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="If higher, text is more likely to be glued together to make a large paragraph. Lower does the opposite, good for say, tiny buttons or menu options. Also affects character-level grouping."/>
+                                <TextBox x:Name="blockDetectionPowerTextBox" Grid.Row="0" Grid.Column="1" 
+                                        Margin="0,5" Text="5" LostFocus="BlockDetectionPowerTextBox_LostFocus"
+                                        ToolTip="If higher, text is more likely to be glued together to make a large paragraph. Lower does the opposite, good for say, tiny buttons or menu options. Also affects character-level grouping."/>
+                                
+                                <!-- Settle Time -->
+                                <TextBlock Text="Settle Time (s):" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Time in seconds to wait for the text to settle before capturing"/>
+                                <TextBox x:Name="settleTimeTextBox" Grid.Row="1" Grid.Column="1" 
+                                        Margin="0,5" Text="0.5" LostFocus="SettleTimeTextBox_LostFocus"
+                                        ToolTip="Time in seconds to wait for the text to settle before capturing"/>
 
-                <!-- Audio Processing Settings -->
-                <GroupBox Header="Audio Processing Settings (the Listen button)" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Audio Processing Provider -->
-                        <TextBlock Text="Audio Processing Provider:" Grid.Row="0" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Provider for real-time audio processing"/>
-                        <ComboBox x:Name="audioProcessingProviderComboBox" Grid.Row="0" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="AudioProcessingProviderComboBox_SelectionChanged">
-                            <ComboBoxItem Content="OpenAI Realtime API" IsSelected="True"/>
-                        </ComboBox>
-                        
-                        <!-- OpenAI API Key -->
-                        <TextBlock Text="OpenAI API Key:" Grid.Row="1" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="API Key for OpenAI Realtime API"/>
-                        <Grid Grid.Row="1" Grid.Column="1">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="0" 
-                                        Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
-                            <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
-                                <Run>Get API key from </Run>
-                                <Hyperlink Click="OpenAiRealtimeApiLink_Click">https://platform.openai.com/account/api-keys</Hyperlink>
-                                <Run> (requires OpenAI account)</Run>
-                            </TextBlock>
-                        </Grid>
-                        
-                        <!-- Audio Input Device -->
-                        <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Select the microphone or audio input device to use"/>
-                        <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
-                        
-                        <!-- Whisper Language -->
-                        <TextBlock Text="Whisper Language:" Grid.Row="3" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Language for Whisper speech recognition (Auto to autodetect)"/>
-                        <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="3" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
-                        </ComboBox>
-                        
-                        <!-- OpenAI Silence Duration -->
-                        <TextBlock Text="Silence Duration (ms):" Grid.Row="4" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Duration of silence in milliseconds before an utterance is considered complete. Affects how quickly transcription/translation is finalized."/>
-                        <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="4" Grid.Column="1" 
-                                Margin="0,5" LostFocus="OpenAiSilenceDurationMsTextBox_LostFocus"/>
-                        
-                        <!-- Audio Translation Type (renamed to Mode) -->
-                        <TextBlock Text="Mode:" Grid.Row="5" Grid.Column="0" 
-                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                  ToolTip="Method to translate audio transcriptions"/>
-                        <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="5" Grid.Column="1" 
-                                 Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
-                            <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
-                            <ComboBoxItem Content="Google Translate" Tag="google"/>
-                            <ComboBoxItem Content="OpenAI Translation" Tag="openai" IsSelected="True"/>
-                        </ComboBox>
-                        
-                        <!-- Experimental Speaking Features Sub-Area -->
-                        <GroupBox Header="Experimental Speaking Features (Currently Broken)" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" 
-                                 Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
+                                <!-- Max Settle Time -->
+                                <TextBlock Text="Max Settle Time (s):" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Maximum time allowed for settling before translation is forced"/>
+                                <TextBox x:Name="maxSettleTimeTextBox" Grid.Row="2" Grid.Column="1" 
+                                        Margin="0,5" Text="1.0" LostFocus="MaxSettleTimeTextBox_LostFocus"
+                                        ToolTip="Maximum time allowed for settling before translation is forced"/>
+
+                                <!-- Overlay Clear Delay -->
+                                <TextBlock Text="Overlay Clear Delay (s):" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
+                                <TextBox x:Name="overlayClearDelayTextBox" Grid.Row="3" Grid.Column="1" 
+                                        Margin="0,5" Text="0.5" LostFocus="OverlayClearDelayTextBox_LostFocus"
+                                        ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- Translation Tab -->
+            <TabItem Header="Translation">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Translation Service Settings -->
+                        <GroupBox Header="Translation Service Settings" Margin="0,0,0,15" Padding="10">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -1077,139 +396,860 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
-                                <!-- Warning message -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
-                                         Text="These features are experimental and currently don't work properly due to OpenAI turn-taking limitations. Seth is keeping them here for future development."
-                                         TextWrapping="Wrap" Margin="0,0,0,10" Foreground="DarkRed"/>
-                                
-                                <!-- Audio Playback -->
-                                <TextBlock Text="Audio Playback:" Grid.Row="1" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Enable or disable playback of AI-generated speech"/>
-                                <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="1" Grid.Column="1" 
-                                         Margin="0,5" Content="Enable AI speech playback (not recommended)" IsChecked="False"
-                                         Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
-                                         Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
-                                
-                                <!-- Audio Output Device Selection -->
-                                <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="2" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Select the speakers or audio output device to use"/>
-                                <ComboBox x:Name="outputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
-                                         Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
-                                
-                                <!-- Voice Selection -->
-                                <TextBlock Text="AI Voice:" Grid.Row="3" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Select the voice for AI speech output"/>
-                                <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="3" Grid.Column="1" 
-                                         Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
-                                    <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Default voice, balanced tone"/>
-                                    <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
-                                    <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
-                                    <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
-                                    <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
-                                    <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
-                                    <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
+                                <!-- Translation Service -->
+                                <TextBlock Text="Translation Service:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="translationServiceComboBox" Grid.Row="0" Grid.Column="1" 
+                                         Margin="0,5" SelectedIndex="0" SelectionChanged="TranslationServiceComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Gemini"/>
+                                    <ComboBoxItem Content="Ollama"/>
+                                    <ComboBoxItem Content="ChatGPT"/>
+                                    <ComboBoxItem Content="llama.cpp"/>
+                                    <ComboBoxItem Content="Google Translate"/>
                                 </ComboBox>
                                 
-                                <!-- Speech Prompt -->
-                                <TextBlock Text="Speech Prompt:" Grid.Row="4" Grid.Column="0" 
-                                          VerticalAlignment="Top" Margin="0,8,10,0"
-                                          ToolTip="Instructions for how the AI should speak when reading translations"/>
-                                
-                                <Grid Grid.Row="4" Grid.Column="1">
+                                <!-- Gemini API Key - Only visible when Gemini is selected -->
+                                <TextBlock x:Name="geminiApiKeyLabel" Text="Gemini API Key:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Margin="0,5,0,0">
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="0"
-                                        Margin="0,5,0,0" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
-                                        VerticalScrollBarVisibility="Auto" 
-                                        LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
-                                        ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
-                                    <Button x:Name="setDefaultSpeechPromptButton" Grid.Row="1"
-                                        Content="Set Default Prompt" 
-                                        HorizontalAlignment="Left" Margin="0,3,0,5"
-                                        Click="SetDefaultSpeechPromptButton_Click"
-                                        ToolTip="Reset to the default speech prompt"/>
+                                    <PasswordBox x:Name="geminiApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2" 
+                                             PasswordChanged="GeminiApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock x:Name="geminiApiKeyHelpText" Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="GeminiApiLink_Click">https://ai.google.dev/tutorials/setup</Hyperlink>
+                                    </TextBlock>
                                 </Grid>
-                            </Grid>
-                        </GroupBox>
-                    </Grid>
-                </GroupBox>
-                
-                <!-- Hotkey Settings -->
-                <GroupBox Header="Hotkey Settings" Margin="0,0,0,15" Padding="10">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Global Hotkeys Enabled Checkbox -->
-                        <CheckBox x:Name="globalHotkeysEnabledCheckBox" Grid.Row="0"
-                                 Margin="0,0,0,10" IsChecked="True" 
-                                 Checked="GlobalHotkeysEnabledCheckBox_CheckedChanged" 
-                                 Unchecked="GlobalHotkeysEnabledCheckBox_CheckedChanged"
-                                 Content="Enable global hotkeys (when unchecked, app must be in focus)"
-                                 ToolTip="If enabled, hotkeys work system-wide. If disabled, hotkeys only work when the application is in focus."/>
-                        
-                        <!-- Grid for actions and bindings -->
-                        <Grid Grid.Row="1" Margin="0,5">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="250"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <!-- Left: Actions list -->
-                            <GroupBox Header="Actions" Grid.Column="0" Padding="5" Margin="0,0,5,0">
-                                <ListBox x:Name="actionsListBox" SelectionMode="Single" 
-                                        SelectionChanged="ActionsListBox_SelectionChanged"/>
-                            </GroupBox>
-                            
-                            <!-- Right: Bindings for selected action -->
-                            <GroupBox Header="Bindings for Selected Action" Grid.Column="1" Padding="5" Margin="5,0,0,0">
-                                <Grid>
+                                
+                                <!-- Gemini Model - Only visible when Gemini is selected -->
+                                <TextBlock x:Name="geminiModelLabel" Text="Gemini Model:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0"/>
+                                <Grid Grid.Row="2" Grid.Column="1" Margin="0,5" x:Name="geminiModelGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="geminiModelComboBox" Grid.Column="0"
+                                            SelectionChanged="GeminiModelComboBox_SelectionChanged"
+                                            LostFocus="GeminiModelComboBox_LostFocus"
+                                            IsEditable="True">
+                                        <ComboBoxItem Content="gemini-2.5-pro"/>
+                                        <ComboBoxItem Content="gemini-2.5-flash"/>
+                                        <ComboBoxItem Content="gemini-2.5-flash-lite"/>
+                                    </ComboBox>
+                                    <Button x:Name="viewGeminiModelsButton" Content="View Models" Grid.Column="1"
+                                           Margin="5,0,0,0" Padding="5,0" Click="ViewGeminiModelsButton_Click"
+                                           ToolTip="Open Gemini models documentation in browser"/>
+                                </Grid>
+                                
+                                <!-- Ollama URL - Only visible when Ollama is selected -->
+                                <TextBlock x:Name="ollamaUrlLabel" Text="Ollama URL:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="ollamaUrlGrid" Margin="0,5,0,0">
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    
-                                    <!-- Bindings list -->
-                                    <ListView x:Name="bindingsListView" Grid.Row="0" SelectionMode="Single"
-                                             SelectionChanged="BindingsListView_SelectionChanged">
-                                        <ListView.View>
-                                            <GridView>
-                                                <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding BindingType}"/>
-                                                <GridViewColumn Header="Binding" Width="250" DisplayMemberBinding="{Binding BindingString}"/>
-                                            </GridView>
-                                        </ListView.View>
-                                    </ListView>
-                                    
-                                    <!-- Buttons -->
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                        <Button x:Name="addKeyboardBindingButton" Content="Add Keyboard Binding" 
-                                               Margin="0,0,5,0" Padding="10,5" Click="AddKeyboardBindingButton_Click"/>
-                                        <Button x:Name="addGamepadBindingButton" Content="Add Gamepad Binding" 
-                                               Margin="0,0,5,0" Padding="10,5" Click="AddGamepadBindingButton_Click"/>
-                                        <Button x:Name="removeBindingButton" Content="Remove Binding" 
-                                               Margin="0,0,0,0" Padding="10,5" Click="RemoveBindingButton_Click"/>
+                                    <TextBox x:Name="ollamaUrlTextBox" Grid.Row="0"
+                                            VerticalAlignment="Top" Margin="0,0,0,2" Text="http://localhost"
+                                            TextChanged="OllamaUrlTextBox_TextChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Download Ollama from </Run>
+                                        <Hyperlink Click="OllamaDownloadLink_Click">https://ollama.com</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- Ollama Port - Only visible when Ollama is selected -->
+                                <TextBlock x:Name="ollamaPortLabel" Text="Ollama Port:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="ollamaPortTextBox" Grid.Row="2" Grid.Column="1" 
+                                        Margin="0,5" Text="11434" Visibility="Collapsed"
+                                        TextChanged="OllamaPortTextBox_TextChanged"/>
+                                
+                                <!-- Ollama Model - Only visible when Ollama is selected -->
+                                <TextBlock x:Name="ollamaModelLabel" Text="Ollama Model:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="The model to use for translation (e.g. llama3, llama3:8b, phi3, phi3:mini)"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="ollamaModelGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ollamaModelTextBox" Grid.Column="0"
+                                            Text="llama3" TextChanged="OllamaModelTextBox_TextChanged"
+                                            ToolTip="Common models: llama3, llama3:8b, phi3, phi3:mini, mistral, mixtral, gemma2, neural-chat"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button x:Name="listInstalledModelsButton" Content="List 'em" 
+                                               Margin="5,0,5,0" Padding="5,0" Click="ListInstalledModelsButton_Click"
+                                               ToolTip="Fetch and select from installed Ollama models"/>
+                                        <Button x:Name="testModelButton" Content="Test &amp; Download" 
+                                               Margin="0,0,5,0" Padding="5,0" Click="TestModelButton_Click"
+                                               ToolTip="Test if the model exists and download it if needed"/>
+                                        <Button x:Name="viewModelsButton" Content="View Models" 
+                                               Margin="0,0,0,0" Padding="5,0" Click="ViewModelsButton_Click"
+                                               ToolTip="Open Ollama models gallery in browser"/>
                                     </StackPanel>
                                 </Grid>
-                            </GroupBox>
-                        </Grid>
+                                
+                                <!-- ChatGPT API Key - Only visible when ChatGPT is selected -->
+                                <TextBlock x:Name="chatGptApiKeyLabel" Text="ChatGPT API Key:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="chatGptApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="chatGptApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2" 
+                                             PasswordChanged="ChatGptApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="ChatGptApiLink_Click">https://platform.openai.com/api-keys</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- ChatGPT Model - Only visible when ChatGPT is selected -->
+                                <TextBlock x:Name="chatGptModelLabel" Text="ChatGPT Model:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="The OpenAI model to use for translation"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="chatGptModelGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="chatGptModelComboBox" Grid.Column="0"
+                                            SelectionChanged="ChatGptModelComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="GPT-4.1 Nano (Fastest)" Tag="gpt-4.1-nano"/>
+                                        <ComboBoxItem Content="GPT-5 Nano" Tag="gpt-5-nano"/>
+                                        <ComboBoxItem Content="GPT-5 Mini" Tag="gpt-5-mini"/>
+                                        <ComboBoxItem Content="GPT-5" Tag="gpt-5"/>
+                                        <ComboBoxItem Content="GPT-5 Pro" Tag="gpt-5-pro"/>
+                                    </ComboBox>
+                                    <Button x:Name="viewChatGptModelsButton" Content="View Models" Grid.Column="1"
+                                           Margin="5,0,0,0" Padding="5,0" Click="ViewChatGptModelsButton_Click"
+                                           ToolTip="Open OpenAI models documentation in browser"/>
+                                </Grid>
+                                
+                                <!-- ChatGPT Max Completion Tokens - Only visible when ChatGPT is selected -->
+                                <TextBlock x:Name="chatGptMaxTokensLabel" Text="Max Completion Tokens:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Maximum number of tokens in the completion response"/>
+                                <TextBox x:Name="chatGptMaxTokensTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,5" Visibility="Collapsed"
+                                        TextChanged="ChatGptMaxTokensTextBox_TextChanged"
+                                        ToolTip="Maximum number of tokens in the completion response (default: 32768)"/>
+                                
+                                <!-- llama.cpp URL - Only visible when llama.cpp is selected -->
+                                <TextBlock x:Name="llamacppUrlLabel" Text="llama.cpp URL:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="llamacppUrlGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="llamacppUrlTextBox" Grid.Row="0"
+                                            VerticalAlignment="Top" Margin="0,0,0,2"
+                                            TextChanged="LlamacppUrlTextBox_TextChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Start server with: </Run>
+                                        <Run FontFamily="Consolas">llama-server -m model.gguf</Run>
+                                        <Run> | </Run>
+                                        <Hyperlink Click="LlamacppDocsLink_Click">llama.cpp on github</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- llama.cpp Port - Only visible when llama.cpp is selected -->
+                                <TextBlock x:Name="llamacppPortLabel" Text="llama.cpp Port:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <TextBox x:Name="llamacppPortTextBox" Grid.Row="2" Grid.Column="1" 
+                                        Margin="0,5" Visibility="Collapsed"
+                                        TextChanged="LlamacppPortTextBox_TextChanged"/>
+                                
+                                <!-- Google Translate API Key - Only visible when Google Translate is selected -->
+                                <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="googleTranslateApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="googleTranslateApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2" 
+                                             PasswordChanged="GoogleTranslateApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="GoogleTranslateApiLink_Click">https://cloud.google.com/translate/docs/setup</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Google Translate Service Type - Only visible when Google Translate is selected -->
+                                <TextBlock x:Name="googleTranslateServiceTypeLabel" Text="Google Translate Service:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Choose between cloud API (paid) or free web service"/>
+                                <ComboBox x:Name="googleTranslateServiceTypeComboBox" Grid.Row="2" Grid.Column="1" 
+                                         Margin="0,5" Visibility="Collapsed" SelectionChanged="GoogleTranslateServiceTypeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Free Web Service"/>
+                                    <ComboBoxItem Content="Cloud API (paid)"/>
+                                </ComboBox>
+                                
+                                <!-- Google Translate Language Mapping -->
+                                <TextBlock x:Name="googleTranslateMappingLabel" Text="Language Mapping:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
+                                <CheckBox x:Name="googleTranslateMappingCheckBox" Grid.Row="3" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="True" Content="Auto-map language codes" Visibility="Collapsed"
+                                         Checked="GoogleTranslateMappingCheckBox_CheckedChanged" 
+                                         Unchecked="GoogleTranslateMappingCheckBox_CheckedChanged"
+                                         ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
+                                
+                                <!-- Prompt Label -->
+                                <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="5" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,10,10,0"/>
+                                
+                                <!-- Prompt Editor -->
+                                <TextBox x:Name="promptTemplateTextBox" Grid.Row="5" Grid.Column="1" 
+                                        Margin="0,10,0,0" AcceptsReturn="True" TextWrapping="Wrap"
+                                        MinHeight="150" MaxHeight="300" VerticalScrollBarVisibility="Auto"
+                                        FontFamily="Consolas" FontSize="12" 
+                                        LostFocus="PromptTemplateTextBox_LostFocus"/>
+                                
+                                <!-- Save and Restore Buttons -->
+                                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" 
+                                           HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button x:Name="restoreDefaultPromptButton" Content="Restore Default Prompt" 
+                                           Margin="0,0,10,0" Padding="10,5"
+                                           Click="RestoreDefaultPromptButton_Click"/>
+                                    <Button x:Name="savePromptButton" Content="Save Prompt" 
+                                           Padding="10,5"
+                                           Click="SavePromptButton_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
                         
-                        <!-- Reset button -->
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                            <Button x:Name="resetHotkeysButton" Content="Reset All to Defaults" 
-                                   Padding="10,5" Width="150" Click="ResetHotkeysButton_Click"/>
-                        </StackPanel>
-                    </Grid>
-                </GroupBox>
-            </StackPanel>
-        </ScrollViewer>
+                        <!-- Translation Context Settings -->
+                        <GroupBox Header="Translation Context Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Context Settings -->
+                                <TextBlock Text="Max Previous Context:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Maximum number of previous text pieces to include as context. Set to 0 to disable context."/>
+                                <TextBox x:Name="maxContextPiecesTextBox" Grid.Row="0" Grid.Column="1" 
+                                        Margin="0,5" Text="3" LostFocus="MaxContextPiecesTextBox_LostFocus"
+                                        ToolTip="Maximum number of previous text pieces to include as context. Set to 0 to disable context."/>
+                                
+                                <TextBlock Text="Min Context Size:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Minimum size in characters for a text piece to be included as context. Helps avoid adding tiny menu labels or buttons as context."/>
+                                <TextBox x:Name="minContextSizeTextBox" Grid.Row="1" Grid.Column="1" 
+                                        Margin="0,5" Text="20" LostFocus="MinContextSizeTextBox_LostFocus"
+                                        ToolTip="Minimum size in characters for a text piece to be included as context. Helps avoid adding tiny menu labels or buttons as context."/>
+                                        
+                                <TextBlock Text="Min ChatBox Text Size:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
+                                <TextBox x:Name="minChatBoxTextSizeTextBox" Grid.Row="2" Grid.Column="1" 
+                                        Margin="0,5" Text="2" LostFocus="MinChatBoxTextSizeTextBox_LostFocus"
+                                        ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
+                                
+                                <TextBlock Text="Info about the game:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" 
+                                          ToolTip="Information about the game being played to help the LLM translate more accurately."/>
+                                <TextBox x:Name="gameInfoTextBox" Grid.Row="3" Grid.Column="1" 
+                                        Margin="0,5" TextChanged="GameInfoTextBox_TextChanged"
+                                        ToolTip="Information about the game being played to help the LLM translate more accurately."
+                                        AcceptsReturn="True" TextWrapping="Wrap" Height="60" VerticalScrollBarVisibility="Auto"/>
+                                
+                                <!-- Clear Context Button -->
+                                <TextBlock Text="Clear Translation Context:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,8,10,0"
+                                          ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
+                                <Button x:Name="clearContextButton" Content="Clear Context" Grid.Row="4" Grid.Column="1"
+                                       HorizontalAlignment="Left" Width="100" Margin="0,8,0,10" Padding="5,3" Click="ClearContextButton_Click"
+                                       ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
+                            </Grid>
+                        </GroupBox>
+                        
+                        <!-- Ignore Phrases Settings -->
+                        <GroupBox Header="Ignore Phrases Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Header for list -->
+                                <TextBlock Text="Phrases to ignore:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="List of phrases that will be ignored during translation. If exact match is enabled, the whole text will be ignored if it matches. If disabled, the phrase will be removed from the text."/>
+                                
+                                <!-- ListView for phrases -->
+                                <ListView x:Name="ignorePhraseListView" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4"
+                                         Margin="0,5" Height="150" SelectionMode="Single" SelectionChanged="IgnorePhraseListView_SelectionChanged">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Phrase" Width="350" DisplayMemberBinding="{Binding Phrase}"/>
+                                            <GridViewColumn Header="Exact Match" Width="100">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding ExactMatch}" Checked="IgnorePhrase_CheckedChanged" Unchecked="IgnorePhrase_CheckedChanged" Tag="{Binding Phrase}"/>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                                
+                                <!-- Input for new phrase -->
+                                <TextBlock Text="Add new phrase:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,8,10,0"/>
+                                <TextBox x:Name="newIgnorePhraseTextBox" Grid.Row="2" Grid.Column="1" 
+                                        Margin="0,8,10,0"/>
+                                <CheckBox x:Name="newExactMatchCheckBox" Content="Exact Match" Grid.Row="2" Grid.Column="2" 
+                                         VerticalAlignment="Center" Margin="0,8,10,0" IsChecked="True"/>
+                                <StackPanel Orientation="Horizontal" Grid.Row="2" Grid.Column="3">
+                                    <Button x:Name="addIgnorePhraseButton" Content="Add" Margin="0,8,5,0" Width="60" Click="AddIgnorePhraseButton_Click"/>
+                                    <Button x:Name="removeIgnorePhraseButton" Content="Remove" Margin="0,8,0,0" Width="60" Click="RemoveIgnorePhraseButton_Click" IsEnabled="False"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- Display Tab -->
+            <TabItem Header="Display">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Monitor Window Settings -->
+                        <GroupBox Header="Monitor Window Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Override BG Color Checkbox -->
+                                <CheckBox x:Name="overrideBgColorCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="OverrideBgColorCheckBox_CheckedChanged" 
+                                         Unchecked="OverrideBgColorCheckBox_CheckedChanged"
+                                         Content="Override BG Color"
+                                         ToolTip="Override the background color for text overlays in the Monitor window"/>
+                                
+                                <!-- BG Color Picker -->
+                                <TextBlock Text="BG Color:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="20,5,10,5"/>
+                                <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,5">
+                                    <Button x:Name="overrideBgColorButton" 
+                                            Width="30" Height="20" 
+                                            Margin="0,0,5,0"
+                                            Click="OverrideBgColorButton_Click"/>
+                                    <TextBlock x:Name="overrideBgColorText" 
+                                               Text="#FF000000" 
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                
+                                <!-- Override Font Color Checkbox -->
+                                <CheckBox x:Name="overrideFontColorCheckBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="OverrideFontColorCheckBox_CheckedChanged" 
+                                         Unchecked="OverrideFontColorCheckBox_CheckedChanged"
+                                         Content="Override Font Color"
+                                         ToolTip="Override the font color for text overlays in the Monitor window"/>
+                                
+                                <!-- Font Color Picker -->
+                                <TextBlock Text="Font Color:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="20,5,10,5"/>
+                                <DockPanel Grid.Row="3" Grid.Column="1" Margin="0,5">
+                                    <Button x:Name="overrideFontColorButton" 
+                                            Width="30" Height="20" 
+                                            Margin="0,0,5,0"
+                                            Click="OverrideFontColorButton_Click"/>
+                                    <TextBlock x:Name="overrideFontColorText" 
+                                               Text="#FFFFFFFF" 
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                
+                                <!-- Font Settings Header -->
+                                <TextBlock Text="Font Settings" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                          FontWeight="Bold" Margin="0,10,0,5"/>
+                                
+                                <!-- Source Language Font Family -->
+                                <TextBlock Text="Source Language Font:" Grid.Row="5" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="sourceLanguageFontFamilyComboBox" Grid.Row="5" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="SourceLanguageFontFamilyComboBox_SelectionChanged"/>
+                                
+                                <!-- Source Language Font Bold -->
+                                <TextBlock Text="Source Language Bold:" Grid.Row="6" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <CheckBox x:Name="sourceLanguageFontBoldCheckBox" Grid.Row="6" Grid.Column="1" 
+                                         Margin="0,5" VerticalAlignment="Center"
+                                         Checked="SourceLanguageFontBoldCheckBox_CheckedChanged" 
+                                         Unchecked="SourceLanguageFontBoldCheckBox_CheckedChanged"/>
+                                
+                                <!-- Target Language Font Family -->
+                                <TextBlock Text="Target Language Font:" Grid.Row="7" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="targetLanguageFontFamilyComboBox" Grid.Row="7" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="TargetLanguageFontFamilyComboBox_SelectionChanged"/>
+                                
+                                <!-- Target Language Font Bold -->
+                                <TextBlock Text="Target Language Bold:" Grid.Row="8" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <CheckBox x:Name="targetLanguageFontBoldCheckBox" Grid.Row="8" Grid.Column="1" 
+                                         Margin="0,5" VerticalAlignment="Center"
+                                         Checked="TargetLanguageFontBoldCheckBox_CheckedChanged" 
+                                         Unchecked="TargetLanguageFontBoldCheckBox_CheckedChanged"/>
+                                
+                                <!-- Text Area Size Expansion Header -->
+                                <TextBlock Text="Text Area Size Expansion" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+                                          FontWeight="Bold" Margin="0,10,0,5"/>
+                                
+                                <!-- Text Area Expansion Width -->
+                                <TextBlock Text="Width (pixels):" Grid.Row="10" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
+                                <TextBox x:Name="textAreaExpansionWidthTextBox" Grid.Row="10" Grid.Column="1" 
+                                        Margin="0,5" Text="6" LostFocus="TextAreaExpansionWidthTextBox_LostFocus"
+                                        ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
+                                
+                                <!-- Text Area Expansion Height -->
+                                <TextBlock Text="Height (pixels):" Grid.Row="11" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
+                                <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="11" Grid.Column="1" 
+                                        Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
+                                        ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- Audio Tab -->
+            <TabItem Header="Audio">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Text-to-Speech Settings -->
+                        <GroupBox Header="Text-to-Speech Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- TTS Enabled -->
+                                <TextBlock Text="Enable TTS:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <CheckBox x:Name="ttsEnabledCheckBox" Grid.Row="0" Grid.Column="1" 
+                                         Margin="0,5" IsChecked="True" 
+                                         Checked="TtsEnabledCheckBox_CheckedChanged" 
+                                         Unchecked="TtsEnabledCheckBox_CheckedChanged"/>
+                                
+                                <!-- TTS Service -->
+                                <TextBlock Text="TTS Service:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ComboBox x:Name="ttsServiceComboBox" Grid.Row="1" Grid.Column="1" 
+                                         Margin="0,5" SelectedIndex="0" SelectionChanged="TtsServiceComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="ElevenLabs"/>
+                                    <ComboBoxItem Content="Google Cloud TTS"/>
+                                </ComboBox>
+                                
+                                <!-- ElevenLabs API Key - Only visible when ElevenLabs is selected -->
+                                <TextBlock x:Name="elevenLabsApiKeyLabel" Text="ElevenLabs API Key:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0"/>
+                                <Grid Grid.Row="2" Grid.Column="1" Margin="0,5,0,0" x:Name="elevenLabsApiKeyGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="elevenLabsApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2" 
+                                             PasswordChanged="ElevenLabsApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" x:Name="elevenLabsApiKeyHelpText">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="ElevenLabsApiLink_Click">https://elevenlabs.io/app/developers/api-keys</Hyperlink>
+                                        
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- ElevenLabs Custom Voice ID - Only visible when ElevenLabs is selected -->
+                                <TextBlock x:Name="elevenLabsCustomVoiceLabel" Text="Custom Voice ID:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5,0,0" x:Name="elevenLabsCustomVoiceGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <CheckBox x:Name="elevenLabsCustomVoiceCheckBox" Grid.Row="0"
+                                              Margin="0,0,0,2"
+                                              Content="Use custom ID"
+                                              Checked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"
+                                              Unchecked="ElevenLabsCustomVoiceCheckBox_CheckedChanged"/>
+                                    <TextBox x:Name="elevenLabsCustomVoiceIdTextBox" Grid.Row="1"
+                                             Margin="0,0,0,0"
+                                             LostFocus="ElevenLabsCustomVoiceIdTextBox_LostFocus"/>
+                                </Grid>
+                                
+                                <!-- ElevenLabs Voice - Only visible when ElevenLabs is selected -->
+                                <TextBlock x:Name="elevenLabsVoiceLabel" Text="ElevenLabs Voice:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0"/>
+                                <ComboBox x:Name="elevenLabsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="ElevenLabsVoiceComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
+                                    <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
+                                    <ComboBoxItem Content="Bella" Tag="EXAVITQu4vr4xnSDxMaL"/>
+                                    <ComboBoxItem Content="Antoni" Tag="ErXwobaYiN019PkySvjV"/>
+                                    <ComboBoxItem Content="Elli" Tag="MF3mGyEYCl7XYWbV9V6O"/>
+                                    <ComboBoxItem Content="Josh" Tag="TxGEqnHWrfWFTfGW9XjX"/>
+                                    <ComboBoxItem Content="Arnold" Tag="VR6AewLTigWG4xSOukaG"/>
+                                    <ComboBoxItem Content="Adam" Tag="pNInz6obpgDQGcFmaJgB"/>
+                                    <ComboBoxItem Content="Sam" Tag="yoZ06aMxZJJ28mfd3POQ"/>
+                                </ComboBox>
+                                
+                                <!-- Google TTS API Key - Only visible when Google TTS is selected -->
+                                <TextBlock x:Name="googleTtsApiKeyLabel" Text="Google API Key:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="2" Grid.Column="1" Visibility="Collapsed" x:Name="googleTtsApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="googleTtsApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2" 
+                                             PasswordChanged="GoogleTtsApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="GoogleTtsApiLink_Click">https://cloud.google.com/text-to-speech</Hyperlink>
+                                        <Run> (free tier: 4M chars/month)</Run>
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- Google TTS Voice - Only visible when Google TTS is selected -->
+                                <TextBlock x:Name="googleTtsVoiceLabel" Text="Google Voice:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <ComboBox x:Name="googleTtsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="GoogleTtsVoiceComboBox_SelectionChanged" Visibility="Collapsed">
+                                    <!-- Japanese Voices -->
+                                    <ComboBoxItem Content="Japanese (Female) - Neural2" Tag="ja-JP-Neural2-B"/>
+                                    <ComboBoxItem Content="Japanese (Male) - Neural2" Tag="ja-JP-Neural2-C"/>
+                                    <ComboBoxItem Content="Japanese (Male Deep) - Neural2" Tag="ja-JP-Neural2-D"/>
+                                    
+                                    <!-- English Voices -->
+                                    <ComboBoxItem Content="English US (Female) - Studio" Tag="en-US-Studio-O"/>
+                                    <ComboBoxItem Content="English US (Male) - Studio" Tag="en-US-Studio-M"/>
+                                    <ComboBoxItem Content="English UK (Female) - Neural2" Tag="en-GB-Neural2-F"/>
+                                    
+                                    <!-- French Voices -->
+                                    <ComboBoxItem Content="French (Female) - Neural2" Tag="fr-FR-Neural2-A"/>
+                                    <ComboBoxItem Content="French (Male) - Neural2" Tag="fr-FR-Neural2-D"/>
+                                    
+                                    <!-- German Voices -->
+                                    <ComboBoxItem Content="German (Female) - Neural2" Tag="de-DE-Neural2-F"/>
+                                    <ComboBoxItem Content="German (Male) - Neural2" Tag="de-DE-Neural2-B"/>
+                                    
+                                    <!-- Spanish Voices -->
+                                    <ComboBoxItem Content="Spanish (Female) - Neural2" Tag="es-ES-Neural2-F"/>
+                                    <ComboBoxItem Content="Spanish (Male) - Neural2" Tag="es-ES-Neural2-C"/>
+                                    
+                                    <!-- Korean Voices -->
+                                    <ComboBoxItem Content="Korean (Female) - Neural2" Tag="ko-KR-Neural2-A"/>
+                                    <ComboBoxItem Content="Korean (Male) - Neural2" Tag="ko-KR-Neural2-C"/>
+                                    
+                                    <!-- Chinese Voices -->
+                                    <ComboBoxItem Content="Chinese (Female) - Neural2" Tag="cmn-CN-Neural2-A"/>
+                                    <ComboBoxItem Content="Chinese (Male) - Neural2" Tag="cmn-CN-Neural2-C"/>
+                                    
+                                    <!-- Vietnamese Voices -->
+                                    <ComboBoxItem Content="Vietnamese (Female) - Neural2" Tag="vi-VN-Neural2-A"/>
+                                    <ComboBoxItem Content="Vietnamese (Male) - Neural2" Tag="vi-VN-Neural2-D"/>
+                                </ComboBox>
+                            </Grid>
+                        </GroupBox>
+
+                        <!-- Audio Processing Settings -->
+                        <GroupBox Header="Audio Processing Settings (the Listen button)" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Audio Processing Provider -->
+                                <TextBlock Text="Audio Processing Provider:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Provider for real-time audio processing"/>
+                                <ComboBox x:Name="audioProcessingProviderComboBox" Grid.Row="0" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="AudioProcessingProviderComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="OpenAI Realtime API" IsSelected="True"/>
+                                </ComboBox>
+                                
+                                <!-- OpenAI API Key -->
+                                <TextBlock Text="OpenAI API Key:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="API Key for OpenAI Realtime API"/>
+                                <Grid Grid.Row="1" Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="openAiRealtimeApiKeyPasswordBox" Grid.Row="0" 
+                                                Margin="0,5" PasswordChanged="OpenAiRealtimeApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="OpenAiRealtimeApiLink_Click">https://platform.openai.com/account/api-keys</Hyperlink>
+                                        <Run> (requires OpenAI account)</Run>
+                                    </TextBlock>
+                                </Grid>
+                                
+                                <!-- Audio Input Device -->
+                                <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Select the microphone or audio input device to use"/>
+                                <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
+                                
+                                <!-- Whisper Language -->
+                                <TextBlock Text="Whisper Language:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Language for Whisper speech recognition (Auto to autodetect)"/>
+                                <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="3" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
+                                </ComboBox>
+                                
+                                <!-- OpenAI Silence Duration -->
+                                <TextBlock Text="Silence Duration (ms):" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Duration of silence in milliseconds before an utterance is considered complete. Affects how quickly transcription/translation is finalized."/>
+                                <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,5" LostFocus="OpenAiSilenceDurationMsTextBox_LostFocus"/>
+                                
+                                <!-- Audio Translation Type (renamed to Mode) -->
+                                <TextBlock Text="Mode:" Grid.Row="5" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Method to translate audio transcriptions"/>
+                                <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="5" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
+                                    <ComboBoxItem Content="Google Translate" Tag="google"/>
+                                    <ComboBoxItem Content="OpenAI Translation" Tag="openai" IsSelected="True"/>
+                                </ComboBox>
+                                
+                                <!-- Experimental Speaking Features Sub-Area -->
+                                <GroupBox Header="Experimental Speaking Features (Currently Broken)" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" 
+                                         Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        
+                                        <!-- Warning message -->
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                 Text="These features are experimental and currently don't work properly due to OpenAI turn-taking limitations. Seth is keeping them here for future development."
+                                                 TextWrapping="Wrap" Margin="0,0,0,10" Foreground="DarkRed"/>
+                                        
+                                        <!-- Audio Playback -->
+                                        <TextBlock Text="Audio Playback:" Grid.Row="1" Grid.Column="0" 
+                                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  ToolTip="Enable or disable playback of AI-generated speech"/>
+                                        <CheckBox x:Name="openAiAudioPlaybackCheckBox" Grid.Row="1" Grid.Column="1" 
+                                                 Margin="0,5" Content="Enable AI speech playback (not recommended)" IsChecked="False"
+                                                 Checked="OpenAiAudioPlaybackCheckBox_CheckedChanged" 
+                                                 Unchecked="OpenAiAudioPlaybackCheckBox_CheckedChanged"/>
+                                        
+                                        <!-- Audio Output Device Selection -->
+                                        <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="2" Grid.Column="0" 
+                                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  ToolTip="Select the speakers or audio output device to use"/>
+                                        <ComboBox x:Name="outputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
+                                                 Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
+                                        
+                                        <!-- Voice Selection -->
+                                        <TextBlock Text="AI Voice:" Grid.Row="3" Grid.Column="0" 
+                                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                                  ToolTip="Select the voice for AI speech output"/>
+                                        <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="3" Grid.Column="1" 
+                                                 Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
+                                            <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Default voice, balanced tone"/>
+                                            <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
+                                            <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
+                                            <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
+                                            <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
+                                            <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
+                                            <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
+                                        </ComboBox>
+                                        
+                                        <!-- Speech Prompt -->
+                                        <TextBlock Text="Speech Prompt:" Grid.Row="4" Grid.Column="0" 
+                                                  VerticalAlignment="Top" Margin="0,8,10,0"
+                                                  ToolTip="Instructions for how the AI should speak when reading translations"/>
+                                        
+                                        <Grid Grid.Row="4" Grid.Column="1">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBox x:Name="openAiSpeechPromptTextBox" Grid.Row="0"
+                                                Margin="0,5,0,0" TextWrapping="Wrap" AcceptsReturn="True" Height="60" 
+                                                VerticalScrollBarVisibility="Auto" 
+                                                LostFocus="OpenAiSpeechPromptTextBox_LostFocus"
+                                                ToolTip="Instructions for the AI about speech style, speed, and expressiveness"/>
+                                            <Button x:Name="setDefaultSpeechPromptButton" Grid.Row="1"
+                                                Content="Set Default Prompt" 
+                                                HorizontalAlignment="Left" Margin="0,3,0,5"
+                                                Click="SetDefaultSpeechPromptButton_Click"
+                                                ToolTip="Reset to the default speech prompt"/>
+                                        </Grid>
+                                    </Grid>
+                                </GroupBox>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- Controls Tab -->
+            <TabItem Header="Controls">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Hotkey Settings -->
+                        <GroupBox Header="Hotkey Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Global Hotkeys Enabled Checkbox -->
+                                <CheckBox x:Name="globalHotkeysEnabledCheckBox" Grid.Row="0"
+                                         Margin="0,0,0,10" IsChecked="True" 
+                                         Checked="GlobalHotkeysEnabledCheckBox_CheckedChanged" 
+                                         Unchecked="GlobalHotkeysEnabledCheckBox_CheckedChanged"
+                                         Content="Enable global hotkeys (when unchecked, app must be in focus)"
+                                         ToolTip="If enabled, hotkeys work system-wide. If disabled, hotkeys only work when the application is in focus."/>
+                                
+                                <!-- Grid for actions and bindings -->
+                                <Grid Grid.Row="1" Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="250"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Left: Actions list -->
+                                    <GroupBox Header="Actions" Grid.Column="0" Padding="5" Margin="0,0,5,0">
+                                        <ListBox x:Name="actionsListBox" SelectionMode="Single" 
+                                                SelectionChanged="ActionsListBox_SelectionChanged"/>
+                                    </GroupBox>
+                                    
+                                    <!-- Right: Bindings for selected action -->
+                                    <GroupBox Header="Bindings for Selected Action" Grid.Column="1" Padding="5" Margin="5,0,0,0">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <!-- Bindings list -->
+                                            <ListView x:Name="bindingsListView" Grid.Row="0" SelectionMode="Single"
+                                                     SelectionChanged="BindingsListView_SelectionChanged">
+                                                <ListView.View>
+                                                    <GridView>
+                                                        <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding BindingType}"/>
+                                                        <GridViewColumn Header="Binding" Width="250" DisplayMemberBinding="{Binding BindingString}"/>
+                                                    </GridView>
+                                                </ListView.View>
+                                            </ListView>
+                                            
+                                            <!-- Buttons -->
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                                <Button x:Name="addKeyboardBindingButton" Content="Add Keyboard Binding" 
+                                                       Margin="0,0,5,0" Padding="10,5" Click="AddKeyboardBindingButton_Click"/>
+                                                <Button x:Name="addGamepadBindingButton" Content="Add Gamepad Binding" 
+                                                       Margin="0,0,5,0" Padding="10,5" Click="AddGamepadBindingButton_Click"/>
+                                                <Button x:Name="removeBindingButton" Content="Remove Binding" 
+                                                       Margin="0,0,0,0" Padding="10,5" Click="RemoveBindingButton_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </GroupBox>
+                                </Grid>
+                                
+                                <!-- Reset button -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                    <Button x:Name="resetHotkeysButton" Content="Reset All to Defaults" 
+                                           Padding="10,5" Width="150" Click="ResetHotkeysButton_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>
