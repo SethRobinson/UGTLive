@@ -578,20 +578,21 @@ namespace UGTLive
         
         private void UpdateHotkeyTooltips()
         {
-            var hotkeys = HotkeyManager.Instance.GetHotkeys();
-            
-            // Helper function to get hotkey string
+            // Helper function to get hotkey string for an action
             string GetHotkeyString(string actionId)
             {
-                var hotkey = hotkeys.FirstOrDefault(h => h.ActionId == actionId);
-                if (hotkey == null)
+                var bindings = HotkeyManager.Instance.GetBindings(actionId);
+                if (bindings.Count == 0)
                     return "";
                     
                 List<string> parts = new List<string>();
-                if (hotkey.HasKeyboardHotkey())
-                    parts.Add(hotkey.GetKeyboardHotkeyString());
-                if (hotkey.HasGamepadHotkey())
-                    parts.Add($"Gamepad: {hotkey.GetGamepadHotkeyString()}");
+                foreach (var binding in bindings)
+                {
+                    if (binding.HasKeyboardHotkey())
+                        parts.Add(binding.GetKeyboardHotkeyString());
+                    if (binding.HasGamepadHotkey())
+                        parts.Add($"Gamepad: {binding.GetGamepadHotkeyString()}");
+                }
                     
                 return parts.Count > 0 ? $" ({string.Join(" or ", parts)})" : "";
             }

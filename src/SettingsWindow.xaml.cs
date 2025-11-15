@@ -140,7 +140,7 @@ namespace UGTLive
                 UpdateServiceSpecificSettings(currentService);
                 
                 // Load hotkeys
-                loadHotkeys();
+                loadActions();
                 
                 // Now that initialization is complete, allow saving changes
                 _isInitializing = false;
@@ -3528,173 +3528,271 @@ namespace UGTLive
         #region Hotkey Editor
         
         // Class to represent hotkey display items
-        public class HotkeyDisplayItem
+        // Display item for action list
+        public class ActionDisplayItem
         {
             public string ActionId { get; set; } = "";
             public string ActionName { get; set; } = "";
-            public string KeyboardHotkey { get; set; } = "";
-            public string GamepadHotkey { get; set; } = "";
             
-            public HotkeyDisplayItem(HotkeyEntry entry)
+            public override string ToString()
             {
-                ActionId = entry.ActionId;
-                ActionName = entry.ActionName;
-                KeyboardHotkey = entry.GetKeyboardHotkeyString();
-                GamepadHotkey = entry.GetGamepadHotkeyString();
+                return ActionName;
             }
         }
         
-        private HotkeyEntry? _selectedHotkey;
+        // Display item for bindings list
+        public class BindingDisplayItem
+        {
+            public HotkeyEntry Binding { get; set; }
+            public string BindingType { get; set; } = "";
+            public string BindingString { get; set; } = "";
+            
+            public BindingDisplayItem(HotkeyEntry entry)
+            {
+                Binding = entry;
+                
+                if (entry.HasKeyboardHotkey())
+                {
+                    BindingType = "Keyboard";
+                    BindingString = entry.GetKeyboardHotkeyString();
+                }
+                else if (entry.HasGamepadHotkey())
+                {
+                    BindingType = "Gamepad";
+                    BindingString = entry.GetGamepadHotkeyString();
+                }
+            }
+        }
+        
+        private string? _selectedActionId;
         private bool _isCapturingKeyboard = false;
         private bool _isCapturingGamepad = false;
         
-        // Load hotkeys into the list
-        private void loadHotkeys()
+        // Load actions into the list
+        private void loadActions()
         {
-            var hotkeys = HotkeyManager.Instance.GetHotkeys();
-            var displayItems = hotkeys.Select(h => new HotkeyDisplayItem(h)).ToList();
+            // Define all available actions
+            var actions = new List<ActionDisplayItem>
+            {
+                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop OCR" },
+                new ActionDisplayItem { ActionId = "toggle_monitor", ActionName = "Toggle Monitor Window" },
+                new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle ChatBox" },
+                new ActionDisplayItem { ActionId = "toggle_settings", ActionName = "Toggle Settings" },
+                new ActionDisplayItem { ActionId = "toggle_log", ActionName = "Toggle Log" },
+                new ActionDisplayItem { ActionId = "toggle_main_window", ActionName = "Toggle Main Window" },
+                new ActionDisplayItem { ActionId = "clear_overlays", ActionName = "Clear Overlays" },
+                new ActionDisplayItem { ActionId = "toggle_passthrough", ActionName = "Toggle Passthrough" },
+                new ActionDisplayItem { ActionId = "toggle_overlay_mode", ActionName = "Toggle Overlay Mode" }
+            };
             
-            hotkeyListView.ItemsSource = displayItems;
+            actionsListBox.ItemsSource = actions;
             
             // Load global hotkeys enabled state
             globalHotkeysEnabledCheckBox.IsChecked = HotkeyManager.Instance.GetGlobalHotkeysEnabled();
             
-            Console.WriteLine($"Loaded {displayItems.Count} hotkeys into settings");
+            Console.WriteLine($"Loaded {actions.Count} actions into settings");
         }
         
-        // Hotkey list selection changed
-        private void HotkeyListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // Load bindings for the selected action
+        private void loadBindingsForSelectedAction()
         {
-            if (hotkeyListView.SelectedItem is HotkeyDisplayItem displayItem)
+            if (string.IsNullOrEmpty(_selectedActionId))
             {
-                // Get the actual hotkey entry
-                _selectedHotkey = HotkeyManager.Instance.GetHotkey(displayItem.ActionId);
-                
-                if (_selectedHotkey != null)
-                {
-                    selectedActionNameText.Text = _selectedHotkey.ActionName;
-                    keyboardHotkeyTextBox.Text = _selectedHotkey.GetKeyboardHotkeyString();
-                    gamepadHotkeyTextBox.Text = _selectedHotkey.GetGamepadHotkeyString();
-                }
+                bindingsListView.ItemsSource = null;
+                return;
+            }
+            
+            var bindings = HotkeyManager.Instance.GetBindings(_selectedActionId);
+            var displayItems = bindings.Select(b => new BindingDisplayItem(b)).ToList();
+            
+            bindingsListView.ItemsSource = displayItems;
+            
+            Console.WriteLine($"Loaded {displayItems.Count} bindings for action {_selectedActionId}");
+        }
+        
+        // Actions list selection changed
+        private void ActionsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (actionsListBox.SelectedItem is ActionDisplayItem actionItem)
+            {
+                _selectedActionId = actionItem.ActionId;
+                loadBindingsForSelectedAction();
             }
             else
             {
-                _selectedHotkey = null;
-                selectedActionNameText.Text = "";
-                keyboardHotkeyTextBox.Text = "";
-                gamepadHotkeyTextBox.Text = "";
+                _selectedActionId = null;
+                bindingsListView.ItemsSource = null;
             }
         }
         
-        // Set keyboard hotkey button click
-        private void SetKeyboardHotkeyButton_Click(object sender, RoutedEventArgs e)
+        // Bindings list selection changed
+        private void BindingsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_selectedHotkey == null)
+            // Just track selection, no action needed
+        }
+        
+        // Add keyboard binding
+        private void AddKeyboardBindingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedActionId))
             {
-                MessageBox.Show("Please select a hotkey to edit.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             
-            _isCapturingKeyboard = true;
-            keyboardHotkeyTextBox.Text = "Press a key combination...";
-            keyboardHotkeyTextBox.Focus();
-        }
-        
-        // Clear keyboard hotkey
-        private void ClearKeyboardHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedHotkey == null)
-                return;
+            // Show dialog to capture keyboard input
+            var dialog = new Window
+            {
+                Title = "Press Key Combination",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize
+            };
+            
+            var textBox = new System.Windows.Controls.TextBox
+            {
+                Text = "Press a key combination...",
+                IsReadOnly = true,
+                Margin = new Thickness(20),
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                FontSize = 14
+            };
+            
+            HotkeyEntry? capturedBinding = null;
+            
+            textBox.PreviewKeyDown += (s, args) =>
+            {
+                args.Handled = true;
                 
-            _selectedHotkey.KeyboardKey = System.Windows.Input.Key.None;
-            _selectedHotkey.UseShift = false;
-            _selectedHotkey.UseCtrl = false;
-            _selectedHotkey.UseAlt = false;
-            
-            keyboardHotkeyTextBox.Text = "None";
-        }
-        
-        // Capture keyboard input
-        private void KeyboardHotkeyTextBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            if (!_isCapturingKeyboard || _selectedHotkey == null)
-                return;
+                var key = args.Key;
+                if (key == System.Windows.Input.Key.System)
+                {
+                    key = args.SystemKey;
+                }
                 
-            e.Handled = true;
+                // Skip modifier keys themselves
+                if (key == System.Windows.Input.Key.LeftShift || key == System.Windows.Input.Key.RightShift ||
+                    key == System.Windows.Input.Key.LeftCtrl || key == System.Windows.Input.Key.RightCtrl ||
+                    key == System.Windows.Input.Key.LeftAlt || key == System.Windows.Input.Key.RightAlt ||
+                    key == System.Windows.Input.Key.LWin || key == System.Windows.Input.Key.RWin)
+                {
+                    return;
+                }
+                
+                // Escape cancels
+                if (key == System.Windows.Input.Key.Escape)
+                {
+                    dialog.Close();
+                    return;
+                }
+                
+                // Get modifiers
+                bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) == System.Windows.Input.ModifierKeys.Shift;
+                bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control;
+                bool alt = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == System.Windows.Input.ModifierKeys.Alt;
+                
+                // Get action name
+                var actionItem = actionsListBox.SelectedItem as ActionDisplayItem;
+                string actionName = actionItem?.ActionName ?? "";
+                
+                // Create binding
+                capturedBinding = new HotkeyEntry(_selectedActionId, actionName);
+                capturedBinding.KeyboardKey = key;
+                capturedBinding.UseShift = shift;
+                capturedBinding.UseCtrl = ctrl;
+                capturedBinding.UseAlt = alt;
+                
+                textBox.Text = capturedBinding.GetKeyboardHotkeyString();
+                
+                // Auto-close after brief delay
+                var closeTimer = new System.Windows.Threading.DispatcherTimer();
+                closeTimer.Interval = TimeSpan.FromMilliseconds(500);
+                closeTimer.Tick += (ts, te) =>
+                {
+                    closeTimer.Stop();
+                    dialog.Close();
+                };
+                closeTimer.Start();
+            };
             
-            // Get the key and modifiers
-            var key = e.Key;
+            dialog.Content = textBox;
+            textBox.Focus();
             
-            // Handle system keys (like F10)
-            if (key == System.Windows.Input.Key.System)
+            dialog.ShowDialog();
+            
+            if (capturedBinding != null)
             {
-                key = e.SystemKey;
+                // Add binding and auto-save
+                HotkeyManager.Instance.AddBinding(capturedBinding);
+                loadBindingsForSelectedAction();
+                
+                // Update tooltips in MainWindow
+                try
+                {
+                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
+                    mainWindow?.UpdateTooltips();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
+                }
             }
-            
-            // Skip modifier keys themselves
-            if (key == System.Windows.Input.Key.LeftShift || key == System.Windows.Input.Key.RightShift ||
-                key == System.Windows.Input.Key.LeftCtrl || key == System.Windows.Input.Key.RightCtrl ||
-                key == System.Windows.Input.Key.LeftAlt || key == System.Windows.Input.Key.RightAlt ||
-                key == System.Windows.Input.Key.LWin || key == System.Windows.Input.Key.RWin)
-            {
-                return;
-            }
-            
-            // Get modifiers
-            bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) == System.Windows.Input.ModifierKeys.Shift;
-            bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control;
-            bool alt = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == System.Windows.Input.ModifierKeys.Alt;
-            
-            // Update the hotkey
-            _selectedHotkey.KeyboardKey = key;
-            _selectedHotkey.UseShift = shift;
-            _selectedHotkey.UseCtrl = ctrl;
-            _selectedHotkey.UseAlt = alt;
-            
-            keyboardHotkeyTextBox.Text = _selectedHotkey.GetKeyboardHotkeyString();
-            _isCapturingKeyboard = false;
         }
         
-        // Set gamepad hotkey button click
-        private void SetGamepadHotkeyButton_Click(object sender, RoutedEventArgs e)
+        // Add gamepad binding
+        private void AddGamepadBindingButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedHotkey == null)
+            if (string.IsNullOrEmpty(_selectedActionId))
             {
-                MessageBox.Show("Please select a hotkey to edit.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             
-            _isCapturingGamepad = true;
-            gamepadHotkeyTextBox.Text = "Press and hold gamepad button(s), then release...";
+            // Show dialog to capture gamepad input
+            var dialog = new Window
+            {
+                Title = "Press Gamepad Button(s)",
+                Width = 500,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize
+            };
             
+            var textBlock = new System.Windows.Controls.TextBlock
+            {
+                Text = "Press and hold gamepad button(s), then release...",
+                Margin = new Thickness(20),
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                FontSize = 14,
+                TextWrapping = System.Windows.TextWrapping.Wrap
+            };
+            
+            dialog.Content = textBlock;
+            
+            HotkeyEntry? capturedBinding = null;
             List<string> maxButtons = new List<string>();
             int stableCount = 0;
-            const int STABLE_FRAMES = 5; // Wait for buttons to be stable for 5 frames
+            const int STABLE_FRAMES = 5;
             
-            // Start a timer to capture gamepad input
             var timer = new System.Windows.Threading.DispatcherTimer();
             timer.Interval = TimeSpan.FromMilliseconds(100);
             timer.Tick += (s, args) =>
             {
-                if (!_isCapturingGamepad)
-                {
-                    timer.Stop();
-                    return;
-                }
-                
-                // Get current gamepad state
                 var pressedButtons = GamepadManager.Instance.GetCurrentlyPressedButtons();
                 
-                // Track the maximum number of buttons pressed at once
                 if (pressedButtons.Count > maxButtons.Count)
                 {
                     maxButtons = new List<string>(pressedButtons);
                     stableCount = 0;
-                    gamepadHotkeyTextBox.Text = $"Holding: {string.Join("+", maxButtons)}... (release when ready)";
+                    textBlock.Text = $"Holding: {string.Join("+", maxButtons)}... (release when ready)";
                 }
                 else if (pressedButtons.Count == maxButtons.Count && pressedButtons.Count > 0)
                 {
-                    // Same number of buttons, check if they're the same
                     bool same = pressedButtons.All(b => maxButtons.Contains(b));
                     if (same)
                     {
@@ -3708,50 +3806,81 @@ namespace UGTLive
                 }
                 else if (pressedButtons.Count == 0 && maxButtons.Count > 0 && stableCount >= STABLE_FRAMES)
                 {
-                    // Buttons released and we had a stable combo
-                    _selectedHotkey.GamepadButtons = maxButtons;
-                    gamepadHotkeyTextBox.Text = _selectedHotkey.GetGamepadHotkeyString();
-                    _isCapturingGamepad = false;
+                    // Get action name
+                    var actionItem = actionsListBox.SelectedItem as ActionDisplayItem;
+                    string actionName = actionItem?.ActionName ?? "";
+                    
+                    // Create binding
+                    capturedBinding = new HotkeyEntry(_selectedActionId, actionName);
+                    capturedBinding.GamepadButtons = maxButtons;
+                    
                     timer.Stop();
+                    dialog.Close();
                 }
             };
+            
+            dialog.Closed += (s, args) => timer.Stop();
             timer.Start();
-        }
-        
-        // Clear gamepad hotkey
-        private void ClearGamepadHotkeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedHotkey == null)
-                return;
+            dialog.ShowDialog();
+            
+            if (capturedBinding != null)
+            {
+                // Add binding and auto-save
+                HotkeyManager.Instance.AddBinding(capturedBinding);
+                loadBindingsForSelectedAction();
                 
-            _selectedHotkey.GamepadButtons.Clear();
-            gamepadHotkeyTextBox.Text = "None";
+                // Update tooltips in MainWindow
+                try
+                {
+                    var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
+                    mainWindow?.UpdateTooltips();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating tooltips: {ex.Message}");
+                }
+            }
         }
         
-        // Save hotkey changes
-        private void SaveHotkeyButton_Click(object sender, RoutedEventArgs e)
+        // Remove selected binding
+        private void RemoveBindingButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedHotkey == null)
+            if (string.IsNullOrEmpty(_selectedActionId))
             {
-                MessageBox.Show("Please select a hotkey to save.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             
-            HotkeyManager.Instance.SetHotkey(_selectedHotkey);
-            MessageBox.Show("Hotkey saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-            
-            // Refresh the list
-            loadHotkeys();
-            
-            // Update tooltips in MainWindow
-            try
+            if (bindingsListView.SelectedItem is BindingDisplayItem bindingItem)
             {
-                var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
-                mainWindow?.UpdateTooltips();
+                // Confirm deletion
+                var result = MessageBox.Show(
+                    $"Remove binding \"{bindingItem.BindingString}\" from this action?",
+                    "Confirm Removal",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Remove binding and auto-save
+                    HotkeyManager.Instance.RemoveBinding(_selectedActionId, bindingItem.Binding);
+                    loadBindingsForSelectedAction();
+                    
+                    // Update tooltips in MainWindow
+                    try
+                    {
+                        var mainWindow = System.Windows.Application.Current.MainWindow as MainWindow;
+                        mainWindow?.UpdateTooltips();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error updating tooltips: {ex.Message}");
+                    }
+                }
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Error updating tooltips: {ex.Message}");
+                MessageBox.Show("Please select a binding to remove.", "No Binding Selected", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         
@@ -3763,15 +3892,12 @@ namespace UGTLive
                 
             if (result == MessageBoxResult.Yes)
             {
-                // Delete the hotkeys file to trigger default creation
-                if (System.IO.File.Exists("hotkeys.txt"))
-                {
-                    System.IO.File.Delete("hotkeys.txt");
-                }
+                // Reset to defaults
+                HotkeyManager.Instance.ResetToDefaults();
                 
-                // Reload defaults
-                HotkeyManager.Instance.SaveHotkeys();
-                loadHotkeys();
+                // Refresh the UI
+                loadActions();
+                loadBindingsForSelectedAction();
                 
                 // Update tooltips in MainWindow
                 try

@@ -13,7 +13,7 @@ namespace UGTLive
         private static HotkeyManager? _instance;
         private const string HOTKEYS_FILE = "hotkeys.txt";
         
-        private List<HotkeyEntry> _hotkeys = new List<HotkeyEntry>();
+        private Dictionary<string, List<HotkeyEntry>> _actionBindings = new Dictionary<string, List<HotkeyEntry>>();
         private bool _globalHotkeysEnabled = true;
         private bool _isEnabled = true;
         
@@ -72,36 +72,88 @@ namespace UGTLive
             Console.WriteLine($"Hotkey system {(enabled ? "enabled" : "disabled")}");
         }
         
-        // Get all hotkeys
-        public List<HotkeyEntry> GetHotkeys()
+        // Get all action IDs
+        public List<string> GetActionIds()
         {
-            return new List<HotkeyEntry>(_hotkeys);
+            return new List<string>(_actionBindings.Keys);
         }
         
-        // Add or update a hotkey
-        public void SetHotkey(HotkeyEntry entry)
+        // Get all bindings for a specific action
+        public List<HotkeyEntry> GetBindings(string actionId)
         {
-            var existing = _hotkeys.FirstOrDefault(h => h.ActionId == entry.ActionId);
-            if (existing != null)
+            if (_actionBindings.TryGetValue(actionId, out var bindings))
             {
-                _hotkeys.Remove(existing);
+                return new List<HotkeyEntry>(bindings);
+            }
+            return new List<HotkeyEntry>();
+        }
+        
+        // Get all actions with their bindings (for UI display)
+        public Dictionary<string, List<HotkeyEntry>> GetAllBindings()
+        {
+            var result = new Dictionary<string, List<HotkeyEntry>>();
+            foreach (var kvp in _actionBindings)
+            {
+                result[kvp.Key] = new List<HotkeyEntry>(kvp.Value);
+            }
+            return result;
+        }
+        
+        // Add a new binding to an action (auto-saves)
+        public void AddBinding(HotkeyEntry entry)
+        {
+            if (!_actionBindings.ContainsKey(entry.ActionId))
+            {
+                _actionBindings[entry.ActionId] = new List<HotkeyEntry>();
             }
             
-            _hotkeys.Add(entry);
+            _actionBindings[entry.ActionId].Add(entry);
             SaveHotkeys();
         }
         
-        // Remove a hotkey
-        public void RemoveHotkey(string actionId)
+        // Remove a specific binding from an action (auto-saves)
+        public void RemoveBinding(string actionId, HotkeyEntry entry)
         {
-            _hotkeys.RemoveAll(h => h.ActionId == actionId);
-            SaveHotkeys();
+            if (_actionBindings.TryGetValue(actionId, out var bindings))
+            {
+                bindings.Remove(entry);
+                if (bindings.Count == 0)
+                {
+                    _actionBindings.Remove(actionId);
+                }
+                SaveHotkeys();
+            }
         }
         
-        // Get hotkey for an action
-        public HotkeyEntry? GetHotkey(string actionId)
+        // Remove all bindings for an action (auto-saves)
+        public void RemoveAllBindings(string actionId)
         {
-            return _hotkeys.FirstOrDefault(h => h.ActionId == actionId);
+            if (_actionBindings.ContainsKey(actionId))
+            {
+                _actionBindings.Remove(actionId);
+                SaveHotkeys();
+            }
+        }
+        
+        // Legacy method for backward compatibility - adds/replaces first binding
+        public void SetHotkey(HotkeyEntry entry)
+        {
+            if (!_actionBindings.ContainsKey(entry.ActionId))
+            {
+                _actionBindings[entry.ActionId] = new List<HotkeyEntry>();
+            }
+            
+            // Replace first binding or add new one
+            if (_actionBindings[entry.ActionId].Count > 0)
+            {
+                _actionBindings[entry.ActionId][0] = entry;
+            }
+            else
+            {
+                _actionBindings[entry.ActionId].Add(entry);
+            }
+            
+            SaveHotkeys();
         }
         
         // Handle keyboard input
@@ -122,14 +174,17 @@ namespace UGTLive
                 }
             }
                 
-            // Find matching hotkey
-            var hotkey = _hotkeys.FirstOrDefault(h => 
-                h.KeyboardKey == key && h.MatchesKeyboardModifiers(modifiers));
-                
-            if (hotkey != null)
+            // Check all bindings for all actions
+            foreach (var kvp in _actionBindings)
             {
-                TriggerAction(hotkey.ActionId);
-                return true;
+                foreach (var binding in kvp.Value)
+                {
+                    if (binding.KeyboardKey == key && binding.MatchesKeyboardModifiers(modifiers))
+                    {
+                        TriggerAction(kvp.Key);
+                        return true;
+                    }
+                }
             }
             
             return false;
@@ -152,16 +207,21 @@ namespace UGTLive
                 }
             }
                 
-            // Find matching hotkey
-            var hotkey = _hotkeys.FirstOrDefault(h => h.MatchesGamepadButtons(pressedButtons));
-            
-            if (hotkey != null)
+            // Check all bindings for all actions
+            foreach (var kvp in _actionBindings)
             {
-                // Invoke on UI thread
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                foreach (var binding in kvp.Value)
                 {
-                    TriggerAction(hotkey.ActionId);
-                });
+                    if (binding.MatchesGamepadButtons(pressedButtons))
+                    {
+                        // Invoke on UI thread
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            TriggerAction(kvp.Key);
+                        });
+                        return;
+                    }
+                }
             }
         }
         
@@ -202,10 +262,17 @@ namespace UGTLive
             }
         }
         
+        // Reset to default hotkeys
+        public void ResetToDefaults()
+        {
+            CreateDefaultHotkeys();
+            Console.WriteLine("Hotkeys reset to defaults");
+        }
+        
         // Load hotkeys from file
         private void LoadHotkeys()
         {
-            _hotkeys.Clear();
+            _actionBindings.Clear();
             
             if (File.Exists(HOTKEYS_FILE))
             {
@@ -220,6 +287,7 @@ namespace UGTLive
                     }
                     
                     // Rest of lines are hotkey entries
+                    int bindingCount = 0;
                     for (int i = 1; i < lines.Length; i++)
                     {
                         if (string.IsNullOrWhiteSpace(lines[i]))
@@ -228,11 +296,16 @@ namespace UGTLive
                         var entry = HotkeyEntry.Deserialize(lines[i]);
                         if (entry != null)
                         {
-                            _hotkeys.Add(entry);
+                            if (!_actionBindings.ContainsKey(entry.ActionId))
+                            {
+                                _actionBindings[entry.ActionId] = new List<HotkeyEntry>();
+                            }
+                            _actionBindings[entry.ActionId].Add(entry);
+                            bindingCount++;
                         }
                     }
                     
-                    Console.WriteLine($"Loaded {_hotkeys.Count} hotkeys from {HOTKEYS_FILE}");
+                    Console.WriteLine($"Loaded {bindingCount} hotkey bindings from {HOTKEYS_FILE}");
                 }
                 catch (Exception ex)
                 {
@@ -257,13 +330,18 @@ namespace UGTLive
                 lines.Add(_globalHotkeysEnabled.ToString());
                 
                 // Rest of lines are hotkey entries
-                foreach (var hotkey in _hotkeys)
+                int bindingCount = 0;
+                foreach (var kvp in _actionBindings)
                 {
-                    lines.Add(hotkey.Serialize());
+                    foreach (var binding in kvp.Value)
+                    {
+                        lines.Add(binding.Serialize());
+                        bindingCount++;
+                    }
                 }
                 
                 File.WriteAllLines(HOTKEYS_FILE, lines);
-                Console.WriteLine($"Saved {_hotkeys.Count} hotkeys to {HOTKEYS_FILE}");
+                Console.WriteLine($"Saved {bindingCount} hotkey bindings to {HOTKEYS_FILE}");
             }
             catch (Exception ex)
             {
@@ -274,62 +352,62 @@ namespace UGTLive
         // Create default hotkeys
         private void CreateDefaultHotkeys()
         {
-            _hotkeys.Clear();
+            _actionBindings.Clear();
             _globalHotkeysEnabled = true;
             
             // Start/Stop - Shift+S
             var startStop = new HotkeyEntry("start_stop", "Start/Stop OCR");
             startStop.KeyboardKey = Key.S;
             startStop.UseShift = true;
-            _hotkeys.Add(startStop);
+            _actionBindings["start_stop"] = new List<HotkeyEntry> { startStop };
             
             // Toggle Monitor - Shift+M
             var toggleMonitor = new HotkeyEntry("toggle_monitor", "Toggle Monitor Window");
             toggleMonitor.KeyboardKey = Key.M;
             toggleMonitor.UseShift = true;
-            _hotkeys.Add(toggleMonitor);
+            _actionBindings["toggle_monitor"] = new List<HotkeyEntry> { toggleMonitor };
             
             // Toggle ChatBox - Shift+C
             var toggleChatBox = new HotkeyEntry("toggle_chatbox", "Toggle ChatBox");
             toggleChatBox.KeyboardKey = Key.C;
             toggleChatBox.UseShift = true;
-            _hotkeys.Add(toggleChatBox);
+            _actionBindings["toggle_chatbox"] = new List<HotkeyEntry> { toggleChatBox };
             
             // Toggle Settings - Shift+E (changed from P since P is now Passthrough)
             var toggleSettings = new HotkeyEntry("toggle_settings", "Toggle Settings");
             toggleSettings.KeyboardKey = Key.E;
             toggleSettings.UseShift = true;
-            _hotkeys.Add(toggleSettings);
+            _actionBindings["toggle_settings"] = new List<HotkeyEntry> { toggleSettings };
             
             // Toggle Log - Shift+L
             var toggleLog = new HotkeyEntry("toggle_log", "Toggle Log");
             toggleLog.KeyboardKey = Key.L;
             toggleLog.UseShift = true;
-            _hotkeys.Add(toggleLog);
+            _actionBindings["toggle_log"] = new List<HotkeyEntry> { toggleLog };
             
             // Toggle Main Window - Shift+H
             var toggleMainWindow = new HotkeyEntry("toggle_main_window", "Toggle Main Window");
             toggleMainWindow.KeyboardKey = Key.H;
             toggleMainWindow.UseShift = true;
-            _hotkeys.Add(toggleMainWindow);
+            _actionBindings["toggle_main_window"] = new List<HotkeyEntry> { toggleMainWindow };
             
             // Clear Overlays - Shift+X
             var clearOverlays = new HotkeyEntry("clear_overlays", "Clear Overlays");
             clearOverlays.KeyboardKey = Key.X;
             clearOverlays.UseShift = true;
-            _hotkeys.Add(clearOverlays);
+            _actionBindings["clear_overlays"] = new List<HotkeyEntry> { clearOverlays };
             
             // Toggle Passthrough - Shift+P
             var togglePassthrough = new HotkeyEntry("toggle_passthrough", "Toggle Passthrough");
             togglePassthrough.KeyboardKey = Key.P;
             togglePassthrough.UseShift = true;
-            _hotkeys.Add(togglePassthrough);
+            _actionBindings["toggle_passthrough"] = new List<HotkeyEntry> { togglePassthrough };
             
             // Toggle Overlay Mode - Shift+O
             var toggleOverlayMode = new HotkeyEntry("toggle_overlay_mode", "Toggle Overlay Mode");
             toggleOverlayMode.KeyboardKey = Key.O;
             toggleOverlayMode.UseShift = true;
-            _hotkeys.Add(toggleOverlayMode);
+            _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
             
             SaveHotkeys();
             Console.WriteLine("Created default hotkeys");
