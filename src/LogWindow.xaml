@@ -96,7 +96,7 @@
                 
                 <TextBlock Grid.Column="0" 
                           x:Name="statusText"
-                          Text="Ready - Max 3,000 lines" 
+                          Text="Ready - Max 500 lines" 
                           Foreground="White" 
                           FontSize="11"/>
                 

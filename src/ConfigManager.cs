@@ -396,7 +396,7 @@ namespace UGTLive
             _configValues[AUTO_TRANSLATE_ENABLED] = "false";
             _configValues[IGNORE_PHRASES] = "";
             _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = "0.1";
-            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = "false";
+            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = "true";
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
@@ -961,7 +961,7 @@ Here is the input JSON:";
         // Check if pause OCR while translating is enabled
         public bool IsPauseOcrWhileTranslatingEnabled()
         {
-            string value = GetValue(PAUSE_OCR_WHILE_TRANSLATING, "false");
+            string value = GetValue(PAUSE_OCR_WHILE_TRANSLATING, "true");
             return value.ToLower() == "true";
         }
         

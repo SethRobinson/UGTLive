@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,10 +14,13 @@ namespace UGTLive
         private StringWriter? _logWriter;
         private TextWriter? _originalOutput;
         private readonly StringBuilder _logBuffer;
+        private readonly List<string> _logLines;
         private int _lineCount = 0;
         
-        // Maximum number of log lines to keep (triple the typical limit)
-        private const int MAX_LOG_LINES = 3000;
+        // Maximum number of log lines to keep
+        private const int MAX_LOG_LINES = 500;
+        // Trim threshold - trim when we exceed this to reduce rebuild frequency
+        private const int TRIM_THRESHOLD = MAX_LOG_LINES + 100;
         
         // Singleton pattern
         public static LogWindow Instance
@@ -35,6 +39,7 @@ namespace UGTLive
         {
             InitializeComponent();
             _logBuffer = new StringBuilder();
+            _logLines = new List<string>(MAX_LOG_LINES + 100);
             
             // Set window position to the right of screen
             WindowStartupLocation = WindowStartupLocation.Manual;
@@ -73,13 +78,20 @@ namespace UGTLive
         {
             Dispatcher.Invoke(() =>
             {
-                logTextBox.AppendText(message + Environment.NewLine);
+                string lineToAdd = message + Environment.NewLine;
+                _logLines.Add(message);
                 _lineCount++;
                 
-                // Trim old lines if we exceed the limit
-                if (_lineCount > MAX_LOG_LINES)
+                // Trim old lines if we exceed the threshold (efficient O(k) where k is lines to remove)
+                // Using a threshold reduces rebuild frequency
+                if (_lineCount > TRIM_THRESHOLD)
                 {
                     trimOldLines();
+                }
+                else
+                {
+                    // Fast path: just append to TextBox when not trimming
+                    logTextBox.AppendText(lineToAdd);
                 }
                 
                 updateLineCount();
@@ -92,18 +104,27 @@ namespace UGTLive
             });
         }
         
-        // Trim old log lines to keep within the limit
+        // Trim old log lines to keep within the limit (O(k) where k is lines to remove)
         private void trimOldLines()
         {
-            var lines = logTextBox.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            
-            // Keep only the most recent lines
-            int linesToRemove = lines.Length - MAX_LOG_LINES;
+            int linesToRemove = _lineCount - MAX_LOG_LINES;
             if (linesToRemove > 0)
             {
-                var remainingLines = lines.Skip(linesToRemove).ToArray();
-                logTextBox.Text = string.Join(Environment.NewLine, remainingLines);
-                _lineCount = remainingLines.Length;
+                // Remove old lines from the front of the list (O(k) operation)
+                _logLines.RemoveRange(0, linesToRemove);
+                _lineCount = _logLines.Count;
+                
+                // Rebuild TextBox text efficiently using StringBuilder (O(n) where n is remaining lines)
+                // Pre-allocate with estimated capacity (80 chars per line)
+                var sb = new StringBuilder(_lineCount * 80);
+                for (int i = 0; i < _logLines.Count; i++)
+                {
+                    sb.Append(_logLines[i]);
+                    sb.Append(Environment.NewLine); // Match AppendText behavior
+                }
+                
+                // Set text once (triggers single re-render instead of multiple)
+                logTextBox.Text = sb.ToString();
                 
                 // Also trim the buffer
                 _logBuffer.Clear();
@@ -122,6 +143,7 @@ namespace UGTLive
         {
             logTextBox.Clear();
             _logBuffer.Clear();
+            _logLines.Clear();
             _lineCount = 0;
             updateLineCount();
             statusText.Text = "Log cleared";
@@ -240,4 +262,5 @@ namespace UGTLive
         }
     }
 }
+
 
