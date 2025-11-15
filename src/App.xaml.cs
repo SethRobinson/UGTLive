@@ -96,6 +96,9 @@ public partial class App : Application
     
     protected override void OnExit(ExitEventArgs e)
     {
+        // Cleanup log window if it exists
+        LogWindow.Instance?.cleanup();
+        
         // Ensure server cleanup happens on exit
         ServerProcessManager.Instance.StopServer();
         base.OnExit(e);

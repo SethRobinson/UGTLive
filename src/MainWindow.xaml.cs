@@ -1357,46 +1357,32 @@ namespace UGTLive
         // Handler for the Log button click
         private void LogButton_Click(object sender, RoutedEventArgs e)
         {
-            ToggleConsoleWindow();
+            toggleLogWindow();
         }
         
-        // Toggle console window visibility
-        private void ToggleConsoleWindow()
+        // Toggle log window visibility
+        private void toggleLogWindow()
         {
-            if (consoleWindow == IntPtr.Zero)
+            if (LogWindow.Instance.IsVisible)
             {
-                consoleWindow = GetConsoleWindow();
-                
-                // If console window handle is still null, the console might not be initialized
-                if (consoleWindow == IntPtr.Zero)
-                {
-                    InitializeConsole();
-                    consoleWindow = GetConsoleWindow();
-                }
-            }
-            
-            if (isConsoleVisible)
-            {
-                // Hide console
-                ShowWindow(consoleWindow, SW_HIDE);
-                isConsoleVisible = false;
+                // Hide log window
+                LogWindow.Instance.Hide();
                 logButton.Background = new SolidColorBrush(Color.FromRgb(153, 69, 176)); // Purple
             }
             else
             {
-                // Show console
-                ShowWindow(consoleWindow, SW_SHOW);
-                isConsoleVisible = true;
+                // Show log window
+                LogWindow.Instance.Show();
                 logButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 153)); // Pink/Red
-                
-                // Write a header message if being shown for the first time
-                Console.WriteLine("\n=== Console Log Visible ===");
-                Console.WriteLine("Application log messages will appear here.");
-                Console.WriteLine("==========================\n");
-                
-                // Ensure console input is disabled to prevent freezing
-                DisableConsoleInput();
             }
+        }
+        
+        // Update log button state (called from LogWindow when it's closed)
+        public void updateLogButtonState(bool isVisible)
+        {
+            logButton.Background = isVisible 
+                ? new SolidColorBrush(Color.FromRgb(176, 69, 153)) // Pink/Red - visible
+                : new SolidColorBrush(Color.FromRgb(153, 69, 176)); // Purple - hidden
         }
         
         // Initialize console window with proper encoding and font
@@ -1434,7 +1420,8 @@ namespace UGTLive
             
             // Write initial message
             Console.WriteLine("Console output initialized. Toggle visibility with the Log button.");
-            Console.WriteLine("Note: Console input is disabled to prevent application freeze.");
+            Console.WriteLine("Note: Text selection is disabled to prevent application freeze.");
+            Console.WriteLine("You can scroll freely, but cannot select/copy text from this console.");
         }
         
         // Disable console input to prevent app freezing when focus is in the console
@@ -1458,13 +1445,15 @@ namespace UGTLive
                     return;
                 }
                 
-                // Disable input modes that would cause the app to wait for input
-                // This prevents the console from freezing when it gets focus
-                // We're turning off all input processing to make the console display-only
-                uint newMode = 0; // Set to 0 to disable all input
+                // CRITICAL: Disable QuickEdit mode to prevent console from blocking when user selects text
+                // QuickEdit mode causes the entire app to freeze when text is selected in the console
+                // We must use ENABLE_EXTENDED_FLAGS and explicitly turn off ENABLE_QUICK_EDIT_MODE
+                uint newMode = ENABLE_EXTENDED_FLAGS;
                 
-                // You can selectively re-enable certain input features if needed:
-                // newMode = ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT;
+                // Remove QuickEdit and mouse input from the mode
+                newMode &= ~ENABLE_QUICK_EDIT_MODE;
+                newMode &= ~ENABLE_MOUSE_INPUT;
+                newMode &= ~ENABLE_INSERT_MODE;
                 
                 if (!SetConsoleMode(hStdIn, newMode))
                 {
@@ -1472,7 +1461,8 @@ namespace UGTLive
                     return;
                 }
                 
-                Console.WriteLine("Console input disabled successfully");
+                Console.WriteLine("Console input and QuickEdit mode disabled successfully");
+                Console.WriteLine("NOTE: You cannot select text in this console to prevent app freezing");
             }
             catch (Exception ex)
             {
