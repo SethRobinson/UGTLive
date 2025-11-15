@@ -452,22 +452,9 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Main Window Texts Can Be Interacted With Checkbox -->
-                        <CheckBox x:Name="mainWindowTextsCanInteractCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,5" IsChecked="True" 
-                                 Checked="MainWindowTextsCanInteractCheckBox_CheckedChanged" 
-                                 Unchecked="MainWindowTextsCanInteractCheckBox_CheckedChanged"
-                                 Content="Main Window texts can be interacted with"
-                                 ToolTip="If checked (default), you can select and copy text overlays on the Main Window. Uncheck for click-through mode (for mouse-based games)."/>
-                        
                         <!-- Windows Visible in Screenshots Checkbox -->
-                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                 Margin="0,15,0,5" IsChecked="False" 
+                        <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Margin="0,5" IsChecked="False" 
                                  Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
                                  Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
                                  Content="Make our windows visible in screenshots (Don't turn this on!)"

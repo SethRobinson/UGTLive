@@ -163,7 +163,6 @@ namespace UGTLive
         public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
         public const string MONITOR_OVERLAY_MODE = "monitor_overlay_mode";
         public const string MAIN_WINDOW_OVERLAY_MODE = "main_window_overlay_mode";
-        public const string MAIN_WINDOW_TEXTS_CAN_INTERACT = "main_window_texts_can_interact";
         public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
         public const string WINDOWS_VISIBLE_IN_SCREENSHOTS = "windows_visible_in_screenshots";
         
@@ -2258,19 +2257,6 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine($"Main window overlay mode set to: {mode}");
             }
-        }
-        
-        public bool GetMainWindowTextsCanInteract()
-        {
-            string value = GetValue(MAIN_WINDOW_TEXTS_CAN_INTERACT, "true");
-            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
-        }
-        
-        public void SetMainWindowTextsCanInteract(bool canInteract)
-        {
-            _configValues[MAIN_WINDOW_TEXTS_CAN_INTERACT] = canInteract.ToString().ToLower();
-            SaveConfig();
-            Console.WriteLine($"Main window texts can interact set to: {canInteract}");
         }
         
         public bool GetMainWindowMousePassthrough()

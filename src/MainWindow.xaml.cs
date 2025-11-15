@@ -711,19 +711,19 @@ namespace UGTLive
                     break;
             }
             
-            // Set initial text interaction state
-            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
-            if (textOverlayWebView != null)
-            {
-                textOverlayWebView.IsHitTestVisible = canInteract;
-                Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled")}");
-            }
-            
             // Set initial mouse passthrough state
             bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
             mousePassthroughCheckBox.IsChecked = mousePassthrough;
             updateMousePassthrough(mousePassthrough);
             Console.WriteLine($"MainWindow mouse passthrough initialized: {(mousePassthrough ? "enabled" : "disabled")}");
+            
+            // Set initial text interaction state based on passthrough (inverse relationship)
+            bool canInteract = !mousePassthrough;
+            if (textOverlayWebView != null)
+            {
+                textOverlayWebView.IsHitTestVisible = canInteract;
+                Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled")}");
+            }
         }
         
         // Handler for application-level keyboard shortcuts
@@ -2127,8 +2127,9 @@ namespace UGTLive
         
         public void UpdateMainWindowTextInteraction()
         {
-            // Update the IsHitTestVisible property based on setting
-            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
+            // Update the IsHitTestVisible property based on passthrough state (inverse relationship)
+            bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
+            bool canInteract = !mousePassthrough;
             
             if (textOverlayWebView != null)
             {
@@ -2168,8 +2169,9 @@ namespace UGTLive
         
         private string GenerateMainWindowOverlayHtml()
         {
-            // Check if click-through is enabled (declare once at the top)
-            bool canInteract = ConfigManager.Instance.GetMainWindowTextsCanInteract();
+            // Check if click-through is enabled based on passthrough state (inverse relationship)
+            bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
+            bool canInteract = !mousePassthrough;
             
             var html = new StringBuilder();
             html.AppendLine("<!DOCTYPE html>");
@@ -2440,6 +2442,9 @@ namespace UGTLive
             
             // Update mouse passthrough state
             updateMousePassthrough(isEnabled);
+            
+            // Update text interaction state (inverse of passthrough)
+            UpdateMainWindowTextInteraction();
             
             Console.WriteLine($"Mouse passthrough {(isEnabled ? "enabled" : "disabled")}");
         }

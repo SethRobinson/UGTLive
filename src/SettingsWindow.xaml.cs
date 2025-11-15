@@ -409,7 +409,6 @@ namespace UGTLive
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
             windowsVisibleInScreenshotsCheckBox.IsChecked = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-            mainWindowTextsCanInteractCheckBox.IsChecked = ConfigManager.Instance.GetMainWindowTextsCanInteract();
             
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
@@ -1272,19 +1271,6 @@ namespace UGTLive
             MainWindow.Instance?.UpdateCaptureExclusion();
         }
         
-        private void MainWindowTextsCanInteractCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            // Skip if initializing
-            if (_isInitializing)
-                return;
-                
-            bool canInteract = mainWindowTextsCanInteractCheckBox.IsChecked ?? true;
-            ConfigManager.Instance.SetMainWindowTextsCanInteract(canInteract);
-            Console.WriteLine($"Main Window texts can interact: {canInteract}");
-            
-            // Update MainWindow to apply the new interaction setting
-            MainWindow.Instance?.UpdateMainWindowTextInteraction();
-        }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)
         {
