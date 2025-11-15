@@ -150,7 +150,7 @@ namespace UGTLive
         }
         
         // Check if the foreground window belongs to our application process
-        private static bool IsOurApplicationActive()
+        public static bool IsOurApplicationActive()
         {
             try
             {

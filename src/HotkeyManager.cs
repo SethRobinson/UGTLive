@@ -163,12 +163,10 @@ namespace UGTLive
                 return false;
                 
             // Check if we should process the hotkey based on global setting
-            // If global is disabled, only process if main window is active
+            // If global is disabled, only process if any window from our app is active
             if (!_globalHotkeysEnabled)
             {
-                // Get the main window
-                var mainWindow = System.Windows.Application.Current.MainWindow;
-                if (mainWindow == null || !mainWindow.IsActive)
+                if (!KeyboardShortcuts.IsOurApplicationActive())
                 {
                     return false;
                 }
@@ -197,11 +195,10 @@ namespace UGTLive
                 return;
                 
             // Check if we should process the hotkey based on global setting
-            // If global is disabled, only process if main window is active
+            // If global is disabled, only process if any window from our app is active
             if (!_globalHotkeysEnabled)
             {
-                var mainWindow = System.Windows.Application.Current.MainWindow;
-                if (mainWindow == null || !mainWindow.IsActive)
+                if (!KeyboardShortcuts.IsOurApplicationActive())
                 {
                     return;
                 }
