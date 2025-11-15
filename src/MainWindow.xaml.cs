@@ -1088,6 +1088,8 @@ namespace UGTLive
                     Console.WriteLine("No saved position, positioning settings window to the right");
                 }
                 
+                // Set MainWindow as owner to ensure Settings window appears above it
+                SettingsWindow.Instance.Owner = this;
                 SettingsWindow.Instance.Show();
                 // Disable hotkeys while the Settings window is active so we can type normally
                 HotkeyManager.Instance.SetEnabled(false);
@@ -1372,6 +1374,8 @@ namespace UGTLive
             else
             {
                 // Show log window
+                // Set MainWindow as owner to ensure Log window appears above it
+                LogWindow.Instance.Owner = this;
                 LogWindow.Instance.Show();
                 logButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 153)); // Pink/Red
             }
@@ -1520,6 +1524,8 @@ namespace UGTLive
                     Console.WriteLine("No saved position, positioning monitor window to the right");
                 }
                 
+                // Set MainWindow as owner to ensure Monitor window appears above it
+                MonitorWindow.Instance.Owner = this;
                 MonitorWindow.Instance.Show();
                 Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
                 monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
@@ -1587,6 +1593,8 @@ namespace UGTLive
                         chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
                     }
                 };
+                // Set MainWindow as owner to ensure selector window appears above it
+                selectorWindow.Owner = this;
                 selectorWindow.Show();
                 
                 // Set button to red while selector is active
@@ -1631,6 +1639,8 @@ namespace UGTLive
             chatBoxWindow.Height = selectionRect.Height;
             
             // Show the ChatBox
+            // Set MainWindow as owner to ensure ChatBox window appears above it
+            chatBoxWindow.Owner = this;
             chatBoxWindow.Show();
             isChatBoxVisible = true;
             chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
