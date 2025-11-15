@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -61,7 +62,19 @@ namespace UGTLive
         private const int TITLE_BAR_HEIGHT = 50; // Height of our custom title bar (includes 10px for resize)
 
         bool _bOCRCheckIsWanted = false;
-        public void SetOCRCheckIsWanted(bool bCaptureIsWanted) { _bOCRCheckIsWanted = bCaptureIsWanted; }
+        private DateTime _ocrReenableTime = DateTime.MinValue;
+        
+        public void SetOCRCheckIsWanted(bool bCaptureIsWanted) 
+        { 
+            // Don't allow re-enabling OCR if we're still in the delay period after clearing overlays
+            if (bCaptureIsWanted && DateTime.Now < _ocrReenableTime)
+            {
+                Console.WriteLine($"OCR re-enable blocked - still in delay period for {(_ocrReenableTime - DateTime.Now).TotalSeconds:F1}s");
+                return;
+            }
+            _bOCRCheckIsWanted = bCaptureIsWanted; 
+        }
+        
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
         private DispatcherTimer _captureTimer;
@@ -399,6 +412,14 @@ namespace UGTLive
                 // Clear hash so OCR will recreate text if active
                 Logic.Instance.ResetHash();
                 
+                // Immediately disable OCR capture to prevent it from triggering during the delay
+                SetOCRCheckIsWanted(false);
+                
+                // Set the re-enable time based on configured delay
+                double delaySeconds = ConfigManager.Instance.GetOverlayClearDelaySeconds();
+                _ocrReenableTime = DateTime.Now.AddSeconds(delaySeconds);
+                Console.WriteLine($"OCR disabled until {_ocrReenableTime:HH:mm:ss.fff} ({delaySeconds}s delay)");
+                
                 // Refresh overlays immediately and synchronously for instant visual update
                 if (System.Windows.Application.Current.Dispatcher.CheckAccess())
                 {
@@ -420,14 +441,15 @@ namespace UGTLive
                 
                 Console.WriteLine("Overlays cleared");
                 
-                // If OCR is active, trigger it again after 300ms delay
+                // If OCR is active, trigger it again after configured delay
                 if (GetIsStarted())
                 {
-                    _ = Task.Delay(300).ContinueWith(_ =>
+                    _ = Task.Delay((int)(delaySeconds * 1000)).ContinueWith(_ =>
                     {
                         System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                         {
                             SetOCRCheckIsWanted(true);
+                            Console.WriteLine("OCR re-enabled after delay");
                         }), DispatcherPriority.Normal);
                     });
                 }
@@ -908,6 +930,9 @@ namespace UGTLive
                 isStarted = true;
                 btn.Content = "Stop";
                 UpdateCaptureRect();
+                
+                // Clear any delay restriction when manually starting OCR
+                _ocrReenableTime = DateTime.MinValue;
                 SetOCRCheckIsWanted(true);
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
                 

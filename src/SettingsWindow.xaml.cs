@@ -302,6 +302,7 @@ namespace UGTLive
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
             
             // Set context settings
             maxContextPiecesTextBox.Text = ConfigManager.Instance.GetMaxContextPieces().ToString();
@@ -438,19 +439,23 @@ namespace UGTLive
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
             
            
             blockDetectionPowerTextBox.Text = BlockDetectionManager.Instance.GetBlockDetectionScale().ToString("F2");
             settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
             maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
+            overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
             
             Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
             Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
+            Console.WriteLine($"SettingsWindow: Loaded overlay clear delay: {overlayClearDelayTextBox.Text}");
             
             // Reattach event handlers
             blockDetectionPowerTextBox.LostFocus += BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus += SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus += MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus += OverlayClearDelayTextBox_LostFocus;
             
             // Set translation service from config
             string currentService = ConfigManager.Instance.GetCurrentTranslationService();
@@ -3522,6 +3527,20 @@ namespace UGTLive
             {
                 // If invalid, reset to current value from config
                 maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
+            }
+        }
+
+        private void OverlayClearDelayTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (double.TryParse(overlayClearDelayTextBox.Text, out double delay) && delay >= 0)
+            {
+                ConfigManager.Instance.SetOverlayClearDelaySeconds(delay);
+                Console.WriteLine($"Overlay clear delay set to: {delay}");
+            }
+            else
+            {
+                // If invalid, reset to current value from config
+                overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
             }
         }
         

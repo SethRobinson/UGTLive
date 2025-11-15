@@ -298,6 +298,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
                         <!-- Block Power -->
@@ -323,6 +324,14 @@
                         <TextBox x:Name="maxSettleTimeTextBox" Grid.Row="2" Grid.Column="1" 
                                 Margin="0,5" Text="1.0" LostFocus="MaxSettleTimeTextBox_LostFocus"
                                 ToolTip="Maximum time allowed for settling before translation is forced"/>
+
+                        <!-- Overlay Clear Delay -->
+                        <TextBlock Text="Overlay Clear Delay (s):" Grid.Row="3" Grid.Column="0" 
+                                  VerticalAlignment="Center" Margin="0,0,10,0"
+                                  ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
+                        <TextBox x:Name="overlayClearDelayTextBox" Grid.Row="3" Grid.Column="1" 
+                                Margin="0,5" Text="0.5" LostFocus="OverlayClearDelayTextBox_LostFocus"
+                                ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
                     </Grid>
                 </GroupBox>
                 

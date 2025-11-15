@@ -69,6 +69,7 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_WIDTH = "manga_ocr_min_region_width";
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
+        public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -393,6 +394,7 @@ namespace UGTLive
             _configValues[MIN_LINE_CONFIDENCE] = "0.1";
             _configValues[AUTO_TRANSLATE_ENABLED] = "false";
             _configValues[IGNORE_PHRASES] = "";
+            _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = "0.1";
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
@@ -1610,6 +1612,28 @@ Here is the input JSON:";
                 _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = seconds.ToString("F2");
                 SaveConfig();
                 Console.WriteLine($"Block detection max settle time set to: {seconds:F2} seconds");
+            }
+        }
+        
+        // Get Overlay Clear Delay
+        public double GetOverlayClearDelaySeconds()
+        {
+            string value = GetValue(OVERLAY_CLEAR_DELAY_SECONDS, "0.5");
+            if (double.TryParse(value, out double delay) && delay >= 0)
+            {
+                return delay;
+            }
+            return 0.5; // Default
+        }
+        
+        // Set Overlay Clear Delay
+        public void SetOverlayClearDelaySeconds(double seconds)
+        {
+            if (seconds >= 0)
+            {
+                _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = seconds.ToString("F2");
+                SaveConfig();
+                Console.WriteLine($"Overlay clear delay set to: {seconds:F2} seconds");
             }
         }
         
