@@ -133,6 +133,7 @@ namespace UGTLive
         public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
         public const string TTS_DELETE_CACHE_ON_STARTUP = "tts_delete_cache_on_startup";
         public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
+        public const string TTS_MAX_CONCURRENT_DOWNLOADS = "tts_max_concurrent_downloads";
         
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
@@ -1703,6 +1704,28 @@ Here is the input JSON:";
             _configValues[TTS_VERTICAL_OVERLAP_THRESHOLD] = threshold.ToString();
             SaveConfig();
             Console.WriteLine($"TTS vertical overlap threshold set to: {threshold} pixels");
+        }
+        
+        // Get/Set TTS Max Concurrent Downloads
+        public int GetTtsMaxConcurrentDownloads()
+        {
+            string value = GetValue(TTS_MAX_CONCURRENT_DOWNLOADS, "2");
+            if (int.TryParse(value, out int maxConcurrent) && maxConcurrent >= 0)
+            {
+                return maxConcurrent;
+            }
+            return 2; // Default to 2 concurrent downloads
+        }
+        
+        public void SetTtsMaxConcurrentDownloads(int maxConcurrent)
+        {
+            if (maxConcurrent < 0)
+            {
+                maxConcurrent = 0; // Minimum of 0 (unlimited)
+            }
+            _configValues[TTS_MAX_CONCURRENT_DOWNLOADS] = maxConcurrent.ToString();
+            SaveConfig();
+            Console.WriteLine($"TTS max concurrent downloads set to: {maxConcurrent}{(maxConcurrent == 0 ? " (unlimited)" : "")}");
         }
         
         // ChatGPT methods

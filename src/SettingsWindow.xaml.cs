@@ -2572,6 +2572,10 @@ namespace UGTLive
                     ttsDeleteCacheOnStartupCheckBox.Checked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                     ttsDeleteCacheOnStartupCheckBox.Unchecked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                 }
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    ttsMaxConcurrentDownloadsTextBox.LostFocus -= TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
                 
                 // Load preload mode
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
@@ -2625,6 +2629,14 @@ namespace UGTLive
                     ttsDeleteCacheOnStartupCheckBox.IsChecked = deleteCache;
                 }
                 
+                // Load max concurrent downloads
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+                    _lastMaxConcurrentDownloadsValue = maxConcurrent;
+                    ttsMaxConcurrentDownloadsTextBox.Text = maxConcurrent.ToString();
+                }
+                
                 // Re-attach event handlers
                 if (ttsPreloadModeComboBox != null)
                 {
@@ -2648,6 +2660,10 @@ namespace UGTLive
                     ttsDeleteCacheOnStartupCheckBox.Checked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                     ttsDeleteCacheOnStartupCheckBox.Unchecked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                 }
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    ttsMaxConcurrentDownloadsTextBox.LostFocus += TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
             }
             catch (Exception ex)
             {
@@ -2669,13 +2685,13 @@ namespace UGTLive
                     ConfigManager.Instance.SetTtsPreloadMode(mode);
                     Console.WriteLine($"TTS preload mode set to: {mode}");
                     
-                    // Clear audio cache and retrigger OCR if mode changed
+                    // Don't clear cache - just retrigger OCR if mode changed
                     if (mode != previousMode)
                     {
-                        AudioPreloadService.Instance.ClearAudioCache();
-                        Console.WriteLine("Audio cache cleared due to TTS preload mode change");
+                        // Cancel any in-progress preloads
+                        AudioPreloadService.Instance.CancelAllPreloads();
                         
-                        // Retrigger OCR to regenerate audio with new preload mode
+                        // Retrigger OCR to start preloading with new mode
                         Logic.Instance.ResetHash();
                         Logic.Instance.ClearAllTextObjects();
                         Console.WriteLine("OCR retriggered due to TTS preload mode change");
@@ -2786,6 +2802,52 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating TTS delete cache on startup: {ex.Message}");
+            }
+        }
+        
+        private static int _lastMaxConcurrentDownloadsValue = -1;
+        
+        private void TtsMaxConcurrentDownloadsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                if (ttsMaxConcurrentDownloadsTextBox == null)
+                    return;
+                
+                string text = ttsMaxConcurrentDownloadsTextBox.Text;
+                
+                if (int.TryParse(text, out int maxConcurrent))
+                {
+                    // Allow 0 (unlimited) or any positive value
+                    if (maxConcurrent < 0)
+                    {
+                        maxConcurrent = 0;
+                        ttsMaxConcurrentDownloadsTextBox.Text = "0";
+                    }
+                    
+                    // Only save if the value actually changed
+                    if (maxConcurrent != _lastMaxConcurrentDownloadsValue)
+                    {
+                        _lastMaxConcurrentDownloadsValue = maxConcurrent;
+                        ConfigManager.Instance.SetTtsMaxConcurrentDownloads(maxConcurrent);
+                        
+                        // Update the AudioPreloadService's concurrency limit
+                        AudioPreloadService.Instance.UpdateConcurrencyLimit();
+                    }
+                }
+                else
+                {
+                    // Invalid input, reset to last valid value or default
+                    int currentValue = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+                    ttsMaxConcurrentDownloadsTextBox.Text = currentValue.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS max concurrent downloads: {ex.Message}");
             }
         }
         

@@ -1080,6 +1080,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Preload Mode -->
@@ -1141,6 +1142,14 @@
                                           ToolTip="Delete all cached audio files when the application starts"/>
                                 <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="6" Grid.Column="1" 
                                          Margin="0,10,0,0" IsChecked="False"/>
+                                
+                                <!-- Max Concurrent Downloads -->
+                                <TextBlock Text="Max concurrent downloads:" Grid.Row="7" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Maximum number of audio files to download simultaneously. Set to 0 for unlimited, or set to 2 to match ElevenLabs free tier limit."/>
+                                <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="7" Grid.Column="1" 
+                                        Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
+                                        Text="2" LostFocus="TtsMaxConcurrentDownloadsTextBox_LostFocus"/>
                             </Grid>
                         </GroupBox>
 

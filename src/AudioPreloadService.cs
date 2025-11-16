@@ -20,8 +20,7 @@ namespace UGTLive
         private readonly Dictionary<string, string> _audioCache; // text hash -> file path
         private readonly Dictionary<string, Task<string?>> _inProgressTasks; // textObject ID -> task
         private CancellationTokenSource? _cancellationTokenSource;
-        private readonly SemaphoreSlim _concurrencyLimiter;
-        private const int MAX_CONCURRENT_REQUESTS = 3;
+        private SemaphoreSlim _concurrencyLimiter;
         
         public static AudioPreloadService Instance
         {
@@ -39,7 +38,20 @@ namespace UGTLive
         {
             _audioCache = new Dictionary<string, string>();
             _inProgressTasks = new Dictionary<string, Task<string?>>();
-            _concurrencyLimiter = new SemaphoreSlim(MAX_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS);
+            
+            // Initialize concurrency limiter with config value
+            int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+            // 0 means unlimited - use a very high number
+            if (maxConcurrent == 0)
+            {
+                maxConcurrent = int.MaxValue;
+            }
+            _concurrencyLimiter = new SemaphoreSlim(maxConcurrent, maxConcurrent);
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Initialized with max {maxConcurrent} concurrent downloads");
+            }
             
             // Initialize cache on startup
             InitializeCache();
@@ -169,11 +181,11 @@ namespace UGTLive
                 Console.WriteLine($"AudioPreloadService: Starting source audio preload for {textObjects.Count} text objects");
             }
             
-            // Cancel any existing preloads
-            CancelAllPreloads();
-            
-            // Create new cancellation token
-            _cancellationTokenSource = new CancellationTokenSource();
+            // Only cancel if we don't already have a cancellation token (avoid cancelling target preload)
+            if (_cancellationTokenSource == null)
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
             var cancellationToken = _cancellationTokenSource.Token;
             
             // Get settings
@@ -267,11 +279,11 @@ namespace UGTLive
                 Console.WriteLine($"AudioPreloadService: Starting target audio preload for {textObjects.Count} text objects");
             }
             
-            // Cancel any existing preloads
-            CancelAllPreloads();
-            
-            // Create new cancellation token
-            _cancellationTokenSource = new CancellationTokenSource();
+            // Only cancel if we don't already have a cancellation token (avoid cancelling source preload)
+            if (_cancellationTokenSource == null)
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
             var cancellationToken = _cancellationTokenSource.Token;
             
             // Get settings
@@ -733,6 +745,25 @@ namespace UGTLive
             string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
             Directory.CreateDirectory(cacheDir);
             return cacheDir;
+        }
+        
+        public void UpdateConcurrencyLimit()
+        {
+            // Get new max concurrent value from config
+            int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+            // 0 means unlimited - use a very high number
+            if (maxConcurrent == 0)
+            {
+                maxConcurrent = int.MaxValue;
+            }
+            
+            // Dispose old semaphore
+            _concurrencyLimiter?.Dispose();
+            
+            // Create new semaphore with updated limit
+            _concurrencyLimiter = new SemaphoreSlim(maxConcurrent, maxConcurrent);
+            
+            Console.WriteLine($"AudioPreloadService: Updated max concurrent downloads to {maxConcurrent}{(maxConcurrent == int.MaxValue ? " (unlimited)" : "")}");
         }
     }
 }
