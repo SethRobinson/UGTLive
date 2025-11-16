@@ -316,7 +316,10 @@ namespace UGTLive
         
         private void MonitorWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            Console.WriteLine("MonitorWindow_Loaded: Starting initialization");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("MonitorWindow_Loaded: Starting initialization");
+            }
             
             // Set initialization flag to true to prevent saving during setup
             _isInitializing = true;
@@ -358,7 +361,10 @@ namespace UGTLive
             {
                 // Get OCR method from config
                 string ocrMethod = ConfigManager.Instance.GetOcrMethod();
-                Console.WriteLine($"MonitorWindow_Loaded: Loading OCR method from config: '{ocrMethod}'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow_Loaded: Loading OCR method from config: '{ocrMethod}'");
+                }
                 
                 // Temporarily remove the event handler to prevent triggering
                 // a new connection while initializing
@@ -369,11 +375,17 @@ namespace UGTLive
                 foreach (ComboBoxItem comboItem in ocrMethodComboBox.Items)
                 {
                     string itemId = comboItem.Tag?.ToString() ?? "";
-                    Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
+                    }
                     
                     if (string.Equals(itemId, ocrMethod, StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                        }
                         ocrMethodComboBox.SelectedItem = comboItem;
                         foundMatch = true;
                         break;
@@ -392,7 +404,10 @@ namespace UGTLive
                 // Log what we actually set
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
+                    }
                 }
                 
                 // Re-attach the event handler
@@ -410,7 +425,10 @@ namespace UGTLive
                 
                 // Load overlay mode from config
                 string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
-                Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                }
                 
                 // Temporarily remove event handlers to prevent triggering saves during initialization
                 overlayHideRadio.Checked -= OverlayRadioButton_Checked;
@@ -442,12 +460,18 @@ namespace UGTLive
                 
                 // Initialization complete, now we can save settings changes
                 _isInitializing = false;
-                Console.WriteLine("MonitorWindow initialization complete. Settings changes will now be saved.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("MonitorWindow initialization complete. Settings changes will now be saved.");
+                }
                 
                 // Force the OCR method to match the config again
                 // This ensures the config value is preserved and not overwritten
                 string configOcrMethod = ConfigManager.Instance.GetOcrMethod();
-                Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+                }
                 
                 // Now that initialization is complete, save the OCR method from config
                 ConfigManager.Instance.SetOcrMethod(configOcrMethod);
@@ -466,7 +490,10 @@ namespace UGTLive
             // Initialize the overlay WebView2
             InitializeOverlayWebView();
             
-            Console.WriteLine("MonitorWindow initialization complete");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("MonitorWindow initialization complete");
+            }
         }
         
         private void MonitorWindow_SourceInitialized(object? sender, EventArgs e)

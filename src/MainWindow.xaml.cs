@@ -200,7 +200,10 @@ namespace UGTLive
         
         public void SetOcrMethod(string method)
         {
-            Console.WriteLine($"MainWindow.SetOcrMethod called with method: {method} (isInitializing: {_isInitializing})");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"MainWindow.SetOcrMethod called with method: {method} (isInitializing: {_isInitializing})");
+            }
             
             // Only update the MainWindow's internal state during initialization
             // Don't update other windows or save to config
@@ -802,7 +805,10 @@ namespace UGTLive
             // Force the OCR method to match the config again
             // This ensures the config value is preserved and not overwritten
             string configOcrMethod = ConfigManager.Instance.GetOcrMethod();
-            Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+            }
             ConfigManager.Instance.SetOcrMethod(configOcrMethod);
 
             // Initialize the Logic
@@ -1771,7 +1777,10 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure Monitor window appears above it
                 MonitorWindow.Instance.Owner = this;
                 MonitorWindow.Instance.Show();
-                Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
+                }
                 monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
                 
                 // If we have a recent screenshot, load it
@@ -2382,7 +2391,10 @@ namespace UGTLive
             if (textOverlayWebView != null)
             {
                 textOverlayWebView.IsHitTestVisible = canInteract;
-                Console.WriteLine($"MainWindow text interaction: {(canInteract ? "enabled" : "disabled (click-through)")}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MainWindow text interaction: {(canInteract ? "enabled" : "disabled (click-through)")}");
+                }
             }
             
             // Regenerate overlay HTML with updated interaction settings
@@ -2971,7 +2983,10 @@ namespace UGTLive
                 OverlayContent.IsHitTestVisible = true;
                 OverlayContent.Background = new System.Windows.Media.SolidColorBrush(
                     System.Windows.Media.Color.FromArgb(1, 0, 0, 0)); // #01000000
-                Console.WriteLine("Mouse passthrough: overlay now interactive with minimal background");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Mouse passthrough: overlay now interactive with minimal background");
+                }
             }
         }
         

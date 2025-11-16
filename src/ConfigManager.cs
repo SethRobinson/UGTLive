@@ -770,13 +770,19 @@ namespace UGTLive
         // Set current OCR method
         public void SetOcrMethod(string method)
         {
-            Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
+            if (GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
+            }
             if (IsSupportedOcrMethod(method))
             {
                 var normalized = _supportedOcrMethods.First(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase));
                 _configValues[OCR_METHOD] = normalized;
                 SaveConfig();
-                Console.WriteLine($"OCR method set to {normalized} and saved to config");
+                if (GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"OCR method set to {normalized} and saved to config");
+                }
             }
             else
             {
@@ -2518,7 +2524,10 @@ Here is the input JSON:";
         {
             _configValues[MAIN_WINDOW_MOUSE_PASSTHROUGH] = enabled.ToString().ToLower();
             SaveConfig();
-            Console.WriteLine($"Main window mouse passthrough set to: {enabled}");
+            if (GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Main window mouse passthrough set to: {enabled}");
+            }
         }
         
         public bool GetWindowsVisibleInScreenshots()
