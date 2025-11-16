@@ -2223,15 +2223,19 @@ namespace UGTLive
             
             Dispatcher.Invoke(() =>
             {
-                translationStatusBorder.Visibility = Visibility.Collapsed;
-                
                 // Stop the timer
                 if (_translationStatusTimer != null && _translationStatusTimer.IsEnabled)
                 {
                     _translationStatusTimer.Stop();
                 }
                 
-                // Logic.cs will handle showing OCR status if needed
+                // Don't hide the border if OCR is active - it will seamlessly transition to OCR status
+                // This prevents flickering when transitioning from settling/translation to OCR status
+                bool isOCRActive = MainWindow.Instance?.GetIsStarted() ?? false;
+                if (!isOCRActive)
+                {
+                    translationStatusBorder.Visibility = Visibility.Collapsed;
+                }
             });
         }
         
@@ -2252,8 +2256,17 @@ namespace UGTLive
                 return;
             }
             
-            translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
-            translationStatusBorder.Visibility = Visibility.Visible;
+            // Only update text if it has changed to avoid flickering
+            string newText = $"{ocrMethod} active (fps: {fps:F1})";
+            if (translationStatusLabel.Text != newText)
+            {
+                translationStatusLabel.Text = newText;
+            }
+            
+            if (translationStatusBorder.Visibility != Visibility.Visible)
+            {
+                translationStatusBorder.Visibility = Visibility.Visible;
+            }
         }
         
         // Hide OCR status display
