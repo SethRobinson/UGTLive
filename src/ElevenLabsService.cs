@@ -122,7 +122,10 @@ namespace UGTLive
                         {
                             // Log the content type
                             string contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
-                            Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            }
                             
                             // Get audio data as stream
                             using Stream audioStream = await response.Content.ReadAsStreamAsync();
@@ -235,7 +238,10 @@ namespace UGTLive
                 // Form the URL for text-to-speech endpoint
                 string url = $"{_baseUrl}/text-to-speech/{voice}";
                 
-                Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                }
                 
                 // Send the request
                 return await Task.Run(async () =>
@@ -250,7 +256,10 @@ namespace UGTLive
                         {
                             // Log the content type
                             string contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
-                            Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            }
                             
                             // Get audio data as stream
                             using Stream audioStream = await response.Content.ReadAsStreamAsync();

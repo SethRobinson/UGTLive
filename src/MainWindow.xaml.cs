@@ -947,7 +947,10 @@ namespace UGTLive
                 // Apply offset to text objects
                 Logic.Instance.UpdateTextObjectPositions(offsetX, offsetY);
                 
-                Console.WriteLine($"Capture position changed by ({offsetX}, {offsetY}). Text overlays updated.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Capture position changed by ({offsetX}, {offsetY}). Text overlays updated.");
+                }
             }
         }
 
@@ -1209,20 +1212,29 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine($"AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                }
                 if (playAllAudioButton != null)
                 {
                     if (isPlaying)
                     {
                         playAllAudioButton.Content = "🔇 Stop";
                         playAllAudioButton.ToolTip = "Stop playing all audio";
-                        Console.WriteLine($"Play All button updated to: 🔇 Stop");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Play All button updated to: 🔇 Stop");
+                        }
                     }
                     else
                     {
                         playAllAudioButton.Content = "🔊 All";
                         playAllAudioButton.ToolTip = "Play all audio files in order";
-                        Console.WriteLine($"Play All button updated to: 🔊 All");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Play All button updated to: 🔊 All");
+                        }
                     }
                 }
                 else
@@ -1313,7 +1325,10 @@ namespace UGTLive
                     
                     SettingsWindow.Instance.Left = mainRight + 10; // 10px gap
                     SettingsWindow.Instance.Top = mainTop;
-                    Console.WriteLine("No saved position, positioning settings window to the right");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("No saved position, positioning settings window to the right");
+                    }
                 }
                 
                 // Set MainWindow as owner to ensure Settings window appears above it
@@ -1321,7 +1336,10 @@ namespace UGTLive
                 SettingsWindow.Instance.Show();
                 // Disable hotkeys while the Settings window is active so we can type normally
                 HotkeyManager.Instance.SetEnabled(false);
-                Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
+                }
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(69, 125, 176)); // Blue-ish
             }
         }
@@ -1408,7 +1426,10 @@ namespace UGTLive
                     else
                     {
                         //write saving bitmap to log
-                        Console.WriteLine($"Saving bitmap to {outputPath}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Saving bitmap to {outputPath}");
+                        }
                         bitmap.Save(outputPath, ImageFormat.Png);
                         Logic.Instance.SendImageToEasyOCR(outputPath);
                     }
@@ -1926,7 +1947,10 @@ namespace UGTLive
                     _translationHistory.Add(entry); // Use Add for List
                     entryId = entry.Id; // Store the new ID
                     entryUpdated = true; // Mark that we've handled this (new entry requires UI refresh)
-                    Console.WriteLine($"Added new translation entry ID: {entryId}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Added new translation entry ID: {entryId}");
+                    }
                 }
 
                 // Keep history size limited

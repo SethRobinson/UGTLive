@@ -120,7 +120,10 @@ namespace UGTLive
                         
                         // Write to file
                         File.WriteAllText(_llmRequestPath, sb.ToString());
-                        Console.WriteLine($"LLM request logged to {_llmRequestPath}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"LLM request logged to {_llmRequestPath}");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -159,7 +162,10 @@ namespace UGTLive
                         
                         // Write to file
                         File.WriteAllText(_llmReplyPath, jsonResponse);
-                        Console.WriteLine($"LLM reply logged to {_llmReplyPath}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"LLM reply logged to {_llmReplyPath}");
+                        }
                     }
                     catch (Exception ex)
                     {

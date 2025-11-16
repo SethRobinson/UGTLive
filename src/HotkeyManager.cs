@@ -71,7 +71,10 @@ namespace UGTLive
         public void SetEnabled(bool enabled)
         {
             _isEnabled = enabled;
-            Console.WriteLine($"Hotkey system {(enabled ? "enabled" : "disabled")}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Hotkey system {(enabled ? "enabled" : "disabled")}");
+            }
         }
         
         // Get all action IDs

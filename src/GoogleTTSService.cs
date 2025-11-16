@@ -303,7 +303,10 @@ namespace UGTLive
                 // Form the URL including API key
                 string url = $"{_baseUrl}?key={apiKey}";
                 
-                Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                }
                 
                 // Send the request
                 return await Task.Run(async () =>

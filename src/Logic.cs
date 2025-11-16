@@ -299,7 +299,10 @@ namespace UGTLive
             }
             else if (isConnected)
             {
-                Console.WriteLine("Connection status changed to connected. Stopping reconnect timer.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Connection status changed to connected. Stopping reconnect timer.");
+                }
                 _reconnectTimer.Stop();
                 _reconnectAttempts = 0;
                 _hasShownConnectionErrorMessage = false;
@@ -325,7 +328,10 @@ namespace UGTLive
             if (ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled())
             {
                 MainWindow.Instance.SetOCRCheckIsWanted(true);
-                Console.WriteLine("Translation finished - re-enabling OCR");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Translation finished - re-enabling OCR");
+                }
             }
         }
 
@@ -450,7 +456,10 @@ namespace UGTLive
             }
             else
             {
-                Console.WriteLine("Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
             }
             
             // Notify that OCR has completed
@@ -458,7 +467,10 @@ namespace UGTLive
 
             if (waitingForTranslation)
             {
-                Console.WriteLine("Skipping OCR results - waiting for translation to finish");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Skipping OCR results - waiting for translation to finish");
+                }
                 return;
             }
 
@@ -527,7 +539,7 @@ namespace UGTLive
                                 double settlingElapsed = isSettling ? (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
                                 double lastChangeElapsed = _lastChangeTime != DateTime.MinValue ? (DateTime.Now - _lastChangeTime).TotalSeconds : 0;
                                 
-                                if (isSettling)
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff() && isSettling)
                                 {
                                     Console.WriteLine($"Settling - Elapsed: {settlingElapsed:F2}s, MaxSettleTime: {maxSettleTime}s, LastChange: {lastChangeElapsed:F2}s, SettleTime: {settleTime}s");
                                 }
@@ -536,7 +548,10 @@ namespace UGTLive
                                 if (_settlingStartTime == DateTime.MinValue && settleTime > 0)
                                 {
                                     _settlingStartTime = DateTime.Now;
-                                    Console.WriteLine($"Settling started at: {_settlingStartTime:HH:mm:ss.fff}, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Settling started at: {_settlingStartTime:HH:mm:ss.fff}, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                    }
                                 }
 
                                 if (settleTime > 0)
@@ -568,7 +583,10 @@ namespace UGTLive
                                             // Content is stable, check if normal settle time is reached
                                             if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
                                             {
-                                                Console.WriteLine($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s.");
+                                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                                {
+                                                    Console.WriteLine($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s.");
+                                                }
                                                 _lastChangeTime = DateTime.MinValue; // Indicate settle completed
                                                 _settlingStartTime = DateTime.MinValue; // Reset settling timer
                                                 bForceRender = true;
@@ -621,7 +639,10 @@ namespace UGTLive
                                                 (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
                                             double remainingMaxSettleTime = maxSettleTime - elapsedSettlingTime;
                                             
-                                            Console.WriteLine($"Content unstable, settling for {elapsedSettlingTime:F2}s, max {remainingMaxSettleTime:F2}s remaining.");
+                                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                            {
+                                                Console.WriteLine($"Content unstable, settling for {elapsedSettlingTime:F2}s, max {remainingMaxSettleTime:F2}s remaining.");
+                                            }
                                             return;
                                         }
                                     }
@@ -636,7 +657,10 @@ namespace UGTLive
                                 // Looks like new stuff
                                 _lastOcrHash = contentHash;
                                 double scale = BlockDetectionManager.Instance.GetBlockDetectionScale();
-                                Console.WriteLine($"Character-level processing (scale={scale:F2}): {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"Character-level processing (scale={scale:F2}): {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
+                                }
                                 
                                 // Create a new JsonDocument with the modified results
                                 using (var stream = new MemoryStream())
@@ -671,7 +695,10 @@ namespace UGTLive
                                     }
 
                                     _ocrProcessingStopwatch.Stop();
-                                    Console.WriteLine($"OCR JSON processing took {_ocrProcessingStopwatch.ElapsedMilliseconds} ms");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"OCR JSON processing took {_ocrProcessingStopwatch.ElapsedMilliseconds} ms");
+                                    }
 
                                 }
 
@@ -1020,7 +1047,10 @@ namespace UGTLive
                                     int r = fgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)fgRgb[0].GetDouble();
                                     int g = fgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)fgRgb[1].GetDouble();
                                     int b = fgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)fgRgb[2].GetDouble();
-                                    Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                    }
                                 }
                             }
                             
@@ -1035,7 +1065,10 @@ namespace UGTLive
                                     int r = bgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)bgRgb[0].GetDouble();
                                     int g = bgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)bgRgb[1].GetDouble();
                                     int b = bgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)bgRgb[2].GetDouble();
-                                    Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                    }
                                 }
                             }
                          
@@ -1216,7 +1249,7 @@ namespace UGTLive
                     : new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
                 
                 // Debug: Log final colors being used
-                if (foregroundColor.HasValue || backgroundColor.HasValue)
+                if (ConfigManager.Instance.GetLogExtraDebugStuff() && (foregroundColor.HasValue || backgroundColor.HasValue))
                 {
                     Console.WriteLine($"Creating TextObject '{text.Substring(0, Math.Min(20, text.Length))}...' - TextColor: {textColor.Color}, BackgroundColor: {bgColor.Color}");
                 }
@@ -1600,7 +1633,10 @@ namespace UGTLive
                         implementation = "doctr";
                     }
                     
-                    Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    }
                     
                     // Check socket connection
                     if (!SocketManager.Instance.IsConnected)
@@ -1778,7 +1814,10 @@ namespace UGTLive
                 _textIDCounter = 0;
                 // No need to remove from the main window UI anymore
                 
-                Console.WriteLine("All text objects cleared");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("All text objects cleared");
+                }
             }
             catch (Exception ex)
             {
@@ -1796,16 +1835,25 @@ namespace UGTLive
             try
             {
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
-                Console.WriteLine($"Logic: TriggerSourceAudioPreloading called, preloadMode={preloadMode}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Logic: TriggerSourceAudioPreloading called, preloadMode={preloadMode}");
+                }
                 
                 if (preloadMode == "Source language" || preloadMode == "Both source and target language")
                 {
                     var textObjects = _textObjects.ToList();
-                    Console.WriteLine($"Logic: Found {textObjects.Count} text objects for source audio preloading");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Found {textObjects.Count} text objects for source audio preloading");
+                    }
                     
                     if (textObjects.Count > 0)
                     {
-                        Console.WriteLine("Logic: Starting source audio preload...");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Logic: Starting source audio preload...");
+                        }
                         _ = AudioPreloadService.Instance.PreloadSourceAudioAsync(textObjects);
                     }
                     else
@@ -1815,7 +1863,10 @@ namespace UGTLive
                 }
                 else
                 {
-                    Console.WriteLine($"Logic: Source audio preloading skipped (preloadMode={preloadMode})");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Source audio preloading skipped (preloadMode={preloadMode})");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1831,16 +1882,25 @@ namespace UGTLive
             try
             {
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
-                Console.WriteLine($"Logic: TriggerTargetAudioPreloading called, preloadMode={preloadMode}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Logic: TriggerTargetAudioPreloading called, preloadMode={preloadMode}");
+                }
                 
                 if (preloadMode == "Target language" || preloadMode == "Both source and target language")
                 {
                     var textObjects = _textObjects.ToList();
-                    Console.WriteLine($"Logic: Found {textObjects.Count} text objects for target audio preloading");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Found {textObjects.Count} text objects for target audio preloading");
+                    }
                     
                     if (textObjects.Count > 0)
                     {
-                        Console.WriteLine("Logic: Starting target audio preload...");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Logic: Starting target audio preload...");
+                        }
                         _ = AudioPreloadService.Instance.PreloadTargetAudioAsync(textObjects);
                     }
                     else
@@ -1850,7 +1910,10 @@ namespace UGTLive
                 }
                 else
                 {
-                    Console.WriteLine($"Logic: Target audio preloading skipped (preloadMode={preloadMode})");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Target audio preloading skipped (preloadMode={preloadMode})");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1886,12 +1949,18 @@ namespace UGTLive
   
             try
             {
-                Console.WriteLine("Processing structured JSON translation");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Processing structured JSON translation");
+                }
                 // Check if we have text_blocks array in the translated JSON
                 if (translatedRoot.TryGetProperty("text_blocks", out JsonElement textBlocksElement) &&
                     textBlocksElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"Found {textBlocksElement.GetArrayLength()} text blocks in translated JSON");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found {textBlocksElement.GetArrayLength()} text blocks in translated JSON");
+                    }
                     
                     // Process each translated block
                     for (int i = 0; i < textBlocksElement.GetArrayLength(); i++)
@@ -1918,7 +1987,10 @@ namespace UGTLive
                                     // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
-                                    Console.WriteLine($"Updated text object {id} with translation");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Updated text object {id} with translation");
+                                    }
                                 }
                                 else if (id.StartsWith("text_"))
                                 {
@@ -1929,7 +2001,10 @@ namespace UGTLive
                                         // Update by index if ID matches format
                                         _textObjects[index].TextTranslated = translatedText;
                                         _textObjects[index].UpdateUIElement();
-                                        Console.WriteLine($"Updated text object at index {index} with translation");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine($"Updated text object at index {index} with translation");
+                                        }
                                     }
                                     else
                                     {
@@ -2068,7 +2143,10 @@ namespace UGTLive
                                 // Check if we already have a proper translation with source_language, target_language, text_blocks
                                 if (text.Contains("\"source_language\"") && text.Contains("\"text_blocks\""))
                                 {
-                                    Console.WriteLine("Direct translation detected, using it as is");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine("Direct translation detected, using it as is");
+                                    }
                                     
                                     // Look for JSON within the text
                                     int directJsonStart = text.IndexOf('{');
@@ -2254,7 +2332,10 @@ namespace UGTLive
                 }
 
                 _translationStopwatch.Stop();
-                Console.WriteLine($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                }
 
                 // We've already logged the raw LLM response in the respective service
                 // This would log the post-processed response, which we don't need

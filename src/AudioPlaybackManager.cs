@@ -157,14 +157,20 @@ namespace UGTLive
                 {
                     try
                     {
-                        Console.WriteLine($"PlayAudioFileAsync: Starting wait loop for {filePath}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"PlayAudioFileAsync: Starting wait loop for {filePath}");
+                        }
                         int waitCount = 0;
                         while (true)
                         {
                             // Check cancellation token first
                             if (cancellationToken.IsCancellationRequested)
                             {
-                                Console.WriteLine($"PlayAudioFileAsync: Cancellation requested, stopping playback");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"PlayAudioFileAsync: Cancellation requested, stopping playback");
+                                }
                                 lock (_playbackLock)
                                 {
                                     if (_currentPlayer != null)
@@ -194,7 +200,7 @@ namespace UGTLive
                             }
                             
                             // Log every 10 iterations (1 second) for debugging
-                            if (waitCount % 10 == 0)
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff() && waitCount % 10 == 0)
                             {
                                 Console.WriteLine($"PlayAudioFileAsync: Wait loop iteration {waitCount}, stillPlaying={stillPlaying}, state={state}");
                             }
@@ -203,19 +209,28 @@ namespace UGTLive
                             // Break if playback has stopped (either flag is false or state is not playing)
                             if (!stillPlaying)
                             {
-                                Console.WriteLine($"PlayAudioFileAsync: Playback stopped (stillPlaying=false)");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"PlayAudioFileAsync: Playback stopped (stillPlaying=false)");
+                                }
                                 break;
                             }
                             
                             if (state != PlaybackState.Playing)
                             {
-                                Console.WriteLine($"PlayAudioFileAsync: Playback stopped (state={state})");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"PlayAudioFileAsync: Playback stopped (state={state})");
+                                }
                                 break;
                             }
                             
                             Thread.Sleep(100);
                         }
-                        Console.WriteLine($"PlayAudioFileAsync: Wait loop completed after {waitCount * 100}ms");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"PlayAudioFileAsync: Wait loop completed after {waitCount * 100}ms");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -397,7 +412,10 @@ namespace UGTLive
             {
                 _isPlayingAll = true;
             }
-            Console.WriteLine($"PlayAllAudio: Setting playing all state to true, notifying UI");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"PlayAllAudio: Setting playing all state to true, notifying UI");
+            }
             OnPlayAllStateChanged(true);
             
             // Create cancellation token for playback
@@ -422,14 +440,23 @@ namespace UGTLive
                     
                     try
                     {
-                        Console.WriteLine($"PlayAllAudio: Playing audio for text object {textObj.ID}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"PlayAllAudio: Playing audio for text object {textObj.ID}");
+                        }
                         await PlayAudioFileAsync(audioPath, textObj.ID, isPartOfPlayAll: true, cancellationToken);
-                        Console.WriteLine($"PlayAllAudio: Finished playing audio for text object {textObj.ID}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"PlayAllAudio: Finished playing audio for text object {textObj.ID}");
+                        }
                         
                         // Check cancellation token again after each file
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            Console.WriteLine("PlayAllAudio: Cancellation requested after file playback");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine("PlayAllAudio: Cancellation requested after file playback");
+                            }
                             break;
                         }
                     }
@@ -455,12 +482,18 @@ namespace UGTLive
         
         private void OnPlayAllStateChanged(bool isPlaying)
         {
-            Console.WriteLine($"OnPlayAllStateChanged: isPlaying={isPlaying}, invoking on UI thread");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"OnPlayAllStateChanged: isPlaying={isPlaying}, invoking on UI thread");
+            }
             // Invoke on UI thread to update buttons - use Send priority to ensure immediate update
             if (Application.Current?.Dispatcher.CheckAccess() == true)
             {
                 // Already on UI thread, fire event directly
-                Console.WriteLine($"OnPlayAllStateChanged: Already on UI thread, firing event directly, isPlaying={isPlaying}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"OnPlayAllStateChanged: Already on UI thread, firing event directly, isPlaying={isPlaying}");
+                }
                 PlayAllStateChanged?.Invoke(this, isPlaying);
             }
             else
@@ -468,7 +501,10 @@ namespace UGTLive
                 // Not on UI thread, invoke asynchronously
                 Application.Current?.Dispatcher.InvokeAsync(() =>
                 {
-                    Console.WriteLine($"OnPlayAllStateChanged: Firing event on UI thread, isPlaying={isPlaying}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"OnPlayAllStateChanged: Firing event on UI thread, isPlaying={isPlaying}");
+                    }
                     PlayAllStateChanged?.Invoke(this, isPlaying);
                 }, System.Windows.Threading.DispatcherPriority.Normal);
             }

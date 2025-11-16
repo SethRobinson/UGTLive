@@ -193,6 +193,9 @@ namespace UGTLive
         // Lesson feature settings
         public const string LESSON_PROMPT_TEMPLATE = "lesson_prompt_template";
         public const string LESSON_URL_TEMPLATE = "lesson_url_template";
+        
+        // Debug logging settings
+        public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";
 
         // Singleton instance
         public static ConfigManager Instance
@@ -535,7 +538,10 @@ namespace UGTLive
                                 phraseValue = phraseValue.Substring(0, phraseValue.Length - 1);
                                 
                             _configValues[key] = phraseValue;
-                            Console.WriteLine($"Loaded ignore phrases config: {key}");
+                            if (GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"Loaded ignore phrases config: {key}");
+                            }
                             continue;
                         }
                         
@@ -588,7 +594,10 @@ namespace UGTLive
                 // Write to file
                 File.WriteAllText(_configFilePath, sb.ToString());
                 
-                Console.WriteLine($"Saved config to {_configFilePath}");
+                if (GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Saved config to {_configFilePath}");
+                }
             }
             catch (Exception ex)
             {
@@ -2523,6 +2532,20 @@ Here is the input JSON:";
             _configValues[WINDOWS_VISIBLE_IN_SCREENSHOTS] = visible.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Windows visible in screenshots set to: {visible}");
+        }
+        
+        // Debug logging settings
+        public bool GetLogExtraDebugStuff()
+        {
+            string value = GetValue(LOG_EXTRA_DEBUG_STUFF, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetLogExtraDebugStuff(bool enabled)
+        {
+            _configValues[LOG_EXTRA_DEBUG_STUFF] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Log extra debug stuff set to: {enabled}");
         }
 
         // Font Settings methods

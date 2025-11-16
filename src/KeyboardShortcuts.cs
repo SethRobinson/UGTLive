@@ -62,7 +62,10 @@ namespace UGTLive
         public static void SetShortcutsEnabled(bool enabled)
         {
             _shortcutsEnabled = enabled;
-            Console.WriteLine($"Keyboard shortcuts {(_shortcutsEnabled ? "enabled" : "disabled")}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Keyboard shortcuts {(_shortcutsEnabled ? "enabled" : "disabled")}");
+            }
         }
         
         // Set up global keyboard hook

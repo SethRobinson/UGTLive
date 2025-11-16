@@ -55,7 +55,10 @@ namespace UGTLive
         {
             // Make sure the initialization flag is set before anything else
             _isInitializing = true;
-            Console.WriteLine("SettingsWindow constructor: Setting _isInitializing to true");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("SettingsWindow constructor: Setting _isInitializing to true");
+            }
             
             InitializeComponent();
             _instance = this;
@@ -118,7 +121,10 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine("SettingsWindow_Loaded: Starting initialization");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("SettingsWindow_Loaded: Starting initialization");
+                }
                 
                 // Set initialization flag to prevent saving during setup
                 _isInitializing = true;
@@ -158,7 +164,10 @@ namespace UGTLive
                 ConfigManager.Instance.SetOcrMethod(configOcrMethod);
                 ConfigManager.Instance.SetTranslationService(configTransService);
                 
-                Console.WriteLine("Settings window fully loaded and initialized. Changes will now be saved.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Settings window fully loaded and initialized. Changes will now be saved.");
+                }
             }
             catch (Exception ex)
             {
@@ -346,7 +355,10 @@ namespace UGTLive
                     if (string.Equals(item.Content.ToString(), configSourceLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         sourceLanguageComboBox.SelectedItem = item;
-                        Console.WriteLine($"Settings window: Set source language from config to {configSourceLanguage}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Settings window: Set source language from config to {configSourceLanguage}");
+                        }
                         break;
                     }
                 }
@@ -368,7 +380,10 @@ namespace UGTLive
                     if (string.Equals(item.Content.ToString(), configTargetLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         targetLanguageComboBox.SelectedItem = item;
-                        Console.WriteLine($"Settings window: Set target language from config to {configTargetLanguage}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Settings window: Set target language from config to {configTargetLanguage}");
+                        }
                         break;
                     }
                 }
@@ -386,7 +401,10 @@ namespace UGTLive
             
             // Set OCR settings from config
             string savedOcrMethod = ConfigManager.Instance.GetOcrMethod();
-            Console.WriteLine($"SettingsWindow: Loading OCR method '{savedOcrMethod}'");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow: Loading OCR method '{savedOcrMethod}'");
+            }
             
             // Temporarily remove event handler to prevent triggering during initialization
             ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
@@ -397,7 +415,10 @@ namespace UGTLive
                 string itemId = item.Tag?.ToString() ?? "";
                 if (string.Equals(itemId, savedOcrMethod, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                    }
                     ocrMethodComboBox.SelectedItem = item;
                     break;
                 }
@@ -412,11 +433,17 @@ namespace UGTLive
             // Get auto-translate setting from config instead of MainWindow
             // This ensures the setting persists across application restarts
             autoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAutoTranslateEnabled();
-            Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
+            }
             
             // Get pause OCR while translating setting from config
             pauseOcrWhileTranslatingCheckBox.IsChecked = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
-            Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
+            }
             
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
@@ -428,6 +455,9 @@ namespace UGTLive
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
             windowsVisibleInScreenshotsCheckBox.IsChecked = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+            
+            // Load debug logging settings
+            logExtraDebugStuffCheckBox.IsChecked = ConfigManager.Instance.GetLogExtraDebugStuff();
             
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
@@ -475,9 +505,12 @@ namespace UGTLive
             maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
             
-            Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
-            Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
-            Console.WriteLine($"SettingsWindow: Loaded overlay clear delay: {overlayClearDelayTextBox.Text}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
+                Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
+                Console.WriteLine($"SettingsWindow: Loaded overlay clear delay: {overlayClearDelayTextBox.Text}");
+            }
             
             // Reattach event handlers
             blockDetectionPowerTextBox.LostFocus += BlockDetectionPowerTextBox_LostFocus;
@@ -646,7 +679,10 @@ namespace UGTLive
                 if (string.Equals(item.Tag?.ToString(), currentVoice, StringComparison.OrdinalIgnoreCase))
                 {
                     openAiVoiceComboBox.SelectedItem = item;
-                    Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
+                    }
                     break;
                 }
             }
@@ -1332,6 +1368,16 @@ namespace UGTLive
             MainWindow.Instance?.UpdateCaptureExclusion();
         }
         
+        private void LogExtraDebugStuffCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool enabled = logExtraDebugStuffCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetLogExtraDebugStuff(enabled);
+            Console.WriteLine($"Log extra debug stuff: {enabled}");
+        }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1511,7 +1557,10 @@ namespace UGTLive
         private void TranslationServiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Skip event if we're initializing
-            Console.WriteLine($"SettingsWindow.TranslationServiceComboBox_SelectionChanged called (isInitializing: {_isInitializing})");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow.TranslationServiceComboBox_SelectionChanged called (isInitializing: {_isInitializing})");
+            }
             if (_isInitializing)
             {
                 Console.WriteLine("Skipping translation service change during initialization");
@@ -1954,7 +2003,10 @@ namespace UGTLive
                 
                 // Update the config
                 ConfigManager.Instance.SetGeminiApiKey(apiKey);
-                Console.WriteLine("Gemini API key updated");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Gemini API key updated");
+                }
             }
             catch (Exception ex)
             {
@@ -3094,7 +3146,10 @@ namespace UGTLive
                 // Set the ListView's ItemsSource
                 ignorePhraseListView.ItemsSource = _ignorePhrases;
                 
-                Console.WriteLine($"Loaded {_ignorePhrases.Count} ignore phrases");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Loaded {_ignorePhrases.Count} ignore phrases");
+                }
             }
             catch (Exception ex)
             {

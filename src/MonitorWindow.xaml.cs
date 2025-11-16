@@ -1797,20 +1797,29 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine($"MonitorWindow: AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow: AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                }
                 if (playAllAudioButton != null)
                 {
                     if (isPlaying)
                     {
                         playAllAudioButton.Content = "🔇 Stop";
                         playAllAudioButton.ToolTip = "Stop playing all audio";
-                        Console.WriteLine($"MonitorWindow: Play All button updated to: 🔇 Stop");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"MonitorWindow: Play All button updated to: 🔇 Stop");
+                        }
                     }
                     else
                     {
                         playAllAudioButton.Content = "🔊 All";
                         playAllAudioButton.ToolTip = "Play all audio files in order";
-                        Console.WriteLine($"MonitorWindow: Play All button updated to: 🔊 All");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"MonitorWindow: Play All button updated to: 🔊 All");
+                        }
                     }
                 }
                 else

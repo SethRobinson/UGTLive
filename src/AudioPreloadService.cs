@@ -46,11 +46,17 @@ namespace UGTLive
         {
             if (textObjects == null || textObjects.Count == 0)
             {
-                Console.WriteLine("AudioPreloadService: No text objects to preload");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: No text objects to preload");
+                }
                 return;
             }
             
-            Console.WriteLine($"AudioPreloadService: Starting source audio preload for {textObjects.Count} text objects");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Starting source audio preload for {textObjects.Count} text objects");
+            }
             
             // Cancel any existing preloads
             CancelAllPreloads();
@@ -70,11 +76,17 @@ namespace UGTLive
                 if (!string.IsNullOrWhiteSpace(customVoice))
                 {
                     voice = customVoice;
-                    Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    }
                 }
             }
             
-            Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            }
             
             // Preload audio for each text object
             var tasks = new List<Task>();
@@ -97,22 +109,34 @@ namespace UGTLive
                 }
                 
                 // Create task for this text object
-                Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.Text.Substring(0, Math.Min(50, textObj.Text.Length))}...'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.Text.Substring(0, Math.Min(50, textObj.Text.Length))}...'");
+                }
                 var task = PreloadAudioForTextObjectAsync(textObj, textObj.Text, service, voice, isSource: true, cancellationToken);
                 tasks.Add(task);
             }
             
-            Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            }
             
             // Wait for all tasks to complete (or cancellation)
             try
             {
                 await Task.WhenAll(tasks);
-                Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                }
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                }
             }
         }
         
@@ -120,11 +144,17 @@ namespace UGTLive
         {
             if (textObjects == null || textObjects.Count == 0)
             {
-                Console.WriteLine("AudioPreloadService: No text objects to preload");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: No text objects to preload");
+                }
                 return;
             }
             
-            Console.WriteLine($"AudioPreloadService: Starting target audio preload for {textObjects.Count} text objects");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Starting target audio preload for {textObjects.Count} text objects");
+            }
             
             // Cancel any existing preloads
             CancelAllPreloads();
@@ -144,11 +174,17 @@ namespace UGTLive
                 if (!string.IsNullOrWhiteSpace(customVoice))
                 {
                     voice = customVoice;
-                    Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    }
                 }
             }
             
-            Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            }
             
             // Preload audio for each text object
             var tasks = new List<Task>();
@@ -171,22 +207,34 @@ namespace UGTLive
                 }
                 
                 // Create task for this text object
-                Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.TextTranslated.Substring(0, Math.Min(50, textObj.TextTranslated.Length))}...'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.TextTranslated.Substring(0, Math.Min(50, textObj.TextTranslated.Length))}...'");
+                }
                 var task = PreloadAudioForTextObjectAsync(textObj, textObj.TextTranslated, service, voice, isSource: false, cancellationToken);
                 tasks.Add(task);
             }
             
-            Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            }
             
             // Wait for all tasks to complete (or cancellation)
             try
             {
                 await Task.WhenAll(tasks);
-                Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                }
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                }
             }
         }
         
@@ -245,7 +293,10 @@ namespace UGTLive
                         
                         try
                         {
-                            Console.WriteLine($"AudioPreloadService: Generating audio for text object {textObj.ID}, service={service}, voice={voice}");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"AudioPreloadService: Generating audio for text object {textObj.ID}, service={service}, voice={voice}");
+                            }
                             
                             if (service == "ElevenLabs")
                             {
@@ -253,7 +304,10 @@ namespace UGTLive
                                 string apiKey = ConfigManager.Instance.GetElevenLabsApiKey();
                                 if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
                                 {
-                                    Console.WriteLine($"AudioPreloadService: ElevenLabs API key not configured, skipping preload");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"AudioPreloadService: ElevenLabs API key not configured, skipping preload");
+                                    }
                                     break;
                                 }
                                 
@@ -265,7 +319,10 @@ namespace UGTLive
                                 string apiKey = ConfigManager.Instance.GetGoogleTtsApiKey();
                                 if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
                                 {
-                                    Console.WriteLine($"AudioPreloadService: Google TTS API key not configured, skipping preload");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"AudioPreloadService: Google TTS API key not configured, skipping preload");
+                                    }
                                     break;
                                 }
                                 
@@ -275,7 +332,10 @@ namespace UGTLive
                             }
                             else
                             {
-                                Console.WriteLine($"AudioPreloadService: Unknown TTS service: {service}");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Unknown TTS service: {service}");
+                                }
                                 break;
                             }
                             
@@ -333,7 +393,10 @@ namespace UGTLive
                     
                     if (audioFilePath != null && File.Exists(audioFilePath))
                     {
-                        Console.WriteLine($"AudioPreloadService: Successfully generated audio file: {audioFilePath} for text object {textObj.ID}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"AudioPreloadService: Successfully generated audio file: {audioFilePath} for text object {textObj.ID}");
+                        }
                         
                         // Update TextObject on UI thread
                         await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -342,13 +405,19 @@ namespace UGTLive
                             {
                                 textObj.SourceAudioFilePath = audioFilePath;
                                 textObj.SourceAudioReady = true;
-                                Console.WriteLine($"AudioPreloadService: Set source audio ready for text object {textObj.ID}");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Set source audio ready for text object {textObj.ID}");
+                                }
                             }
                             else
                             {
                                 textObj.TargetAudioFilePath = audioFilePath;
                                 textObj.TargetAudioReady = true;
-                                Console.WriteLine($"AudioPreloadService: Set target audio ready for text object {textObj.ID}");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Set target audio ready for text object {textObj.ID}");
+                                }
                             }
                             
                             // Refresh overlays
@@ -361,7 +430,10 @@ namespace UGTLive
                     }
                     else
                     {
-                        Console.WriteLine($"AudioPreloadService: Failed to generate audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"AudioPreloadService: Failed to generate audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                        }
                     }
                 }
                 finally

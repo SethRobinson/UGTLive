@@ -105,8 +105,21 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Log Extra Debug Stuff Checkbox -->
+                                <CheckBox x:Name="logExtraDebugStuffCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="LogExtraDebugStuffCheckBox_CheckedChanged" 
+                                         Unchecked="LogExtraDebugStuffCheckBox_CheckedChanged"
+                                         Content="Log extra debug stuff"
+                                         ToolTip="If checked, verbose debug messages will be logged. Uncheck (default) to only log errors and important messages."/>
+                                
                                 <!-- Windows Visible in Screenshots Checkbox -->
-                                <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Column="0" Grid.ColumnSpan="2"
+                                <CheckBox x:Name="windowsVisibleInScreenshotsCheckBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                          Margin="0,5" IsChecked="False" 
                                          Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
                                          Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
