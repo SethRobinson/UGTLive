@@ -2460,13 +2460,10 @@ namespace UGTLive
             html.AppendLine(".text-overlay {");
             html.AppendLine("  position: absolute;");
             html.AppendLine("  box-sizing: border-box;");
-            html.AppendLine("  overflow: hidden;");
+            html.AppendLine("  overflow: visible;"); // Allow audio icon to show outside box
             html.AppendLine("  white-space: normal;");
             html.AppendLine("  word-wrap: break-word;");
-            html.AppendLine("  padding-right: 24px;"); // Add padding to make room for icon
-            html.AppendLine("  padding-left: 0;");
-            html.AppendLine("  padding-top: 0;");
-            html.AppendLine("  padding-bottom: 0;");
+            html.AppendLine("  padding: 2px;"); // Minimal padding for visual spacing
             
             if (canInteract)
             {
@@ -2479,7 +2476,7 @@ namespace UGTLive
                 html.AppendLine("  user-select: none;");
             }
             html.AppendLine("  margin: 0;");
-            html.AppendLine("  line-height: 1;");
+            html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
             html.AppendLine("  display: flex;");
             html.AppendLine("  align-items: center;");
             html.AppendLine("  justify-content: flex-start;");
@@ -2490,10 +2487,18 @@ namespace UGTLive
             html.AppendLine("  align-items: flex-start;");
             html.AppendLine("  justify-content: center;");
             html.AppendLine("}");
+            html.AppendLine(".text-content {");
+            html.AppendLine("  flex: 1;"); // Take up all available space
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  width: 100%;");
+            html.AppendLine("  height: 100%;");
+            html.AppendLine("}");
             html.AppendLine(".audio-icon {");
             html.AppendLine("  position: absolute;");
-            html.AppendLine("  top: 2px;");
-            html.AppendLine("  right: 2px;");
+            html.AppendLine("  top: 0px;"); // Align with top of text box
+            html.AppendLine("  left: -24px;"); // Position outside to the left
             html.AppendLine("  width: 20px;");
             html.AppendLine("  height: 20px;");
             html.AppendLine("  cursor: pointer;");
@@ -2535,12 +2540,32 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
-            html.AppendLine("function fitTextToBox(element) {");
+            html.AppendLine("function fitTextToBox(element, container) {");
             html.AppendLine("  const minSize = 8;");
-            html.AppendLine("  const maxSize = 64;");
+            html.AppendLine("  const maxSize = 128;"); // Increased from 64 to allow larger text
+            html.AppendLine("  ");
+            html.AppendLine("  // Use container for size if provided, otherwise use element");
+            html.AppendLine("  const sizeRef = container || element;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Get computed style to check for padding and vertical text");
+            html.AppendLine("  const computedStyle = window.getComputedStyle(sizeRef);");
+            html.AppendLine("  const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
+            html.AppendLine("  ");
+            html.AppendLine("  // Calculate initial font size based on box dimensions");
+            html.AppendLine("  // Use height for horizontal text, width for vertical text");
+            html.AppendLine("  const boxHeight = sizeRef.clientHeight;");
+            html.AppendLine("  const boxWidth = sizeRef.clientWidth;");
+            html.AppendLine("  let estimatedSize;");
+            html.AppendLine("  if (isVertical) {");
+            html.AppendLine("    estimatedSize = Math.floor(boxWidth * 0.7); // 70% of width for vertical");
+            html.AppendLine("  } else {");
+            html.AppendLine("    estimatedSize = Math.floor(boxHeight * 0.7); // 70% of height for horizontal");
+            html.AppendLine("  }");
+            html.AppendLine("  estimatedSize = Math.max(minSize, Math.min(maxSize, estimatedSize));");
+            html.AppendLine("  ");
             html.AppendLine("  let bestSize = minSize;");
             html.AppendLine("  ");
-            html.AppendLine("  // Binary search for the best font size");
+            html.AppendLine("  // Binary search for the best font size, starting from estimated size");
             html.AppendLine("  let low = minSize;");
             html.AppendLine("  let high = maxSize;");
             html.AppendLine("  ");
@@ -2548,7 +2573,11 @@ namespace UGTLive
             html.AppendLine("    const mid = (low + high) / 2;");
             html.AppendLine("    element.style.fontSize = mid + 'px';");
             html.AppendLine("    ");
-            html.AppendLine("    if (element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth) {");
+            html.AppendLine("    // Check if content fits (including scrollable content)");
+            html.AppendLine("    const fitsHeight = element.scrollHeight <= element.clientHeight;");
+            html.AppendLine("    const fitsWidth = element.scrollWidth <= element.clientWidth;");
+            html.AppendLine("    ");
+            html.AppendLine("    if (fitsHeight && fitsWidth) {");
             html.AppendLine("      bestSize = mid;");
             html.AppendLine("      low = mid;");
             html.AppendLine("    } else {");
@@ -2556,12 +2585,17 @@ namespace UGTLive
             html.AppendLine("    }");
             html.AppendLine("  }");
             html.AppendLine("  ");
+            html.AppendLine("  // Apply the best size found");
             html.AppendLine("  element.style.fontSize = bestSize + 'px';");
             html.AppendLine("}");
             html.AppendLine("");
             html.AppendLine("window.addEventListener('load', function() {");
             html.AppendLine("  const overlays = document.querySelectorAll('.text-overlay');");
-            html.AppendLine("  overlays.forEach(overlay => fitTextToBox(overlay));");
+            html.AppendLine("  overlays.forEach(overlay => {");
+            html.AppendLine("    const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("    if (textContent) fitTextToBox(textContent, overlay);");
+            html.AppendLine("    else fitTextToBox(overlay); // Fallback for overlays without text-content wrapper");
+            html.AppendLine("  });");
             html.AppendLine("});");
             html.AppendLine("");
             html.AppendLine("let currentlyPlayingId = null;");
@@ -2726,13 +2760,17 @@ namespace UGTLive
                         double width = textObj.Width;
                         double height = textObj.Height;
                         
+                        // Calculate initial font size based on box height (will be refined by JavaScript)
+                        // Use 70% of height as a starting point, ensuring it's reasonable
+                        double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
+                        
                         // Build the div for this text object
                         string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
                             $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
                             $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
-                            $"font-size: 16px;";
+                            $"font-size: {initialFontSize}px;";
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
                         html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");
@@ -2783,7 +2821,8 @@ namespace UGTLive
                             html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
                         
-                        html.Append(encodedText);
+                        // Wrap text in span to isolate it from audio icon in flex layout
+                        html.Append($"<span class='text-content'>{encodedText}</span>");
                         html.AppendLine("</div>");
                     }
                 }
