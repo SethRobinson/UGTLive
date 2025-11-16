@@ -836,6 +836,20 @@ namespace UGTLive
             html.AppendLine(".audio-icon:hover {");
             html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
             html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading {");
+            html.AppendLine("  background: rgba(255, 140, 0, 0.6);");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading:hover {");
+            html.AppendLine("  background: rgba(255, 140, 0, 0.8);");
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay.playing {");
+            html.AppendLine("  animation: playingPulse 1.5s ease-in-out infinite;");
+            html.AppendLine("  box-shadow: 0 0 10px rgba(100, 200, 255, 0.6);");
+            html.AppendLine("}");
+            html.AppendLine("@keyframes playingPulse {");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.6); }");
+            html.AppendLine("  50% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.9); }");
+            html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
             html.AppendLine("function fitTextToBox(element) {");
@@ -892,8 +906,10 @@ namespace UGTLive
             html.AppendLine("  const audioPath = isSource ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
             html.AppendLine("  if (!audioPath) return;");
             html.AppendLine("  ");
-            html.AppendLine("  // Update icon to stop icon");
+            html.AppendLine("  // Update icon to stop icon and add playing class to overlay");
             html.AppendLine("  icon.textContent = '⏹️';");
+            html.AppendLine("  icon.classList.remove('loading');");
+            html.AppendLine("  overlay.classList.add('playing');");
             html.AppendLine("  currentlyPlayingId = textObjectId;");
             html.AppendLine("  ");
             html.AppendLine("  const message = {");
@@ -917,9 +933,16 @@ namespace UGTLive
             html.AppendLine("  ");
             html.AppendLine("  if (isPlaying) {");
             html.AppendLine("    icon.textContent = '⏹️';");
+            html.AppendLine("    icon.classList.remove('loading');");
+            html.AppendLine("    overlay.classList.add('playing');");
             html.AppendLine("    currentlyPlayingId = textObjectId;");
             html.AppendLine("  } else {");
-            html.AppendLine("    icon.textContent = '🔊';");
+            html.AppendLine("    // Check if audio is ready");
+            html.AppendLine("    const isReady = icon.getAttribute('data-is-ready') === 'true';");
+            html.AppendLine("    icon.textContent = isReady ? '🔊' : '⏳';");
+            html.AppendLine("    if (!isReady) icon.classList.add('loading');");
+            html.AppendLine("    else icon.classList.remove('loading');");
+            html.AppendLine("    overlay.classList.remove('playing');");
             html.AppendLine("    if (currentlyPlayingId === textObjectId) {");
             html.AppendLine("      currentlyPlayingId = null;");
             html.AppendLine("    }");
@@ -1048,20 +1071,46 @@ namespace UGTLive
                         html.Append($"data-source-ready='{textObj.SourceAudioReady.ToString().ToLower()}' ");
                         html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'>");
                         
-                        // Add speaker icon if audio is ready
-                        // Show target audio if in Translated mode and available, otherwise show source audio
-                        bool showTargetAudio = isTranslated && textObj.TargetAudioReady;
-                        bool showSourceAudio = !isTranslated && textObj.SourceAudioReady;
-                        // If in Translated mode but target audio not ready, fall back to source audio
-                        if (isTranslated && !textObj.TargetAudioReady && textObj.SourceAudioReady)
-                        {
-                            showSourceAudio = true;
-                        }
+                        // Add speaker icon - show if preload is enabled
+                        string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                        bool preloadEnabled = preloadMode != "Off";
                         
-                        if (showTargetAudio || showSourceAudio)
+                        if (preloadEnabled)
                         {
-                            bool isSource = showSourceAudio;
-                            html.Append($"<div class='audio-icon' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>🔊</div>");
+                            // Determine which audio should be shown for current mode
+                            bool audioIsReady = false;
+                            bool isSource = true;
+                            
+                            // Only show speaker icon if the EXPECTED audio for current mode is ready
+                            // (no visual fallback - but clicking will still try fallback audio)
+                            if (isTranslated)
+                            {
+                                // In translated mode, only show speaker if target audio is ready
+                                if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                                {
+                                    audioIsReady = true;
+                                    isSource = false;
+                                }
+                                else
+                                {
+                                    // Show hourglass but set isSource for fallback playback if user clicks
+                                    isSource = textObj.SourceAudioReady ? true : false;
+                                }
+                            }
+                            else
+                            {
+                                // In source mode, only show speaker if source audio is ready
+                                if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                                {
+                                    audioIsReady = true;
+                                    isSource = true;
+                                }
+                            }
+                            
+                            // Show icon with appropriate state
+                            string iconEmoji = audioIsReady ? "🔊" : "⏳";
+                            string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
+                            html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
                         
                         html.Append(encodedText);
@@ -1116,13 +1165,7 @@ namespace UGTLive
                         
                         if (!string.IsNullOrEmpty(audioPath))
                         {
-                            // Update icon to stop icon before playing
-                            if (!string.IsNullOrEmpty(textObjectId))
-                            {
-                                UpdateAudioIconInWebView(textObjectId, true);
-                            }
-                            
-                            // Play audio and update icon when done
+                            // Play audio - the AudioPlaybackManager event will update icons
                             _ = PlayAudioAndUpdateIcon(audioPath, textObjectId);
                         }
                     }
@@ -1166,7 +1209,7 @@ namespace UGTLive
         {
             try
             {
-                await AudioPlaybackManager.Instance.PlayAudioFileAsync(audioPath);
+                await AudioPlaybackManager.Instance.PlayAudioFileAsync(audioPath, textObjectId);
                 
                 // Update icon back to speaker when playback finishes
                 if (!string.IsNullOrEmpty(textObjectId))
@@ -1866,7 +1909,7 @@ namespace UGTLive
             {
                 if (textOverlayWebView?.CoreWebView2 != null)
                 {
-                    // Update all icons - set the playing one to stop icon, others to speaker
+                    // Update all icons and overlays - set playing one to stop icon with playing class
                     string script = $@"
                         (function() {{
                             const allOverlays = document.querySelectorAll('.text-overlay');
@@ -1876,8 +1919,14 @@ namespace UGTLive
                                     const overlayId = overlay.id.replace('overlay-', '');
                                     if (overlayId === '{textObjectId ?? ""}') {{
                                         icon.textContent = '⏹️';
+                                        icon.classList.remove('loading');
+                                        overlay.classList.add('playing');
                                     }} else {{
-                                        icon.textContent = '🔊';
+                                        const isReady = icon.getAttribute('data-is-ready') === 'true';
+                                        icon.textContent = isReady ? '🔊' : '⏳';
+                                        if (!isReady) icon.classList.add('loading');
+                                        else icon.classList.remove('loading');
+                                        overlay.classList.remove('playing');
                                     }}
                                 }}
                             }});
@@ -2050,6 +2099,20 @@ namespace UGTLive
             html.AppendLine(".audio-icon:hover {");
             html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
             html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading {");
+            html.AppendLine("  background: rgba(255, 140, 0, 0.6);");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading:hover {");
+            html.AppendLine("  background: rgba(255, 140, 0, 0.8);");
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay.playing {");
+            html.AppendLine("  animation: playingPulse 1.5s ease-in-out infinite;");
+            html.AppendLine("  box-shadow: 0 0 10px rgba(100, 200, 255, 0.6);");
+            html.AppendLine("}");
+            html.AppendLine("@keyframes playingPulse {");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.6); }");
+            html.AppendLine("  50% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.9); }");
+            html.AppendLine("}");
             
             // Add font imports if needed
             html.AppendLine("</style>");
@@ -2191,20 +2254,46 @@ namespace UGTLive
                     
                     html.AppendLine($"\">");
                     
-                    // Add speaker icon if audio is ready
-                    // Show target audio if in Translated mode and available, otherwise show source audio
-                    bool showTargetAudio = isTranslated && textObj.TargetAudioReady;
-                    bool showSourceAudio = !isTranslated && textObj.SourceAudioReady;
-                    // If in Translated mode but target audio not ready, fall back to source audio
-                    if (isTranslated && !textObj.TargetAudioReady && textObj.SourceAudioReady)
-                    {
-                        showSourceAudio = true;
-                    }
+                    // Add speaker icon - show if preload is enabled
+                    string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                    bool preloadEnabled = preloadMode != "Off";
                     
-                    if (showTargetAudio || showSourceAudio)
+                    if (preloadEnabled)
                     {
-                        bool isSource = showSourceAudio;
-                        html.AppendLine($"<div class=\"audio-icon\" onclick=\"handleAudioIconClick('{textObj.ID}', {isSource.ToString().ToLower()})\">🔊</div>");
+                        // Determine which audio should be shown for current mode
+                        bool audioIsReady = false;
+                        bool isSource = true;
+                        
+                        // Only show speaker icon if the EXPECTED audio for current mode is ready
+                        // (no visual fallback - but clicking will still try fallback audio)
+                        if (isTranslated)
+                        {
+                            // In translated mode, only show speaker if target audio is ready
+                            if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                            {
+                                audioIsReady = true;
+                                isSource = false;
+                            }
+                            else
+                            {
+                                // Show hourglass but set isSource for fallback playback if user clicks
+                                isSource = textObj.SourceAudioReady ? true : false;
+                            }
+                        }
+                        else
+                        {
+                            // In source mode, only show speaker if source audio is ready
+                            if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                            {
+                                audioIsReady = true;
+                                isSource = true;
+                            }
+                        }
+                        
+                        // Show icon with appropriate state
+                        string iconEmoji = audioIsReady ? "🔊" : "⏳";
+                        string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
+                        html.AppendLine($"<div class=\"{iconClass}\" data-is-ready=\"{audioIsReady.ToString().ToLower()}\" onclick=\"handleAudioIconClick('{textObj.ID}', {isSource.ToString().ToLower()})\">{iconEmoji}</div>");
                     }
                     
                     html.AppendLine($"<span class=\"overlay-content\">{displayText}</span>");

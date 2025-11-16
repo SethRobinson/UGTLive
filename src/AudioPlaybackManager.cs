@@ -19,6 +19,7 @@ namespace UGTLive
         private bool _autoPlayTriggered = false;
         private CancellationTokenSource? _playbackCancellationToken;
         private readonly object _playbackLock = new object();
+        private string? _currentPlayingTextObjectId = null;
         
         // Event to notify when playback state changes
         public event EventHandler<bool>? PlayAllStateChanged;
@@ -49,11 +50,11 @@ namespace UGTLive
                 return;
             }
             
-            // Stop any currently playing audio first (but don't reset the playing text object notification yet)
-            // However, if this is part of PlayAll, we don't want to reset _isPlayingAll
+            // Stop any currently playing audio first
+            // Pass the new textObjectId so we can transition directly without intermediate null state
             if (!isPartOfPlayAll)
             {
-                StopCurrentPlayback();
+                StopCurrentPlayback(textObjectId);
             }
             else
             {
@@ -75,13 +76,12 @@ namespace UGTLive
                     CleanupCurrentPlayback();
                     _isPlaying = false;
                 }
-                OnCurrentPlayingTextObjectChanged(null);
-            }
-            
-            // Notify which text object is playing (if provided) - do this after stopping to avoid race conditions
-            if (!string.IsNullOrEmpty(textObjectId))
-            {
-                OnCurrentPlayingTextObjectChanged(textObjectId);
+                // Transition directly to new playing state if provided
+                lock (_playbackLock)
+                {
+                    _currentPlayingTextObjectId = string.IsNullOrEmpty(textObjectId) ? null : textObjectId;
+                }
+                OnCurrentPlayingTextObjectChanged(string.IsNullOrEmpty(textObjectId) ? null : textObjectId);
             }
             
             // Play the new audio file
@@ -118,6 +118,9 @@ namespace UGTLive
                             return;
                         }
                         
+                        // Capture the textObjectId for this playback session
+                        string? thisSessionTextObjectId = textObjectId;
+                        
                         _currentPlayer.PlaybackStopped += (sender, args) =>
                         {
                             lock (_playbackLock)
@@ -125,8 +128,16 @@ namespace UGTLive
                                 _isPlaying = false;
                                 CleanupCurrentPlayback();
                             }
-                            // Notify that playback stopped
-                            OnCurrentPlayingTextObjectChanged(null);
+                            // Only notify that playback stopped if this was the currently playing audio
+                            // (prevents old audio's stopped event from clearing new audio's playing state)
+                            lock (_playbackLock)
+                            {
+                                if (_currentPlayingTextObjectId == thisSessionTextObjectId)
+                                {
+                                    _currentPlayingTextObjectId = null;
+                                    OnCurrentPlayingTextObjectChanged(null);
+                                }
+                            }
                         };
                         
                         // Final null check before playing
@@ -240,7 +251,7 @@ namespace UGTLive
             });
         }
         
-        public void StopCurrentPlayback()
+        public void StopCurrentPlayback(string? nextTextObjectId = null)
         {
             bool wasPlayingAll = false;
             lock (_playbackLock)
@@ -278,9 +289,13 @@ namespace UGTLive
                 _autoPlayTriggered = false; // Reset auto-play trigger flag when manually stopped
             }
             
-            // Notify that playback stopped (but only if we're not starting a new one)
-            // This will be set by the new PlayAudioFileAsync call if needed
-            OnCurrentPlayingTextObjectChanged(null);
+            // Update current playing ID and transition state
+            // This avoids race condition when switching between playing audio files
+            lock (_playbackLock)
+            {
+                _currentPlayingTextObjectId = nextTextObjectId;
+            }
+            OnCurrentPlayingTextObjectChanged(nextTextObjectId);
             
             // Notify if we were playing all
             if (wasPlayingAll)
@@ -375,6 +390,10 @@ namespace UGTLive
             }
             
             // Notify that playback stopped (but we're about to start new playback)
+            lock (_playbackLock)
+            {
+                _currentPlayingTextObjectId = null;
+            }
             OnCurrentPlayingTextObjectChanged(null);
             
             // Only notify if we were playing all and are stopping (not starting new)
@@ -464,6 +483,10 @@ namespace UGTLive
                     {
                         Console.WriteLine($"Error playing audio for text object {textObj.ID}: {ex.Message}");
                         // Notify that this item stopped playing due to error
+                        lock (_playbackLock)
+                        {
+                            _currentPlayingTextObjectId = null;
+                        }
                         OnCurrentPlayingTextObjectChanged(null);
                     }
                 }
