@@ -82,6 +82,13 @@ namespace UGTLive
         private WindowInteropHelper helper;
         private System.Drawing.Rectangle captureRect;
         
+        // Translation status timer and tracking
+        private DispatcherTimer? _translationStatusTimer;
+        private DateTime _translationStartTime;
+        private bool _isShowingSettling = false;
+        
+        // OCR status display (no tracking - handled by Logic.cs)
+        
         // Store previous capture position to calculate offset
         private int previousCaptureX;
         private int previousCaptureY;
@@ -898,8 +905,13 @@ namespace UGTLive
             RECT windowRect;
             GetWindowRect(hwnd, out windowRect);
 
-            // Use the custom header's height
-            int customTitleBarHeight = TITLE_BAR_HEIGHT;
+            // Get the actual header height (handles wrapping buttons dynamically)
+            int customTitleBarHeight = TITLE_BAR_HEIGHT; // Default fallback
+            if (TopControlGrid != null && TopControlGrid.ActualHeight > 0)
+            {
+                customTitleBarHeight = (int)Math.Ceiling(TopControlGrid.ActualHeight);
+            }
+            
             // Border thickness settings
             int leftBorderThickness = 9;  // Increased from 7 to 9
             int rightBorderThickness = 8; // Adjusted to 8
@@ -967,7 +979,8 @@ namespace UGTLive
                 ChatBoxWindow.Instance?.HideTranslationStatus();
                 
                 // Hide OCR status when stopping
-                MonitorWindow.Instance.HideOCRStatus();
+                Logic.Instance.HideOCRStatus();
+                HideTranslationStatus();
                 
                 // Optional: Add a way to clear overlays manually if needed
                 // You could add a separate "Clear" button or keyboard shortcut
@@ -987,8 +1000,7 @@ namespace UGTLive
                 SetOCRCheckIsWanted(true);
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
                 
-                // Show OCR status when starting
-                MonitorWindow.Instance.ShowOCRStatus();
+                // Show OCR status when starting (handled by Logic.cs)
             }
         }
 
@@ -1275,8 +1287,7 @@ namespace UGTLive
 
                     SetOCRCheckIsWanted(false);
                     
-                    // Notify that OCR is starting
-                    MonitorWindow.Instance.NotifyOCRStarted();
+                    // OCR timing is now tracked in Logic.cs via NotifyOCRCompleted()
 
                     // Check if we're using Windows OCR or Google Vision - if so, process in memory without saving
                     string ocrMethod = GetSelectedOcrMethod();
@@ -2493,6 +2504,150 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error refreshing MainWindow overlays: {ex.Message}");
+            }
+        }
+        
+        // Header size changed - adjust overlay margin dynamically and update capture rect
+        private void HeaderBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (OverlayContent == null || TopControlGrid == null)
+                return;
+                
+            // Get the actual height of the header (resize strip + header content)
+            double headerHeight = TopControlGrid.ActualHeight;
+            
+            // Update the overlay content margin to match header height
+            OverlayContent.Margin = new Thickness(0, headerHeight, 0, 0);
+            
+            // Update capture rectangle to account for new header height
+            UpdateCaptureRect();
+        }
+        
+        // Initialize the translation status timer
+        private void InitializeTranslationStatusTimer()
+        {
+            _translationStatusTimer = new DispatcherTimer();
+            _translationStatusTimer.Interval = TimeSpan.FromSeconds(1);
+            _translationStatusTimer.Tick += TranslationStatusTimer_Tick;
+        }
+        
+        // Update the translation status timer
+        private void TranslationStatusTimer_Tick(object? sender, EventArgs e)
+        {
+            TimeSpan elapsed = DateTime.Now - _translationStartTime;
+            string service = ConfigManager.Instance.GetCurrentTranslationService();
+            
+            Dispatcher.Invoke(() =>
+            {
+                if (translationStatusLabel != null)
+                {
+                    translationStatusLabel.Text = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                }
+            });
+        }
+        
+        // Show the translation status
+        public void ShowTranslationStatus(bool bSettling)
+        {
+            if (bSettling)
+            {
+                _isShowingSettling = true;
+                Dispatcher.Invoke(() =>
+                {
+                    if (translationStatusLabel != null)
+                        translationStatusLabel.Text = "Settling...";
+                    
+                    if (translationStatusBorder != null)
+                        translationStatusBorder.Visibility = Visibility.Visible;
+                });
+                return;
+            }
+            
+            _isShowingSettling = false;
+            _translationStartTime = DateTime.Now;
+            string service = ConfigManager.Instance.GetCurrentTranslationService();
+            
+            Dispatcher.Invoke(() =>
+            {
+                if (translationStatusLabel != null)
+                    translationStatusLabel.Text = $"Waiting for {service}... 0:00";
+                
+                if (translationStatusBorder != null)
+                    translationStatusBorder.Visibility = Visibility.Visible;
+                
+                // Start the timer if not already running
+                if (_translationStatusTimer == null)
+                {
+                    InitializeTranslationStatusTimer();
+                }
+                
+                if (_translationStatusTimer != null && !_translationStatusTimer.IsEnabled)
+                {
+                    _translationStatusTimer.Start();
+                }
+            });
+        }
+        
+        // Hide the translation status
+        public void HideTranslationStatus()
+        {
+            _isShowingSettling = false;
+            
+            Dispatcher.Invoke(() =>
+            {
+                if (translationStatusBorder != null)
+                    translationStatusBorder.Visibility = Visibility.Collapsed;
+                
+                if (_translationStatusTimer != null && _translationStatusTimer.IsEnabled)
+                {
+                    _translationStatusTimer.Stop();
+                }
+                
+                // Logic.cs will handle showing OCR status if needed
+            });
+        }
+        
+        // OCR Status Display Methods (called by Logic.cs)
+        
+        // Update OCR status display with computed values from Logic
+        public void UpdateOCRStatusDisplay(string ocrMethod, double fps)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => UpdateOCRStatusDisplay(ocrMethod, fps));
+                return;
+            }
+            
+            // Don't show if translation or settling is in progress
+            if (_translationStatusTimer?.IsEnabled == true || _isShowingSettling)
+            {
+                return;
+            }
+            
+            if (translationStatusLabel != null)
+            {
+                translationStatusLabel.Text = $"{ocrMethod} (fps: {fps:F1})";
+            }
+            
+            if (translationStatusBorder != null)
+            {
+                translationStatusBorder.Visibility = Visibility.Visible;
+            }
+        }
+        
+        // Hide OCR status display
+        public void HideOCRStatusDisplay()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => HideOCRStatusDisplay());
+                return;
+            }
+            
+            // Only hide if no translation status is showing
+            if (_translationStatusTimer?.IsEnabled != true && translationStatusBorder != null)
+            {
+                translationStatusBorder.Visibility = Visibility.Collapsed;
             }
         }
         

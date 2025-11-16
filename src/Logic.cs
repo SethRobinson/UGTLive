@@ -75,6 +75,13 @@ namespace UGTLive
         
         // Cancellation token source for in-progress translations
         private CancellationTokenSource? _translationCancellationTokenSource;
+        
+        // Centralized OCR status tracking
+        private DispatcherTimer? _ocrStatusTimer;
+        private bool _isOCRActive = false;
+        private DateTime _lastOcrFrameTime = DateTime.MinValue;
+        private Queue<double> _ocrFrameTimes = new Queue<double>();
+        private const int MAX_FPS_SAMPLES = 10;
 
         // Constructor
         private Logic()
@@ -309,6 +316,8 @@ namespace UGTLive
             if (bResetTranslationStatus)
             {
                 MonitorWindow.Instance.HideTranslationStatus();
+                MainWindow.Instance.HideTranslationStatus();
+                ChatBoxWindow.Instance?.HideTranslationStatus();
             }
             
             // Re-enable OCR if it was paused during translation
@@ -441,7 +450,7 @@ namespace UGTLive
             }
             
             // Notify that OCR has completed
-            MonitorWindow.Instance.NotifyOCRCompleted();
+            NotifyOCRCompleted();
 
             if (waitingForTranslation)
             {
@@ -567,6 +576,7 @@ namespace UGTLive
                                                 Console.WriteLine($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more...");
                                                 MonitorWindow.Instance.ShowTranslationStatus(true); // Keep showing "Settling..."
                                                 ChatBoxWindow.Instance?.ShowTranslationStatus(true);
+                                                MainWindow.Instance.ShowTranslationStatus(true);
                                                 return; 
                                             }
                                         }
@@ -586,6 +596,7 @@ namespace UGTLive
                                         {
                                             MonitorWindow.Instance.ShowTranslationStatus(true); // Show "Settling..."
                                             ChatBoxWindow.Instance?.ShowTranslationStatus(true);
+                                            MainWindow.Instance.ShowTranslationStatus(true);
                                         }
                                         
                                         // Check again for max settle time to ensure it's enforced even with changing content
@@ -1463,7 +1474,7 @@ namespace UGTLive
                 }
                 
                 // Notify that OCR has completed
-                MonitorWindow.Instance.NotifyOCRCompleted();
+                NotifyOCRCompleted();
             }
         }
         
@@ -1531,7 +1542,7 @@ namespace UGTLive
                 }
                 
                 // Notify that OCR has completed
-                MonitorWindow.Instance.NotifyOCRCompleted();
+                NotifyOCRCompleted();
             }
         }
         
@@ -2034,6 +2045,7 @@ namespace UGTLive
             {
                 // Show translation status at the beginning
                 MonitorWindow.Instance.ShowTranslationStatus(false);
+                MainWindow.Instance.ShowTranslationStatus(false);
                 
                 // Also show translation status in ChatBoxWindow if it's open
                 if (ChatBoxWindow.Instance != null)
@@ -2275,6 +2287,135 @@ namespace UGTLive
                 default:
                     return true;
             }
+        }
+        
+        // Centralized OCR Status Management
+        
+        // Calculate average FPS from recent samples
+        private double CalculateAverageFPS()
+        {
+            if (_ocrFrameTimes.Count == 0) return 0.0;
+            
+            double averageFrameTime = _ocrFrameTimes.Average();
+            return averageFrameTime > 0 ? 1.0 / averageFrameTime : 0.0;
+        }
+        
+        // Get the display name for the current OCR method
+        private string GetCurrentOCRMethodDisplayName()
+        {
+            string ocrMethod = ConfigManager.Instance.GetOcrMethod();
+            
+            // Map to display names
+            return ocrMethod switch
+            {
+                "EasyOCR" => "Easy",
+                "Manga OCR" => "Manga",
+                "docTR" => "docTR",
+                "Google Cloud Vision" => "Google",
+                "Windows OCR" => "Windows",
+                _ => "OCR"
+            };
+        }
+        
+        // Centralized method to notify OCR frame completed
+        public void NotifyOCRCompleted()
+        {
+            DateTime now = DateTime.Now;
+            if (_lastOcrFrameTime != DateTime.MinValue)
+            {
+                double frameTime = (now - _lastOcrFrameTime).TotalSeconds;
+                _ocrFrameTimes.Enqueue(frameTime);
+                
+                // Keep only last N samples
+                while (_ocrFrameTimes.Count > MAX_FPS_SAMPLES)
+                {
+                    _ocrFrameTimes.Dequeue();
+                }
+            }
+            _lastOcrFrameTime = now;
+            
+            // Only show OCR status if OCR is still running AND no other status is showing
+            if (MainWindow.Instance.GetIsStarted())
+            {
+                ShowOCRStatus();
+            }
+        }
+        
+        // Show OCR status on both windows
+        public void ShowOCRStatus()
+        {
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                return;
+            }
+            
+            _isOCRActive = true;
+            double fps = CalculateAverageFPS();
+            string ocrMethod = GetCurrentOCRMethodDisplayName();
+            
+            // Update both windows with the same data
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+            });
+            
+            // Start the timer if not already running
+            if (_ocrStatusTimer == null)
+            {
+                _ocrStatusTimer = new DispatcherTimer();
+                _ocrStatusTimer.Interval = TimeSpan.FromMilliseconds(250); // Update 4 times per second
+                _ocrStatusTimer.Tick += OCRStatusTimer_Tick;
+            }
+            
+            if (!_ocrStatusTimer.IsEnabled)
+            {
+                _ocrStatusTimer.Start();
+            }
+        }
+        
+        // OCR status timer tick
+        private void OCRStatusTimer_Tick(object? sender, EventArgs e)
+        {
+            // Check if OCR is still running
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                HideOCRStatus();
+                return;
+            }
+            
+            if (_isOCRActive)
+            {
+                double fps = CalculateAverageFPS();
+                string ocrMethod = GetCurrentOCRMethodDisplayName();
+                
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                    MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                });
+            }
+        }
+        
+        // Hide OCR status on both windows
+        public void HideOCRStatus()
+        {
+            _isOCRActive = false;
+            
+            // Stop the timer
+            if (_ocrStatusTimer != null && _ocrStatusTimer.IsEnabled)
+            {
+                _ocrStatusTimer.Stop();
+            }
+            
+            // Clear frame times
+            _ocrFrameTimes.Clear();
+            
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                MonitorWindow.Instance.HideOCRStatusDisplay();
+                MainWindow.Instance.HideOCRStatusDisplay();
+            });
         }
     }
 }
