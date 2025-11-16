@@ -28,6 +28,7 @@ public partial class App : Application
             new ChatBoxWindow();
             
             // Create main window but don't show it yet
+            // MainWindow will initialize LogWindow after setting up the console
             _mainWindow = new MainWindow();
             
             // We'll attach the keyboard handlers when the windows are loaded

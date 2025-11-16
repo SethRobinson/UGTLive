@@ -371,13 +371,16 @@ namespace UGTLive
         {
             // Make sure the initialization flag is set before anything else
             _isInitializing = true;
-            Console.WriteLine("MainWindow constructor: Setting _isInitializing to true");
             
             _this = this;
             InitializeComponent();
 
             // Initialize console but keep it hidden initially
             InitializeConsole();
+            
+            // Initialize LogWindow after console is set up
+            // This ensures LogWindow wraps the properly configured console output
+            _ = LogWindow.Instance;
             
             // Hide the console window initially
             consoleWindow = GetConsoleWindow();
@@ -1539,16 +1542,15 @@ namespace UGTLive
             Console.InputEncoding = Encoding.UTF8;
             
             // Redirect standard output to the console with UTF-8 encoding
-            StreamWriter standardOutput = new StreamWriter(Console.OpenStandardOutput(), Encoding.UTF8)
+            // Only set if LogWindow hasn't already set up console redirection
+            if (!(Console.Out is MultiTextWriter))
             {
-                AutoFlush = true
-            };
-            Console.SetOut(standardOutput);
-            
-            // Write initial message
-            Console.WriteLine("Console output initialized. Toggle visibility with the Log button.");
-            Console.WriteLine("Note: Text selection is disabled to prevent application freeze.");
-            Console.WriteLine("You can scroll freely, but cannot select/copy text from this console.");
+                StreamWriter standardOutput = new StreamWriter(Console.OpenStandardOutput(), Encoding.UTF8)
+                {
+                    AutoFlush = true
+                };
+                Console.SetOut(standardOutput);
+            }
         }
         
         // Disable console input to prevent app freezing when focus is in the console
@@ -1587,9 +1589,6 @@ namespace UGTLive
                     Console.WriteLine($"Error setting console mode: {Marshal.GetLastWin32Error()}");
                     return;
                 }
-                
-                Console.WriteLine("Console input and QuickEdit mode disabled successfully");
-                Console.WriteLine("NOTE: You cannot select text in this console to prevent app freezing");
             }
             catch (Exception ex)
             {

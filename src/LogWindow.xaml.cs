@@ -56,7 +56,7 @@ namespace UGTLive
         // Initialize console output capture
         private void initializeLogCapture()
         {
-            // Save original output
+            // Save original output (this may be a StreamWriter from MainWindow's InitializeConsole)
             _originalOutput = Console.Out;
             
             // Create a custom StringWriter that writes to both the buffer and the TextBox
