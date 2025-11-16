@@ -455,6 +455,10 @@ namespace UGTLive
                         string key = match.Groups[1].Value;
                         string value = match.Groups[2].Value;
                         
+                        // Trim leading and trailing newlines/whitespace to prevent accumulation
+                        // This preserves intentional newlines within the content but removes leading/trailing ones
+                        value = value.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
+                        
                         // Store the value
                         _configValues[key] = value;
                         
@@ -549,7 +553,9 @@ namespace UGTLive
                 {
                     sb.AppendLine();
                     sb.AppendLine($"<{entry.Key}_start>");
-                    sb.AppendLine(entry.Value);
+                    // Append value directly without adding extra newline to prevent accumulation
+                    sb.Append(entry.Value);
+                    sb.AppendLine();
                     sb.AppendLine($"<{entry.Key}_end>");
                 }
                 
@@ -2404,7 +2410,8 @@ Here is the input JSON:";
         {
             if (!string.IsNullOrWhiteSpace(template))
             {
-                _configValues[LESSON_PROMPT_TEMPLATE] = template;
+                // Trim leading and trailing newlines/whitespace to prevent accumulation
+                _configValues[LESSON_PROMPT_TEMPLATE] = template.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
                 SaveConfig();
                 Console.WriteLine("Lesson prompt template updated");
             }
@@ -2422,7 +2429,8 @@ Here is the input JSON:";
         {
             if (!string.IsNullOrWhiteSpace(urlTemplate))
             {
-                _configValues[LESSON_URL_TEMPLATE] = urlTemplate;
+                // Trim leading and trailing newlines/whitespace to prevent accumulation
+                _configValues[LESSON_URL_TEMPLATE] = urlTemplate.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
                 SaveConfig();
                 Console.WriteLine("Lesson URL template updated");
             }
