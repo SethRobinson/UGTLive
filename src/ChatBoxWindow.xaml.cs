@@ -156,19 +156,25 @@ namespace UGTLive
                 
                 if (!string.IsNullOrWhiteSpace(selectedText.Text))
                 {
-                    // Construct the ChatGPT URL with the selected text and instructions
-                    string chatGptPrompt = $"Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{selectedText.Text}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
-                    string encodedPrompt = HttpUtility.UrlEncode(chatGptPrompt);
-                    string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
+                    // Get prompt and URL templates from config
+                    string promptTemplate = ConfigManager.Instance.GetLessonPromptTemplate();
+                    string urlTemplate = ConfigManager.Instance.GetLessonUrlTemplate();
+                    
+                    // Format the prompt with the selected text
+                    string lessonPrompt = string.Format(promptTemplate, selectedText.Text);
+                    string encodedPrompt = HttpUtility.UrlEncode(lessonPrompt);
+                    
+                    // Format the URL with the encoded prompt
+                    string lessonUrl = string.Format(urlTemplate, encodedPrompt);
                     
                     // Open in default browser
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = chatGptUrl,
+                        FileName = lessonUrl,
                         UseShellExecute = true
                     });
                     
-                    Console.WriteLine($"Opening ChatGPT with selected text: {selectedText.Text.Substring(0, Math.Min(50, selectedText.Text.Length))}...");
+                    Console.WriteLine($"Opening lesson with selected text: {selectedText.Text.Substring(0, Math.Min(50, selectedText.Text.Length))}...");
                 }
                 else
                 {

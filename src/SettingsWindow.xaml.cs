@@ -452,6 +452,16 @@ namespace UGTLive
             // Load Font Settings
             LoadFontSettings();
             
+            // Load Lesson Settings
+            lessonPromptTemplateTextBox.LostFocus -= LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus -= LessonUrlTemplateTextBox_LostFocus;
+            
+            lessonPromptTemplateTextBox.Text = ConfigManager.Instance.GetLessonPromptTemplate();
+            lessonUrlTemplateTextBox.Text = ConfigManager.Instance.GetLessonUrlTemplate();
+            
+            lessonPromptTemplateTextBox.LostFocus += LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus += LessonUrlTemplateTextBox_LostFocus;
+            
             // Set block detection settings directly from BlockDetectionManager
             // Temporarily remove event handlers to prevent triggering changes
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
@@ -4029,6 +4039,52 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
             }
+        }
+        
+        // Lesson Settings event handlers
+        private void LessonPromptTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+            
+            ConfigManager.Instance.SetLessonPromptTemplate(lessonPromptTemplateTextBox.Text);
+            Console.WriteLine("Lesson prompt template updated from settings");
+        }
+        
+        private void LessonUrlTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+            
+            ConfigManager.Instance.SetLessonUrlTemplate(lessonUrlTemplateTextBox.Text);
+            Console.WriteLine("Lesson URL template updated from settings");
+        }
+        
+        private void LessonSetDefaultsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Default prompt template
+            string defaultPrompt = "Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{0}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
+            
+            // Default URL template
+            string defaultUrl = "https://chat.openai.com/?q={0}";
+            
+            // Temporarily remove event handlers to prevent triggering changes
+            lessonPromptTemplateTextBox.LostFocus -= LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus -= LessonUrlTemplateTextBox_LostFocus;
+            
+            // Set defaults in config
+            ConfigManager.Instance.SetLessonPromptTemplate(defaultPrompt);
+            ConfigManager.Instance.SetLessonUrlTemplate(defaultUrl);
+            
+            // Update UI
+            lessonPromptTemplateTextBox.Text = defaultPrompt;
+            lessonUrlTemplateTextBox.Text = defaultUrl;
+            
+            // Re-attach event handlers
+            lessonPromptTemplateTextBox.LostFocus += LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus += LessonUrlTemplateTextBox_LostFocus;
+            
+            Console.WriteLine("Lesson settings reset to defaults");
         }
         
         // Windows API for excluding windows from screen capture

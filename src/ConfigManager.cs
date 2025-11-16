@@ -176,6 +176,10 @@ namespace UGTLive
         public const string SOURCE_LANGUAGE_FONT_BOLD = "source_language_font_bold";
         public const string TARGET_LANGUAGE_FONT_FAMILY = "target_language_font_family";
         public const string TARGET_LANGUAGE_FONT_BOLD = "target_language_font_bold";
+        
+        // Lesson feature settings
+        public const string LESSON_PROMPT_TEMPLATE = "lesson_prompt_template";
+        public const string LESSON_URL_TEMPLATE = "lesson_url_template";
 
         // Singleton instance
         public static ConfigManager Instance
@@ -2384,6 +2388,44 @@ Here is the input JSON:";
             _configValues[TARGET_LANGUAGE_FONT_BOLD] = bold.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Target language font bold set to: {bold}");
+        }
+        
+        // Lesson feature methods
+        
+        // Get/Set Lesson Prompt Template
+        // The template should contain {0} as a placeholder for the text to learn
+        public string GetLessonPromptTemplate()
+        {
+            string defaultValue = "Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{0}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
+            return GetValue(LESSON_PROMPT_TEMPLATE, defaultValue);
+        }
+        
+        public void SetLessonPromptTemplate(string template)
+        {
+            if (!string.IsNullOrWhiteSpace(template))
+            {
+                _configValues[LESSON_PROMPT_TEMPLATE] = template;
+                SaveConfig();
+                Console.WriteLine("Lesson prompt template updated");
+            }
+        }
+        
+        // Get/Set Lesson URL Template
+        // The template should contain {0} as a placeholder for the URL-encoded prompt
+        public string GetLessonUrlTemplate()
+        {
+            string defaultValue = "https://chat.openai.com/?q={0}";
+            return GetValue(LESSON_URL_TEMPLATE, defaultValue);
+        }
+        
+        public void SetLessonUrlTemplate(string urlTemplate)
+        {
+            if (!string.IsNullOrWhiteSpace(urlTemplate))
+            {
+                _configValues[LESSON_URL_TEMPLATE] = urlTemplate;
+                SaveConfig();
+                Console.WriteLine("Lesson URL template updated");
+            }
         }
     }
 }

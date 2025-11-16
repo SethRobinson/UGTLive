@@ -2937,13 +2937,20 @@ namespace UGTLive
                 
                 if (!string.IsNullOrWhiteSpace(textToLearn))
                 {
-                    string chatGptPrompt = $"Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{textToLearn}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
-                    string encodedPrompt = Uri.EscapeDataString(chatGptPrompt);
-                    string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
+                    // Get prompt and URL templates from config
+                    string promptTemplate = ConfigManager.Instance.GetLessonPromptTemplate();
+                    string urlTemplate = ConfigManager.Instance.GetLessonUrlTemplate();
+                    
+                    // Format the prompt with the text to learn
+                    string lessonPrompt = string.Format(promptTemplate, textToLearn);
+                    string encodedPrompt = Uri.EscapeDataString(lessonPrompt);
+                    
+                    // Format the URL with the encoded prompt
+                    string lessonUrl = string.Format(urlTemplate, encodedPrompt);
                     
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                     {
-                        FileName = chatGptUrl,
+                        FileName = lessonUrl,
                         UseShellExecute = true
                     });
                 }

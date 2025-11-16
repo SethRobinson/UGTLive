@@ -105,6 +105,45 @@
                                          ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
                             </Grid>
                         </GroupBox>
+                        
+                        <!-- Lesson Settings -->
+                        <GroupBox Header="Lesson Settings" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Lesson Prompt Template -->
+                                <TextBlock Text="Lesson Prompt Template:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Top" Margin="0,5,10,0"
+                                          ToolTip="The prompt template used when creating lessons. Use {0} as a placeholder for the text to learn."/>
+                                <TextBox x:Name="lessonPromptTemplateTextBox" Grid.Row="0" Grid.Column="1" 
+                                        Margin="0,5" TextWrapping="Wrap" AcceptsReturn="True" 
+                                        MinHeight="100" VerticalScrollBarVisibility="Auto"
+                                        LostFocus="LessonPromptTemplateTextBox_LostFocus"
+                                        ToolTip="The prompt template used when creating lessons. Use {0} as a placeholder for the text to learn."/>
+                                
+                                <!-- Lesson URL Template -->
+                                <TextBlock Text="Lesson URL Template:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="The URL template for the AI service. Use {0} as a placeholder for the URL-encoded prompt. Example: https://chat.openai.com/?q={0}"/>
+                                <TextBox x:Name="lessonUrlTemplateTextBox" Grid.Row="1" Grid.Column="1" 
+                                        Margin="0,10,0,0" LostFocus="LessonUrlTemplateTextBox_LostFocus"
+                                        ToolTip="The URL template for the AI service. Use {0} as a placeholder for the URL-encoded prompt. Example: https://chat.openai.com/?q={0}"/>
+                                
+                                <!-- Set Defaults Button -->
+                                <Button x:Name="lessonSetDefaultsButton" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                        Content="Set default lesson template (for Japanese)" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                        Padding="10,5" Click="LessonSetDefaultsButton_Click"
+                                        ToolTip="Reset both the prompt template and URL template to their default values"/>
+                            </Grid>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
