@@ -135,6 +135,10 @@ namespace UGTLive
         public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
         public const string TTS_MAX_CONCURRENT_DOWNLOADS = "tts_max_concurrent_downloads";
         
+        // UI Icon Constants
+        public const string ICON_SPEAKER_READY = "🔉";
+        public const string ICON_SPEAKER_NOT_READY = "◯";
+        
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
         public const string CHATBOX_FONT_SIZE = "chatbox_font_size";

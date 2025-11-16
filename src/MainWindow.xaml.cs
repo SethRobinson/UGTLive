@@ -1274,7 +1274,7 @@ namespace UGTLive
                                         overlay.classList.add('playing');
                                     }} else {{
                                         const isReady = icon.getAttribute('data-is-ready') === 'true';
-                                        icon.textContent = isReady ? '🔉' : '◯';
+                                        icon.textContent = isReady ? '{ConfigManager.ICON_SPEAKER_READY}' : '{ConfigManager.ICON_SPEAKER_NOT_READY}';
                                         if (!isReady) icon.classList.add('loading');
                                         else icon.classList.remove('loading');
                                         overlay.classList.remove('playing');
@@ -2622,7 +2622,7 @@ namespace UGTLive
             html.AppendLine("  } else {");
             html.AppendLine("    // Check if audio is ready");
             html.AppendLine("    const isReady = icon.getAttribute('data-is-ready') === 'true';");
-            html.AppendLine("    icon.textContent = isReady ? '🔉' : '◯';");
+            html.AppendLine($"    icon.textContent = isReady ? '{ConfigManager.ICON_SPEAKER_READY}' : '{ConfigManager.ICON_SPEAKER_NOT_READY}';");
             html.AppendLine("    if (!isReady) icon.classList.add('loading');");
             html.AppendLine("    else icon.classList.remove('loading');");
             html.AppendLine("    overlay.classList.remove('playing');");
@@ -2778,7 +2778,7 @@ namespace UGTLive
                             }
                             
                             // Show icon with appropriate state
-                            string iconEmoji = audioIsReady ? "🔉" : "◯";
+                            string iconEmoji = audioIsReady ? ConfigManager.ICON_SPEAKER_READY : ConfigManager.ICON_SPEAKER_NOT_READY;
                             string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
                             html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
