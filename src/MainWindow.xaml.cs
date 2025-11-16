@@ -1274,7 +1274,7 @@ namespace UGTLive
                                         overlay.classList.add('playing');
                                     }} else {{
                                         const isReady = icon.getAttribute('data-is-ready') === 'true';
-                                        icon.textContent = isReady ? '🔊' : '⏳';
+                                        icon.textContent = isReady ? '🔉' : '◯';
                                         if (!isReady) icon.classList.add('loading');
                                         else icon.classList.remove('loading');
                                         overlay.classList.remove('playing');
@@ -2511,10 +2511,19 @@ namespace UGTLive
             html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
             html.AppendLine("}");
             html.AppendLine(".audio-icon.loading {");
-            html.AppendLine("  background: rgba(255, 140, 0, 0.6);");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #cc0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
             html.AppendLine("}");
             html.AppendLine(".audio-icon.loading:hover {");
-            html.AppendLine("  background: rgba(255, 140, 0, 0.8);");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #ff0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:not(.loading) {");
+            html.AppendLine("  filter: grayscale(0.7) sepia(0.3) hue-rotate(10deg) saturate(0.6) brightness(1.1);");
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.5s ease-in-out infinite;");
@@ -2613,7 +2622,7 @@ namespace UGTLive
             html.AppendLine("  } else {");
             html.AppendLine("    // Check if audio is ready");
             html.AppendLine("    const isReady = icon.getAttribute('data-is-ready') === 'true';");
-            html.AppendLine("    icon.textContent = isReady ? '🔊' : '⏳';");
+            html.AppendLine("    icon.textContent = isReady ? '🔉' : '◯';");
             html.AppendLine("    if (!isReady) icon.classList.add('loading');");
             html.AppendLine("    else icon.classList.remove('loading');");
             html.AppendLine("    overlay.classList.remove('playing');");
@@ -2769,7 +2778,7 @@ namespace UGTLive
                             }
                             
                             // Show icon with appropriate state
-                            string iconEmoji = audioIsReady ? "🔊" : "⏳";
+                            string iconEmoji = audioIsReady ? "🔉" : "◯";
                             string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
                             html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
