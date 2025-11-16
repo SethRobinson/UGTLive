@@ -16,6 +16,7 @@ namespace UGTLive
         private AudioFileReader? _currentAudioFile;
         private bool _isPlaying = false;
         private bool _isPlayingAll = false;
+        private bool _autoPlayTriggered = false;
         private CancellationTokenSource? _playbackCancellationToken;
         private readonly object _playbackLock = new object();
         
@@ -40,7 +41,7 @@ namespace UGTLive
         {
         }
         
-        public async Task PlayAudioFileAsync(string filePath, string? textObjectId = null)
+        public async Task PlayAudioFileAsync(string filePath, string? textObjectId = null, bool isPartOfPlayAll = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
             {
@@ -49,7 +50,33 @@ namespace UGTLive
             }
             
             // Stop any currently playing audio first (but don't reset the playing text object notification yet)
-            StopCurrentPlayback();
+            // However, if this is part of PlayAll, we don't want to reset _isPlayingAll
+            if (!isPartOfPlayAll)
+            {
+                StopCurrentPlayback();
+            }
+            else
+            {
+                // Just stop the current player without resetting _isPlayingAll
+                lock (_playbackLock)
+                {
+                    IWavePlayer? playerToStop = _currentPlayer;
+                    if (playerToStop != null)
+                    {
+                        try
+                        {
+                            playerToStop.Stop();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error stopping playback: {ex.Message}");
+                        }
+                    }
+                    CleanupCurrentPlayback();
+                    _isPlaying = false;
+                }
+                OnCurrentPlayingTextObjectChanged(null);
+            }
             
             // Notify which text object is playing (if provided) - do this after stopping to avoid race conditions
             if (!string.IsNullOrEmpty(textObjectId))
@@ -134,6 +161,29 @@ namespace UGTLive
                         int waitCount = 0;
                         while (true)
                         {
+                            // Check cancellation token first
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                Console.WriteLine($"PlayAudioFileAsync: Cancellation requested, stopping playback");
+                                lock (_playbackLock)
+                                {
+                                    if (_currentPlayer != null)
+                                    {
+                                        try
+                                        {
+                                            _currentPlayer.Stop();
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine($"Error stopping player on cancellation: {ex.Message}");
+                                        }
+                                    }
+                                    _isPlaying = false;
+                                    CleanupCurrentPlayback();
+                                }
+                                break;
+                            }
+                            
                             bool stillPlaying;
                             PlaybackState state;
                             
@@ -210,6 +260,7 @@ namespace UGTLive
                 CleanupCurrentPlayback();
                 _isPlaying = false;
                 _isPlayingAll = false;
+                _autoPlayTriggered = false; // Reset auto-play trigger flag when manually stopped
             }
             
             // Notify that playback stopped (but only if we're not starting a new one)
@@ -257,6 +308,11 @@ namespace UGTLive
         {
             if (textObjects == null || textObjects.Count == 0)
             {
+                // Reset auto-play trigger flag if no text objects
+                lock (_playbackLock)
+                {
+                    _autoPlayTriggered = false;
+                }
                 return;
             }
             
@@ -328,6 +384,11 @@ namespace UGTLive
             if (objectsWithAudio.Count == 0)
             {
                 Console.WriteLine("No audio files available to play");
+                // Reset auto-play trigger flag if no audio files available
+                lock (_playbackLock)
+                {
+                    _autoPlayTriggered = false;
+                }
                 return;
             }
             
@@ -362,8 +423,15 @@ namespace UGTLive
                     try
                     {
                         Console.WriteLine($"PlayAllAudio: Playing audio for text object {textObj.ID}");
-                        await PlayAudioFileAsync(audioPath, textObj.ID);
+                        await PlayAudioFileAsync(audioPath, textObj.ID, isPartOfPlayAll: true, cancellationToken);
                         Console.WriteLine($"PlayAllAudio: Finished playing audio for text object {textObj.ID}");
+                        
+                        // Check cancellation token again after each file
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            Console.WriteLine("PlayAllAudio: Cancellation requested after file playback");
+                            break;
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -379,6 +447,7 @@ namespace UGTLive
                 lock (_playbackLock)
                 {
                     _isPlayingAll = false;
+                    _autoPlayTriggered = false; // Reset auto-play trigger flag when playback completes
                 }
                 OnPlayAllStateChanged(false);
             }
@@ -387,12 +456,22 @@ namespace UGTLive
         private void OnPlayAllStateChanged(bool isPlaying)
         {
             Console.WriteLine($"OnPlayAllStateChanged: isPlaying={isPlaying}, invoking on UI thread");
-            // Invoke on UI thread to update buttons
-            Application.Current?.Dispatcher.InvokeAsync(() =>
+            // Invoke on UI thread to update buttons - use Send priority to ensure immediate update
+            if (Application.Current?.Dispatcher.CheckAccess() == true)
             {
-                Console.WriteLine($"OnPlayAllStateChanged: Firing event, isPlaying={isPlaying}");
+                // Already on UI thread, fire event directly
+                Console.WriteLine($"OnPlayAllStateChanged: Already on UI thread, firing event directly, isPlaying={isPlaying}");
                 PlayAllStateChanged?.Invoke(this, isPlaying);
-            }, System.Windows.Threading.DispatcherPriority.Normal);
+            }
+            else
+            {
+                // Not on UI thread, invoke asynchronously
+                Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    Console.WriteLine($"OnPlayAllStateChanged: Firing event on UI thread, isPlaying={isPlaying}");
+                    PlayAllStateChanged?.Invoke(this, isPlaying);
+                }, System.Windows.Threading.DispatcherPriority.Normal);
+            }
         }
         
         private void OnCurrentPlayingTextObjectChanged(string? textObjectId)
@@ -460,10 +539,28 @@ namespace UGTLive
                 return;
             }
             
+            // Prevent multiple simultaneous auto-play triggers
+            lock (_playbackLock)
+            {
+                // If already playing all or auto-play already triggered, don't trigger again
+                if (_isPlayingAll || _autoPlayTriggered)
+                {
+                    Console.WriteLine("CheckAndTriggerAutoPlay: Already playing or auto-play already triggered, skipping");
+                    return;
+                }
+                
+                // Set flag to prevent duplicate triggers
+                _autoPlayTriggered = true;
+            }
+            
             // Get current preload mode
             string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
             if (preloadMode == "Off")
             {
+                lock (_playbackLock)
+                {
+                    _autoPlayTriggered = false;
+                }
                 return;
             }
             
@@ -471,6 +568,10 @@ namespace UGTLive
             var textObjects = Logic.Instance?.GetTextObjects();
             if (textObjects == null || textObjects.Count == 0)
             {
+                lock (_playbackLock)
+                {
+                    _autoPlayTriggered = false;
+                }
                 return;
             }
             
@@ -496,6 +597,14 @@ namespace UGTLive
                 // Play target audio
                 string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
                 _ = PlayAllAudioAsync(textObjects.ToList(), playOrder, useSourceAudio: false);
+            }
+            else
+            {
+                // No audio to play, reset flag
+                lock (_playbackLock)
+                {
+                    _autoPlayTriggered = false;
+                }
             }
         }
     }

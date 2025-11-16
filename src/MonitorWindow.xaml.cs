@@ -1802,9 +1802,9 @@ namespace UGTLive
                 {
                     if (isPlaying)
                     {
-                        playAllAudioButton.Content = "⏹️ Stop";
+                        playAllAudioButton.Content = "🔇 Stop";
                         playAllAudioButton.ToolTip = "Stop playing all audio";
-                        Console.WriteLine($"MonitorWindow: Play All button updated to: ⏹️ Stop");
+                        Console.WriteLine($"MonitorWindow: Play All button updated to: 🔇 Stop");
                     }
                     else
                     {

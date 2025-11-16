@@ -1214,9 +1214,9 @@ namespace UGTLive
                 {
                     if (isPlaying)
                     {
-                        playAllAudioButton.Content = "⏹️ Stop";
+                        playAllAudioButton.Content = "🔇 Stop";
                         playAllAudioButton.ToolTip = "Stop playing all audio";
-                        Console.WriteLine($"Play All button updated to: ⏹️ Stop");
+                        Console.WriteLine($"Play All button updated to: 🔇 Stop");
                     }
                     else
                     {
