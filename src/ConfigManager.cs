@@ -132,6 +132,7 @@ namespace UGTLive
         public const string TTS_PLAY_ORDER = "tts_play_order";
         public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
         public const string TTS_DELETE_CACHE_ON_STARTUP = "tts_delete_cache_on_startup";
+        public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
         
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
@@ -1684,6 +1685,24 @@ Here is the input JSON:";
             _configValues[TTS_DELETE_CACHE_ON_STARTUP] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"TTS delete cache on startup: {enabled}");
+        }
+        
+        // Get/Set TTS Vertical Overlap Threshold (in pixels)
+        public double GetTtsVerticalOverlapThreshold()
+        {
+            string value = GetValue(TTS_VERTICAL_OVERLAP_THRESHOLD, "120");
+            if (double.TryParse(value, out double threshold))
+            {
+                return threshold;
+            }
+            return 120.0; // Default to 120 pixels
+        }
+        
+        public void SetTtsVerticalOverlapThreshold(double threshold)
+        {
+            _configValues[TTS_VERTICAL_OVERLAP_THRESHOLD] = threshold.ToString();
+            SaveConfig();
+            Console.WriteLine($"TTS vertical overlap threshold set to: {threshold} pixels");
         }
         
         // ChatGPT methods

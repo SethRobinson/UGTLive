@@ -531,36 +531,55 @@ namespace UGTLive
         {
             var sorted = new List<TextObject>(textObjects);
             
+            // Get vertical overlap threshold in pixels
+            double pixelThreshold = ConfigManager.Instance.GetTtsVerticalOverlapThreshold();
+            
             if (playOrder == "Top down, left to right")
             {
                 sorted.Sort((a, b) =>
                 {
-                    // First sort by Y (top to bottom)
-                    int yCompare = a.Y.CompareTo(b.Y);
-                    if (yCompare != 0)
+                    // Check if rectangles are on the same line (within threshold pixels vertically)
+                    if (areOnSameLine(a, b, pixelThreshold))
                     {
-                        return yCompare;
+                        // On same line, sort by X (left to right)
+                        return a.X.CompareTo(b.X);
                     }
-                    // Then sort by X (left to right)
-                    return a.X.CompareTo(b.X);
+                    // Different lines, sort by Y (top to bottom)
+                    return a.Y.CompareTo(b.Y);
                 });
             }
             else if (playOrder == "Top down, right to left")
             {
                 sorted.Sort((a, b) =>
                 {
-                    // First sort by Y (top to bottom)
-                    int yCompare = a.Y.CompareTo(b.Y);
-                    if (yCompare != 0)
+                    // Check if rectangles are on the same line (within threshold pixels vertically)
+                    if (areOnSameLine(a, b, pixelThreshold))
                     {
-                        return yCompare;
+                        // On same line, sort by X (right to left)
+                        return b.X.CompareTo(a.X);
                     }
-                    // Then sort by X (right to left)
-                    return b.X.CompareTo(a.X);
+                    // Different lines, sort by Y (top to bottom)
+                    return a.Y.CompareTo(b.Y);
                 });
             }
             
             return sorted;
+        }
+        
+        private bool areOnSameLine(TextObject a, TextObject b, double pixelThreshold)
+        {
+            // Two rectangles are considered on the same line if the vertical distance
+            // between their top-middle points is within the threshold
+            
+            // Calculate top-middle Y coordinate for each rectangle
+            double aTopMiddleY = a.Y;
+            double bTopMiddleY = b.Y;
+            
+            // Calculate vertical distance between top-middle points
+            double verticalDistance = Math.Abs(aTopMiddleY - bTopMiddleY);
+            
+            // If distance is within threshold, they're on the same line
+            return verticalDistance <= pixelThreshold;
         }
         
         public bool IsPlaying()

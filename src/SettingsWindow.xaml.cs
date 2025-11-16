@@ -2558,6 +2558,10 @@ namespace UGTLive
                 {
                     ttsPlayOrderComboBox.SelectionChanged -= TtsPlayOrderComboBox_SelectionChanged;
                 }
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    ttsVerticalOverlapTextBox.TextChanged -= TtsVerticalOverlapTextBox_TextChanged;
+                }
                 if (ttsAutoPlayAllCheckBox != null)
                 {
                     ttsAutoPlayAllCheckBox.Checked -= TtsAutoPlayAllCheckBox_CheckedChanged;
@@ -2597,16 +2601,28 @@ namespace UGTLive
                     }
                 }
                 
+                // Load vertical overlap threshold
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    double threshold = ConfigManager.Instance.GetTtsVerticalOverlapThreshold();
+                    _lastVerticalOverlapValue = threshold;
+                    ttsVerticalOverlapTextBox.Text = threshold.ToString();
+                }
+                
                 // Load auto play all
                 if (ttsAutoPlayAllCheckBox != null)
                 {
-                    ttsAutoPlayAllCheckBox.IsChecked = ConfigManager.Instance.IsTtsAutoPlayAllEnabled();
+                    bool autoPlayAll = ConfigManager.Instance.IsTtsAutoPlayAllEnabled();
+                    _lastAutoPlayAllValue = autoPlayAll;
+                    ttsAutoPlayAllCheckBox.IsChecked = autoPlayAll;
                 }
                 
                 // Load delete cache on startup
                 if (ttsDeleteCacheOnStartupCheckBox != null)
                 {
-                    ttsDeleteCacheOnStartupCheckBox.IsChecked = ConfigManager.Instance.GetTtsDeleteCacheOnStartup();
+                    bool deleteCache = ConfigManager.Instance.GetTtsDeleteCacheOnStartup();
+                    _lastDeleteCacheValue = deleteCache;
+                    ttsDeleteCacheOnStartupCheckBox.IsChecked = deleteCache;
                 }
                 
                 // Re-attach event handlers
@@ -2617,6 +2633,10 @@ namespace UGTLive
                 if (ttsPlayOrderComboBox != null)
                 {
                     ttsPlayOrderComboBox.SelectionChanged += TtsPlayOrderComboBox_SelectionChanged;
+                }
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    ttsVerticalOverlapTextBox.TextChanged += TtsVerticalOverlapTextBox_TextChanged;
                 }
                 if (ttsAutoPlayAllCheckBox != null)
                 {
@@ -2688,6 +2708,41 @@ namespace UGTLive
             }
         }
         
+        private static double _lastVerticalOverlapValue = -1;
+        
+        private void TtsVerticalOverlapTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                if (ttsVerticalOverlapTextBox == null)
+                    return;
+                
+                string text = ttsVerticalOverlapTextBox.Text;
+                
+                if (double.TryParse(text, out double threshold))
+                {
+                    if (threshold >= 0)
+                    {
+                        // Only save if the value actually changed
+                        if (Math.Abs(threshold - _lastVerticalOverlapValue) > 0.001)
+                        {
+                            _lastVerticalOverlapValue = threshold;
+                            ConfigManager.Instance.SetTtsVerticalOverlapThreshold(threshold);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS vertical overlap threshold: {ex.Message}");
+            }
+        }
+        
+        private static bool _lastAutoPlayAllValue = false;
+        
         private void TtsAutoPlayAllCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             try
@@ -2696,14 +2751,21 @@ namespace UGTLive
                     return;
                 
                 bool isEnabled = ttsAutoPlayAllCheckBox.IsChecked ?? false;
-                ConfigManager.Instance.SetTtsAutoPlayAllEnabled(isEnabled);
-                Console.WriteLine($"TTS auto play all enabled: {isEnabled}");
+                
+                // Only save if the value actually changed
+                if (isEnabled != _lastAutoPlayAllValue)
+                {
+                    _lastAutoPlayAllValue = isEnabled;
+                    ConfigManager.Instance.SetTtsAutoPlayAllEnabled(isEnabled);
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating TTS auto play all: {ex.Message}");
             }
         }
+        
+        private static bool _lastDeleteCacheValue = false;
         
         private void TtsDeleteCacheOnStartupCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
@@ -2713,8 +2775,13 @@ namespace UGTLive
                     return;
                 
                 bool isEnabled = ttsDeleteCacheOnStartupCheckBox.IsChecked ?? false;
-                ConfigManager.Instance.SetTtsDeleteCacheOnStartup(isEnabled);
-                Console.WriteLine($"TTS delete cache on startup: {isEnabled}");
+                
+                // Only save if the value actually changed
+                if (isEnabled != _lastDeleteCacheValue)
+                {
+                    _lastDeleteCacheValue = isEnabled;
+                    ConfigManager.Instance.SetTtsDeleteCacheOnStartup(isEnabled);
+                }
             }
             catch (Exception ex)
             {

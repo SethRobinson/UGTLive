@@ -1079,6 +1079,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Preload Mode -->
@@ -1119,23 +1120,27 @@
                                     <ComboBoxItem Content="Top down, right to left"/>
                                 </ComboBox>
                                 
+                                <!-- Vertical Overlap Threshold -->
+                                <TextBlock Text="Vertical overlap threshold (px):" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Maximum vertical distance between text box tops to consider them on the same line (useful for manga)"/>
+                                <TextBox x:Name="ttsVerticalOverlapTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
+                                        Text="120"/>
+                                
                                 <!-- Auto Play All -->
-                                <TextBlock Text="Auto play all after preloading:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock Text="Auto play all after preloading:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Automatically play all audio when preloading completes"/>
-                                <CheckBox x:Name="ttsAutoPlayAllCheckBox" Grid.Row="4" Grid.Column="1" 
-                                         Margin="0,10,0,0" IsChecked="False" 
-                                         Checked="TtsAutoPlayAllCheckBox_CheckedChanged" 
-                                         Unchecked="TtsAutoPlayAllCheckBox_CheckedChanged"/>
+                                <CheckBox x:Name="ttsAutoPlayAllCheckBox" Grid.Row="5" Grid.Column="1" 
+                                         Margin="0,10,0,0" IsChecked="False"/>
                                 
                                 <!-- Delete Cache On Startup -->
-                                <TextBlock Text="Delete cached audio on startup:" Grid.Row="5" Grid.Column="0" 
+                                <TextBlock Text="Delete cached audio on startup:" Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Delete all cached audio files when the application starts"/>
-                                <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="5" Grid.Column="1" 
-                                         Margin="0,10,0,0" IsChecked="False" 
-                                         Checked="TtsDeleteCacheOnStartupCheckBox_CheckedChanged" 
-                                         Unchecked="TtsDeleteCacheOnStartupCheckBox_CheckedChanged"/>
+                                <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="6" Grid.Column="1" 
+                                         Margin="0,10,0,0" IsChecked="False"/>
                             </Grid>
                         </GroupBox>
 
