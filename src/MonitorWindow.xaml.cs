@@ -1047,17 +1047,29 @@ namespace UGTLive
             // Separator
             contextMenu.Items.Add(new Separator());
             
-            // Learn menu item
-            MenuItem learnMenuItem = new MenuItem();
-            learnMenuItem.Header = "Learn";
-            learnMenuItem.Click += OverlayContextMenu_Learn_Click;
-            contextMenu.Items.Add(learnMenuItem);
+            // Lesson menu item (ChatGPT)
+            MenuItem lessonMenuItem = new MenuItem();
+            lessonMenuItem.Header = "Lesson";
+            lessonMenuItem.Click += OverlayContextMenu_Lesson_Click;
+            contextMenu.Items.Add(lessonMenuItem);
+            
+            // Jisho lookup menu item (jisho.org)
+            MenuItem lookupKanjiMenuItem = new MenuItem();
+            lookupKanjiMenuItem.Header = "Jisho lookup";
+            lookupKanjiMenuItem.Click += OverlayContextMenu_LookupKanji_Click;
+            contextMenu.Items.Add(lookupKanjiMenuItem);
             
             // Speak menu item
             MenuItem speakMenuItem = new MenuItem();
             speakMenuItem.Header = "Speak";
             speakMenuItem.Click += OverlayContextMenu_Speak_Click;
             contextMenu.Items.Add(speakMenuItem);
+            
+            // Speak (source) menu item (only shown when in Translated mode)
+            MenuItem speakSourceMenuItem = new MenuItem();
+            speakSourceMenuItem.Header = "Speak (source)";
+            speakSourceMenuItem.Click += OverlayContextMenu_SpeakSource_Click;
+            contextMenu.Items.Add(speakSourceMenuItem);
             
             // Update menu visibility when opened
             contextMenu.Opened += (s, e) =>
@@ -1067,6 +1079,7 @@ namespace UGTLive
                 {
                     copyTranslatedMenuItem.Visibility = _currentOverlayMode == OverlayMode.Source ? Visibility.Visible : Visibility.Collapsed;
                     copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(textObj.TextTranslated);
+                    speakSourceMenuItem.Visibility = _currentOverlayMode == OverlayMode.Translated ? Visibility.Visible : Visibility.Collapsed;
                 }
             };
             
@@ -1116,7 +1129,31 @@ namespace UGTLive
             }
         }
         
-        private void OverlayContextMenu_Learn_Click(object sender, RoutedEventArgs e)
+        private void OverlayContextMenu_Lesson_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToLearn = !string.IsNullOrWhiteSpace(_currentContextMenuSelection) 
+                    ? _currentContextMenuSelection 
+                    : textObj.Text;
+                
+                if (!string.IsNullOrWhiteSpace(textToLearn))
+                {
+                    string chatGptPrompt = $"Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{textToLearn}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
+                    string encodedPrompt = Uri.EscapeDataString(chatGptPrompt);
+                    string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
+                    
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = chatGptUrl,
+                        UseShellExecute = true
+                    });
+                }
+            }
+        }
+        
+        private void OverlayContextMenu_LookupKanji_Click(object sender, RoutedEventArgs e)
         {
             TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
             if (textObj != null)
@@ -1147,6 +1184,30 @@ namespace UGTLive
                     : (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated)
                         ? textObj.TextTranslated
                         : textObj.Text);
+                
+                if (!string.IsNullOrWhiteSpace(textToSpeak))
+                {
+                    // Use the configured TTS service
+                    string ttsService = ConfigManager.Instance.GetTtsService();
+                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _ = GoogleTTSService.Instance.SpeakText(textToSpeak);
+                    }
+                    else // Default to ElevenLabs
+                    {
+                        _ = ElevenLabsService.Instance.SpeakText(textToSpeak);
+                    }
+                }
+            }
+        }
+        
+        private void OverlayContextMenu_SpeakSource_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                // Always speak the source text (ignoring selection)
+                string textToSpeak = textObj.Text;
                 
                 if (!string.IsNullOrWhiteSpace(textToSpeak))
                 {

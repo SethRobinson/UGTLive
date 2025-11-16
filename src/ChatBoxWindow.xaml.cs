@@ -126,10 +126,15 @@ namespace UGTLive
             // Add a separator
             contextMenu.Items.Add(new Separator());
             
-            // Add Learn menu item
-            MenuItem learnItem = new MenuItem() { Header = "Learn" };
-            learnItem.Click += LearnMenuItem_Click;
-            contextMenu.Items.Add(learnItem);
+            // Add Lesson menu item (ChatGPT)
+            MenuItem lessonItem = new MenuItem() { Header = "Lesson" };
+            lessonItem.Click += LessonMenuItem_Click;
+            contextMenu.Items.Add(lessonItem);
+            
+            // Add Jisho lookup menu item (jisho.org)
+            MenuItem lookupKanjiItem = new MenuItem() { Header = "Jisho lookup" };
+            lookupKanjiItem.Click += LookupKanjiMenuItem_Click;
+            contextMenu.Items.Add(lookupKanjiItem);
             
             // Add Speak menu item
             MenuItem speakItem = new MenuItem() { Header = "Speak" };
@@ -140,7 +145,7 @@ namespace UGTLive
             chatHistoryText.ContextMenu = contextMenu;
         }
         
-        private void LearnMenuItem_Click(object sender, RoutedEventArgs e)
+        private void LessonMenuItem_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -152,7 +157,7 @@ namespace UGTLive
                 if (!string.IsNullOrWhiteSpace(selectedText.Text))
                 {
                     // Construct the ChatGPT URL with the selected text and instructions
-                    string chatGptPrompt = $"Create a lesson to help me learn about this text and its translation: {selectedText.Text}";
+                    string chatGptPrompt = $"Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{selectedText.Text}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
                     string encodedPrompt = HttpUtility.UrlEncode(chatGptPrompt);
                     string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
                     
@@ -167,12 +172,46 @@ namespace UGTLive
                 }
                 else
                 {
-                    Console.WriteLine("No text selected for Learn function");
+                    Console.WriteLine("No text selected for Lesson function");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in Learn function: {ex.Message}");
+                Console.WriteLine($"Error in Lesson function: {ex.Message}");
+            }
+        }
+        
+        private void LookupKanjiMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Get the selected text
+                TextRange selectedText = new TextRange(
+                    chatHistoryText.Selection.Start, 
+                    chatHistoryText.Selection.End);
+                
+                if (!string.IsNullOrWhiteSpace(selectedText.Text))
+                {
+                    string textToLearn = selectedText.Text.Trim();
+                    string url = $"https://jisho.org/search/{Uri.EscapeDataString(textToLearn)}";
+                    
+                    // Open in default browser
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                    
+                    Console.WriteLine($"Opening jisho.org with selected text: {textToLearn.Substring(0, Math.Min(50, textToLearn.Length))}...");
+                }
+                else
+                {
+                    Console.WriteLine("No text selected for Lookup Kanji function");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Lookup Kanji function: {ex.Message}");
             }
         }
         
