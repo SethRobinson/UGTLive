@@ -436,7 +436,7 @@ namespace UGTLive
                 // Poll for server to become available (check every second for up to 30 seconds)
                 statusMessage.Text = "Waiting for server to start...";
                 bool serverReady = false;
-                int maxAttempts = 30; // 30 seconds
+                int maxAttempts = 10; // 30 seconds
                 int attempts = 0;
                 
                 while (attempts < maxAttempts && !serverReady)
