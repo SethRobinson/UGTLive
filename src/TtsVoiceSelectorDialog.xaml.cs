@@ -8,6 +8,8 @@ namespace UGTLive
 {
     public partial class TtsVoiceSelectorDialog : Window
     {
+        private bool _isInitializing = false;
+        
         public string SelectedService { get; private set; } = "ElevenLabs";
         public string SelectedVoice { get; private set; } = "21m00Tcm4TlvDq8ikWAM";
         public bool UseCustomVoiceId { get; private set; } = false;
@@ -32,6 +34,8 @@ namespace UGTLive
         
         private void LoadCurrentSettings()
         {
+            _isInitializing = true;
+            
             // Set service
             foreach (ComboBoxItem item in ttsServiceComboBox.Items)
             {
@@ -48,7 +52,7 @@ namespace UGTLive
                 customVoicePanel.Visibility = SelectedService == "ElevenLabs" ? Visibility.Visible : Visibility.Collapsed;
             }
             
-            // Set custom voice ID settings
+            // Set custom voice ID settings (only for ElevenLabs)
             if (useCustomVoiceCheckBox != null)
             {
                 useCustomVoiceCheckBox.IsChecked = UseCustomVoiceId;
@@ -58,9 +62,11 @@ namespace UGTLive
                 customVoiceIdTextBox.Text = CustomVoiceId ?? "";
                 customVoiceIdTextBox.IsEnabled = UseCustomVoiceId;
             }
+            
+            // Voice combo box should only be disabled for ElevenLabs with custom voice ID
             if (voiceComboBox != null)
             {
-                voiceComboBox.IsEnabled = !UseCustomVoiceId;
+                voiceComboBox.IsEnabled = SelectedService != "ElevenLabs" || !UseCustomVoiceId;
             }
             
             // Update voice list based on service
@@ -78,10 +84,15 @@ namespace UGTLive
                     }
                 }
             }
+            
+            _isInitializing = false;
         }
         
         private void TtsServiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_isInitializing)
+                return;
+                
             if (ttsServiceComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 SelectedService = selectedItem.Content.ToString() ?? "ElevenLabs";
@@ -91,6 +102,12 @@ namespace UGTLive
                 if (customVoicePanel != null)
                 {
                     customVoicePanel.Visibility = SelectedService == "ElevenLabs" ? Visibility.Visible : Visibility.Collapsed;
+                }
+                
+                // Update voice combo box enabled state
+                if (voiceComboBox != null)
+                {
+                    voiceComboBox.IsEnabled = SelectedService != "ElevenLabs" || !UseCustomVoiceId;
                 }
             }
         }
@@ -130,6 +147,9 @@ namespace UGTLive
         
         private void VoiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_isInitializing)
+                return;
+                
             if (voiceComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag != null)
             {
                 SelectedVoice = selectedItem.Tag.ToString() ?? "";
@@ -138,6 +158,9 @@ namespace UGTLive
         
         private void UseCustomVoiceCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing)
+                return;
+                
             if (useCustomVoiceCheckBox != null)
             {
                 UseCustomVoiceId = useCustomVoiceCheckBox.IsChecked ?? false;
@@ -147,7 +170,7 @@ namespace UGTLive
                 }
                 if (voiceComboBox != null)
                 {
-                    voiceComboBox.IsEnabled = !UseCustomVoiceId;
+                    voiceComboBox.IsEnabled = SelectedService != "ElevenLabs" || !UseCustomVoiceId;
                 }
             }
         }
