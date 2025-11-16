@@ -62,7 +62,7 @@ UGTLive will automatically check for updates when you start it. If a new version
 
 ## Tips
 
- * To get translations, click Settings and check the "Also translate" button.  Setup the translation service to use in settings as well.
+ * To get translations, click Settings and check the "Translation Active" button.  Setup the translation service to use in settings as well.
  * Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
 * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
  * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)

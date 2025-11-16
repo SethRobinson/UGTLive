@@ -88,8 +88,8 @@
                                     <ComboBoxItem Content="tr"/>
                                 </ComboBox>
                                 
-                                <!-- Also translate -->
-                                <TextBlock Text="Also translate:" Grid.Row="2" Grid.Column="0" 
+                                <!-- Translation Active -->
+                                <TextBlock Text="Translation Active:" Grid.Row="2" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <CheckBox x:Name="autoTranslateCheckBox" Grid.Row="2" Grid.Column="1" 
                                          Margin="0,5" IsChecked="False" 
