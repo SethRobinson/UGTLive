@@ -1895,9 +1895,6 @@ namespace UGTLive
         // Export current view to browser
         public void ExportToBrowser()
         {
-            // Copy audio files to export directory
-            CopyAudioFilesForExport();
-            
             // Check if we have an image to export
             if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
             {
@@ -1905,14 +1902,18 @@ namespace UGTLive
                 return;
             }
             
-            // Create temp directory
-            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
-            Directory.CreateDirectory(tempDir);
+            // Create temp/html directory
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string htmlDir = Path.Combine(appDirectory, "temp", "html");
+            Directory.CreateDirectory(htmlDir);
             
             // Generate filenames with timestamp to avoid conflicts
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string imagePath = Path.Combine(tempDir, $"monitor_image_{timestamp}.png");
-            string htmlPath = Path.Combine(tempDir, $"monitor_view_{timestamp}.html");
+            string imagePath = Path.Combine(htmlDir, $"monitor_image_{timestamp}.png");
+            string htmlPath = Path.Combine(htmlDir, $"monitor_view_{timestamp}.html");
+            
+            // Copy audio files to export directory (same as HTML file)
+            CopyAudioFilesForExport(htmlDir);
             
             // Save the image with zoom applied
             SaveImageWithZoom(bitmapSource, imagePath);
@@ -1961,7 +1962,7 @@ namespace UGTLive
             }
         }
         
-        private void CopyAudioFilesForExport()
+        private void CopyAudioFilesForExport(string htmlDir)
         {
             try
             {
@@ -1971,12 +1972,7 @@ namespace UGTLive
                     return;
                 }
                 
-                // Get export directory (same as image export)
-                string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                string exportDir = Path.Combine(appDirectory, "webserver", "export");
-                Directory.CreateDirectory(exportDir);
-                
-                // Copy audio files and update paths in text objects temporarily for export
+                // Copy audio files to html directory (same location as HTML file)
                 foreach (var textObj in textObjects)
                 {
                     if (textObj == null) continue;
@@ -1985,22 +1981,18 @@ namespace UGTLive
                     if (!string.IsNullOrEmpty(textObj.SourceAudioFilePath) && File.Exists(textObj.SourceAudioFilePath))
                     {
                         string fileName = Path.GetFileName(textObj.SourceAudioFilePath);
-                        string destPath = Path.Combine(exportDir, fileName);
-                        if (!File.Exists(destPath))
-                        {
-                            File.Copy(textObj.SourceAudioFilePath, destPath, overwrite: true);
-                        }
+                        string destPath = Path.Combine(htmlDir, fileName);
+                        // Always copy to ensure latest version is available
+                        File.Copy(textObj.SourceAudioFilePath, destPath, overwrite: true);
                     }
                     
                     // Copy target audio if available
                     if (!string.IsNullOrEmpty(textObj.TargetAudioFilePath) && File.Exists(textObj.TargetAudioFilePath))
                     {
                         string fileName = Path.GetFileName(textObj.TargetAudioFilePath);
-                        string destPath = Path.Combine(exportDir, fileName);
-                        if (!File.Exists(destPath))
-                        {
-                            File.Copy(textObj.TargetAudioFilePath, destPath, overwrite: true);
-                        }
+                        string destPath = Path.Combine(htmlDir, fileName);
+                        // Always copy to ensure latest version is available
+                        File.Copy(textObj.TargetAudioFilePath, destPath, overwrite: true);
                     }
                 }
             }
