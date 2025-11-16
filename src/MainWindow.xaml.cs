@@ -741,6 +741,11 @@ namespace UGTLive
             
             // Update capture rectangle
             UpdateCaptureRect();
+            
+            // Subscribe to Play All state changes
+            AudioPlaybackManager.Instance.PlayAllStateChanged += AudioPlaybackManager_PlayAllStateChanged;
+            // Subscribe to current playing text object changes
+            AudioPlaybackManager.Instance.CurrentPlayingTextObjectChanged += AudioPlaybackManager_CurrentPlayingTextObjectChanged;
            
             // Add socket status to the header
             if (HeaderBorder != null && HeaderBorder.Child is Grid headerGrid)
@@ -1167,6 +1172,102 @@ namespace UGTLive
         }
         
         // Settings button toggle handler
+        private void PlayAllAudioButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // If currently playing all, stop it
+                if (AudioPlaybackManager.Instance.IsPlayingAll())
+                {
+                    AudioPlaybackManager.Instance.StopCurrentPlayback();
+                    return;
+                }
+                
+                var textObjects = Logic.Instance?.GetTextObjects();
+                if (textObjects == null || textObjects.Count == 0)
+                {
+                    return;
+                }
+                
+                // Determine which audio to play based on overlay mode
+                string overlayMode = ConfigManager.Instance.GetMainWindowOverlayMode();
+                bool useSourceAudio = overlayMode != "Translated";
+                
+                // Get play order setting
+                string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+                
+                // Play all audio
+                _ = AudioPlaybackManager.Instance.PlayAllAudioAsync(textObjects.ToList(), playOrder, useSourceAudio);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in PlayAllAudioButton_Click: {ex.Message}");
+            }
+        }
+        
+        private void AudioPlaybackManager_PlayAllStateChanged(object? sender, bool isPlaying)
+        {
+            try
+            {
+                Console.WriteLine($"AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                if (playAllAudioButton != null)
+                {
+                    if (isPlaying)
+                    {
+                        playAllAudioButton.Content = "⏹️ Stop";
+                        playAllAudioButton.ToolTip = "Stop playing all audio";
+                        Console.WriteLine($"Play All button updated to: ⏹️ Stop");
+                    }
+                    else
+                    {
+                        playAllAudioButton.Content = "🔊 All";
+                        playAllAudioButton.ToolTip = "Play all audio files in order";
+                        Console.WriteLine($"Play All button updated to: 🔊 All");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("playAllAudioButton is null!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating Play All button: {ex.Message}");
+            }
+        }
+        
+        private void AudioPlaybackManager_CurrentPlayingTextObjectChanged(object? sender, string? textObjectId)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    // Update all icons - set the playing one to stop icon, others to speaker
+                    string script = $@"
+                        (function() {{
+                            const allOverlays = document.querySelectorAll('.text-overlay');
+                            allOverlays.forEach(overlay => {{
+                                const icon = overlay.querySelector('.audio-icon');
+                                if (icon) {{
+                                    const overlayId = overlay.id.replace('overlay-', '');
+                                    if (overlayId === '{textObjectId ?? ""}') {{
+                                        icon.textContent = '⏹️';
+                                    }} else {{
+                                        icon.textContent = '🔊';
+                                    }}
+                                }}
+                            }});
+                        }})();
+                    ";
+                    textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating playing icon: {ex.Message}");
+            }
+        }
+        
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
             ToggleSettingsWindow();
@@ -2032,6 +2133,7 @@ namespace UGTLive
                 if (textOverlayWebView.CoreWebView2 != null)
                 {
                     textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    
                     textOverlayWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     textOverlayWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
                     textOverlayWebView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
@@ -2316,6 +2418,10 @@ namespace UGTLive
             html.AppendLine("  overflow: hidden;");
             html.AppendLine("  white-space: normal;");
             html.AppendLine("  word-wrap: break-word;");
+            html.AppendLine("  padding-right: 24px;"); // Add padding to make room for icon
+            html.AppendLine("  padding-left: 0;");
+            html.AppendLine("  padding-top: 0;");
+            html.AppendLine("  padding-bottom: 0;");
             
             if (canInteract)
             {
@@ -2327,8 +2433,6 @@ namespace UGTLive
                 html.AppendLine("  pointer-events: none;");
                 html.AppendLine("  user-select: none;");
             }
-            
-            html.AppendLine("  padding: 0;");
             html.AppendLine("  margin: 0;");
             html.AppendLine("  line-height: 1;");
             html.AppendLine("  display: flex;");
@@ -2340,6 +2444,26 @@ namespace UGTLive
             html.AppendLine("  text-orientation: upright;");
             html.AppendLine("  align-items: flex-start;");
             html.AppendLine("  justify-content: center;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  top: 2px;");
+            html.AppendLine("  right: 2px;");
+            html.AppendLine("  width: 20px;");
+            html.AppendLine("  height: 20px;");
+            html.AppendLine("  cursor: pointer;");
+            html.AppendLine("  font-size: 16px;");
+            html.AppendLine("  z-index: 10;");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.5);");
+            html.AppendLine("  border-radius: 3px;");
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("  user-select: none;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:hover {");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
@@ -2371,6 +2495,65 @@ namespace UGTLive
             html.AppendLine("  const overlays = document.querySelectorAll('.text-overlay');");
             html.AppendLine("  overlays.forEach(overlay => fitTextToBox(overlay));");
             html.AppendLine("});");
+            html.AppendLine("");
+            html.AppendLine("let currentlyPlayingId = null;");
+            html.AppendLine("");
+            html.AppendLine("function handleAudioIconClick(textObjectId, isSource) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (!icon) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Check if this audio is currently playing");
+            html.AppendLine("  if (currentlyPlayingId === textObjectId) {");
+            html.AppendLine("    // Stop playing");
+            html.AppendLine("    const message = {");
+            html.AppendLine("      kind: 'stopAudio',");
+            html.AppendLine("      textObjectId: textObjectId");
+            html.AppendLine("    };");
+            html.AppendLine("    if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("    }");
+            html.AppendLine("    return;");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  const audioPath = isSource ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
+            html.AppendLine("  if (!audioPath) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update icon to stop icon");
+            html.AppendLine("  icon.textContent = '⏹️';");
+            html.AppendLine("  currentlyPlayingId = textObjectId;");
+            html.AppendLine("  ");
+            html.AppendLine("  const message = {");
+            html.AppendLine("    kind: 'playAudio',");
+            html.AppendLine("    textObjectId: textObjectId,");
+            html.AppendLine("    audioPath: audioPath,");
+            html.AppendLine("    isSource: isSource");
+            html.AppendLine("  };");
+            html.AppendLine("  ");
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Function to update icon when playback stops");
+            html.AppendLine("function updateAudioIcon(textObjectId, isPlaying) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (!icon) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  if (isPlaying) {");
+            html.AppendLine("    icon.textContent = '⏹️';");
+            html.AppendLine("    currentlyPlayingId = textObjectId;");
+            html.AppendLine("  } else {");
+            html.AppendLine("    icon.textContent = '🔊';");
+            html.AppendLine("    if (currentlyPlayingId === textObjectId) {");
+            html.AppendLine("      currentlyPlayingId = null;");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("}");
             html.AppendLine("");
             
             // Only add context menu handling if interaction is enabled (use variable declared at top)
@@ -2475,7 +2658,29 @@ namespace UGTLive
                             $"font-size: 16px;";
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
-                        html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}'>");
+                        html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");
+                        html.Append($"data-source-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.SourceAudioFilePath ?? "")}' ");
+                        html.Append($"data-target-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.TargetAudioFilePath ?? "")}' ");
+                        html.Append($"data-source-ready='{textObj.SourceAudioReady.ToString().ToLower()}' ");
+                        html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'>");
+                        
+                        // Add speaker icon if audio is ready
+                        // Show target audio if in Translated mode and available, otherwise show source audio
+                        bool showTargetAudio = isTranslated && textObj.TargetAudioReady;
+                        bool showSourceAudio = !isTranslated && textObj.SourceAudioReady;
+                        // If in Translated mode but target audio not ready, fall back to source audio
+                        if (isTranslated && !textObj.TargetAudioReady && textObj.SourceAudioReady)
+                        {
+                            showSourceAudio = true;
+                        }
+                        
+                        if (showTargetAudio || showSourceAudio)
+                        {
+                            // isSource: true for source audio, false for target audio
+                            bool isSource = showSourceAudio;
+                            html.Append($"<div class='audio-icon' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>🔊</div>");
+                        }
+                        
                         html.Append(encodedText);
                         html.AppendLine("</div>");
                     }
@@ -2760,22 +2965,95 @@ namespace UGTLive
                 using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(message);
                 System.Text.Json.JsonElement root = document.RootElement;
                 
-                if (root.TryGetProperty("kind", out System.Text.Json.JsonElement kindElement) &&
-                    kindElement.GetString() == "contextmenu")
+                if (root.TryGetProperty("kind", out System.Text.Json.JsonElement kindElement))
                 {
-                    string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idElement) 
-                        ? idElement.GetString() ?? string.Empty : string.Empty;
-                    double x = root.TryGetProperty("x", out System.Text.Json.JsonElement xElement) ? xElement.GetDouble() : 0;
-                    double y = root.TryGetProperty("y", out System.Text.Json.JsonElement yElement) ? yElement.GetDouble() : 0;
-                    string selection = root.TryGetProperty("selection", out System.Text.Json.JsonElement selectionElement)
-                        ? selectionElement.GetString() ?? string.Empty : string.Empty;
+                    string kind = kindElement.GetString() ?? "";
                     
-                    ShowMainWindowOverlayContextMenu(textObjectId, x, y, selection);
+                    if (kind == "contextmenu")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idElement) 
+                            ? idElement.GetString() ?? string.Empty : string.Empty;
+                        double x = root.TryGetProperty("x", out System.Text.Json.JsonElement xElement) ? xElement.GetDouble() : 0;
+                        double y = root.TryGetProperty("y", out System.Text.Json.JsonElement yElement) ? yElement.GetDouble() : 0;
+                        string selection = root.TryGetProperty("selection", out System.Text.Json.JsonElement selectionElement)
+                            ? selectionElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        ShowMainWindowOverlayContextMenu(textObjectId, x, y, selection);
+                    }
+                    else if (kind == "playAudio")
+                    {
+                        string audioPath = root.TryGetProperty("audioPath", out System.Text.Json.JsonElement audioPathElement)
+                            ? audioPathElement.GetString() ?? string.Empty : string.Empty;
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement textObjectIdElement)
+                            ? textObjectIdElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        if (!string.IsNullOrEmpty(audioPath))
+                        {
+                            // Update icon to stop icon before playing
+                            if (!string.IsNullOrEmpty(textObjectId))
+                            {
+                                UpdateAudioIconInWebView(textObjectId, true);
+                            }
+                            
+                            // Play audio and update icon when done
+                            _ = PlayAudioAndUpdateIcon(audioPath, textObjectId);
+                        }
+                    }
+                    else if (kind == "stopAudio")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement textObjectIdElement)
+                            ? textObjectIdElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        AudioPlaybackManager.Instance.StopCurrentPlayback();
+                        
+                        if (!string.IsNullOrEmpty(textObjectId))
+                        {
+                            UpdateAudioIconInWebView(textObjectId, false);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error handling MainWindow overlay WebView message: {ex.Message}");
+            }
+        }
+        
+        private void UpdateAudioIconInWebView(string textObjectId, bool isPlaying)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    string script = $"updateAudioIcon('{textObjectId}', {isPlaying.ToString().ToLower()});";
+                    textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating audio icon in WebView: {ex.Message}");
+            }
+        }
+        
+        private async Task PlayAudioAndUpdateIcon(string audioPath, string textObjectId)
+        {
+            try
+            {
+                await AudioPlaybackManager.Instance.PlayAudioFileAsync(audioPath);
+                
+                // Update icon back to speaker when playback finishes
+                if (!string.IsNullOrEmpty(textObjectId))
+                {
+                    UpdateAudioIconInWebView(textObjectId, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error playing audio: {ex.Message}");
+                if (!string.IsNullOrEmpty(textObjectId))
+                {
+                    UpdateAudioIconInWebView(textObjectId, false);
+                }
             }
         }
         

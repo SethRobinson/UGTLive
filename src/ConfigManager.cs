@@ -119,6 +119,19 @@ namespace UGTLive
         public const string GOOGLE_TTS_API_KEY = "google_tts_api_key";
         public const string GOOGLE_TTS_VOICE = "google_tts_voice";
         
+        // TTS Preload configuration keys
+        public const string TTS_SOURCE_SERVICE = "tts_source_service";
+        public const string TTS_SOURCE_VOICE = "tts_source_voice";
+        public const string TTS_SOURCE_USE_CUSTOM_VOICE_ID = "tts_source_use_custom_voice_id";
+        public const string TTS_SOURCE_CUSTOM_VOICE_ID = "tts_source_custom_voice_id";
+        public const string TTS_TARGET_SERVICE = "tts_target_service";
+        public const string TTS_TARGET_VOICE = "tts_target_voice";
+        public const string TTS_TARGET_USE_CUSTOM_VOICE_ID = "tts_target_use_custom_voice_id";
+        public const string TTS_TARGET_CUSTOM_VOICE_ID = "tts_target_custom_voice_id";
+        public const string TTS_PRELOAD_MODE = "tts_preload_mode";
+        public const string TTS_PLAY_ORDER = "tts_play_order";
+        public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
+        
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
         public const string CHATBOX_FONT_SIZE = "chatbox_font_size";
@@ -382,6 +395,19 @@ namespace UGTLive
             _configValues[GOOGLE_TTS_API_KEY] = "<your API key here>";
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
             _configValues[TTS_ENABLED] = "true";
+            
+            // TTS Preload defaults
+            _configValues[TTS_SOURCE_SERVICE] = "Google Cloud TTS";
+            _configValues[TTS_SOURCE_VOICE] = "ja-JP-Neural2-B";
+            _configValues[TTS_SOURCE_USE_CUSTOM_VOICE_ID] = "false";
+            _configValues[TTS_SOURCE_CUSTOM_VOICE_ID] = "";
+            _configValues[TTS_TARGET_SERVICE] = "Google Cloud TTS";
+            _configValues[TTS_TARGET_VOICE] = "en-US-Studio-O";
+            _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = "false";
+            _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = "";
+            _configValues[TTS_PRELOAD_MODE] = "Off";
+            _configValues[TTS_PLAY_ORDER] = "Top down, left to right";
+            _configValues[TTS_AUTO_PLAY_ALL] = "false";
             _configValues[MAX_CONTEXT_PIECES] = "20";
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
@@ -1465,6 +1491,169 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine($"Google TTS voice set to: {voiceId}");
             }
+        }
+        
+        // TTS Preload methods
+        
+        // Get/Set TTS Source Service
+        public string GetTtsSourceService()
+        {
+            return GetValue(TTS_SOURCE_SERVICE, GetTtsService()); // Default to main TTS service
+        }
+        
+        public void SetTtsSourceService(string service)
+        {
+            if (!string.IsNullOrWhiteSpace(service))
+            {
+                _configValues[TTS_SOURCE_SERVICE] = service;
+                SaveConfig();
+                Console.WriteLine($"TTS source service set to: {service}");
+            }
+        }
+        
+        // Get/Set TTS Source Voice
+        public string GetTtsSourceVoice()
+        {
+            return GetValue(TTS_SOURCE_VOICE, GetGoogleTtsVoice()); // Default to Google TTS voice
+        }
+        
+        public void SetTtsSourceVoice(string voiceId)
+        {
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                _configValues[TTS_SOURCE_VOICE] = voiceId;
+                SaveConfig();
+                Console.WriteLine($"TTS source voice set to: {voiceId}");
+            }
+        }
+        
+        // Get/Set TTS Source Use Custom Voice ID
+        public bool GetTtsSourceUseCustomVoiceId()
+        {
+            return GetBoolValue(TTS_SOURCE_USE_CUSTOM_VOICE_ID, false);
+        }
+        
+        public void SetTtsSourceUseCustomVoiceId(bool useCustom)
+        {
+            _configValues[TTS_SOURCE_USE_CUSTOM_VOICE_ID] = useCustom.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS source use custom voice ID: {useCustom}");
+        }
+        
+        // Get/Set TTS Source Custom Voice ID
+        public string GetTtsSourceCustomVoiceId()
+        {
+            return GetValue(TTS_SOURCE_CUSTOM_VOICE_ID, "");
+        }
+        
+        public void SetTtsSourceCustomVoiceId(string voiceId)
+        {
+            _configValues[TTS_SOURCE_CUSTOM_VOICE_ID] = voiceId ?? "";
+            SaveConfig();
+            Console.WriteLine("TTS source custom voice ID updated");
+        }
+        
+        // Get/Set TTS Target Service
+        public string GetTtsTargetService()
+        {
+            return GetValue(TTS_TARGET_SERVICE, GetTtsService()); // Default to main TTS service
+        }
+        
+        public void SetTtsTargetService(string service)
+        {
+            if (!string.IsNullOrWhiteSpace(service))
+            {
+                _configValues[TTS_TARGET_SERVICE] = service;
+                SaveConfig();
+                Console.WriteLine($"TTS target service set to: {service}");
+            }
+        }
+        
+        // Get/Set TTS Target Voice
+        public string GetTtsTargetVoice()
+        {
+            return GetValue(TTS_TARGET_VOICE, "en-US-Studio-O"); // Default to English Studio voice
+        }
+        
+        public void SetTtsTargetVoice(string voiceId)
+        {
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                _configValues[TTS_TARGET_VOICE] = voiceId;
+                SaveConfig();
+                Console.WriteLine($"TTS target voice set to: {voiceId}");
+            }
+        }
+        
+        // Get/Set TTS Target Use Custom Voice ID
+        public bool GetTtsTargetUseCustomVoiceId()
+        {
+            return GetBoolValue(TTS_TARGET_USE_CUSTOM_VOICE_ID, false);
+        }
+        
+        public void SetTtsTargetUseCustomVoiceId(bool useCustom)
+        {
+            _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = useCustom.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS target use custom voice ID: {useCustom}");
+        }
+        
+        // Get/Set TTS Target Custom Voice ID
+        public string GetTtsTargetCustomVoiceId()
+        {
+            return GetValue(TTS_TARGET_CUSTOM_VOICE_ID, "");
+        }
+        
+        public void SetTtsTargetCustomVoiceId(string voiceId)
+        {
+            _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = voiceId ?? "";
+            SaveConfig();
+            Console.WriteLine("TTS target custom voice ID updated");
+        }
+        
+        // Get/Set TTS Preload Mode
+        public string GetTtsPreloadMode()
+        {
+            return GetValue(TTS_PRELOAD_MODE, "Off");
+        }
+        
+        public void SetTtsPreloadMode(string mode)
+        {
+            if (!string.IsNullOrWhiteSpace(mode))
+            {
+                _configValues[TTS_PRELOAD_MODE] = mode;
+                SaveConfig();
+                Console.WriteLine($"TTS preload mode set to: {mode}");
+            }
+        }
+        
+        // Get/Set TTS Play Order
+        public string GetTtsPlayOrder()
+        {
+            return GetValue(TTS_PLAY_ORDER, "Top down, left to right");
+        }
+        
+        public void SetTtsPlayOrder(string order)
+        {
+            if (!string.IsNullOrWhiteSpace(order))
+            {
+                _configValues[TTS_PLAY_ORDER] = order;
+                SaveConfig();
+                Console.WriteLine($"TTS play order set to: {order}");
+            }
+        }
+        
+        // Get/Set TTS Auto Play All
+        public bool IsTtsAutoPlayAllEnabled()
+        {
+            return GetBoolValue(TTS_AUTO_PLAY_ALL, false);
+        }
+        
+        public void SetTtsAutoPlayAllEnabled(bool enabled)
+        {
+            _configValues[TTS_AUTO_PLAY_ALL] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS auto play all enabled: {enabled}");
         }
         
         // ChatGPT methods

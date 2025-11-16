@@ -20,6 +20,12 @@ namespace UGTLive
         // Store the original capture position
         public double CaptureX { get; set; }
         public double CaptureY { get; set; }
+        
+        // Audio properties for TTS preloading
+        public string? SourceAudioFilePath { get; set; }
+        public string? TargetAudioFilePath { get; set; }
+        public bool SourceAudioReady { get; set; } = false;
+        public bool TargetAudioReady { get; set; } = false;
 
         private bool _isDisposed;
 

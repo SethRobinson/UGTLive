@@ -623,6 +623,9 @@ namespace UGTLive
                 elevenLabsCustomVoiceIdTextBox.LostFocus += ElevenLabsCustomVoiceIdTextBox_LostFocus;
             }
             
+            // Load audio preload settings
+            LoadAudioPreloadSettings();
+            
             // Load ignore phrases
             LoadIgnorePhrases();
 
@@ -730,6 +733,11 @@ namespace UGTLive
                 string language = selectedItem.Content.ToString() ?? "ja";
                 Console.WriteLine($"Settings: Source language changed to: {language}");
                 
+                // Cleanup audio preloading when language changes
+                AudioPreloadService.Instance.CancelAllPreloads();
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                AudioPreloadService.Instance.ClearAudioCache();
+                
                 // Save to config
                 ConfigManager.Instance.SetSourceLanguage(language);
                 
@@ -764,6 +772,11 @@ namespace UGTLive
             {
                 string language = selectedItem.Content.ToString() ?? "en";
                 Console.WriteLine($"Settings: Target language changed to: {language}");
+                
+                // Cleanup audio preloading when language changes
+                AudioPreloadService.Instance.CancelAllPreloads();
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                AudioPreloadService.Instance.ClearAudioCache();
                 
                 // Save to config
                 ConfigManager.Instance.SetTargetLanguage(language);
@@ -2475,6 +2488,244 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating Google TTS voice: {ex.Message}");
+            }
+        }
+        
+        // Audio Preload Settings
+        
+        private void LoadAudioPreloadSettings()
+        {
+            try
+            {
+                // Detach event handlers
+                if (ttsPreloadModeComboBox != null)
+                {
+                    ttsPreloadModeComboBox.SelectionChanged -= TtsPreloadModeComboBox_SelectionChanged;
+                }
+                if (ttsPlayOrderComboBox != null)
+                {
+                    ttsPlayOrderComboBox.SelectionChanged -= TtsPlayOrderComboBox_SelectionChanged;
+                }
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    ttsAutoPlayAllCheckBox.Checked -= TtsAutoPlayAllCheckBox_CheckedChanged;
+                    ttsAutoPlayAllCheckBox.Unchecked -= TtsAutoPlayAllCheckBox_CheckedChanged;
+                }
+                
+                // Load preload mode
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                if (ttsPreloadModeComboBox != null)
+                {
+                    foreach (ComboBoxItem item in ttsPreloadModeComboBox.Items)
+                    {
+                        if (string.Equals(item.Content.ToString(), preloadMode, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ttsPreloadModeComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                
+                // Load play order
+                string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+                if (ttsPlayOrderComboBox != null)
+                {
+                    foreach (ComboBoxItem item in ttsPlayOrderComboBox.Items)
+                    {
+                        if (string.Equals(item.Content.ToString(), playOrder, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ttsPlayOrderComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                
+                // Load auto play all
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    ttsAutoPlayAllCheckBox.IsChecked = ConfigManager.Instance.IsTtsAutoPlayAllEnabled();
+                }
+                
+                // Re-attach event handlers
+                if (ttsPreloadModeComboBox != null)
+                {
+                    ttsPreloadModeComboBox.SelectionChanged += TtsPreloadModeComboBox_SelectionChanged;
+                }
+                if (ttsPlayOrderComboBox != null)
+                {
+                    ttsPlayOrderComboBox.SelectionChanged += TtsPlayOrderComboBox_SelectionChanged;
+                }
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    ttsAutoPlayAllCheckBox.Checked += TtsAutoPlayAllCheckBox_CheckedChanged;
+                    ttsAutoPlayAllCheckBox.Unchecked += TtsAutoPlayAllCheckBox_CheckedChanged;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading audio preload settings: {ex.Message}");
+            }
+        }
+        
+        private void TtsPreloadModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                    
+                if (ttsPreloadModeComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string mode = selectedItem.Content.ToString() ?? "Off";
+                    string previousMode = ConfigManager.Instance.GetTtsPreloadMode();
+                    ConfigManager.Instance.SetTtsPreloadMode(mode);
+                    Console.WriteLine($"TTS preload mode set to: {mode}");
+                    
+                    // Clear audio cache and retrigger OCR if mode changed
+                    if (mode != previousMode)
+                    {
+                        AudioPreloadService.Instance.ClearAudioCache();
+                        Console.WriteLine("Audio cache cleared due to TTS preload mode change");
+                        
+                        // Retrigger OCR to regenerate audio with new preload mode
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to TTS preload mode change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS preload mode: {ex.Message}");
+            }
+        }
+        
+        private void TtsPlayOrderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                    
+                if (ttsPlayOrderComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string order = selectedItem.Content.ToString() ?? "Top down, left to right";
+                    ConfigManager.Instance.SetTtsPlayOrder(order);
+                    Console.WriteLine($"TTS play order set to: {order}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS play order: {ex.Message}");
+            }
+        }
+        
+        private void TtsAutoPlayAllCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                    
+                bool isEnabled = ttsAutoPlayAllCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTtsAutoPlayAllEnabled(isEnabled);
+                Console.WriteLine($"TTS auto play all enabled: {isEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS auto play all: {ex.Message}");
+            }
+        }
+        
+        private void SetSourceTtsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string currentService = ConfigManager.Instance.GetTtsSourceService();
+                string currentVoice = ConfigManager.Instance.GetTtsSourceVoice();
+                bool useCustom = ConfigManager.Instance.GetTtsSourceUseCustomVoiceId();
+                string customVoiceId = ConfigManager.Instance.GetTtsSourceCustomVoiceId();
+                
+                var dialog = new TtsVoiceSelectorDialog(currentService, currentVoice, useCustom, customVoiceId);
+                dialog.Owner = this; // Make it modal to SettingsWindow
+                if (dialog.ShowDialog() == true)
+                {
+                    // Check if voice actually changed
+                    bool voiceChanged = dialog.SelectedService != currentService || 
+                                       dialog.SelectedVoice != currentVoice ||
+                                       dialog.UseCustomVoiceId != useCustom ||
+                                       (dialog.UseCustomVoiceId && dialog.CustomVoiceId != customVoiceId);
+                    
+                    ConfigManager.Instance.SetTtsSourceService(dialog.SelectedService);
+                    ConfigManager.Instance.SetTtsSourceVoice(dialog.SelectedVoice);
+                    ConfigManager.Instance.SetTtsSourceUseCustomVoiceId(dialog.UseCustomVoiceId);
+                    ConfigManager.Instance.SetTtsSourceCustomVoiceId(dialog.CustomVoiceId ?? "");
+                    Console.WriteLine($"Source TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
+                    
+                    // Clear audio cache and retrigger OCR if voice changed
+                    if (voiceChanged)
+                    {
+                        AudioPreloadService.Instance.ClearAudioCache();
+                        Console.WriteLine("Audio cache cleared due to source TTS voice change");
+                        
+                        // Retrigger OCR to regenerate audio with new voice
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to source TTS voice change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting source TTS: {ex.Message}");
+                MessageBox.Show($"Error setting source TTS: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void SetTargetTtsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string currentService = ConfigManager.Instance.GetTtsTargetService();
+                string currentVoice = ConfigManager.Instance.GetTtsTargetVoice();
+                bool useCustom = ConfigManager.Instance.GetTtsTargetUseCustomVoiceId();
+                string customVoiceId = ConfigManager.Instance.GetTtsTargetCustomVoiceId();
+                
+                var dialog = new TtsVoiceSelectorDialog(currentService, currentVoice, useCustom, customVoiceId);
+                dialog.Owner = this; // Make it modal to SettingsWindow
+                if (dialog.ShowDialog() == true)
+                {
+                    // Check if voice actually changed
+                    bool voiceChanged = dialog.SelectedService != currentService || 
+                                       dialog.SelectedVoice != currentVoice ||
+                                       dialog.UseCustomVoiceId != useCustom ||
+                                       (dialog.UseCustomVoiceId && dialog.CustomVoiceId != customVoiceId);
+                    
+                    ConfigManager.Instance.SetTtsTargetService(dialog.SelectedService);
+                    ConfigManager.Instance.SetTtsTargetVoice(dialog.SelectedVoice);
+                    ConfigManager.Instance.SetTtsTargetUseCustomVoiceId(dialog.UseCustomVoiceId);
+                    ConfigManager.Instance.SetTtsTargetCustomVoiceId(dialog.CustomVoiceId ?? "");
+                    Console.WriteLine($"Target TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
+                    
+                    // Clear audio cache and retrigger OCR if voice changed
+                    if (voiceChanged)
+                    {
+                        AudioPreloadService.Instance.ClearAudioCache();
+                        Console.WriteLine("Audio cache cleared due to target TTS voice change");
+                        
+                        // Retrigger OCR to regenerate audio with new voice
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to target TTS voice change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting target TTS: {ex.Message}");
+                MessageBox.Show($"Error setting target TTS: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         

@@ -35,6 +35,11 @@
             <Button x:Name="viewInBrowserButton" Content="View in browser" Margin="10,2,2,2" 
                     Click="ViewInBrowserButton_Click" Background="#404040" Foreground="White"
                     Padding="8,2"/>
+            
+            <!-- Play All Audio Button -->
+            <Button x:Name="playAllAudioButton" Content="🔊 All" Margin="10,2,2,2" 
+                    Click="PlayAllAudioButton_Click" Background="#404040" Foreground="White"
+                    Padding="8,2" ToolTip="Play all audio files in order"/>
                     
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>

@@ -11,6 +11,7 @@ using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace UGTLive
@@ -417,6 +418,9 @@ namespace UGTLive
                     // Cập nhật MonitorWindow
                     MonitorWindow.Instance.RefreshOverlays();
                     MainWindow.Instance.RefreshMainWindowOverlays();
+                    
+                    // Trigger target audio preloading if enabled
+                    TriggerTargetAudioPreloading();
                 }
                 else
                 {
@@ -1043,6 +1047,9 @@ namespace UGTLive
                     // Refresh monitor window overlays to ensure they're displayed
                     MonitorWindow.Instance.RefreshOverlays();
                     MainWindow.Instance.RefreshMainWindowOverlays();
+                    
+                    // Trigger source audio preloading right after OCR results are displayed
+                    TriggerSourceAudioPreloading();
                 }
             }
             catch (Exception ex)
@@ -1662,6 +1669,15 @@ namespace UGTLive
                 // Clean up resources
                 Console.WriteLine("Logic finalized");
                 
+                // Cancel any in-progress audio preloading
+                AudioPreloadService.Instance.CancelAllPreloads();
+                
+                // Stop any currently playing audio
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                
+                // Clear audio cache
+                AudioPreloadService.Instance.ClearAudioCache();
+                
                 // Disconnect from socket server
                 SocketManager.Instance.Disconnect();
                 
@@ -1734,6 +1750,12 @@ namespace UGTLive
         {
             try
             {
+                // Cancel any in-progress audio preloading
+                AudioPreloadService.Instance.CancelAllPreloads();
+                
+                // Stop any currently playing audio
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                
                 // Check if we need to run on the UI thread
                 if (!Application.Current.Dispatcher.CheckAccess())
                 {
@@ -1765,6 +1787,76 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
+            }
+        }
+        
+        // Trigger source audio preloading
+        private void TriggerSourceAudioPreloading()
+        {
+            try
+            {
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                Console.WriteLine($"Logic: TriggerSourceAudioPreloading called, preloadMode={preloadMode}");
+                
+                if (preloadMode == "Source language" || preloadMode == "Both source and target language")
+                {
+                    var textObjects = _textObjects.ToList();
+                    Console.WriteLine($"Logic: Found {textObjects.Count} text objects for source audio preloading");
+                    
+                    if (textObjects.Count > 0)
+                    {
+                        Console.WriteLine("Logic: Starting source audio preload...");
+                        _ = AudioPreloadService.Instance.PreloadSourceAudioAsync(textObjects);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Logic: No text objects to preload source audio");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Logic: Source audio preloading skipped (preloadMode={preloadMode})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error triggering source audio preloading: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+        
+        // Trigger target audio preloading
+        private void TriggerTargetAudioPreloading()
+        {
+            try
+            {
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                Console.WriteLine($"Logic: TriggerTargetAudioPreloading called, preloadMode={preloadMode}");
+                
+                if (preloadMode == "Target language" || preloadMode == "Both source and target language")
+                {
+                    var textObjects = _textObjects.ToList();
+                    Console.WriteLine($"Logic: Found {textObjects.Count} text objects for target audio preloading");
+                    
+                    if (textObjects.Count > 0)
+                    {
+                        Console.WriteLine("Logic: Starting target audio preload...");
+                        _ = AudioPreloadService.Instance.PreloadTargetAudioAsync(textObjects);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Logic: No text objects to preload target audio");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Logic: Target audio preloading skipped (preloadMode={preloadMode})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error triggering target audio preloading: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
         
@@ -1861,6 +1953,13 @@ namespace UGTLive
 
 
 
+            // Update overlays
+            MonitorWindow.Instance.RefreshOverlays();
+            MainWindow.Instance.RefreshMainWindowOverlays();
+            
+            // Trigger target audio preloading if enabled
+            TriggerTargetAudioPreloading();
+            
             // Sort text objects by Y coordinate
             var sortedTextObjects = _textObjects.OrderBy(t => t.Y).ToList();
             // Add each translated text to the ChatBox

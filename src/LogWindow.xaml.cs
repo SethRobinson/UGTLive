@@ -73,35 +73,52 @@ namespace UGTLive
             appendLog("==========================\n");
         }
         
-        // Append log message (thread-safe)
+        // Append log message (thread-safe, non-blocking)
         public void appendLog(string message)
         {
-            Dispatcher.Invoke(() =>
+            // Use InvokeAsync instead of Invoke to prevent deadlocks
+            // This is fire-and-forget to avoid blocking background threads
+            Dispatcher.InvokeAsync(() =>
             {
-                string lineToAdd = message + Environment.NewLine;
-                _logLines.Add(message);
-                _lineCount++;
-                
-                // Trim old lines if we exceed the threshold (efficient O(k) where k is lines to remove)
-                // Using a threshold reduces rebuild frequency
-                if (_lineCount > TRIM_THRESHOLD)
+                try
                 {
-                    trimOldLines();
+                    string lineToAdd = message + Environment.NewLine;
+                    _logLines.Add(message);
+                    _lineCount++;
+                    
+                    // Trim old lines if we exceed the threshold (efficient O(k) where k is lines to remove)
+                    // Using a threshold reduces rebuild frequency
+                    if (_lineCount > TRIM_THRESHOLD)
+                    {
+                        trimOldLines();
+                    }
+                    else
+                    {
+                        // Fast path: just append to TextBox when not trimming
+                        logTextBox.AppendText(lineToAdd);
+                    }
+                    
+                    updateLineCount();
+                    
+                    // Auto-scroll if enabled
+                    if (autoScrollCheckBox.IsChecked == true)
+                    {
+                        logScrollViewer.ScrollToEnd();
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Fast path: just append to TextBox when not trimming
-                    logTextBox.AppendText(lineToAdd);
+                    // Don't log errors here to avoid recursion - just write to original console
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error in appendLog: {ex.Message}");
+                    }
+                    catch
+                    {
+                        // Ignore if even debug output fails
+                    }
                 }
-                
-                updateLineCount();
-                
-                // Auto-scroll if enabled
-                if (autoScrollCheckBox.IsChecked == true)
-                {
-                    logScrollViewer.ScrollToEnd();
-                }
-            });
+            }, System.Windows.Threading.DispatcherPriority.Background);
         }
         
         // Trim old log lines to keep within the limit (O(k) where k is lines to remove)
