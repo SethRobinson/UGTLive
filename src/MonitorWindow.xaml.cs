@@ -1004,7 +1004,9 @@ namespace UGTLive
                 {
                     try
                     {
-                        System.Windows.Point contentPoint = new System.Windows.Point(clientX, clientY);
+                        // WebView2 coordinates are in content space, need to divide by zoom
+                        // because the imageContainer (which contains the WebView) is scaled
+                        System.Windows.Point contentPoint = new System.Windows.Point(clientX / currentZoom, clientY / currentZoom);
                         System.Windows.Point relativeToWebView = textOverlayWebView.TranslatePoint(contentPoint, this);
                         System.Windows.Point screenPoint = this.PointToScreen(relativeToWebView);
                         
