@@ -349,23 +349,23 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 print(f"Error processing region {idx+1} with Manga OCR: {e}")
                 continue
             
-            # Use the polygon if available, otherwise create from bbox
+            # Use the polygon if available, otherwise create from bbox (truncate to integers)
             if polygon:
                 # Adjust polygon coordinates to account for padding offset if we added padding
                 if padding_x > 0 or padding_y > 0:
                     box_native = [
-                        [float(point[0]) - padding_x, float(point[1]) - padding_y] for point in polygon
+                        [int(point[0]) - padding_x, int(point[1]) - padding_y] for point in polygon
                     ]
                 else:
                     box_native = [
-                        [float(point[0]), float(point[1])] for point in polygon
+                        [int(point[0]), int(point[1])] for point in polygon
                     ]
             else:
                 box_native = [
-                    [float(x_min), float(y_min)],
-                    [float(x_max), float(y_min)],
-                    [float(x_max), float(y_max)],
-                    [float(x_min), float(y_max)]
+                    [int(x_min), int(y_min)],
+                    [int(x_max), int(y_min)],
+                    [int(x_max), int(y_max)],
+                    [int(x_min), int(y_max)]
                 ]
 
             # Time color detection
@@ -489,12 +489,12 @@ def split_into_characters(text, box, confidence):
         y_bottom_left = bl[1] + ((br[1] - bl[1]) * (i / len(text)))
         y_bottom_right = bl[1] + ((br[1] - bl[1]) * ((i + 1) / len(text)))
         
-        # Create the character bounding box
+        # Create the character bounding box (truncate to integers)
         char_box = [
-            [x1_top, y_top_left],       # top-left
-            [x2_top, y_top_right],      # top-right
-            [x2_bottom, y_bottom_right], # bottom-right
-            [x1_bottom, y_bottom_left]   # bottom-left
+            [int(x1_top), int(y_top_left)],       # top-left
+            [int(x2_top), int(y_top_right)],      # top-right
+            [int(x2_bottom), int(y_bottom_right)], # bottom-right
+            [int(x1_bottom), int(y_bottom_left)]   # bottom-left
         ]
         
         # Add to results
