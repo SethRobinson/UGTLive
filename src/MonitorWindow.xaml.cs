@@ -34,6 +34,13 @@ namespace UGTLive
         private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
         private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
         
+        // WebView2 hit testing control for scrollbar and titlebar interaction
+        private bool _webViewHitTestingEnabled = true;
+        private int _scrollbarWidth = 0;
+        private int _scrollbarHeight = 0;
+        private int _titleBarHeight = 0;
+        private string _lastHitRegion = ""; // Track which region we're over to reduce logging noise
+        
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
         public static MonitorWindow Instance
@@ -328,6 +335,13 @@ namespace UGTLive
             _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseHookProc, 
                 GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName), 0);
             
+            // Initialize scrollbar dimensions from system metrics
+            initializeScrollbarDimensions();
+            
+            // Mouse move tracking is handled by the low-level mouse hook
+            // which catches events before WebView2 consumes them
+            this.MouseLeave += monitorWindow_MouseLeave;
+            
             // Try to load the last screenshot if available
             if (!string.IsNullOrEmpty(lastImagePath) && File.Exists(lastImagePath))
             {
@@ -504,6 +518,106 @@ namespace UGTLive
             {
                 bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
                 SetWebView2ExcludeFromCapture(visibleInScreenshots);
+            }
+        }
+        
+        private void initializeScrollbarDimensions()
+        {
+            // Get scrollbar dimensions from Windows system metrics
+            _scrollbarWidth = GetSystemMetrics(SM_CXVSCROLL);
+            _scrollbarHeight = GetSystemMetrics(SM_CYHSCROLL);
+            _titleBarHeight = GetSystemMetrics(SM_CYCAPTION);
+        }
+        
+        private void checkMousePositionAndUpdateHitTesting(System.Windows.Point screenPoint)
+        {
+            // Check if mouse is over scrollbars or title bar
+            // If so, disable WebView2 hit testing to allow interaction with these UI elements
+            
+            try
+            {
+                System.Windows.Point mousePosWindow = this.PointFromScreen(screenPoint);
+                System.Windows.Point mousePosScrollViewer = imageScrollViewer.PointFromScreen(screenPoint);
+                bool shouldDisableHitTesting = false;
+                string currentRegion = "content";
+                
+                // Check if mouse is over title bar first (using window coordinates)
+                // Title bar area includes borders, so we check top portion of window
+                if (mousePosWindow.Y <= _titleBarHeight && mousePosWindow.Y >= 0)
+                {
+                    shouldDisableHitTesting = true;
+                    currentRegion = "titlebar";
+                }
+                // Check scrollbars using ScrollViewer coordinates
+                else if (mousePosScrollViewer.X >= 0 && mousePosScrollViewer.Y >= 0 &&
+                         mousePosScrollViewer.X <= imageScrollViewer.ActualWidth &&
+                         mousePosScrollViewer.Y <= imageScrollViewer.ActualHeight)
+                {
+                    // Mouse is within the ScrollViewer bounds
+                    double scrollViewerWidth = imageScrollViewer.ActualWidth;
+                    double scrollViewerHeight = imageScrollViewer.ActualHeight;
+                    
+                    // Check if vertical scrollbar is visible and mouse is over it
+                    if (imageScrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible)
+                    {
+                        double vScrollbarLeft = scrollViewerWidth - _scrollbarWidth;
+                        if (mousePosScrollViewer.X >= vScrollbarLeft)
+                        {
+                            shouldDisableHitTesting = true;
+                            currentRegion = "vertical_scrollbar";
+                        }
+                    }
+                    
+                    // Check if horizontal scrollbar is visible and mouse is over it
+                    if (imageScrollViewer.ComputedHorizontalScrollBarVisibility == Visibility.Visible)
+                    {
+                        double hScrollbarTop = scrollViewerHeight - _scrollbarHeight;
+                        if (mousePosScrollViewer.Y >= hScrollbarTop)
+                        {
+                            shouldDisableHitTesting = true;
+                            currentRegion = "horizontal_scrollbar";
+                        }
+                    }
+                }
+                
+                // Track region changes
+                if (currentRegion != _lastHitRegion)
+                {
+                    _lastHitRegion = currentRegion;
+                }
+                
+                // Update WebView2 hit testing state if it changed
+                if (shouldDisableHitTesting != !_webViewHitTestingEnabled)
+                {
+                    _webViewHitTestingEnabled = !shouldDisableHitTesting;
+                    
+                    if (textOverlayWebView != null)
+                    {
+                        // WebView2 is a native control, so IsHitTestVisible doesn't work
+                        // We need to use IsEnabled to prevent it from capturing mouse events
+                        textOverlayWebView.IsEnabled = _webViewHitTestingEnabled;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in checkMousePositionAndUpdateHitTesting: {ex.Message}");
+            }
+        }
+        
+        private void monitorWindow_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // When mouse leaves the window, re-enable WebView2 interaction
+            _lastHitRegion = ""; // Reset region tracker
+            
+            if (!_webViewHitTestingEnabled)
+            {
+                _webViewHitTestingEnabled = true;
+                
+                if (textOverlayWebView != null)
+                {
+                    textOverlayWebView.IsEnabled = true;
+                }
             }
         }
         
@@ -2116,13 +2230,60 @@ namespace UGTLive
             base.OnClosed(e);
         }
 
-        // Low-level mouse hook to intercept WM_MOUSEWHEEL before it reaches WebView2
+        // Low-level mouse hook to intercept mouse events before they reach WebView2
         private IntPtr LowLevelMouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
                 int msg = wParam.ToInt32();
-                if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
+                
+                // Handle mouse move to detect scrollbar/titlebar regions
+                if (msg == WM_MOUSEMOVE)
+                {
+                    try
+                    {
+                        // Get the mouse position from the hook structure
+                        MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                        
+                        // Check if the target window is our MonitorWindow or a child of it
+                        IntPtr targetWindow = WindowFromPoint(hookStruct.pt);
+                        bool isOurWindow = false;
+                        
+                        if (targetWindow == _monitorWindowHandle)
+                        {
+                            isOurWindow = true;
+                        }
+                        else if (targetWindow != IntPtr.Zero)
+                        {
+                            IntPtr parent = GetParent(targetWindow);
+                            while (parent != IntPtr.Zero)
+                            {
+                                if (parent == _monitorWindowHandle)
+                                {
+                                    isOurWindow = true;
+                                    break;
+                                }
+                                parent = GetParent(parent);
+                            }
+                        }
+                        
+                        if (isOurWindow)
+                        {
+                            System.Windows.Point screenPoint = new System.Windows.Point(hookStruct.pt.x, hookStruct.pt.y);
+                            
+                            // Use Dispatcher to check UI elements on UI thread
+                            Dispatcher.BeginInvoke(() =>
+                            {
+                                checkMousePositionAndUpdateHitTesting(screenPoint);
+                            }, DispatcherPriority.Normal);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in mouse move hook: {ex.Message}");
+                    }
+                }
+                else if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
                 {
                     try
                     {
@@ -2337,6 +2498,7 @@ namespace UGTLive
         // Windows message constants
         private const int WM_MOUSEWHEEL = 0x020A;
         private const int WM_MOUSEHWHEEL = 0x020E;
+        private const int WM_MOUSEMOVE = 0x0200;
         private const int VK_CONTROL = 0x11;
         private const int WH_MOUSE_LL = 14;
         private const int WM_MOUSEWHEEL_LL = 0x020A;
@@ -2372,6 +2534,14 @@ namespace UGTLive
         
         private const uint WDA_NONE = 0x00000000;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        
+        // Win32 API for GetSystemMetrics - used for scrollbar and titlebar dimensions
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+        
+        private const int SM_CXVSCROLL = 2;  // Width of vertical scrollbar
+        private const int SM_CYHSCROLL = 3;  // Height of horizontal scrollbar
+        private const int SM_CYCAPTION = 4;  // Height of window caption/titlebar
 
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
         private struct POINT
