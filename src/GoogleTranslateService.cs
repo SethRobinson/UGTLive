@@ -116,7 +116,10 @@ namespace UGTLive
                         outputJson.WriteEndObject();
                         
                         // Ghi log để gỡ lỗi
-                        Console.WriteLine($"Google translated: '{originalText}' -> '{translatedText}'");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Google translated: '{originalText}' -> '{translatedText}'");
+                        }
                     }
                 }
                 
@@ -128,7 +131,10 @@ namespace UGTLive
                 string result = Encoding.UTF8.GetString(memoryStream.ToArray());
                 
                 // Ghi log kết quả cuối cùng
-                Console.WriteLine($"Google Translate final JSON result: {result.Substring(0, Math.Min(100, result.Length))}...");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Google Translate final JSON result: {result.Substring(0, Math.Min(100, result.Length))}...");
+                }
                 
                 return result;
             }
@@ -238,10 +244,13 @@ namespace UGTLive
                 string url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl={sourceLanguage}&tl={targetLanguage}&dt=t&q={encodedText}";
                 
                 // Log translation attempt (truncate long texts)
-                string logText = normalizedText.Length > 50 
-                    ? normalizedText.Substring(0, 50) + "..." 
-                    : normalizedText;
-                Console.WriteLine($"Translating with free service: {logText}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    string logText = normalizedText.Length > 50 
+                        ? normalizedText.Substring(0, 50) + "..." 
+                        : normalizedText;
+                    Console.WriteLine($"Translating with free service: {logText}");
+                }
                 
                 // Send the request
                 var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -280,10 +289,13 @@ namespace UGTLive
                         string result = translatedText.ToString();
                         
                         // Log the result for debugging (truncate long results)
-                        string logResult = result.Length > 50 
-                            ? result.Substring(0, 50) + "..." 
-                            : result;
-                        Console.WriteLine($"Translation result: {logResult}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            string logResult = result.Length > 50 
+                                ? result.Substring(0, 50) + "..." 
+                                : result;
+                            Console.WriteLine($"Translation result: {logResult}");
+                        }
                         
                         if (!string.IsNullOrEmpty(result))
                         {

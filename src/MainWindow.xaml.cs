@@ -1939,7 +1939,10 @@ namespace UGTLive
                              // Texts match, but translation is the same. Return existing ID but mark as not needing UI refresh yet.
                              entryId = lastEntry.Id;
                              // entryUpdated remains false - UI doesn't need immediate full refresh
-                             Console.WriteLine($"Skipping update, translation same for ID: {lastEntry.Id}");
+                             if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                             {
+                                 Console.WriteLine($"Skipping update, translation same for ID: {lastEntry.Id}");
+                             }
                         }
                     }
                 }

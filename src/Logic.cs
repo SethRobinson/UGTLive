@@ -347,13 +347,19 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine("Processing Google Translate JSON response");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Processing Google Translate JSON response");
+                }
                 
                 // Kiểm tra nếu có mảng 'translations' trong JSON
                 if (translatedRoot.TryGetProperty("translations", out JsonElement translationsElement) &&
                     translationsElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"Found {translationsElement.GetArrayLength()} translations in Google Translate JSON");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found {translationsElement.GetArrayLength()} translations in Google Translate JSON");
+                    }
                     
                     // Xử lý từng phần tử dịch
                     for (int i = 0; i < translationsElement.GetArrayLength(); i++)
@@ -380,7 +386,10 @@ namespace UGTLive
                                     // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
-                                    Console.WriteLine($"Updated text object {id} with Google translation");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Updated text object {id} with Google translation");
+                                    }
                                 }
                                 else if (id.StartsWith("text_"))
                                 {
@@ -394,7 +403,10 @@ namespace UGTLive
                                         // Don't modify the original text orientation - it should remain as detected by OCR
 
                                         _textObjects[index].UpdateUIElement();
-                                         Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                        }
                                     }
                                     else
                                     {
@@ -2182,7 +2194,10 @@ namespace UGTLive
                     // Google Translate trả về định dạng: {"translations": [{"id": "...", "original_text": "...", "translated_text": "..."}]}
                     if (doc.RootElement.TryGetProperty("translations", out JsonElement _))
                     {
-                        Console.WriteLine("Google Translate response detected");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Google Translate response detected");
+                        }
                         ProcessGoogleTranslateJson(doc.RootElement);
                         return; // Bỏ qua xử lý tiếp theo
                     }

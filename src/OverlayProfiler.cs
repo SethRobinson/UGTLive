@@ -39,25 +39,13 @@ namespace UGTLive
                     stat.MaxMilliseconds = elapsedMilliseconds;
                 }
 
-                if (elapsedMilliseconds >= SlowOperationThresholdMs || stat.Count % 20 == 0)
-                {
-                    double average = stat.Count > 0 ? (double)stat.TotalMilliseconds / stat.Count : 0;
-                    Console.WriteLine($"[OverlayProfiler] {operationName}: last={elapsedMilliseconds}ms avg={average:F1}ms max={stat.MaxMilliseconds}ms count={stat.Count}");
-                }
+                // Profiling output removed - was too verbose
             }
         }
 
         public static void DumpSummary()
         {
-            lock (_lock)
-            {
-                foreach (KeyValuePair<string, ProfilingStat> kvp in _stats)
-                {
-                    ProfilingStat stat = kvp.Value;
-                    double average = stat.Count > 0 ? (double)stat.TotalMilliseconds / stat.Count : 0;
-                    Console.WriteLine($"[OverlayProfiler] SUMMARY {kvp.Key}: avg={average:F1}ms max={stat.MaxMilliseconds}ms count={stat.Count}");
-                }
-            }
+            // Summary output removed - was too verbose
         }
 
         private sealed class ProfilingScope : IDisposable

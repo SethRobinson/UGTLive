@@ -156,7 +156,10 @@ namespace UGTLive
                     && isDocTR
                     && ConfigManager.Instance.GetGlueDocTRLinesEnabled())
                 {
-                    Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    }
                     
                     // Map non-character elements into line elements
                     var fallbackLines = new List<TextElement>();
@@ -189,7 +192,10 @@ namespace UGTLive
                     // Group lines into vertical columns by horizontal overlap before paragraph gluing,
                     // so we don't interleave separate speech bubbles/columns.
                     var columnGroups = GroupLinesIntoColumnsByHorizontalOverlap(fallbackLines);
-                    Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    }
                     
                     // PHASE 4 (fallback): For each column, group lines into paragraphs
                     var gluedParagraphs = new List<TextElement>();
@@ -200,7 +206,10 @@ namespace UGTLive
                         gluedParagraphs.AddRange(groupParagraphs);
                     }
                     
-                    Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    }
                     
                     // Return ONLY the glued paragraphs; do not append original non-character items
                     // to avoid duplicate overlays.

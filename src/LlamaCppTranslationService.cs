@@ -144,7 +144,6 @@ namespace UGTLive
                                         WriteIndented = false
                                     };
                                     translatedText = JsonSerializer.Serialize(tempJson, options);
-                                    Console.WriteLine("Successfully normalized JSON format");
                                 }
                                 catch (Exception ex)
                                 {
@@ -160,14 +159,10 @@ namespace UGTLive
                                     // Validate it's proper JSON by parsing it
                                     var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
                                     
-                                    // Log that we got valid JSON
-                                    Console.WriteLine("llama.cpp returned valid JSON");
-                                    
                                     // Check if this is a game JSON translation with text_blocks
                                     if (translatedJson.TryGetProperty("text_blocks", out _))
                                     {
                                         // For game JSON format, we need to match the format that the other translation services use
-                                        Console.WriteLine("This is a game JSON format - wrapping in the standard format");
                                         
                                         var outputJson = new Dictionary<string, object>
                                         {
@@ -177,7 +172,6 @@ namespace UGTLive
                                         };
                                         
                                         string finalOutput = JsonSerializer.Serialize(outputJson);
-                                        Console.WriteLine($"Final wrapped output: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
                                         
                                         return finalOutput;
                                     }
