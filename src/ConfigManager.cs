@@ -131,6 +131,7 @@ namespace UGTLive
         public const string TTS_PRELOAD_MODE = "tts_preload_mode";
         public const string TTS_PLAY_ORDER = "tts_play_order";
         public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
+        public const string TTS_DELETE_CACHE_ON_STARTUP = "tts_delete_cache_on_startup";
         
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
@@ -411,6 +412,7 @@ namespace UGTLive
             _configValues[TTS_PRELOAD_MODE] = "Off";
             _configValues[TTS_PLAY_ORDER] = "Top down, left to right";
             _configValues[TTS_AUTO_PLAY_ALL] = "false";
+            _configValues[TTS_DELETE_CACHE_ON_STARTUP] = "false";
             _configValues[MAX_CONTEXT_PIECES] = "20";
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
@@ -1669,6 +1671,19 @@ Here is the input JSON:";
             _configValues[TTS_AUTO_PLAY_ALL] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"TTS auto play all enabled: {enabled}");
+        }
+        
+        // Get/Set TTS Delete Cache On Startup
+        public bool GetTtsDeleteCacheOnStartup()
+        {
+            return GetBoolValue(TTS_DELETE_CACHE_ON_STARTUP, false);
+        }
+        
+        public void SetTtsDeleteCacheOnStartup(bool enabled)
+        {
+            _configValues[TTS_DELETE_CACHE_ON_STARTUP] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS delete cache on startup: {enabled}");
         }
         
         // ChatGPT methods

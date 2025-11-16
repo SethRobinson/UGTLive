@@ -1078,6 +1078,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Preload Mode -->
@@ -1126,6 +1127,15 @@
                                          Margin="0,10,0,0" IsChecked="False" 
                                          Checked="TtsAutoPlayAllCheckBox_CheckedChanged" 
                                          Unchecked="TtsAutoPlayAllCheckBox_CheckedChanged"/>
+                                
+                                <!-- Delete Cache On Startup -->
+                                <TextBlock Text="Delete cached audio on startup:" Grid.Row="5" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Delete all cached audio files when the application starts"/>
+                                <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="5" Grid.Column="1" 
+                                         Margin="0,10,0,0" IsChecked="False" 
+                                         Checked="TtsDeleteCacheOnStartupCheckBox_CheckedChanged" 
+                                         Unchecked="TtsDeleteCacheOnStartupCheckBox_CheckedChanged"/>
                             </Grid>
                         </GroupBox>
 

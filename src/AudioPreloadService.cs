@@ -40,6 +40,117 @@ namespace UGTLive
             _audioCache = new Dictionary<string, string>();
             _inProgressTasks = new Dictionary<string, Task<string?>>();
             _concurrencyLimiter = new SemaphoreSlim(MAX_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS);
+            
+            // Initialize cache on startup
+            InitializeCache();
+        }
+        
+        private void InitializeCache()
+        {
+            try
+            {
+                // Check if we should delete cache on startup
+                if (ConfigManager.Instance.GetTtsDeleteCacheOnStartup())
+                {
+                    DeleteCacheDirectory();
+                    Console.WriteLine("Audio cache deleted on startup (setting enabled)");
+                    return;
+                }
+                
+                // Load existing cache files from disk
+                LoadCacheFromDisk();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing audio cache: {ex.Message}");
+            }
+        }
+        
+        private void DeleteCacheDirectory()
+        {
+            try
+            {
+                string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+                if (Directory.Exists(cacheDir))
+                {
+                    // Delete all files in cache directory
+                    string[] files = Directory.GetFiles(cacheDir);
+                    foreach (string file in files)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error deleting cache file {file}: {ex.Message}");
+                        }
+                    }
+                    Console.WriteLine($"Deleted {files.Length} cached audio files on startup");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting cache directory: {ex.Message}");
+            }
+        }
+        
+        private void LoadCacheFromDisk()
+        {
+            try
+            {
+                string cacheDir = GetCacheDirectory();
+                
+                // Scan cache directory for audio files with hash in filename
+                // Files are named like: {hash}.mp3, {hash}.wav, etc.
+                string[] audioFiles = Directory.GetFiles(cacheDir, "*.mp3")
+                    .Concat(Directory.GetFiles(cacheDir, "*.wav"))
+                    .Concat(Directory.GetFiles(cacheDir, "*.m4a"))
+                    .Concat(Directory.GetFiles(cacheDir, "*.ogg"))
+                    .ToArray();
+                
+                // Rebuild cache mapping from filenames
+                // Filename format: {hash}.{ext} where hash is base64 (may contain /, +, =)
+                // We sanitize the hash for filename, so we need to extract it
+                foreach (string filePath in audioFiles)
+                {
+                    try
+                    {
+                        string fileName = Path.GetFileNameWithoutExtension(filePath);
+                        // The filename should be the hash (base64 encoded)
+                        // Base64 can contain /, +, = which are replaced in filenames
+                        // We use a safe encoding: replace / with _, + with -, = with .
+                        // But for loading, we need to reverse this
+                        string hash = fileName.Replace('_', '/').Replace('-', '+').Replace('.', '=');
+                        
+                        // Validate it looks like a base64 hash (optional, but helps)
+                        if (hash.Length > 20 && File.Exists(filePath))
+                        {
+                            _audioCache[hash] = filePath;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing cache file {filePath}: {ex.Message}");
+                    }
+                }
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Loaded {_audioCache.Count} cached audio files from disk");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading cache from disk: {ex.Message}");
+            }
+        }
+        
+        private string SanitizeHashForFilename(string hash)
+        {
+            // Base64 can contain /, +, = which are not safe for filenames
+            // Replace with safe characters
+            return hash.Replace('/', '_').Replace('+', '-').Replace('=', '.');
         }
         
         public async Task PreloadSourceAudioAsync(List<TextObject> textObjects)
@@ -245,8 +356,9 @@ namespace UGTLive
                 // Generate hash for caching
                 string textHash = ComputeTextHash(text);
                 
-                // Check cache first
-                if (_audioCache.TryGetValue(textHash, out string? cachedPath) && File.Exists(cachedPath))
+                // Check cache first (in-memory and disk)
+                string? cachedPath = GetCachedAudioPath(textHash);
+                if (cachedPath != null && File.Exists(cachedPath))
                 {
                     // Use cached file
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -341,6 +453,33 @@ namespace UGTLive
                             
                             if (audioFilePath != null && File.Exists(audioFilePath))
                             {
+                                // Rename file to include hash for cache persistence
+                                string cacheDir = GetCacheDirectory();
+                                string extension = Path.GetExtension(audioFilePath);
+                                string sanitizedHash = SanitizeHashForFilename(textHash);
+                                string newFilePath = Path.Combine(cacheDir, $"{sanitizedHash}{extension}");
+                                
+                                try
+                                {
+                                    // If file with this hash already exists, delete the new one and use the existing
+                                    if (File.Exists(newFilePath))
+                                    {
+                                        File.Delete(audioFilePath);
+                                        audioFilePath = newFilePath;
+                                    }
+                                    else
+                                    {
+                                        // Rename to hash-based filename
+                                        File.Move(audioFilePath, newFilePath);
+                                        audioFilePath = newFilePath;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error renaming cache file: {ex.Message}");
+                                    // Continue with original file path if rename fails
+                                }
+                                
                                 // Cache the file
                                 _audioCache[textHash] = audioFilePath;
                                 break;
@@ -563,11 +702,37 @@ namespace UGTLive
         
         public string? GetCachedAudioPath(string textHash)
         {
+            // First check in-memory cache
             if (_audioCache.TryGetValue(textHash, out string? path) && File.Exists(path))
             {
                 return path;
             }
+            
+            // Check disk cache - look for file with this hash
+            string cacheDir = GetCacheDirectory();
+            string sanitizedHash = SanitizeHashForFilename(textHash);
+            
+            // Try common audio extensions
+            string[] extensions = { ".mp3", ".wav", ".m4a", ".ogg" };
+            foreach (string ext in extensions)
+            {
+                string filePath = Path.Combine(cacheDir, $"{sanitizedHash}{ext}");
+                if (File.Exists(filePath))
+                {
+                    // Add to in-memory cache for faster lookup next time
+                    _audioCache[textHash] = filePath;
+                    return filePath;
+                }
+            }
+            
             return null;
+        }
+        
+        private string GetCacheDirectory()
+        {
+            string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+            Directory.CreateDirectory(cacheDir);
+            return cacheDir;
         }
     }
 }

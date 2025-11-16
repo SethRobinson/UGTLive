@@ -2563,6 +2563,11 @@ namespace UGTLive
                     ttsAutoPlayAllCheckBox.Checked -= TtsAutoPlayAllCheckBox_CheckedChanged;
                     ttsAutoPlayAllCheckBox.Unchecked -= TtsAutoPlayAllCheckBox_CheckedChanged;
                 }
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    ttsDeleteCacheOnStartupCheckBox.Checked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                    ttsDeleteCacheOnStartupCheckBox.Unchecked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                }
                 
                 // Load preload mode
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
@@ -2598,6 +2603,12 @@ namespace UGTLive
                     ttsAutoPlayAllCheckBox.IsChecked = ConfigManager.Instance.IsTtsAutoPlayAllEnabled();
                 }
                 
+                // Load delete cache on startup
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    ttsDeleteCacheOnStartupCheckBox.IsChecked = ConfigManager.Instance.GetTtsDeleteCacheOnStartup();
+                }
+                
                 // Re-attach event handlers
                 if (ttsPreloadModeComboBox != null)
                 {
@@ -2611,6 +2622,11 @@ namespace UGTLive
                 {
                     ttsAutoPlayAllCheckBox.Checked += TtsAutoPlayAllCheckBox_CheckedChanged;
                     ttsAutoPlayAllCheckBox.Unchecked += TtsAutoPlayAllCheckBox_CheckedChanged;
+                }
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    ttsDeleteCacheOnStartupCheckBox.Checked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                    ttsDeleteCacheOnStartupCheckBox.Unchecked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                 }
             }
             catch (Exception ex)
@@ -2678,7 +2694,7 @@ namespace UGTLive
             {
                 if (_isInitializing)
                     return;
-                    
+                
                 bool isEnabled = ttsAutoPlayAllCheckBox.IsChecked ?? false;
                 ConfigManager.Instance.SetTtsAutoPlayAllEnabled(isEnabled);
                 Console.WriteLine($"TTS auto play all enabled: {isEnabled}");
@@ -2686,6 +2702,23 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating TTS auto play all: {ex.Message}");
+            }
+        }
+        
+        private void TtsDeleteCacheOnStartupCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                bool isEnabled = ttsDeleteCacheOnStartupCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTtsDeleteCacheOnStartup(isEnabled);
+                Console.WriteLine($"TTS delete cache on startup: {isEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS delete cache on startup: {ex.Message}");
             }
         }
         

@@ -1711,8 +1711,8 @@ namespace UGTLive
                 // Stop any currently playing audio
                 AudioPlaybackManager.Instance.StopCurrentPlayback();
                 
-                // Clear audio cache
-                AudioPreloadService.Instance.ClearAudioCache();
+                // Note: Audio cache is NOT deleted on shutdown to allow reuse between sessions
+                // Cache can be deleted on startup if the setting is enabled
                 
                 // Disconnect from socket server
                 SocketManager.Instance.Disconnect();

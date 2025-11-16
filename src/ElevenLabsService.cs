@@ -131,7 +131,7 @@ namespace UGTLive
                             using Stream audioStream = await response.Content.ReadAsStreamAsync();
                             
                             // Create a temp file path for the audio with appropriate extension
-                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                             Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                             
                             // Determine file extension based on content type
@@ -265,7 +265,7 @@ namespace UGTLive
                             using Stream audioStream = await response.Content.ReadAsStreamAsync();
                             
                             // Create a temp file path for the audio with appropriate extension
-                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                             Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                             
                             // Determine file extension based on content type

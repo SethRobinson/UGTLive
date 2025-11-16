@@ -186,7 +186,7 @@ namespace UGTLive
                                     byte[] audioBytes = Convert.FromBase64String(base64Audio);
                                     
                                     // Create a temp file path for the audio
-                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                                     Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                                     string audioFile = Path.Combine(tempDir, $"tts_google_{DateTime.Now.Ticks}.mp3");
                                     
@@ -333,7 +333,7 @@ namespace UGTLive
                                     byte[] audioBytes = Convert.FromBase64String(base64Audio);
                                     
                                     // Create a temp file path for the audio
-                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                                     Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                                     string audioFile = Path.Combine(tempDir, $"tts_google_{DateTime.Now.Ticks}.mp3");
                                     
