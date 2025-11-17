@@ -858,11 +858,11 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 20px rgba(100, 200, 255, 0.8);");
+            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.8); }");
-            html.AppendLine("  50% { box-shadow: 0 0 35px rgba(100, 200, 255, 1.0); }");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
+            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
@@ -2188,11 +2188,11 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 20px rgba(100, 200, 255, 0.8);");
+            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.8); }");
-            html.AppendLine("  50% { box-shadow: 0 0 35px rgba(100, 200, 255, 1.0); }");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
+            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
             html.AppendLine("}");
             
             // Add font imports if needed
