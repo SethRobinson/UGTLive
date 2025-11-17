@@ -807,7 +807,7 @@ namespace UGTLive
             try
             {
                 // Default prompts for each service
-                string defaultPrompt = @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog.
+                string defaultPrompt = @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
 
 You should:
 
