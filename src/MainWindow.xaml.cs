@@ -842,8 +842,8 @@ namespace UGTLive
                     break;
             }
             
-            // Set initial mouse passthrough state
-            bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
+            // Set initial mouse passthrough state (always unchecked at startup to avoid confusion)
+            bool mousePassthrough = false;
             mousePassthroughCheckBox.IsChecked = mousePassthrough;
             updateMousePassthrough(mousePassthrough);
             Console.WriteLine($"MainWindow mouse passthrough initialized: {(mousePassthrough ? "enabled" : "disabled")}");
