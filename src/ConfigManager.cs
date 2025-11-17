@@ -128,6 +128,7 @@ namespace UGTLive
         public const string TTS_TARGET_VOICE = "tts_target_voice";
         public const string TTS_TARGET_USE_CUSTOM_VOICE_ID = "tts_target_use_custom_voice_id";
         public const string TTS_TARGET_CUSTOM_VOICE_ID = "tts_target_custom_voice_id";
+        public const string TTS_PRELOAD_ENABLED = "tts_preload_enabled";
         public const string TTS_PRELOAD_MODE = "tts_preload_mode";
         public const string TTS_PLAY_ORDER = "tts_play_order";
         public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
@@ -415,7 +416,8 @@ namespace UGTLive
             _configValues[TTS_TARGET_VOICE] = "en-US-Studio-O";
             _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = "false";
             _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = "";
-            _configValues[TTS_PRELOAD_MODE] = "Off";
+            _configValues[TTS_PRELOAD_ENABLED] = "false";
+            _configValues[TTS_PRELOAD_MODE] = "Source language";
             _configValues[TTS_PLAY_ORDER] = "Top down, left to right";
             _configValues[TTS_AUTO_PLAY_ALL] = "false";
             _configValues[TTS_DELETE_CACHE_ON_STARTUP] = "false";
@@ -1634,10 +1636,23 @@ Here is the input JSON:";
             Console.WriteLine("TTS target custom voice ID updated");
         }
         
+        // Get/Set TTS Preload Enabled
+        public bool IsTtsPreloadEnabled()
+        {
+            return GetBoolValue(TTS_PRELOAD_ENABLED, false);
+        }
+        
+        public void SetTtsPreloadEnabled(bool enabled)
+        {
+            _configValues[TTS_PRELOAD_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS preload enabled: {enabled}");
+        }
+        
         // Get/Set TTS Preload Mode
         public string GetTtsPreloadMode()
         {
-            return GetValue(TTS_PRELOAD_MODE, "Off");
+            return GetValue(TTS_PRELOAD_MODE, "Source language");
         }
         
         public void SetTtsPreloadMode(string mode)

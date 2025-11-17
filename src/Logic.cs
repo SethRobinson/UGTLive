@@ -1846,13 +1846,23 @@ namespace UGTLive
         {
             try
             {
+                // Check if preloading is enabled
+                if (!ConfigManager.Instance.IsTtsPreloadEnabled())
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Logic: Source audio preloading skipped (feature disabled)");
+                    }
+                    return;
+                }
+                
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
                     Console.WriteLine($"Logic: TriggerSourceAudioPreloading called, preloadMode={preloadMode}");
                 }
                 
-                if (preloadMode == "Source language" || preloadMode == "Both source and target language")
+                if (preloadMode == "Source language" || preloadMode == "Both source and target languages")
                 {
                     var textObjects = _textObjects.ToList();
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -1893,13 +1903,23 @@ namespace UGTLive
         {
             try
             {
+                // Check if preloading is enabled
+                if (!ConfigManager.Instance.IsTtsPreloadEnabled())
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Logic: Target audio preloading skipped (feature disabled)");
+                    }
+                    return;
+                }
+                
                 string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
                     Console.WriteLine($"Logic: TriggerTargetAudioPreloading called, preloadMode={preloadMode}");
                 }
                 
-                if (preloadMode == "Target language" || preloadMode == "Both source and target language")
+                if (preloadMode == "Target language" || preloadMode == "Both source and target languages")
                 {
                     var textObjects = _textObjects.ToList();
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())

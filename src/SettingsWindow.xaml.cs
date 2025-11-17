@@ -2550,6 +2550,11 @@ namespace UGTLive
             try
             {
                 // Detach event handlers
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    ttsPreloadEnabledCheckBox.Checked -= TtsPreloadEnabledCheckBox_CheckedChanged;
+                    ttsPreloadEnabledCheckBox.Unchecked -= TtsPreloadEnabledCheckBox_CheckedChanged;
+                }
                 if (ttsPreloadModeComboBox != null)
                 {
                     ttsPreloadModeComboBox.SelectionChanged -= TtsPreloadModeComboBox_SelectionChanged;
@@ -2575,6 +2580,13 @@ namespace UGTLive
                 if (ttsMaxConcurrentDownloadsTextBox != null)
                 {
                     ttsMaxConcurrentDownloadsTextBox.LostFocus -= TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
+                
+                // Load preload enabled checkbox
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    bool preloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
+                    ttsPreloadEnabledCheckBox.IsChecked = preloadEnabled;
                 }
                 
                 // Load preload mode
@@ -2638,6 +2650,11 @@ namespace UGTLive
                 }
                 
                 // Re-attach event handlers
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    ttsPreloadEnabledCheckBox.Checked += TtsPreloadEnabledCheckBox_CheckedChanged;
+                    ttsPreloadEnabledCheckBox.Unchecked += TtsPreloadEnabledCheckBox_CheckedChanged;
+                }
                 if (ttsPreloadModeComboBox != null)
                 {
                     ttsPreloadModeComboBox.SelectionChanged += TtsPreloadModeComboBox_SelectionChanged;
@@ -2671,6 +2688,29 @@ namespace UGTLive
             }
         }
         
+        private void TtsPreloadEnabledCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                bool isEnabled = ttsPreloadEnabledCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTtsPreloadEnabled(isEnabled);
+                Console.WriteLine($"TTS preload enabled: {isEnabled}");
+                
+                // Cancel any in-progress preloads and retrigger OCR
+                AudioPreloadService.Instance.CancelAllPreloads();
+                Logic.Instance.ResetHash();
+                Logic.Instance.ClearAllTextObjects();
+                Console.WriteLine("OCR retriggered due to TTS preload enabled change");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS preload enabled: {ex.Message}");
+            }
+        }
+        
         private void TtsPreloadModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             try
@@ -2680,7 +2720,7 @@ namespace UGTLive
                     
                 if (ttsPreloadModeComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    string mode = selectedItem.Content.ToString() ?? "Off";
+                    string mode = selectedItem.Content.ToString() ?? "Source language";
                     string previousMode = ConfigManager.Instance.GetTtsPreloadMode();
                     ConfigManager.Instance.SetTtsPreloadMode(mode);
                     Console.WriteLine($"TTS preload mode set to: {mode}");

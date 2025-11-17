@@ -650,8 +650,8 @@ namespace UGTLive
             }
             
             // Determine which audio to check
-            bool checkSource = preloadMode == "Source language" || preloadMode == "Both source and target language";
-            bool checkTarget = preloadMode == "Target language" || preloadMode == "Both source and target language";
+            bool checkSource = preloadMode == "Source language" || preloadMode == "Both source and target languages";
+            bool checkTarget = preloadMode == "Target language" || preloadMode == "Both source and target languages";
             
             // Check if all requested audio is ready
             bool allReady = true;
