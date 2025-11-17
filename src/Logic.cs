@@ -2138,7 +2138,8 @@ namespace UGTLive
                     if (doc.RootElement.TryGetProperty("translated_text", out JsonElement translatedTextElement))
                     {
                         string translatedTextJson = translatedTextElement.GetString() ?? "";
-                        Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
+                        // Debug line removed - too slow for logs
+                        // Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
                         
                         // If the translated_text is a JSON string, parse it
                         if (!string.IsNullOrEmpty(translatedTextJson) && 

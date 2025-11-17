@@ -2535,12 +2535,12 @@ namespace UGTLive
             html.AppendLine("  filter: grayscale(0.7) sepia(0.3) hue-rotate(10deg) saturate(0.6) brightness(1.1);");
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
-            html.AppendLine("  animation: playingPulse 1.5s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 10px rgba(100, 200, 255, 0.6);");
+            html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
+            html.AppendLine("  box-shadow: 0 0 20px rgba(100, 200, 255, 0.8);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 10px rgba(100, 200, 255, 0.6); }");
-            html.AppendLine("  50% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.9); }");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 20px rgba(100, 200, 255, 0.8); }");
+            html.AppendLine("  50% { box-shadow: 0 0 35px rgba(100, 200, 255, 1.0); }");
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
