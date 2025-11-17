@@ -1992,6 +1992,17 @@ namespace UGTLive
         // Export current view to browser
         public void ExportToBrowser()
         {
+            // Always read overlay mode from config to ensure we have the latest value
+            // (especially important if window hasn't been opened yet)
+            string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
+            _currentOverlayMode = overlayMode switch
+            {
+                "Hide" => OverlayMode.Hide,
+                "Source" => OverlayMode.Source,
+                "Translated" => OverlayMode.Translated,
+                _ => OverlayMode.Translated
+            };
+            
             // Check if we have an image to export
             if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
             {
