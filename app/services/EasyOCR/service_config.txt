@@ -1,0 +1,9 @@
+description|A versatile OCR engine supporting multiple languages including Japanese, Korean, Chinese, and English|
+github_url|https://github.com/JaidedAI/EasyOCR|
+author|JaidedAI|
+service_name|EasyOCR|
+conda_env_name|ugt_easyocr|
+port|5000|
+local_only|true|
+version|1.7.2|
+

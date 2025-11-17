@@ -1,0 +1,9 @@
+description|Document OCR engine with strong English text recognition capabilities (does not support Japanese)|
+github_url|https://github.com/mindee/doctr|
+author|Mindee|
+service_name|DocTR|
+conda_env_name|ugt_doctr|
+port|5002|
+local_only|true|
+version|0.10.0|
+
