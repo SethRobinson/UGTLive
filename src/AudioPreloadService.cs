@@ -261,6 +261,13 @@ namespace UGTLive
                     Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
                 }
             }
+            
+            // Check if auto-play should trigger even if all audio was cached (no tasks were created)
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Source preload complete, checking for auto-play trigger");
+            }
+            CheckAndTriggerAutoPlay();
         }
         
         public async Task PreloadTargetAudioAsync(List<TextObject> textObjects)
@@ -359,6 +366,13 @@ namespace UGTLive
                     Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
                 }
             }
+            
+            // Check if auto-play should trigger even if all audio was cached (no tasks were created)
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Target preload complete, checking for auto-play trigger");
+            }
+            CheckAndTriggerAutoPlay();
         }
         
         private async Task PreloadAudioForTextObjectAsync(TextObject textObj, string text, string service, string voice, bool isSource, CancellationToken cancellationToken)

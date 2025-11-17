@@ -610,6 +610,18 @@ namespace UGTLive
             return _isPlaying;
         }
         
+        public void ResetAutoPlayTrigger()
+        {
+            lock (_playbackLock)
+            {
+                _autoPlayTriggered = false;
+            }
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("AudioPlaybackManager: Auto-play trigger flag reset");
+            }
+        }
+        
         public void CheckAndTriggerAutoPlay()
         {
             if (!ConfigManager.Instance.IsTtsAutoPlayAllEnabled())

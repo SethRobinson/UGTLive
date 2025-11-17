@@ -457,6 +457,9 @@ namespace UGTLive
         {
             _ocrProcessingStopwatch.Restart();
             
+            // Reset auto-play trigger flag to allow auto-play on new OCR results
+            AudioPlaybackManager.Instance.ResetAutoPlayTrigger();
+            
             // Check if we should pause OCR while translating
             bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
             bool waitingForTranslation = GetWaitingForTranslationToFinish();
@@ -662,6 +665,20 @@ namespace UGTLive
 
                                 if (contentHash == _lastOcrHash && bForceRender == false)
                                 {
+                                    // Before returning, check if we need to clear displayed text
+                                    // This handles the case where we move to a blank area and OCR finds no text,
+                                    // but we still have old text objects displayed
+                                    if (resultsElement.GetArrayLength() == 0 && _textObjects.Count > 0)
+                                    {
+                                        // OCR found no text but we have text displayed - clear it
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine("Hash matches but OCR found no text while text objects exist - clearing display");
+                                        }
+                                        ClearAllTextObjects();
+                                        MonitorWindow.Instance.RefreshOverlays();
+                                        MainWindow.Instance.RefreshMainWindowOverlays();
+                                    }
                                     OnFinishedThings(true);
                                     return;
                                 }
@@ -1803,6 +1820,9 @@ namespace UGTLive
                 
                 // Stop any currently playing audio
                 AudioPlaybackManager.Instance.StopCurrentPlayback();
+                
+                // Reset auto-play trigger flag to allow auto-play on next OCR
+                AudioPlaybackManager.Instance.ResetAutoPlayTrigger();
                 
                 // Check if we need to run on the UI thread
                 if (!Application.Current.Dispatcher.CheckAccess())
