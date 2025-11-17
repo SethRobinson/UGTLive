@@ -2784,8 +2784,9 @@ namespace UGTLive
                         html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'>");
                         
                         // Add speaker icon - show if preload is enabled
+                        bool isTtsPreloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
                         string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
-                        bool preloadEnabled = preloadMode != "Off";
+                        bool preloadEnabled = isTtsPreloadEnabled && preloadMode != "Off";
                         
                         if (preloadEnabled)
                         {
