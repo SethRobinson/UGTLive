@@ -29,7 +29,7 @@ namespace UGTLive
         // Event to notify when splash screen is closed
         public event EventHandler? SplashClosed;
         
-        public const double CurrentVersion = 0.52;
+        public const double CurrentVersion = 0.60;
         private const string VersionCheckerUrl = "https://raw.githubusercontent.com/SethRobinson/UGTLive/refs/heads/main/media/latest_version_checker.json";
         private const string DownloadUrl = "https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip";
 
@@ -140,7 +140,7 @@ namespace UGTLive
                 // Version Text
                 _versionTextBlock = new TextBlock
                 {
-                    Text = $"Universal Game Translator Live V{CurrentVersion} by Seth A. Robinson",
+                    Text = $"Universal Game Translator Live {CurrentVersion.ToString("0.00")} by Seth A. Robinson",
                     FontSize = 16,
                     FontWeight = FontWeights.SemiBold,
                     Margin = new Thickness(0, 10, 0, 10),
@@ -188,10 +188,10 @@ namespace UGTLive
 
                 if (versionInfo.LatestVersion > CurrentVersion)
                 {
-                    string message = versionInfo.Message?.Replace("{VERSION_STRING}", versionInfo.LatestVersion.ToString());
+                    string message = versionInfo.Message?.Replace("{VERSION_STRING}", versionInfo.LatestVersion.ToString("0.00"));
                     
                     // Update status text
-                    UpdateStatusText($"New version V{versionInfo.LatestVersion} available!");
+                    UpdateStatusText($"New version {versionInfo.LatestVersion.ToString("0.00")} available!");
                     
                     // Wait for 2 seconds before showing update dialog
                     await Task.Delay(2000);

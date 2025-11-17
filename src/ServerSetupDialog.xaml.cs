@@ -120,7 +120,7 @@ namespace UGTLive
                 appIconImage.Source = bigFrame;
                 
                 // Set version text
-                versionTextBlock.Text = $"V{SplashManager.CurrentVersion} by Seth A. Robinson";
+                versionTextBlock.Text = $"{SplashManager.CurrentVersion.ToString("0.00")} by Seth A. Robinson";
             }
             catch (Exception ex)
             {
@@ -189,7 +189,7 @@ namespace UGTLive
                     {
                         updateStatusIcon.Text = "⚠";
                         updateStatusIcon.Foreground = new SolidColorBrush(MediaColor.FromRgb(255, 165, 0)); // Orange
-                        updateStatusText.Text = $"New version V{versionInfo.LatestVersion} available!";
+                        updateStatusText.Text = $"New version {versionInfo.LatestVersion.ToString("0.00")} available!";
                         downloadUpdateButton.IsEnabled = true;
                         downloadUpdateButton.Visibility = Visibility.Visible;
                         
@@ -256,8 +256,8 @@ namespace UGTLive
             {
                 if (_updateVersionInfo != null)
                 {
-                    string message = _updateVersionInfo.Message?.Replace("{VERSION_STRING}", _updateVersionInfo.LatestVersion.ToString()) 
-                        ?? $"A new version (V{_updateVersionInfo.LatestVersion}) is available. Would you like to download it?";
+                    string message = _updateVersionInfo.Message?.Replace("{VERSION_STRING}", _updateVersionInfo.LatestVersion.ToString("0.00")) 
+                        ?? $"A new version ({_updateVersionInfo.LatestVersion.ToString("0.00")}) is available. Would you like to download it?";
                     
                     MessageBoxResult result = MessageBox.Show(message, "Update Available", 
                         MessageBoxButton.YesNo, MessageBoxImage.Information);

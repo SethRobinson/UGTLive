@@ -1,14 +1,14 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.52-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-0.60-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
 ## Description 
 
-An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen.
+An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.
 
-Requires **Windows** and an **NVidia RTX 30/40/50** series card.
+Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
 
 Features:
 
@@ -16,9 +16,12 @@ Features:
 * Can read/render/select/speak vertical Japanese in Manga, good for language learning
 * Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, docTR, Windows OCR)
 * Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech
+* New "Page Reading" feature (including a mode for top down, right to left for manga)
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
-* Flexible interface, can use chatbox overlays or render a separate monitor window with changes.  Can target specific areas on your screen
-* New "Easy Setup", don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
+* Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
+* Robust global hotkey system
+* New "Easy Setup" feature, don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
+* Some extra stuff for Japanese learners, like single clicks for Jisho lookup and lessons for any text
 
 ## License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
@@ -36,6 +39,8 @@ Features:
 </table>
 
 # History
+
+**V0.60 Nov 17th, 2025** - New customizable global hotkey system, New Page Reader/preload audio system, improved OCR capturing (thx [thanhkeke97](https://github.com/thanhkeke97)) with passthrough option, new log dialog, Settings dialog now is organized with tabs, lesson and jisho lookup added
 
 **V0.52 Nov 13th, 2025** - Manga OCR mode now ignores furigana by default, improved Ollama support, misc improvements
 
@@ -64,30 +69,66 @@ UGTLive will automatically check for updates when you start it. If a new version
 
  * To get translations, click Settings and check the "Translation Active" button.  Setup the translation service to use in settings as well.
  * Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
-* Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
+ * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
  * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
-* While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
-* Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
-* AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
+ * While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
+ * Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
+ * AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
+ * Can't click on the text overlays on the main window?  Make sure "Passthrough" isn't checked
+ * What's the best settings?  I like a local OCR with Gemini using gemini-2.5-flash-lite. It's just very fast.
+ 
+ ## How to run it COMPLETELY LOCALLY  and free, even the translations
+ 
+ If you don't mind a bit slower speed to translate a screen (depends on a lot of things, but around 6 seconds on a 5090?) then this is for you! It's actually really easy to setup an Ollama or llama.cpp server (optionally) right on the same computer. 
+ 
+ Here's how to setup llama.cpp:
+ 
+ * Download the one that looks similar to llama-b7083-bin-win-cuda-12.4-x64.zip from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.
+ 
+ * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
+
+ Create a text file called run_server.bat in that directory, cut and paste this as the contents (edit the model filename name to match what you've downloaded):
+
+ ```
+ @echo off
+REM MODEL path
+set "MODEL=Flux-Japanese-Qwen2.5-32B-Instruct-V1.0.Q2_K.gguf"
+
+REM To change context size (takes more VRAM) try changing -c to
+REM  -c 32768 ^
+
+REM To allow hosting beyond your own computer try adding:
+REM  --host 0.0.0.0 ^
+
+: Let's launch a webbrowser now as we can't later, useful for making sure it's working, and testing the model
+
+start "" http://localhost:5000
+
+llama-server ^
+  -m "%MODEL%" ^
+  --port 5000 ^
+  --jinja ^
+  -ngl 999 ^
+  -c 8196 ^
+  --cache-type-k q8_0 ^
+  --cache-type-v q8_0
+
+pause
+```
+
+Now, just double click the run_server.bat file we made and your server should start and and a browser window should open where you can test it, maybe ask it to translate some text, make sure it can.
+
+After that's verified to work, in UGTLive's Translation settings, choose llama.cpp and set the URL to http://localhost and the port to 5000 as that's what we have in the .bat file.  It should now be able to do both OCR and translation of anything, completely locally with no cloud services! (well, you can always mix and match, for example, I still only have cloud text to speech systems setup)
 
 ## Problems?  Read this!
 
 * First, it's helpful to see what the backend is doing.  Click the "Show server window" option.  It scrolls fast but it might hold some clues.
-* Second, click the "Log" button.  It also scrolls by fast but may have some good info.
+* Second, click the "Log" button.  It will show any errors, especially useful to figure out why a cloud service is rejected your requests.
+* Try deleting the config.txt and hotkeys.txt to reset settings to default.  Something could be broken with that when upgrading.
 * Try re-installing the backend by clicking the "Install/Reinstall Backend" button. (especially if something has changed with the version or your video card)
 
 Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [discussions](https://github.com/SethRobinson/UGTLive/discussions) area.
 
-## Keyboard Shortcuts for UGTLive
-
-| Shortcut  | Function  |
-|-----------|-----------|
-| Shift+S | Start/Stop OCR |
-| Shift+M | Show/Hide Monitor Window |
-| Shift+C | Show/Hide ChatBox |
-| Shift+P | Show/Hide Settings |
-| Shift+L | Show/Hide Log Console |
-| Shift+H | Show/Hide Main Window |
 
 ## Why are you using an LLM instead of DeepL/Google Translate? ##
 
@@ -107,7 +148,6 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 
 * Open the solution with Visual Studio 2022 and click compile.  I can't remember if it's going to automatically download the libraries it needs or not.
 
-
 **Credits and links**
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
 - [thanhkeke97](https://github.com/thanhkeke97)
@@ -117,6 +157,11 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 - [Manga109 YOLO](https://huggingface.co/deepghs/manga109_yolo) - YOLO model for manga text region detection
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) - YOLO framework for object detection
 
-Plug: Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version I made for inline LLM-based web translation that won't mess up the images/formatting.
+ Other open source translator projects you might want to try:
+ - [Universal Game Translator](https://github.com/SethRobinson/UGT)
+ - [RSTGameTranslation](https://github.com/thanhkeke97/RSTGameTranslation)
+ - [LunaTranslator](https://github.com/HIllya51/LunaTranslator)
+
+Plug: Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version I made for inline higher quality LLM-based web translation that won't mess up the images/formatting.
 
 *This project was developed with assistance from AI tools for code generation and documentation.*

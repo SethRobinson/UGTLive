@@ -405,7 +405,7 @@ namespace UGTLive
             _configValues[TTS_SERVICE] = "Google Cloud TTS";
             _configValues[GOOGLE_TTS_API_KEY] = "<your API key here>";
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
-            _configValues[TTS_ENABLED] = "true";
+            _configValues[TTS_ENABLED] = "false";
             
             // TTS Preload defaults
             _configValues[TTS_SOURCE_SERVICE] = "Google Cloud TTS";
@@ -807,19 +807,7 @@ namespace UGTLive
             try
             {
                 // Default prompts for each service
-                string defaultPrompt = @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
-
-You should:
-
-* Output ONLY the resulting JSON data.
-* The output JSON must have the exact same structure as the input JSON, with a source_language, target_language, and a text_blocks array.
-* Each element in the text_blocks array must include its id and its rect (the bounding box).
-* No extra text, explanations, or formatting should be included.
-* If ""previous_context"" data exist in the json, this should not be translated, but used to better understand the context of the text that IS being translated.
-* Don't return the ""previous_context"" or ""game_info"" json parms, that's for input only, not what you output.
-* If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together, but each on their own text line.
-
-Here is the input JSON:";
+                string defaultPrompt = GetDefaultPrompt("");
                 
                 string defaultGeminiPrompt = defaultPrompt;
                 string defaultOllamaPrompt = defaultPrompt;
@@ -938,7 +926,7 @@ Here is the input JSON:";
             }
             
             // All services use the same default prompt
-            return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog.
+            return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
 
 You should:
 
@@ -1405,7 +1393,7 @@ Here is the input JSON:";
         // Get/Set TTS enabled
         public bool IsTtsEnabled()
         {
-            string value = GetValue(TTS_ENABLED, "true");
+            string value = GetValue(TTS_ENABLED, "false");
             return value.ToLower() == "true";
         }
         
