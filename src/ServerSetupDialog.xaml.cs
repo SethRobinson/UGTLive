@@ -1141,6 +1141,25 @@ namespace UGTLive
             this.Close();
         }
         
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error opening hyperlink: {ex.Message}");
+                MessageBox.Show($"Failed to open link: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             // Clear instance reference when closing
