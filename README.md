@@ -85,7 +85,7 @@ UGTLive will automatically check for updates when you start it. If a new version
  
  * Download the one that looks similar to llama-b7083-bin-win-cuda-12.4-x64.zip from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.
  
- * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
+ * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
 
  Create a text file called run_server.bat in that directory, cut and paste this as the contents (edit the model filename name to match what you've downloaded):
 
