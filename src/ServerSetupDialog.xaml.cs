@@ -403,7 +403,7 @@ namespace UGTLive
                 condaStatusIcon.Text = "⏳";
                 condaStatusText.Text = "Checking conda...";
                 
-                var result = await ServerDiagnosticsService.Instance.CheckCondaAvailableAsync();
+                var result = await checkCondaAvailableAsync();
                 
                 if (result.available)
                 {
@@ -424,6 +424,117 @@ namespace UGTLive
                 condaStatusIcon.Text = "⚠️";
                 condaStatusText.Text = "Error checking conda";
             }
+        }
+        
+        /// <summary>
+        /// Checks if conda is available in the system PATH
+        /// </summary>
+        private async Task<(bool available, string version, string errorMessage)> checkCondaAvailableAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // Try to find conda.exe or conda.bat
+                    string condaPath = findCondaExecutable();
+                    if (string.IsNullOrEmpty(condaPath))
+                    {
+                        return (false, "", "Conda is not installed or not in PATH");
+                    }
+                    
+                    // Try to get conda version
+                    ProcessStartInfo psi = new ProcessStartInfo
+                    {
+                        FileName = condaPath,
+                        Arguments = "--version",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = System.Text.Encoding.UTF8
+                    };
+                    
+                    using (Process process = Process.Start(psi)!)
+                    {
+                        string output = process.StandardOutput.ReadToEnd();
+                        string error = process.StandardError.ReadToEnd();
+                        process.WaitForExit();
+                        
+                        if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                        {
+                            string version = output.Trim();
+                            return (true, version, "");
+                        }
+                        else
+                        {
+                            return (true, "Unknown", error);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return (false, "", $"Error checking conda: {ex.Message}");
+                }
+            });
+        }
+        
+        /// <summary>
+        /// Finds conda executable in common locations or PATH
+        /// </summary>
+        private string findCondaExecutable()
+        {
+            // First try "conda" command (if in PATH)
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "where",
+                    Arguments = "conda",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+                
+                using (Process process = Process.Start(psi)!)
+                {
+                    string output = process.StandardOutput.ReadToEnd();
+                    process.WaitForExit();
+                    
+                    if (!string.IsNullOrWhiteSpace(output))
+                    {
+                        string[] paths = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (string path in paths)
+                        {
+                            string trimmed = path.Trim();
+                            if (File.Exists(trimmed))
+                            {
+                                return trimmed;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            
+            // Try common installation locations
+            string[] commonPaths = {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "miniconda3", "Scripts", "conda.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "anaconda3", "Scripts", "conda.exe"),
+                Path.Combine("C:", "Users", Environment.UserName, "miniconda3", "Scripts", "conda.exe"),
+                Path.Combine("C:", "Users", Environment.UserName, "anaconda3", "Scripts", "conda.exe"),
+                Path.Combine("C:", "ProgramData", "miniconda3", "Scripts", "conda.exe"),
+                Path.Combine("C:", "ProgramData", "anaconda3", "Scripts", "conda.exe")
+            };
+            
+            foreach (string path in commonPaths)
+            {
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            
+            return "";
         }
         
         private async Task UpdateCondaStatusSkippedAsync()
