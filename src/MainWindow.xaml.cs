@@ -1055,9 +1055,9 @@ namespace UGTLive
                 await Task.Delay(50);
                 MouseManager.Instance.Cleanup();
                 
-                shutdownDialog.UpdateStatus("Finalizing...");
+                shutdownDialog.UpdateStatus("Stopping services...");
                 await Task.Delay(50);
-                Logic.Instance.Finish();
+                await Logic.Instance.Finish();
                 
                 // Note: Logic.Finish() already stops Python services via PythonServicesManager
                 // No need for additional server cleanup

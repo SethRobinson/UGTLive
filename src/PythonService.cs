@@ -285,12 +285,35 @@ namespace UGTLive
                     };
                     
                     _process = Process.Start(psi);
-                    _ownedByApp = true;
                     
                     if (_process != null)
                     {
-                        Console.WriteLine($"Started {ServiceName} service (PID: {_process.Id})");
+                        // Mark as owned BEFORE checking process status
+                        _ownedByApp = true;
+                        
+                        Console.WriteLine($"Started {ServiceName} service (PID: {_process.Id}) - IsOwnedByApp=TRUE");
+                        
+                        // Check if process has already exited (happens with UseShellExecute sometimes)
+                        try
+                        {
+                            if (_process.HasExited)
+                            {
+                                Console.WriteLine($"WARNING: Process {_process.Id} for {ServiceName} has already exited!");
+                                Console.WriteLine($"  Exit code: {_process.ExitCode}");
+                                Console.WriteLine($"  This is normal for UseShellExecute - keeping IsOwnedByApp=TRUE anyway");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Cannot check if process exited: {ex.Message}");
+                        }
+                        
                         return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to get process handle for {ServiceName} - IsOwnedByApp will be FALSE");
+                        _ownedByApp = false;
                     }
                 }
                 catch (Exception ex)
@@ -339,13 +362,13 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Stops the service gracefully using /shutdown endpoint
+        /// Stops the service by sending /shutdown endpoint (fire and forget)
         /// </summary>
         public async Task<bool> StopAsync()
         {
             try
             {
-                // Try graceful shutdown via API
+                // Send shutdown signal and don't wait around
                 string url = $"{ServerUrl}:{Port}/shutdown";
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Headers.ConnectionClose = false;
@@ -354,44 +377,19 @@ namespace UGTLive
                 if (response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"Sent shutdown signal to {ServiceName}");
-                    
-                    // Wait for process to exit if we own it
-                    if (_process != null && !_process.HasExited)
-                    {
-                        _process.WaitForExit(5000);
-                    }
-                    
-                    _process = null;
-                    _ownedByApp = false;
-                    IsRunning = false;
-                    
-                    return true;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error stopping {ServiceName} gracefully: {ex.Message}");
+                Console.WriteLine($"Error stopping {ServiceName}: {ex.Message}");
             }
             
-            // If graceful shutdown failed and we own the process, kill it
-            if (_process != null && !_process.HasExited)
-            {
-                try
-                {
-                    _process.Kill();
-                    _process = null;
-                    _ownedByApp = false;
-                    IsRunning = false;
-                    Console.WriteLine($"Forcefully terminated {ServiceName}");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error killing {ServiceName} process: {ex.Message}");
-                }
-            }
+            // Mark as not owned anymore
+            _process = null;
+            _ownedByApp = false;
+            IsRunning = false;
             
-            return false;
+            return true;
         }
         
         /// <summary>

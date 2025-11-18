@@ -31,10 +31,12 @@ namespace UGTLive
         
         /// <summary>
         /// Discovers all services in app/services directory
+        /// Preserves runtime state (IsOwnedByApp, IsRunning) for existing services
         /// </summary>
         public void DiscoverServices()
         {
-            _services.Clear();
+            // DON'T clear existing services - preserve runtime state!
+            // _services.Clear();  <-- THIS WAS THE BUG!
             
             string servicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "services");
             
@@ -57,19 +59,30 @@ namespace UGTLive
                 }
                 
                 // Try to parse service config
-                var service = PythonService.ParseFromConfig(dir);
+                var newService = PythonService.ParseFromConfig(dir);
                 
-                if (service != null)
+                if (newService != null)
                 {
-                    // Load AutoStart preference from config
-                    service.AutoStart = ConfigManager.Instance.GetServiceAutoStart(service.ServiceName);
-                    
-                    _services[service.ServiceName] = service;
-                    Console.WriteLine($"Discovered service: {service.ServiceName} (port {service.Port})");
+                    // Check if we already have this service
+                    if (_services.TryGetValue(newService.ServiceName, out var existingService))
+                    {
+                        // Service already exists - just update config values, preserve runtime state
+                        Console.WriteLine($"Updating existing service: {newService.ServiceName} (IsOwnedByApp={existingService.IsOwnedByApp})");
+                        
+                        // Update AutoStart from config
+                        existingService.AutoStart = ConfigManager.Instance.GetServiceAutoStart(newService.ServiceName);
+                    }
+                    else
+                    {
+                        // New service - add it
+                        newService.AutoStart = ConfigManager.Instance.GetServiceAutoStart(newService.ServiceName);
+                        _services[newService.ServiceName] = newService;
+                        Console.WriteLine($"Discovered new service: {newService.ServiceName} (port {newService.Port})");
+                    }
                 }
             }
             
-            Console.WriteLine($"Total services discovered: {_services.Count}");
+            Console.WriteLine($"Total services: {_services.Count}");
         }
         
         /// <summary>
@@ -168,7 +181,7 @@ namespace UGTLive
                 // Stagger process starts by 1.5 seconds each to avoid conflicts
                 if (index > 0)
                 {
-                    await Task.Delay(1500 * index);
+                    await Task.Delay(100 * index);
                 }
                 
                 statusCallback?.Invoke($"Starting {service.ServiceName}...");
@@ -197,6 +210,14 @@ namespace UGTLive
         /// </summary>
         public async Task StopOwnedServicesAsync()
         {
+            Console.WriteLine("=== StopOwnedServicesAsync called ===");
+            Console.WriteLine($"Total services: {_services.Count}");
+            
+            foreach (var service in _services.Values)
+            {
+                Console.WriteLine($"  {service.ServiceName}: IsOwnedByApp={service.IsOwnedByApp}, IsRunning={service.IsRunning}");
+            }
+            
             var ownedServices = _services.Values.Where(s => s.IsOwnedByApp).ToList();
             
             if (ownedServices.Count == 0)

@@ -1779,7 +1779,7 @@ namespace UGTLive
         }
 
         // Called when the application is closing
-        public async void Finish()
+        public async Task Finish()
         {
             try
             {
