@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace UGTLive
 {
@@ -18,6 +19,7 @@ namespace UGTLive
         private readonly string _apiKey;
         private readonly bool _useCloudApi;
         private readonly bool _autoMapLanguages;
+        public static Regex? GoogleTranslateResultRegex { get; set; }
 
         public GoogleTranslateService()
         {
@@ -216,19 +218,13 @@ namespace UGTLive
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                // Store original text format information
-                bool hasLineBreaks = text.Contains("\n");
-                string[] originalLines = hasLineBreaks ? text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None) : null;
+                // Normalize the text by replacing line breaks with spaces and removing extra spaces
+                string normalizedText = text.Replace("\r\n", " ").Replace("\n", " ");
                 
-                // Normalize text for translation - replace line breaks with special marker
-                // Using a marker that's unlikely to appear in normal text
-                const string LINE_BREAK_MARKER = "§§LINEBREAK§§";
-                string normalizedText = text;
-                
-                if (hasLineBreaks)
+                // Ensure there are no consecutive spaces
+                while (normalizedText.Contains("  "))
                 {
-                    // Replace line breaks with marker instead of removing them
-                    normalizedText = normalizedText.Replace("\r\n", LINE_BREAK_MARKER).Replace("\n", LINE_BREAK_MARKER);
+                    normalizedText = normalizedText.Replace("  ", " ");
                 }
                 
                 // Prepare the URL for the free translation service
@@ -299,60 +295,12 @@ namespace UGTLive
                         
                         if (!string.IsNullOrEmpty(result))
                         {
-                            // If we used line break markers, restore them now
-                            if (hasLineBreaks && result.Contains(LINE_BREAK_MARKER))
-                            {
-                                // Simply replace markers with actual line breaks
-                                result = result.Replace(LINE_BREAK_MARKER, "\n");
-                            }
-                            // If the original had line breaks but they weren't preserved in translation
-                            else if (hasLineBreaks && !result.Contains("\n") && originalLines.Length > 1)
-                            {
-                                // Try to restore line breaks based on original text structure
-                                
-                                // First, count characters per line in original text (excluding line breaks)
-                                double[] originalLineCharRatios = new double[originalLines.Length];
-                                int totalOriginalChars = text.Replace("\r", "").Replace("\n", "").Length;
-                                
-                                for (int i = 0; i < originalLines.Length; i++)
-                                {
-                                    originalLineCharRatios[i] = (double)originalLines[i].Length / totalOriginalChars;
-                                }
-                                
-                                // Distribute translated text based on original character ratios
-                                StringBuilder formattedResult = new StringBuilder();
-                                int charPosition = 0;
-                                
-                                for (int i = 0; i < originalLines.Length - 1; i++) // Process all but last line
-                                {
-                                    int charsToTake = (int)Math.Round(result.Length * originalLineCharRatios[i]);
-                                    
-                                    // Ensure we take at least 1 character and don't exceed remaining length
-                                    charsToTake = Math.Max(1, Math.Min(charsToTake, result.Length - charPosition));
-                                    
-                                    // Try to find a space near the calculated position to break naturally
-                                    int breakPos = FindNaturalBreakPosition(result, charPosition + charsToTake);
-                                    
-                                    // Add the line with a line break
-                                    formattedResult.AppendLine(result.Substring(charPosition, breakPos - charPosition));
-                                    charPosition = breakPos;
-                                }
-                                
-                                // Add the remaining text
-                                if (charPosition < result.Length)
-                                {
-                                    formattedResult.Append(result.Substring(charPosition));
-                                }
-                                
-                                result = formattedResult.ToString();
-                            }
-                            
                             return result;
                         }
                         else
                         {
                             Console.WriteLine("Translated text was empty after processing");
-                            return $"[EMPTY RESULT] {text}";
+                            // Fall through to alternative endpoint
                         }
                     }
                     catch (JsonException jsonEx)
@@ -370,43 +318,27 @@ namespace UGTLive
                     response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 {
                     Console.WriteLine("Trying alternative endpoint...");
-                    url = $"https://translate.google.com/translate_a/single?client=at&dt=t&dt=ld&dt=qca&dt=rm&dt=bd&dj=1&sl={sourceLanguage}&tl={targetLanguage}&q={encodedText}";
+                    url = $"https://translate.google.com/m?hl={targetLanguage}&sl={sourceLanguage}&tl={targetLanguage}&ie=UTF-8&prev=_m&q={encodedText}";
                     
                     response = await _httpClient.GetAsync(url, cancellationToken);
                     if (response.IsSuccessStatusCode)
                     {
                         string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
-                        try
+                        GoogleTranslateResultRegex = new Regex("(?<=(<div(.*)class=\"result-container\"(.*)>))[\\s\\S]*?(?=(<\\/div>))", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                        var matchResult = GoogleTranslateResultRegex.Match(jsonResponse);
+                        
+                        if (matchResult.Success)
                         {
-                            using JsonDocument doc = JsonDocument.Parse(jsonResponse);
-                            
-                            if (doc.RootElement.TryGetProperty("sentences", out JsonElement sentences))
+                            string result = matchResult.Value.ToString();
+                            if (!string.IsNullOrEmpty(result))
                             {
-                                StringBuilder translatedText = new StringBuilder();
-                                
-                                foreach (JsonElement sentence in sentences.EnumerateArray())
-                                {
-                                    if (sentence.TryGetProperty("trans", out JsonElement trans))
-                                    {
-                                        translatedText.Append(trans.GetString());
-                                    }
-                                }
-                                
-                                string result = translatedText.ToString();
-                                if (!string.IsNullOrEmpty(result))
-                                {
-                                    // Apply the same line break restoration logic as above
-                                    if (hasLineBreaks && result.Contains(LINE_BREAK_MARKER))
-                                    {
-                                        result = result.Replace(LINE_BREAK_MARKER, "\n");
-                                    }
-                                    return result;
-                                }
+                                return result;
                             }
-                        }
-                        catch (JsonException)
-                        {
-                            // Fall through to error return
+                            else
+                            {
+                                Console.WriteLine("Translated text was empty after processing");
+                                return $"[EMPTY RESULT] {text}";
+                            }
                         }
                     }
                 }
@@ -420,43 +352,6 @@ namespace UGTLive
             }
         }
 
-        /// <summary>
-        /// Find a good position to break text, preferably at a space or punctuation
-        /// </summary>
-        private int FindNaturalBreakPosition(string text, int targetPosition)
-        {
-            // If the target position is already at the end, return it
-            if (targetPosition >= text.Length)
-                return text.Length;
-            
-            // Look for a space within 10 characters of the target position
-            int searchRange = 10;
-            
-            // Search backward first
-            for (int i = 0; i < searchRange; i++)
-            {
-                int pos = targetPosition - i;
-                if (pos <= 0)
-                    break;
-                    
-                if (char.IsWhiteSpace(text[pos - 1]))
-                    return pos;
-            }
-            
-            // Then search forward
-            for (int i = 1; i < searchRange; i++)
-            {
-                int pos = targetPosition + i;
-                if (pos >= text.Length)
-                    return text.Length;
-                    
-                if (char.IsWhiteSpace(text[pos - 1]))
-                    return pos;
-            }
-            
-            // If no good break point found, just use the target position
-            return targetPosition;
-        }
         
         /// <summary>
         /// Map UGTLive language codes to Google Translate language codes
