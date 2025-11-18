@@ -589,6 +589,9 @@ namespace UGTLive
                     // Wait for installation to complete
                     await installTask;
                     
+                    // Invalidate venv cache so it will be re-checked
+                    service.InvalidateVenvCache();
+                    
                     // Show checking status immediately
                     viewModel.StatusText = "Checking status...";
                     viewModel.StatusIcon = "⏳";
