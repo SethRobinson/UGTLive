@@ -1622,11 +1622,14 @@ namespace UGTLive
                     url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
                 }
                 
-                // Send HTTP request
+                // Send HTTP request with keep-alive
                 var content = new ByteArrayContent(imageBytes);
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                 
-                var response = await _httpClient.PostAsync(url, content);
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = content;
+                request.Headers.ConnectionClose = false;
+                var response = await _httpClient.SendAsync(request);
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -1718,6 +1721,21 @@ namespace UGTLive
         {
             try
             {
+                // Check if we should pause OCR while translating
+                bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+                bool waitingForTranslation = GetWaitingForTranslationToFinish();
+                
+                if (pauseOcrWhileTranslating && waitingForTranslation)
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Pause OCR while translating is enabled - skipping HTTP OCR request");
+                    }
+                    // Re-enable OCR check so it can be triggered again after translation finishes
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    return;
+                }
+                
                 string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
                 
                 if (ocrMethod == "Windows OCR" || ocrMethod == "Google Vision")

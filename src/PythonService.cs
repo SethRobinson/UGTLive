@@ -130,7 +130,9 @@ namespace UGTLive
             try
             {
                 string url = $"http://localhost:{Port}/info";
-                var response = await _httpClient.GetAsync(url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.ConnectionClose = false;
+                var response = await _httpClient.SendAsync(request);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -258,7 +260,9 @@ namespace UGTLive
             {
                 // Try graceful shutdown via API
                 string url = $"http://localhost:{Port}/shutdown";
-                var response = await _httpClient.PostAsync(url, null);
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Headers.ConnectionClose = false;
+                var response = await _httpClient.SendAsync(request);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -311,7 +315,9 @@ namespace UGTLive
             try
             {
                 string url = $"http://localhost:{Port}/info";
-                var response = await _httpClient.GetAsync(url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.ConnectionClose = false;
+                var response = await _httpClient.SendAsync(request);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -334,7 +340,9 @@ namespace UGTLive
             try
             {
                 string url = $"http://localhost:{Port}/health";
-                var response = await _httpClient.GetAsync(url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.ConnectionClose = false;
+                var response = await _httpClient.SendAsync(request);
                 return response.IsSuccessStatusCode;
             }
             catch (Exception)
