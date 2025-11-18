@@ -8,6 +8,7 @@ namespace UGTLive
     public static class ErrorPopupManager
     {
         private static bool _isPopupShowing = false;
+        private static bool _isServiceWarningShowing = false;
         private static readonly object _lock = new object();
 
         /// <summary>
@@ -48,6 +49,60 @@ namespace UGTLive
                     }
                 }
             });
+        }
+
+        /// <summary>
+        /// Shows a service warning popup if one is not already showing
+        /// Returns true if user clicked Yes, false otherwise
+        /// </summary>
+        /// <param name="message">The warning message to display</param>
+        /// <param name="title">The title of the warning dialog</param>
+        public static bool ShowServiceWarning(string message, string title = "Service Not Available")
+        {
+            // Suppress service warnings when ServerSetupDialog is open
+            if (ServerSetupDialog.IsDialogOpen)
+            {
+                Console.WriteLine($"Suppressed service warning while ServerSetupDialog is open: {title} - {message}");
+                return false;
+            }
+            
+            lock (_lock)
+            {
+                if (_isServiceWarningShowing)
+                {
+                    // A service warning is already showing, just log to console instead
+                    Console.WriteLine($"Suppressed duplicate service warning popup: {title} - {message}");
+                    return false;
+                }
+
+                _isServiceWarningShowing = true;
+            }
+
+            bool result = false;
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    var messageBoxResult = System.Windows.MessageBox.Show(
+                        message,
+                        title,
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Warning);
+                    
+                    result = messageBoxResult == System.Windows.MessageBoxResult.Yes;
+                }
+                finally
+                {
+                    // Reset the flag immediately after the popup is dismissed
+                    lock (_lock)
+                    {
+                        _isServiceWarningShowing = false;
+                    }
+                }
+            });
+
+            return result;
         }
     }
 }

@@ -130,6 +130,15 @@ namespace UGTLive
             
             foreach (var service in autoStartServices)
             {
+                // Check if service is already running first - don't waste time on already-running services
+                bool alreadyRunning = await service.CheckIsRunningAsync();
+                
+                if (alreadyRunning)
+                {
+                    // Skip immediately, no status message or delay needed
+                    continue;
+                }
+                
                 statusCallback?.Invoke($"Starting {service.ServiceName}...");
                 
                 bool started = await service.StartAsync(showWindow);

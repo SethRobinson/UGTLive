@@ -496,10 +496,36 @@ namespace UGTLive
                         {
                             string status = statusElement.GetString() ?? "unknown";
                             
-                            if (status == "success" && root.TryGetProperty("results", out JsonElement resultsElement))
+                            // Try "results" first (Windows OCR format), then "texts" (HTTP service format)
+                            JsonElement resultsElement;
+                            bool hasResults = root.TryGetProperty("results", out resultsElement);
+                            bool hasTexts = root.TryGetProperty("texts", out JsonElement textsElement);
+                            
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"ProcessReceivedTextJsonData: status={status}, hasResults={hasResults}, hasTexts={hasTexts}");
+                            }
+                            
+                            if (hasTexts && !hasResults)
+                            {
+                                resultsElement = textsElement;
+                                hasResults = true;
+                                
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"Using 'texts' property as results, array length: {resultsElement.GetArrayLength()}");
+                                }
+                            }
+                            
+                            if (status == "success" && hasResults)
                             {
                                 // Pre-filter low-confidence characters before block detection
                                 JsonElement filteredResults = FilterLowConfidenceCharacters(resultsElement);
+                                
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"After FilterLowConfidenceCharacters: {filteredResults.GetArrayLength()} items");
+                                }
                                 
                                 // Check if block detection should be skipped (e.g., for Google Vision results)
                                 bool skipBlockDetection = false;
@@ -520,6 +546,11 @@ namespace UGTLive
                                     // Process character-level OCR data using CharacterBlockDetectionManager
                                     // Use the filtered results for consistency
                                     modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                    
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"After CharacterBlockDetectionManager: {modifiedResults.GetArrayLength()} blocks");
+                                    }
                                 }
                                 
                                 // Filter out text objects that should be ignored based on ignore phrases
@@ -681,10 +712,11 @@ namespace UGTLive
                                     {
                                         writer.WriteStartObject();
                                         
-                                        // Copy over all existing properties except 'results'
+                                        // Copy over all existing properties except 'results' and 'texts'
+                                        // (we'll add 'results' with the modified data)
                                         foreach (var property in root.EnumerateObject())
                                         {
-                                            if (property.Name != "results")
+                                            if (property.Name != "results" && property.Name != "texts")
                                             {
                                                 property.WriteTo(writer);
                                             }
@@ -764,7 +796,27 @@ namespace UGTLive
                             {
                                 // Display error message
                                 string errorMsg = messageElement.GetString() ?? "Unknown error";
-                                Console.WriteLine(errorMsg);
+                                Console.WriteLine($"OCR service returned error: {errorMsg}");
+                            }
+                            else if (status == "success" && !hasResults)
+                            {
+                                // Success status but no results/texts property
+                                Console.WriteLine("ERROR: OCR response has status='success' but no 'results' or 'texts' property");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"Response JSON properties: {string.Join(", ", root.EnumerateObject().Select(p => p.Name))}");
+                                    Console.WriteLine($"Full response (first 500 chars): {data.Substring(0, Math.Min(500, data.Length))}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // No status property at all
+                            Console.WriteLine("ERROR: OCR response missing 'status' property");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"Response JSON properties: {string.Join(", ", root.EnumerateObject().Select(p => p.Name))}");
+                                Console.WriteLine($"Full response (first 500 chars): {data.Substring(0, Math.Min(500, data.Length))}");
                             }
                         }
                     }
@@ -958,6 +1010,11 @@ namespace UGTLive
                     
                     // Process text blocks that have already been grouped by CharacterBlockDetectionManager
                     int resultCount = resultsElement.GetArrayLength();
+                    
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"DisplayOcrResults: Processing {resultCount} text blocks");
+                    }
                     
                     for (int i = 0; i < resultCount; i++)
                     {
@@ -1393,6 +1450,14 @@ namespace UGTLive
                                 continue;
                             }
                             
+                            // Handle null confidence (DocTR returns null for character-level)
+                            if (confElement.ValueKind == JsonValueKind.Null)
+                            {
+                                // Include items with null confidence
+                                item.WriteTo(writer);
+                                continue;
+                            }
+                            
                             // Get confidence value
                             double confidence = confElement.GetDouble();
                             
@@ -1603,7 +1668,7 @@ namespace UGTLive
         /// <summary>
         /// Process image using HTTP Python service
         /// </summary>
-        private async Task<List<TextObject>> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
+        private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
         {
             try
             {
@@ -1612,7 +1677,7 @@ namespace UGTLive
                 if (service == null)
                 {
                     Console.WriteLine($"Service {serviceName} not found");
-                    return new List<TextObject>();
+                    return null;
                 }
                 
                 // Check if service is running
@@ -1622,22 +1687,20 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Service {serviceName} is not running");
                     
-                    // Show error dialog offering to start the service
-                    Application.Current.Dispatcher.Invoke(() =>
+                    // Show error dialog offering to start the service (if not already showing)
+                    bool openManager = ErrorPopupManager.ShowServiceWarning(
+                        $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                        "Service Not Available");
+                    
+                    if (openManager)
                     {
-                        var result = MessageBox.Show(
-                            $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
-                            "Service Not Available",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Warning);
-                        
-                        if (result == MessageBoxResult.Yes)
+                        Application.Current.Dispatcher.Invoke(() =>
                         {
                             ServerSetupDialog.ShowDialogSafe(fromSettings: true);
-                        }
-                    });
+                        });
+                    }
                     
-                    return new List<TextObject>();
+                    return null;
                 }
                 
                 // Build query parameters
@@ -1662,75 +1725,67 @@ namespace UGTLive
                 if (!response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"HTTP request failed: {response.StatusCode}");
-                    return new List<TextObject>();
+                    return null;
                 }
                 
-                // Parse response
+                // Get JSON response and return it directly
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 
-                using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
+                // Quick validation that we got valid JSON with expected structure
+                try
                 {
-                    var root = doc.RootElement;
-                    
-                    if (root.GetProperty("status").GetString() != "success")
+                    using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
                     {
-                        Console.WriteLine("OCR service returned non-success status");
-                        return new List<TextObject>();
-                    }
-                    
-                    var textsArray = root.GetProperty("texts");
-                    var textObjects = new List<TextObject>();
-                    
-                    foreach (var textElement in textsArray.EnumerateArray())
-                    {
-                        string text = textElement.GetProperty("text").GetString() ?? "";
-                        int x = textElement.GetProperty("x").GetInt32();
-                        int y = textElement.GetProperty("y").GetInt32();
-                        int width = textElement.GetProperty("width").GetInt32();
-                        int height = textElement.GetProperty("height").GetInt32();
+                        var root = doc.RootElement;
                         
-                        // Parse colors if available
-                        SolidColorBrush? bgColor = null;
-                        SolidColorBrush? fgColor = null;
-                        
-                        if (textElement.TryGetProperty("background_color", out var bgColorElement))
+                        if (!root.TryGetProperty("status", out var statusProp))
                         {
-                            if (bgColorElement.TryGetProperty("rgb", out var bgRgb) && bgRgb.GetArrayLength() == 3)
-                            {
-                                byte r = (byte)bgRgb[0].GetInt32();
-                                byte g = (byte)bgRgb[1].GetInt32();
-                                byte b = (byte)bgRgb[2].GetInt32();
-                                bgColor = new SolidColorBrush(Color.FromArgb(255, r, g, b));
-                            }
+                            Console.WriteLine($"{serviceName}: Response missing 'status' property");
+                            return null;
                         }
                         
-                        if (textElement.TryGetProperty("foreground_color", out var fgColorElement))
+                        string status = statusProp.GetString() ?? "unknown";
+                        
+                        if (status == "success")
                         {
-                            if (fgColorElement.TryGetProperty("rgb", out var fgRgb) && fgRgb.GetArrayLength() == 3)
+                            // Check for texts property
+                            if (root.TryGetProperty("texts", out var textsArray))
                             {
-                                byte r = (byte)fgRgb[0].GetInt32();
-                                byte g = (byte)fgRgb[1].GetInt32();
-                                byte b = (byte)fgRgb[2].GetInt32();
-                                fgColor = new SolidColorBrush(Color.FromArgb(255, r, g, b));
+                                int count = textsArray.GetArrayLength();
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"Received {count} text objects from {serviceName}");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"{serviceName}: Response missing 'texts' property");
+                                return null;
                             }
                         }
-                        
-                        var textObject = new TextObject(text, x, y, width, height, fgColor, bgColor);
-                        textObjects.Add(textObject);
+                        else if (status == "error")
+                        {
+                            string errorMsg = root.TryGetProperty("message", out var msgElement) 
+                                ? msgElement.GetString() ?? "Unknown error" 
+                                : "Unknown error";
+                            Console.WriteLine($"{serviceName} returned error: {errorMsg}");
+                            return null;
+                        }
                     }
-                    
-                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                    {
-                        Console.WriteLine($"Received {textObjects.Count} text objects from {serviceName}");
-                    }
-                    
-                    return textObjects;
                 }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"{serviceName} returned invalid JSON: {ex.Message}");
+                    return null;
+                }
+                
+                // Return the JSON response to be processed by ProcessReceivedTextJsonData
+                return jsonResponse;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing image with HTTP service: {ex.Message}");
-                return new List<TextObject>();
+                return null;
             }
         }
         
@@ -1776,32 +1831,28 @@ namespace UGTLive
                         Console.WriteLine($"Processing {imageBytes.Length} bytes with {ocrMethod} HTTP service, language: {sourceLanguage}");
                     }
                     
-                    // Process with HTTP service
-                    var textObjects = await ProcessImageWithHttpServiceAsync(imageBytes, ocrMethod, sourceLanguage);
+                    // Process with HTTP service - returns JSON directly
+                    var jsonResponse = await ProcessImageWithHttpServiceAsync(imageBytes, ocrMethod, sourceLanguage);
                     
-                    // Process OCR results
-                    if (textObjects.Count > 0)
+                    if (jsonResponse != null)
                     {
-                        // Convert TextObjects to simple serializable format
-                        var serializableTexts = textObjects.Select(t => new
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
                         {
-                            text = t.Text,
-                            x = (int)t.X,
-                            y = (int)t.Y,
-                            width = (int)t.Width,
-                            height = (int)t.Height,
-                            vertices = new List<List<int>>(), // Empty for now, not needed
-                            confidence = 1.0
-                        }).ToList();
+                            Console.WriteLine($"=== JSON Response from {ocrMethod} (first 1000 chars) ===");
+                            Console.WriteLine(jsonResponse.Substring(0, Math.Min(1000, jsonResponse.Length)));
+                            Console.WriteLine("=== End JSON Response ===");
+                        }
                         
-                        var jsonData = System.Text.Json.JsonSerializer.Serialize(new { texts = serializableTexts });
-                        ProcessReceivedTextJsonData(jsonData);
+                        // Pass the JSON response directly to ProcessReceivedTextJsonData
+                        // The Python service returns {"status": "success", "texts": [...]}
+                        // and ProcessReceivedTextJsonData now handles both "texts" and "results"
+                        ProcessReceivedTextJsonData(jsonResponse);
                     }
                     else
                     {
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
                         {
-                            Console.WriteLine("No text objects received from HTTP service");
+                            Console.WriteLine($"No valid response received from {ocrMethod} service");
                         }
                     }
                     

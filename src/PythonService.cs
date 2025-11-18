@@ -202,6 +202,15 @@ namespace UGTLive
         /// </summary>
         public async Task<bool> StartAsync(bool showWindow)
         {
+            // First check if service is already running
+            if (await CheckIsRunningAsync())
+            {
+                Console.WriteLine($"{ServiceName} is already running on port {Port}");
+                // Mark as not owned by app since it was started externally
+                _ownedByApp = false;
+                return true;
+            }
+            
             return await Task.Run(() =>
             {
                 try

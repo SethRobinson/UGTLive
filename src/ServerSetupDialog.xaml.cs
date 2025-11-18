@@ -44,6 +44,17 @@ namespace UGTLive
         }
         
         /// <summary>
+        /// Checks if the ServerSetupDialog is currently open and visible
+        /// </summary>
+        public static bool IsDialogOpen
+        {
+            get
+            {
+                return _instance != null && IsWindowValid(_instance) && _instance.IsVisible;
+            }
+        }
+        
+        /// <summary>
         /// Checks if a window instance is still valid (not disposed or closed)
         /// </summary>
         private static bool IsWindowValid(Window? window)

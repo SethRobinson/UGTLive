@@ -11,6 +11,7 @@
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
+        Topmost="True"
         Icon="/media/Icon1.ico">
     <Grid>
         <Grid.RowDefinitions>

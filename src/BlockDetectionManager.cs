@@ -247,15 +247,32 @@ namespace UGTLive
                 
                 // Skip if missing required properties
                 if (!item.TryGetProperty("text", out JsonElement textElement) || 
-                    !item.TryGetProperty("confidence", out JsonElement confElement) ||
-                    !item.TryGetProperty("rect", out JsonElement boxElement) || 
-                    boxElement.ValueKind != JsonValueKind.Array)
+                    !item.TryGetProperty("confidence", out JsonElement confElement))
+                {
+                    continue;
+                }
+                
+                // Try to get bounding box - check for "rect" (Windows OCR) or "vertices" (HTTP services)
+                JsonElement boxElement;
+                bool hasBox = item.TryGetProperty("rect", out boxElement);
+                if (!hasBox)
+                {
+                    hasBox = item.TryGetProperty("vertices", out boxElement);
+                }
+                
+                if (!hasBox || boxElement.ValueKind != JsonValueKind.Array)
                 {
                     continue;
                 }
                 
                 string text = textElement.GetString() ?? "";
-                double confidence = confElement.GetDouble();
+                
+                // Handle null confidence (DocTR returns null for character-level)
+                double confidence = 1.0;
+                if (confElement.ValueKind != JsonValueKind.Null)
+                {
+                    confidence = confElement.GetDouble();
+                }
                 bool isCharacter = true;
                 
                 // Check if this item has an is_character property
