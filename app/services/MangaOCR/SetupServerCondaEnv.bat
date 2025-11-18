@@ -102,10 +102,11 @@ echo [3/3] Updating conda...
 call conda update -y conda >> "%LOG_FILE%" 2>&1
 
 REM -----------------------------------------------------------------
-REM Recreate environment
+REM Remove existing environment if present
 REM -----------------------------------------------------------------
 echo Removing existing environment if present...
-call conda env remove -n "!ENV_NAME!" -y >> "%LOG_FILE%" 2>&1
+echo Removing existing environment if present... >> "%LOG_FILE%"
+call "%SCRIPT_DIR%RemoveServerCondaEnv.bat" nopause >> "%LOG_FILE%" 2>&1
 
 echo Creating new conda environment...
 

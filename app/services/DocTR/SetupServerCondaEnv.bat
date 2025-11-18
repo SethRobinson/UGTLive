@@ -149,30 +149,20 @@ if errorlevel 1 (
 )
 
 REM -----------------------------------------------------------------
-REM Recreate environment
+REM Remove existing environment if present
 REM -----------------------------------------------------------------
-echo [4/6] Checking for existing environment...
-echo [4/6] Checking for existing environment... >> "%LOG_FILE%"
-conda env list | findstr /C:"!ENV_NAME!" >nul 2>nul
-if !errorlevel! equ 0 (
-    echo Found existing "!ENV_NAME!" environment. Removing it...
-    echo Found existing environment, removing... >> "%LOG_FILE%"
-    call conda env remove -n "!ENV_NAME!" -y >> "%LOG_FILE%" 2>&1
-    if errorlevel 1 (
-        echo.
-        echo ERROR: Failed to remove existing environment "!ENV_NAME!"
-        echo ERROR: Failed to remove existing environment >> "%LOG_FILE%"
-        echo Please close any terminals that have this environment activated and try again.
-        echo.
-        pause
-        exit /b 1
-    )
-    echo Successfully removed old environment.
-    echo Successfully removed old environment >> "%LOG_FILE%"
-) else (
-    echo No existing environment found.
-    echo No existing environment found >> "%LOG_FILE%"
+echo [4/6] Removing existing environment if present...
+echo [4/6] Removing existing environment if present... >> "%LOG_FILE%"
+call "%SCRIPT_DIR%RemoveServerCondaEnv.bat" nopause >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to remove existing environment
+    echo ERROR: Failed to remove existing environment >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
 )
+echo Environment removal check completed >> "%LOG_FILE%"
 
 echo [5/6] Creating new conda environment...
 echo [5/6] Creating new conda environment... >> "%LOG_FILE%"
