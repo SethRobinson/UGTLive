@@ -928,15 +928,20 @@ namespace UGTLive
             // All services use the same default prompt
             return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
 
-You should:
+CRITICAL OUTPUT FORMAT REQUIREMENTS:
 
-* Output ONLY the resulting JSON data.
-* The output JSON must have the exact same structure as the input JSON, with a source_language, target_language, and a text_blocks array.
-* Each element in the text_blocks array must include its id and its rect (the bounding box).
-* No extra text, explanations, or formatting should be included.
-* If ""previous_context"" data exist in the json, this should not be translated, but used to better understand the context of the text that IS being translated.
-* Don't return the ""previous_context"" or ""game_info"" json parms, that's for input only, not what you output.
-* If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together, but each on their own text line.
+* Output ONLY the resulting JSON data with NO extra text, explanations, markdown code blocks, or formatting.
+* The output JSON must have the exact same structure as the input JSON: source_language, target_language, and a text_blocks array.
+* Each element in the text_blocks array must include: id, text (TRANSLATED), and rect (the bounding box).
+* The ""text"" field in the OUTPUT must contain the TRANSLATED text in the target_language. Do NOT create new fields like ""english_text"", ""japanese_text"", ""translated_text"", etc.
+* Keep the same field names as the input - just replace the text content with its translation.
+* If ""previous_context"" data exists in the input JSON, use it to better understand context, but do NOT include it in your output.
+* Do NOT return the ""previous_context"" or ""game_info"" parameters in your output - those are input-only.
+* If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together.
+
+EXAMPLE:
+Input text_block: {""id"": ""text_0"", ""text"": ""Hello"", ""rect"": {...}}
+Output text_block: {""id"": ""text_0"", ""text"": ""こんにちは"", ""rect"": {...}}
 
 Here is the input JSON:";
         }

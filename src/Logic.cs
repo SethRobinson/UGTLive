@@ -2076,49 +2076,69 @@ namespace UGTLive
                     {
                         var block = textBlocksElement[i];
                         
-                        if (block.TryGetProperty("id", out JsonElement idElement) &&
-                            block.TryGetProperty("text", out JsonElement translatedTextElement))
+                        if (!block.TryGetProperty("id", out JsonElement idElement))
                         {
-                            string id = idElement.GetString() ?? "";
-                            string translatedText = translatedTextElement.GetString() ?? "";
+                            Console.WriteLine($"ERROR: Text block at index {i} is missing 'id' field");
+                            continue;
+                        }
+                        
+                        string blockId = idElement.GetString() ?? "";
+                        
+                        if (!block.TryGetProperty("text", out JsonElement translatedTextElement))
+                        {
+                            Console.WriteLine($"ERROR: Text block '{blockId}' is missing 'text' field. Block content: {block.ToString()}");
                             
-                            if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(translatedText))
+                            // Check if LLM used wrong field names
+                            if (block.TryGetProperty("translated_text", out _))
                             {
-                                //Console.WriteLine($"Processing text block with id={id}, text={translatedText}");
-                                
-                                // Find the matching text object by ID
-                                var matchingTextObj = _textObjects.FirstOrDefault(t => t.ID == id);
-                                if (matchingTextObj != null)
+                                Console.WriteLine($"ERROR: Text block '{blockId}' has 'translated_text' field instead of 'text'. The LLM is not following the prompt correctly.");
+                            }
+                            else if (block.TryGetProperty("english_text", out _) || 
+                                     block.TryGetProperty("japanese_text", out _) ||
+                                     block.TryGetProperty("chinese_text", out _))
+                            {
+                                Console.WriteLine($"ERROR: Text block '{blockId}' has language-specific field (like 'english_text') instead of 'text'. The LLM is not following the prompt correctly.");
+                            }
+                            continue;
+                        }
+                        
+                        string id = blockId;
+                        string translatedText = translatedTextElement.GetString() ?? "";
+                        
+                        if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(translatedText))
+                        {
+                            // Find the matching text object by ID
+                            var matchingTextObj = _textObjects.FirstOrDefault(t => t.ID == id);
+                            if (matchingTextObj != null)
+                            {
+                                // Update the corresponding text object
+                                matchingTextObj.TextTranslated = translatedText;
+
+                                // Don't modify the original text orientation - it should remain as detected by OCR
+
+                                matchingTextObj.UpdateUIElement();
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                 {
-                                    // Update the corresponding text object
-                                    matchingTextObj.TextTranslated = translatedText;
-
-                                    // Don't modify the original text orientation - it should remain as detected by OCR
-
-                                    matchingTextObj.UpdateUIElement();
+                                    Console.WriteLine($"Updated text object {id} with translation");
+                                }
+                            }
+                            else if (id.StartsWith("text_"))
+                            {
+                                // Try to extract index from ID (text_X format)
+                                string indexStr = id.Substring(5); // Remove "text_" prefix
+                                if (int.TryParse(indexStr, out int index) && index >= 0 && index < _textObjects.Count)
+                                {
+                                    // Update by index if ID matches format
+                                    _textObjects[index].TextTranslated = translatedText;
+                                    _textObjects[index].UpdateUIElement();
                                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                     {
-                                        Console.WriteLine($"Updated text object {id} with translation");
+                                        Console.WriteLine($"Updated text object at index {index} with translation");
                                     }
                                 }
-                                else if (id.StartsWith("text_"))
+                                else
                                 {
-                                    // Try to extract index from ID (text_X format)
-                                    string indexStr = id.Substring(5); // Remove "text_" prefix
-                                    if (int.TryParse(indexStr, out int index) && index >= 0 && index < _textObjects.Count)
-                                    {
-                                        // Update by index if ID matches format
-                                        _textObjects[index].TextTranslated = translatedText;
-                                        _textObjects[index].UpdateUIElement();
-                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                                        {
-                                            Console.WriteLine($"Updated text object at index {index} with translation");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"Could not find text object with ID {id}");
-                                    }
+                                    Console.WriteLine($"Could not find text object with ID {id}");
                                 }
                             }
                         }
