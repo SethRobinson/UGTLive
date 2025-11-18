@@ -160,13 +160,12 @@ namespace UGTLive
                 return;
             }
             
-            // Phase 2: Start all services with staggered launches to avoid conda lock conflicts
+            // Phase 2: Start all services with staggered launches
             statusCallback?.Invoke($"Starting {servicesToStart.Count} service(s)...");
             
             var startTasks = servicesToStart.Select(async (service, index) =>
             {
-                // Stagger process starts by 1 second each to avoid conda activation file locks
-                // This prevents "file is being used by another process" errors
+                // Stagger process starts by 1.5 seconds each to avoid conflicts
                 if (index > 0)
                 {
                     await Task.Delay(1500 * index);

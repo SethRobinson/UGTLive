@@ -5,7 +5,9 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
-set "LOG_FILE=%SCRIPT_DIR%setup_conda_log.txt"
+set "LOG_FILE=%SCRIPT_DIR%setup_log.txt"
+set "VENV_DIR=%SCRIPT_DIR%venv"
+set "UTIL_DIR=%SCRIPT_DIR%..\util"
 set "NOPAUSE=%~1"
 
 REM Delete existing log file
@@ -19,7 +21,7 @@ echo. >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
 REM Parse service_config.txt
-REM Note: service_name and conda_env_name should use ASCII characters
+REM Note: service_name and venv_name should use ASCII characters
 REM       only for maximum compatibility across different locales.
 REM -----------------------------------------------------------------
 set "ENV_NAME="
@@ -34,7 +36,7 @@ if exist "%CONFIG_FILE%" (
         for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
         for /f "tokens=*" %%y in ("!VALUE!") do set "VALUE=%%y"
         
-        if "!KEY!"=="conda_env_name" set "ENV_NAME=!VALUE!"
+        if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
         if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
     )
 )
@@ -50,22 +52,9 @@ echo. >> "%LOG_FILE%"
 
 echo =============================================================
 echo   !SERVICE_NAME! Environment Setup
-echo   Conda Environment: !ENV_NAME!
+echo   Virtual Environment: !ENV_NAME!
 echo =============================================================
 echo.
-
-REM -----------------------------------------------------------------
-REM Validate conda
-REM -----------------------------------------------------------------
-echo Checking for conda installation...
-where conda >nul 2>nul
-if errorlevel 1 (
-    echo WARNING: Conda not found in PATH. Please install conda first.
-    echo WARNING: Conda not found >> "%LOG_FILE%"
-    pause
-    exit /b 1
-)
-echo Conda found successfully >> "%LOG_FILE%"
 
 echo Detecting GPU...
 echo.
@@ -91,35 +80,90 @@ if exist "%TEMP%\gpu_check.txt" (
 echo.
 
 REM -----------------------------------------------------------------
-REM Prepare conda
-REM -----------------------------------------------------------------
-echo [1/3] Activating conda base environment...
-call conda activate base >> "%LOG_FILE%" 2>&1
-
-echo [2/3] Accepting conda Terms of Service...
-call conda tos accept 2>nul
-
-echo [3/3] Updating conda...
-call conda update -y conda >> "%LOG_FILE%" 2>&1
-
-REM -----------------------------------------------------------------
-REM Remove existing environment if present
-REM -----------------------------------------------------------------
-echo Removing existing environment if present...
-echo Removing existing environment if present... >> "%LOG_FILE%"
-call "%SCRIPT_DIR%RemoveServerCondaEnv.bat" nopause >> "%LOG_FILE%" 2>&1
-
-echo Creating new conda environment...
-
 REM Set Python version based on GPU series
+REM -----------------------------------------------------------------
 set "PYTHON_VERSION=3.10"
 if "!GPU_SERIES!"=="50" set "PYTHON_VERSION=3.11"
 
-echo Creating environment "!ENV_NAME!" with Python !PYTHON_VERSION!...
-call conda create -y --name "!ENV_NAME!" python=!PYTHON_VERSION! >> "%LOG_FILE%" 2>&1
+echo Python version: !PYTHON_VERSION! >> "%LOG_FILE%"
+echo GPU Series !GPU_SERIES! requires Python !PYTHON_VERSION!
+echo.
 
-echo Activating new environment...
-call conda activate "!ENV_NAME!" >> "%LOG_FILE%" 2>&1
+REM -----------------------------------------------------------------
+REM Set Python executable path
+REM -----------------------------------------------------------------
+if "!PYTHON_VERSION!"=="3.10" (
+    set "PYTHON_EXE=%UTIL_DIR%\Python310\python.exe"
+) else (
+    set "PYTHON_EXE=%UTIL_DIR%\Python311\python.exe"
+)
+
+echo Python executable: !PYTHON_EXE! >> "%LOG_FILE%"
+
+if not exist "!PYTHON_EXE!" (
+    echo.
+    echo ERROR: Python !PYTHON_VERSION! not found at !PYTHON_EXE!
+    echo ERROR: Python !PYTHON_VERSION! not found >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
+)
+
+REM -----------------------------------------------------------------
+REM Remove existing venv if present
+REM -----------------------------------------------------------------
+echo [1/3] Removing existing virtual environment if present...
+echo [1/3] Removing existing venv... >> "%LOG_FILE%"
+
+if exist "%VENV_DIR%" (
+    echo Removing existing venv directory...
+    echo Removing existing venv directory... >> "%LOG_FILE%"
+    rmdir /s /q "%VENV_DIR%"
+    if exist "%VENV_DIR%" (
+        echo ERROR: Failed to remove existing venv directory
+        echo ERROR: Failed to remove venv directory >> "%LOG_FILE%"
+        pause
+        exit /b 1
+    )
+    echo Removed existing venv >> "%LOG_FILE%"
+) else (
+    echo No existing venv found >> "%LOG_FILE%"
+)
+
+REM -----------------------------------------------------------------
+REM Create new virtual environment
+REM -----------------------------------------------------------------
+echo [2/3] Creating new virtual environment...
+echo [2/3] Creating new venv... >> "%LOG_FILE%"
+echo Creating venv with Python !PYTHON_VERSION!...
+
+"!PYTHON_EXE!" -m venv "%VENV_DIR%" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to create virtual environment
+    echo ERROR: Failed to create venv >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
+)
+echo Virtual environment created successfully >> "%LOG_FILE%"
+
+REM -----------------------------------------------------------------
+REM Activate virtual environment
+REM -----------------------------------------------------------------
+echo [3/3] Activating virtual environment...
+echo [3/3] Activating venv... >> "%LOG_FILE%"
+
+call "%VENV_DIR%\Scripts\activate.bat" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to activate virtual environment
+    echo ERROR: Failed to activate venv >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
+)
+echo Virtual environment activated successfully >> "%LOG_FILE%"
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
@@ -167,7 +211,7 @@ echo   1. Run DiagnosticTest.bat to verify the installation
 echo   2. Run RunServer.bat to start the service
 echo   3. Run TestService.bat to test the running service
 echo.
-echo Log file: setup_conda_log.txt
+echo Log file: setup_log.txt
 echo.
 if not "%NOPAUSE%"=="nopause" (
     echo Press any key to exit...

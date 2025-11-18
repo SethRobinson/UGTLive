@@ -1579,7 +1579,7 @@ namespace UGTLive
                 
                 // Build query parameters
                 string langParam = MapLanguageForService(language);
-                string url = $"http://localhost:{service.Port}/process?lang={langParam}&char_level=true";
+                string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level=true";
                 
                 // Add MangaOCR-specific parameters
                 if (serviceName == "MangaOCR")

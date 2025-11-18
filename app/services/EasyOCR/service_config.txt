@@ -2,8 +2,9 @@ description|A versatile OCR engine supporting multiple languages including Japan
 github_url|https://github.com/JaidedAI/EasyOCR|
 author|JaidedAI|
 service_name|EasyOCR|
-conda_env_name|ugt_easyocr|
+venv_name|ugt_easyocr|
 port|5000|
+server_url|http://localhost|
 local_only|true|
 version|1.7.2|
 

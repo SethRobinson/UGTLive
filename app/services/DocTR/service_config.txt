@@ -2,8 +2,9 @@ description|Document OCR engine with strong English text recognition capabilitie
 github_url|https://github.com/mindee/doctr|
 author|Mindee|
 service_name|DocTR|
-conda_env_name|ugt_doctr|
+venv_name|ugt_doctr|
 port|5002|
+server_url|http://localhost|
 local_only|true|
 version|0.10.0|
 

@@ -5,6 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
+set "VENV_DIR=%SCRIPT_DIR%venv"
 set "NOPAUSE=%~1"
 
 REM -----------------------------------------------------------------
@@ -22,13 +23,13 @@ if exist "%CONFIG_FILE%" (
         for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
         for /f "tokens=*" %%y in ("!VALUE!") do set "VALUE=%%y"
         
-        if "!KEY!"=="conda_env_name" set "ENV_NAME=!VALUE!"
+        if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
         if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
     )
 )
 
 if "!ENV_NAME!"=="" (
-    echo ERROR: Could not find conda_env_name in service_config.txt
+    echo ERROR: Could not find venv_name in service_config.txt
     if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
@@ -42,52 +43,35 @@ echo =============================================================
 echo.
 
 REM -----------------------------------------------------------------
-REM Check if conda is available
+REM Check if virtual environment exists
 REM -----------------------------------------------------------------
-echo [1/5] Checking if conda is installed...
-where conda >nul 2>nul
-if errorlevel 1 (
-    echo   [FAIL] Conda is not installed or not in PATH
+echo [1/4] Checking if virtual environment exists...
+if not exist "%VENV_DIR%\Scripts\activate.bat" (
+    echo   [FAIL] Virtual environment does not exist at: %VENV_DIR%
     echo.
-    echo   Please install Miniconda using the InstallMiniConda.bat script.
+    echo   Click Install to fix this. Manual option: run Install.bat
     echo.
     if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
-echo   [PASS] Conda is installed
-echo.
-
-REM -----------------------------------------------------------------
-REM Check if environment exists
-REM -----------------------------------------------------------------
-echo [2/5] Checking if environment exists...
-call conda env list | findstr /C:"!ENV_NAME!" >nul
-if errorlevel 1 (
-    echo   [FAIL] Environment !ENV_NAME! does not exist
-    echo.
-    echo   Click Install to fix this. Manual option: run SetupServerCondaEnv.bat
-    echo.
-    if not "%NOPAUSE%"=="nopause" pause
-    exit /b 1
-)
-echo   [PASS] Environment !ENV_NAME! exists
+echo   [PASS] Virtual environment exists
 echo.
 
 REM -----------------------------------------------------------------
 REM Activate environment and test imports
 REM -----------------------------------------------------------------
-echo [3/5] Activating environment...
-call conda activate !ENV_NAME!
+echo [2/4] Activating virtual environment...
+call "%VENV_DIR%\Scripts\activate.bat"
 if errorlevel 1 (
-    echo   [FAIL] Could not activate environment !ENV_NAME!
+    echo   [FAIL] Could not activate virtual environment
     echo.
     if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
-echo   [PASS] Environment activated
+echo   [PASS] Virtual environment activated
 echo.
 
-echo [4/5] Testing Python imports...
+echo [3/4] Testing Python imports...
 echo   - Testing PyTorch...
 python -c "import torch; print('    PyTorch version:', torch.__version__); print('    CUDA available:', torch.cuda.is_available())" 2>nul
 if errorlevel 1 (
@@ -119,7 +103,7 @@ if errorlevel 1 (
 echo   [PASS] All imports successful
 echo.
 
-echo [5/5] Testing GPU availability...
+echo [4/4] Testing GPU availability...
 python -c "import torch; cuda_ok = torch.cuda.is_available(); print('    CUDA Available:', cuda_ok); print('    GPU Count:', torch.cuda.device_count() if cuda_ok else 0); print('    GPU Name:', torch.cuda.get_device_name(0) if cuda_ok else 'N/A')" 2>nul
 if errorlevel 1 (
     echo   [WARN] Could not query GPU status
@@ -140,7 +124,7 @@ goto :eof
 echo.
 echo =============================================================
 echo   Diagnostic tests FAILED!
-echo   Click Install to fix this ^(or manually run SetupServerCondaEnv.bat^)
+echo   Click Install to fix this ^(or manually run Install.bat^)
 echo =============================================================
 echo.
 if not "%NOPAUSE%"=="nopause" pause

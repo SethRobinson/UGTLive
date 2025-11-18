@@ -32,7 +32,7 @@ namespace UGTLive
             warningText.Text = "Installation may take up to 10 minutes. Do not close this window.";
             warningBorder.Visibility = Visibility.Visible;
             
-            string batchFile = Path.Combine(service.ServiceDirectory, "SetupServerCondaEnv.bat");
+            string batchFile = Path.Combine(service.ServiceDirectory, "Install.bat");
             
             if (!File.Exists(batchFile))
             {
@@ -53,14 +53,30 @@ namespace UGTLive
             warningText.Text = "Uninstallation may take a few minutes. Do not close this window.";
             warningBorder.Visibility = Visibility.Visible;
             
-            // Try to find RemoveServerCondaEnv.bat
-            string batchFile = Path.Combine(service.ServiceDirectory, "RemoveServerCondaEnv.bat");
+            // Try to find Uninstall.bat
+            string batchFile = Path.Combine(service.ServiceDirectory, "Uninstall.bat");
             
             if (!File.Exists(batchFile))
             {
-                // If RemoveServerCondaEnv.bat doesn't exist, try using conda env remove directly
-                AppendOutput($"RemoveServerCondaEnv.bat not found, using conda env remove command...");
-                await RunCondaRemoveAsync(service.CondaEnvName);
+                // If Uninstall.bat doesn't exist, try to remove venv folder directly
+                AppendOutput($"Uninstall.bat not found, removing venv folder directly...");
+                string venvPath = Path.Combine(service.ServiceDirectory, "venv");
+                if (Directory.Exists(venvPath))
+                {
+                    try
+                    {
+                        Directory.Delete(venvPath, true);
+                        AppendOutput($"Successfully removed virtual environment folder");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendOutput($"Error removing venv folder: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    AppendOutput($"Virtual environment folder not found, nothing to remove");
+                }
                 return;
             }
             
@@ -147,96 +163,6 @@ namespace UGTLive
                     else
                     {
                         AppendOutput("Installation failed. Please review the output above.");
-                    }
-                    
-                    OnProcessComplete(success);
-                }
-                catch (Exception ex)
-                {
-                    AppendOutput($"ERROR: {ex.Message}");
-                    OnProcessComplete(false);
-                }
-            }, _cancellationTokenSource.Token);
-        }
-        
-        /// <summary>
-        /// Removes conda environment using conda env remove command
-        /// </summary>
-        private async Task RunCondaRemoveAsync(string envName)
-        {
-            _cancellationTokenSource = new CancellationTokenSource();
-            
-            await Task.Run(() =>
-            {
-                try
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo
-                    {
-                        FileName = "conda",
-                        Arguments = $"env remove -n {envName} -y",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
-                    
-                    _process = new Process { StartInfo = psi };
-                    
-                    // Wire up output handlers
-                    _process.OutputDataReceived += (sender, e) =>
-                    {
-                        if (!string.IsNullOrEmpty(e.Data))
-                        {
-                            AppendOutput(e.Data);
-                        }
-                    };
-                    
-                    _process.ErrorDataReceived += (sender, e) =>
-                    {
-                        if (!string.IsNullOrEmpty(e.Data))
-                        {
-                            AppendOutput($"[ERROR] {e.Data}");
-                        }
-                    };
-                    
-                    AppendOutput($"Removing conda environment: {envName}");
-                    AppendOutput("-----------------------------------");
-                    
-                    _process.Start();
-                    _process.BeginOutputReadLine();
-                    _process.BeginErrorReadLine();
-                    
-                    // Wait for process to exit or cancellation
-                    while (!_process.HasExited)
-                    {
-                        if (_cancellationTokenSource.Token.IsCancellationRequested)
-                        {
-                            _process.Kill();
-                            AppendOutput("-----------------------------------");
-                            AppendOutput("Uninstallation cancelled by user");
-                            OnProcessComplete(false);
-                            return;
-                        }
-                        
-                        Thread.Sleep(100);
-                    }
-                    
-                    _process.WaitForExit();
-                    
-                    AppendOutput("-----------------------------------");
-                    AppendOutput($"Process exited with code: {_process.ExitCode}");
-                    
-                    bool success = _process.ExitCode == 0;
-                    
-                    if (success)
-                    {
-                        AppendOutput("Uninstallation completed successfully!");
-                    }
-                    else
-                    {
-                        AppendOutput("Uninstallation failed. Please review the output above.");
                     }
                     
                     OnProcessComplete(success);

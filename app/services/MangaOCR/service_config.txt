@@ -2,8 +2,9 @@ description|Specialized OCR engine optimized for Japanese manga and comic text r
 github_url|https://github.com/kha-white/manga-ocr|
 author|kha-white|
 service_name|MangaOCR|
-conda_env_name|ugt_mangaocr|
+venv_name|ugt_mangaocr|
 port|5001|
+server_url|http://localhost|
 local_only|true|
 version|0.1.14|
 

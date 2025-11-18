@@ -100,7 +100,6 @@ namespace UGTLive
             
             // Load checkbox state from config
             showServerWindowCheckBox.IsChecked = ConfigManager.Instance.GetShowServerWindow();
-            skipCondaChecksCheckBox.IsChecked = ConfigManager.Instance.GetSkipCondaChecks();
             
             // Load app icon and version info
             LoadSplashBranding();
@@ -172,27 +171,6 @@ namespace UGTLive
                 
                 // Check GPU
                 await UpdateGpuStatusAsync();
-                
-                // If opened from Settings, skip conda checks
-                if (_fromSettings)
-                {
-                    await UpdateCondaStatusSkippedAsync();
-                }
-                else
-                {
-                    // Check if user wants to skip conda/python checks
-                    bool skipCondaChecks = await Dispatcher.InvokeAsync(() => skipCondaChecksCheckBox.IsChecked ?? false);
-                    
-                    if (skipCondaChecks)
-                    {
-                        await UpdateCondaStatusSkippedAsync();
-                    }
-                    else
-                    {
-                        // Check Conda
-                        await UpdateCondaStatusAsync();
-                    }
-                }
                 
                 // Discover and load services
                 await DiscoverAndLoadServicesAsync();
@@ -394,155 +372,6 @@ namespace UGTLive
                 gpuStatusIcon.Text = "⚠️";
                 gpuStatusText.Text = "Could not check GPU";
             }
-        }
-        
-        private async Task UpdateCondaStatusAsync()
-        {
-            try
-            {
-                condaStatusIcon.Text = "⏳";
-                condaStatusText.Text = "Checking conda...";
-                
-                var result = await checkCondaAvailableAsync();
-                
-                if (result.available)
-                {
-                    condaStatusIcon.Text = "✅";
-                    condaStatusText.Text = $"Installed: {result.version}";
-                    installCondaButton.IsEnabled = false;
-                }
-                else
-                {
-                    condaStatusIcon.Text = "❌";
-                    condaStatusText.Text = "Not installed";
-                    installCondaButton.IsEnabled = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error checking conda: {ex.Message}");
-                condaStatusIcon.Text = "⚠️";
-                condaStatusText.Text = "Error checking conda";
-            }
-        }
-        
-        /// <summary>
-        /// Checks if conda is available in the system PATH
-        /// </summary>
-        private async Task<(bool available, string version, string errorMessage)> checkCondaAvailableAsync()
-        {
-            return await Task.Run(() =>
-            {
-                try
-                {
-                    // Try to find conda.exe or conda.bat
-                    string condaPath = findCondaExecutable();
-                    if (string.IsNullOrEmpty(condaPath))
-                    {
-                        return (false, "", "Conda is not installed or not in PATH");
-                    }
-                    
-                    // Try to get conda version
-                    ProcessStartInfo psi = new ProcessStartInfo
-                    {
-                        FileName = condaPath,
-                        Arguments = "--version",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = System.Text.Encoding.UTF8
-                    };
-                    
-                    using (Process process = Process.Start(psi)!)
-                    {
-                        string output = process.StandardOutput.ReadToEnd();
-                        string error = process.StandardError.ReadToEnd();
-                        process.WaitForExit();
-                        
-                        if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
-                        {
-                            string version = output.Trim();
-                            return (true, version, "");
-                        }
-                        else
-                        {
-                            return (true, "Unknown", error);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return (false, "", $"Error checking conda: {ex.Message}");
-                }
-            });
-        }
-        
-        /// <summary>
-        /// Finds conda executable in common locations or PATH
-        /// </summary>
-        private string findCondaExecutable()
-        {
-            // First try "conda" command (if in PATH)
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "where",
-                    Arguments = "conda",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
-                
-                using (Process process = Process.Start(psi)!)
-                {
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-                    
-                    if (!string.IsNullOrWhiteSpace(output))
-                    {
-                        string[] paths = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (string path in paths)
-                        {
-                            string trimmed = path.Trim();
-                            if (File.Exists(trimmed))
-                            {
-                                return trimmed;
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-            
-            // Try common installation locations
-            string[] commonPaths = {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "miniconda3", "Scripts", "conda.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "anaconda3", "Scripts", "conda.exe"),
-                Path.Combine("C:", "Users", Environment.UserName, "miniconda3", "Scripts", "conda.exe"),
-                Path.Combine("C:", "Users", Environment.UserName, "anaconda3", "Scripts", "conda.exe"),
-                Path.Combine("C:", "ProgramData", "miniconda3", "Scripts", "conda.exe"),
-                Path.Combine("C:", "ProgramData", "anaconda3", "Scripts", "conda.exe")
-            };
-            
-            foreach (string path in commonPaths)
-            {
-                if (File.Exists(path))
-                {
-                    return path;
-                }
-            }
-            
-            return "";
-        }
-        
-        private async Task UpdateCondaStatusSkippedAsync()
-        {
-            await Task.Delay(100);
-            condaStatusIcon.Text = "⏭️";
-            condaStatusText.Text = "Skipped (conda checks disabled)";
-            installCondaButton.IsEnabled = false;
         }
         
         private async Task DiscoverAndLoadServicesAsync()
@@ -793,7 +622,7 @@ namespace UGTLive
                 try
                 {
                     var result = MessageBox.Show(
-                        $"Are you sure you want to uninstall {serviceName}?\n\nThis will remove the conda environment and all installed packages.",
+                        $"Are you sure you want to uninstall {serviceName}?\n\nThis will remove the virtual environment and all installed packages.",
                         "Confirm Uninstall",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Warning);
@@ -813,8 +642,8 @@ namespace UGTLive
                     // Wait for uninstallation to complete
                     await uninstallTask;
                     
-                    // Invalidate conda env cache so it will be re-checked
-                    service.InvalidateCondaEnvCache();
+                    // Invalidate venv cache so it will be re-checked
+                    service.InvalidateVenvCache();
                     
                     // Show checking status immediately
                     viewModel.StatusText = "Checking status...";
@@ -894,45 +723,6 @@ namespace UGTLive
             }
         }
         
-        private void SkipCondaChecksCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            bool skipChecks = skipCondaChecksCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetSkipCondaChecks(skipChecks);
-        }
-        
-        private void InstallCondaButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                string batchFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "services", "util", "InstallMiniConda.bat");
-                
-                if (File.Exists(batchFile))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = batchFile,
-                        UseShellExecute = true
-                    });
-                    
-                    MessageBox.Show(
-                        "Miniconda installer has been launched.\n\nAfter installation completes, please restart this application.",
-                        "Miniconda Installation",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-                else
-                {
-                    MessageBox.Show($"Installation script not found: {batchFile}", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error launching conda installer: {ex.Message}");
-                MessageBox.Show($"Error: {ex.Message}", "Installation Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
         
         private void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
         {

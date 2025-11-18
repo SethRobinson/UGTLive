@@ -18,10 +18,11 @@ namespace UGTLive
         public string ServiceName { get; private set; } = "";
         public string Description { get; private set; } = "";
         public int Port { get; private set; }
-        public string CondaEnvName { get; private set; } = "";
+        public string VenvName { get; private set; } = "";
         public string Version { get; private set; } = "";
         public string Author { get; private set; } = "";
         public string GithubUrl { get; private set; } = "";
+        public string ServerUrl { get; private set; } = "http://localhost";
         public bool LocalOnly { get; private set; } = true;
         public string ServiceDirectory { get; private set; } = "";
         
@@ -31,7 +32,7 @@ namespace UGTLive
         public bool AutoStart { get; set; }
         
         // Caching flags to avoid slow repeated checks
-        private bool _hasCheckedCondaEnv = false;
+        private bool _hasCheckedVenv = false;
         
         // Process management
         private Process? _process;
@@ -86,13 +87,13 @@ namespace UGTLive
                 return null;
             }
             
-            if (config.TryGetValue("conda_env_name", out var envName))
+            if (config.TryGetValue("venv_name", out var envName))
             {
-                service.CondaEnvName = envName;
+                service.VenvName = envName;
             }
             else
             {
-                Console.WriteLine($"Missing conda_env_name in {configPath}");
+                Console.WriteLine($"Missing venv_name in {configPath}");
                 return null;
             }
             
@@ -122,6 +123,11 @@ namespace UGTLive
                 service.LocalOnly = localStr.ToLower() == "true";
             }
             
+            if (config.TryGetValue("server_url", out var serverUrl))
+            {
+                service.ServerUrl = serverUrl;
+            }
+            
             return service;
         }
         
@@ -134,7 +140,7 @@ namespace UGTLive
 
             try
             {
-                string url = $"http://localhost:{Port}/info";
+                string url = $"{ServerUrl}:{Port}/info";
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.ConnectionClose = false;
                 var response = await _httpClient.SendAsync(request);
@@ -164,8 +170,8 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Checks if the service is installed by checking if conda environment exists
-        /// Uses caching to avoid slow repeated conda env checks
+        /// Checks if the service is installed by checking if venv folder exists
+        /// Uses caching to avoid slow repeated filesystem checks
         /// </summary>
         public async Task<bool> CheckIsInstalledAsync()
         {
@@ -173,12 +179,12 @@ namespace UGTLive
             if (IsRunning)
             {
                 IsInstalled = true;
-                _hasCheckedCondaEnv = true;
+                _hasCheckedVenv = true;
                 return true;
             }
 
-            // If we've already checked the conda env and found it installed, trust that cache
-            if (_hasCheckedCondaEnv && IsInstalled)
+            // If we've already checked the venv and found it installed, trust that cache
+            if (_hasCheckedVenv && IsInstalled)
             {
                 return true;
             }
@@ -187,42 +193,36 @@ namespace UGTLive
             if (await CheckIsRunningAsync())
             {
                 IsInstalled = true;
-                _hasCheckedCondaEnv = true;
+                _hasCheckedVenv = true;
                 return true;
             }
             
             
-            // Only do the slow conda env check if we haven't checked before
-            if (!_hasCheckedCondaEnv)
+            // Only do the venv folder check if we haven't checked before
+            if (!_hasCheckedVenv)
             {
-                Console.WriteLine($"Checking conda environment for {ServiceName} (this will be cached)...");
+                Console.WriteLine($"Checking virtual environment for {ServiceName} (this will be cached)...");
                 return await Task.Run(() =>
                 {
                     try
                     {
-                        ProcessStartInfo psi = new ProcessStartInfo
-                        {
-                            FileName = "conda",
-                            Arguments = $"env list",
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            CreateNoWindow = true
-                        };
+                        string venvPath = Path.Combine(ServiceDirectory, "venv");
+                        string activatePath = Path.Combine(venvPath, "Scripts", "activate.bat");
                         
-                        using (Process process = Process.Start(psi)!)
+                        // Check if venv folder and activate script exist
+                        IsInstalled = Directory.Exists(venvPath) && File.Exists(activatePath);
+                        _hasCheckedVenv = true;
+                        
+                        if (IsInstalled)
                         {
-                            string output = process.StandardOutput.ReadToEnd();
-                            process.WaitForExit();
-                            
-                            if (process.ExitCode == 0)
-                            {
-                                // Check if our environment name appears in the output
-                                IsInstalled = output.Contains(CondaEnvName);
-                                _hasCheckedCondaEnv = true;
-                                return IsInstalled;
-                            }
+                            Console.WriteLine($"Virtual environment found for {ServiceName}");
                         }
+                        else
+                        {
+                            Console.WriteLine($"Virtual environment not found for {ServiceName}");
+                        }
+                        
+                        return IsInstalled;
                     }
                     catch (Exception ex)
                     {
@@ -230,7 +230,7 @@ namespace UGTLive
                     }
                     
                     IsInstalled = false;
-                    _hasCheckedCondaEnv = true;
+                    _hasCheckedVenv = true;
                     return false;
                 });
             }
@@ -239,11 +239,11 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Marks that conda env check should be re-done (call after uninstall)
+        /// Marks that venv check should be re-done (call after uninstall)
         /// </summary>
-        public void InvalidateCondaEnvCache()
+        public void InvalidateVenvCache()
         {
-            _hasCheckedCondaEnv = false;
+            _hasCheckedVenv = false;
             IsInstalled = false;
         }
         
@@ -346,7 +346,7 @@ namespace UGTLive
             try
             {
                 // Try graceful shutdown via API
-                string url = $"http://localhost:{Port}/shutdown";
+                string url = $"{ServerUrl}:{Port}/shutdown";
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Headers.ConnectionClose = false;
                 var response = await _httpClient.SendAsync(request);
@@ -401,7 +401,7 @@ namespace UGTLive
         {
             try
             {
-                string url = $"http://localhost:{Port}/info";
+                string url = $"{ServerUrl}:{Port}/info";
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.ConnectionClose = false;
                 var response = await _httpClient.SendAsync(request);
@@ -426,7 +426,7 @@ namespace UGTLive
         {
             try
             {
-                string url = $"http://localhost:{Port}/health";
+                string url = $"{ServerUrl}:{Port}/health";
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.ConnectionClose = false;
                 var response = await _httpClient.SendAsync(request);
@@ -439,4 +439,5 @@ namespace UGTLive
         }
     }
 }
+
 

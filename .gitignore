@@ -420,5 +420,7 @@ app/services/localdata/
 UniversalGameTranslatorLive_Windows.zip
 
 **/.claude/settings.local.json
-setup_conda_log.txt
+setup_log.txt
 
+app/services/util/Python*/
+app/services/**/venv/

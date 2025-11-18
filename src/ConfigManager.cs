@@ -158,7 +158,6 @@ namespace UGTLive
         public const string OPENAI_REALTIME_API_KEY = "openai_realtime_api_key";
         public const string AUDIO_SERVICE_AUTO_TRANSLATE = "audio_service_auto_translate";
         public const string SHOW_SERVER_WINDOW = "show_server_window";
-        public const string SKIP_CONDA_CHECKS = "skip_conda_checks";
 
         // Audio Input Device
         public const string AUDIO_INPUT_DEVICE_INDEX = "audio_input_device_index";
@@ -300,15 +299,6 @@ namespace UGTLive
             SetBoolValue(SHOW_SERVER_WINDOW, showWindow);
         }
         
-        public bool GetSkipCondaChecks()
-        {
-            return GetBoolValue(SKIP_CONDA_CHECKS, false);
-        }
-        
-        public void SetSkipCondaChecks(bool skipChecks)
-        {
-            SetBoolValue(SKIP_CONDA_CHECKS, skipChecks);
-        }
 
         // Load configuration from file
         private void LoadConfig()

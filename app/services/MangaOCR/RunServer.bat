@@ -5,6 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
+set "VENV_DIR=%SCRIPT_DIR%venv"
 
 REM -----------------------------------------------------------------
 REM Parse service_config.txt to get environment name
@@ -21,13 +22,13 @@ if exist "%CONFIG_FILE%" (
         for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
         for /f "tokens=*" %%y in ("!VALUE!") do set "VALUE=%%y"
         
-        if "!KEY!"=="conda_env_name" set "ENV_NAME=!VALUE!"
+        if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
         if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
     )
 )
 
 if "!ENV_NAME!"=="" (
-    echo ERROR: Could not find conda_env_name in service_config.txt
+    echo ERROR: Could not find venv_name in service_config.txt
     pause
     exit /b 1
 )
@@ -41,9 +42,22 @@ echo =============================================================
 echo.
 
 REM -----------------------------------------------------------------
-REM Activate conda environment and run server
+REM Check if virtual environment exists
 REM -----------------------------------------------------------------
-call conda activate !ENV_NAME! || goto :FailActivate
+if not exist "%VENV_DIR%\Scripts\activate.bat" (
+    echo.
+    echo ERROR: Virtual environment not found at: %VENV_DIR%
+    echo.
+    echo Please run Install.bat first to create the environment.
+    echo.
+    pause
+    exit /b 1
+)
+
+REM -----------------------------------------------------------------
+REM Activate virtual environment and run server
+REM -----------------------------------------------------------------
+call "%VENV_DIR%\Scripts\activate.bat"
 
 echo Activating environment...
 echo Starting server...
@@ -60,13 +74,4 @@ if errorlevel 1 (
 )
 
 goto :eof
-
-:FailActivate
-echo.
-echo ERROR: Failed to activate conda environment: !ENV_NAME!
-echo.
-echo Please run SetupServerCondaEnv.bat first to create the environment.
-echo.
-pause
-exit /b 1
 

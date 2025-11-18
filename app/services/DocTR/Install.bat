@@ -5,7 +5,9 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
-set "LOG_FILE=%SCRIPT_DIR%setup_conda_log.txt"
+set "LOG_FILE=%SCRIPT_DIR%setup_log.txt"
+set "VENV_DIR=%SCRIPT_DIR%venv"
+set "UTIL_DIR=%SCRIPT_DIR%..\util"
 set "NOPAUSE=%~1"
 
 REM Delete existing log file
@@ -18,8 +20,8 @@ echo ============================================================= >> "%LOG_FILE
 echo. >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
-REM Parse service_config.txt to get environment name and service name
-REM Note: service_name and conda_env_name should use ASCII characters
+REM Parse service_config.txt
+REM Note: service_name and venv_name should use ASCII characters
 REM       only for maximum compatibility across different locales.
 REM -----------------------------------------------------------------
 set "ENV_NAME="
@@ -34,14 +36,14 @@ if exist "%CONFIG_FILE%" (
         for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
         for /f "tokens=*" %%y in ("!VALUE!") do set "VALUE=%%y"
         
-        if "!KEY!"=="conda_env_name" set "ENV_NAME=!VALUE!"
+        if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
         if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
     )
 )
 
 if "!ENV_NAME!"=="" (
-    echo ERROR: Could not find conda_env_name in service_config.txt
-    echo ERROR: Could not find conda_env_name in service_config.txt >> "%LOG_FILE%"
+    echo ERROR: Could not find venv_name in service_config.txt
+    echo ERROR: Could not find venv_name in service_config.txt >> "%LOG_FILE%"
     pause
     exit /b 1
 )
@@ -56,34 +58,16 @@ echo. >> "%LOG_FILE%"
 
 echo =============================================================
 echo   !SERVICE_NAME! Environment Setup
-echo   Conda Environment: !ENV_NAME!
+echo   Virtual Environment: !ENV_NAME!
 echo =============================================================
 echo.
-
-REM -----------------------------------------------------------------
-REM Validate conda availability
-REM -----------------------------------------------------------------
-echo Validating conda installation... >> "%LOG_FILE%"
-where conda >nul 2>nul
-if errorlevel 1 (
-    echo.
-    echo ===== ERROR: Conda is not installed or not in PATH =====
-    echo ERROR: Conda not found in PATH >> "%LOG_FILE%"
-    echo.
-    echo Conda is required to set up the OCR environment.
-    echo Please run the InstallMiniConda.bat script from the util folder.
-    echo.
-    pause
-    exit /b 1
-)
-echo Conda found successfully >> "%LOG_FILE%"
 
 echo Detecting GPU...
 echo.
 echo Detecting GPU... >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
-REM Detect GPU model
+REM Detect GPU
 REM -----------------------------------------------------------------
 set "GPU_NAME=Unknown"
 set "GPU_SERIES=UNSUPPORTED"
@@ -98,17 +82,15 @@ if not "!GPU_NAME!"=="Unknown" (
     echo Detected NVIDIA GPU: !GPU_NAME!
     echo GPU Detected: !GPU_NAME! >> "%LOG_FILE%"
     
-    REM Check for RTX 50 series
     echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
     
-    REM Check for RTX 3000/4000 series
     if "!GPU_SERIES!"=="UNSUPPORTED" (
         echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
         echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
     )
     echo GPU Series: !GPU_SERIES! >> "%LOG_FILE%"
 ) else (
-    echo WARNING: Unable to detect NVIDIA GPU via nvidia-smi
+    echo WARNING: Unable to detect NVIDIA GPU
     echo WARNING: GPU not detected >> "%LOG_FILE%"
     echo Attempting to continue with RTX 3000/4000 series configuration...
     set "GPU_SERIES=30_40"
@@ -119,58 +101,8 @@ echo.
 echo. >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
-REM Activate base environment
-REM -----------------------------------------------------------------
-echo [1/6] Activating conda base environment...
-echo [1/6] Activating conda base environment... >> "%LOG_FILE%"
-call conda activate base >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-    echo.
-    echo ERROR: Failed to activate conda base environment!
-    echo ERROR: Failed to activate conda base >> "%LOG_FILE%"
-    echo.
-    pause
-    exit /b 1
-)
-echo Successfully activated base environment >> "%LOG_FILE%"
-
-echo [2/6] Accepting conda Terms of Service...
-echo [2/6] Accepting conda ToS... >> "%LOG_FILE%"
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>nul
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>nul
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/msys2 2>nul
-echo Conda ToS accepted >> "%LOG_FILE%"
-
-echo [3/6] Updating conda (this may take a minute)...
-echo [3/6] Updating conda... >> "%LOG_FILE%"
-call conda update -y conda >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-    echo WARNING: Conda update failed, continuing anyway...
-    echo WARNING: Conda update failed >> "%LOG_FILE%"
-) else (
-    echo Conda updated successfully >> "%LOG_FILE%"
-)
-
-REM -----------------------------------------------------------------
-REM Remove existing environment if present
-REM -----------------------------------------------------------------
-echo [4/6] Removing existing environment if present...
-echo [4/6] Removing existing environment if present... >> "%LOG_FILE%"
-call "%SCRIPT_DIR%RemoveServerCondaEnv.bat" nopause >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-    echo.
-    echo ERROR: Failed to remove existing environment
-    echo ERROR: Failed to remove existing environment >> "%LOG_FILE%"
-    echo.
-    pause
-    exit /b 1
-)
-echo Environment removal check completed >> "%LOG_FILE%"
-
-echo [5/6] Creating new conda environment...
-echo [5/6] Creating new conda environment... >> "%LOG_FILE%"
-
 REM Set Python version based on GPU series
+REM -----------------------------------------------------------------
 set "PYTHON_VERSION=3.10"
 if "!GPU_SERIES!"=="50" set "PYTHON_VERSION=3.11"
 
@@ -178,41 +110,91 @@ echo Python version: !PYTHON_VERSION! >> "%LOG_FILE%"
 echo GPU Series !GPU_SERIES! requires Python !PYTHON_VERSION!
 echo.
 
-echo Creating environment "!ENV_NAME!" with Python !PYTHON_VERSION!...
-echo Creating environment "!ENV_NAME!" with Python !PYTHON_VERSION!... >> "%LOG_FILE%"
-call conda create -y --name "!ENV_NAME!" python=!PYTHON_VERSION! >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-    echo.
-    echo ERROR: Failed to create conda environment "!ENV_NAME!"
-    echo ERROR: Failed to create conda environment >> "%LOG_FILE%"
-    echo.
-    pause
-    exit /b 1
+REM -----------------------------------------------------------------
+REM Set Python executable path
+REM -----------------------------------------------------------------
+if "!PYTHON_VERSION!"=="3.10" (
+    set "PYTHON_EXE=%UTIL_DIR%\Python310\python.exe"
+) else (
+    set "PYTHON_EXE=%UTIL_DIR%\Python311\python.exe"
 )
-echo Environment created successfully >> "%LOG_FILE%"
 
-echo [6/6] Activating new environment...
-echo [6/6] Activating new environment... >> "%LOG_FILE%"
-call conda activate "!ENV_NAME!" >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
+echo Python executable: !PYTHON_EXE! >> "%LOG_FILE%"
+
+if not exist "!PYTHON_EXE!" (
     echo.
-    echo ERROR: Failed to activate environment "!ENV_NAME!"
-    echo ERROR: Failed to activate new environment >> "%LOG_FILE%"
+    echo ERROR: Python !PYTHON_VERSION! not found at !PYTHON_EXE!
+    echo ERROR: Python !PYTHON_VERSION! not found >> "%LOG_FILE%"
     echo.
     pause
     exit /b 1
 )
-echo Environment activated successfully >> "%LOG_FILE%"
+
+REM -----------------------------------------------------------------
+REM Remove existing venv if present
+REM -----------------------------------------------------------------
+echo [1/4] Removing existing virtual environment if present...
+echo [1/4] Removing existing venv... >> "%LOG_FILE%"
+
+if exist "%VENV_DIR%" (
+    echo Removing existing venv directory...
+    echo Removing existing venv directory... >> "%LOG_FILE%"
+    rmdir /s /q "%VENV_DIR%"
+    if exist "%VENV_DIR%" (
+        echo ERROR: Failed to remove existing venv directory
+        echo ERROR: Failed to remove venv directory >> "%LOG_FILE%"
+        pause
+        exit /b 1
+    )
+    echo Removed existing venv >> "%LOG_FILE%"
+) else (
+    echo No existing venv found >> "%LOG_FILE%"
+)
+
+REM -----------------------------------------------------------------
+REM Create new virtual environment
+REM -----------------------------------------------------------------
+echo [2/4] Creating new virtual environment...
+echo [2/4] Creating new venv... >> "%LOG_FILE%"
+echo Creating venv with Python !PYTHON_VERSION!...
+
+"!PYTHON_EXE!" -m venv "%VENV_DIR%" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to create virtual environment
+    echo ERROR: Failed to create venv >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
+)
+echo Virtual environment created successfully >> "%LOG_FILE%"
+
+REM -----------------------------------------------------------------
+REM Activate virtual environment
+REM -----------------------------------------------------------------
+echo [3/4] Activating virtual environment...
+echo [3/4] Activating venv... >> "%LOG_FILE%"
+
+call "%VENV_DIR%\Scripts\activate.bat" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERROR: Failed to activate virtual environment
+    echo ERROR: Failed to activate venv >> "%LOG_FILE%"
+    echo.
+    pause
+    exit /b 1
+)
+echo Virtual environment activated successfully >> "%LOG_FILE%"
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
 echo Environment variables set >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
-REM Install dependencies based on GPU series
+REM Install based on GPU series
 REM -----------------------------------------------------------------
-echo. >> "%LOG_FILE%"
-echo Installing dependencies for GPU series: !GPU_SERIES! >> "%LOG_FILE%"
+echo [4/4] Installing dependencies for GPU series: !GPU_SERIES!
+echo [4/4] Installing dependencies for GPU series: !GPU_SERIES! >> "%LOG_FILE%"
 
 if "!GPU_SERIES!"=="50" (
     echo.
@@ -246,7 +228,21 @@ if "!GPU_SERIES!"=="30_40" (
 
 REM If we get here, unsupported GPU
 echo ERROR: Unsupported GPU series: !GPU_SERIES! >> "%LOG_FILE%"
-goto :FailGPU
+echo.
+echo ===== ERROR: Unsupported GPU =====
+echo.
+echo This setup currently supports:
+echo   - NVIDIA RTX 3050, 3060, 3070, 3080, 3090
+echo   - NVIDIA RTX 4060, 4070, 4080, 4090
+echo   - NVIDIA RTX 5050, 5060, 5070, 5080, 5090
+echo.
+echo If you have one of these GPUs but it wasn't detected correctly,
+echo please ensure your NVIDIA drivers are installed and up to date.
+echo.
+echo Check setup_log.txt for details.
+echo.
+pause
+exit /b 1
 
 :SetupComplete
 
@@ -268,7 +264,7 @@ echo   1. Run DiagnosticTest.bat to verify the installation
 echo   2. Run RunServer.bat to start the service
 echo   3. Run TestService.bat to test the running service
 echo.
-echo Log file: setup_conda_log.txt
+echo Log file: setup_log.txt
 echo.
 if not "%NOPAUSE%"=="nopause" (
     echo Press any key to exit...
@@ -292,12 +288,15 @@ set "TORCHVISION_VERSION=0.21.0+cu118"
 set "TORCHAUDIO_VERSION=2.6.0+cu118"
 
 echo [Step 1/7] Upgrading pip...
-python -m pip install --upgrade pip setuptools wheel
+echo [Step 1/7] Upgrading pip... >> "%LOG_FILE%"
+python -m pip install --upgrade pip setuptools wheel >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to upgrade pip!
+    echo ERROR: Failed to upgrade pip >> "%LOG_FILE%"
     pause
     exit /b 1
 )
+echo Pip upgraded successfully >> "%LOG_FILE%"
 
 echo [Step 2/7] Installing PyTorch 2.6 GPU stack (CUDA 11.8)...
 echo [Step 2/7] Installing PyTorch 2.6 (CUDA 11.8)... >> "%LOG_FILE%"
@@ -321,19 +320,37 @@ if errorlevel 1 (
 )
 echo Core dependencies installed successfully >> "%LOG_FILE%"
 
-echo [Step 4/7] Installing EasyOCR...
-echo [Step 4/7] Installing EasyOCR... >> "%LOG_FILE%"
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! easyocr==1.7.2 >> "%LOG_FILE%" 2>&1
+echo [Step 4/7] Installing docTR dependencies...
+echo [Step 4/7] Installing docTR dependencies... >> "%LOG_FILE%"
+python -m pip install h5py==3.14.0 pypdfium2==4.30.0 rapidfuzz==3.13.0 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: Failed to install EasyOCR!
-    echo ERROR: Failed to install EasyOCR >> "%LOG_FILE%"
+    echo ERROR: Failed to install docTR dependencies!
+    echo ERROR: Failed to install docTR dependencies >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo EasyOCR installed successfully >> "%LOG_FILE%"
+python -m pip install defusedxml==0.7.1 langdetect==1.0.9 shapely==2.0.7 >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo ERROR: Failed to install additional dependencies!
+    echo ERROR: Failed to install additional dependencies >> "%LOG_FILE%"
+    pause
+    exit /b 1
+)
+echo DocTR dependencies installed successfully >> "%LOG_FILE%"
 
-echo [Step 5/7] Installing FastAPI and Uvicorn...
-echo [Step 5/7] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
+echo [Step 5/7] Installing python-doctr...
+echo [Step 5/7] Installing python-doctr... >> "%LOG_FILE%"
+python -m pip install --extra-index-url !PYTORCH_CHANNEL! python-doctr==0.10.0 >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo ERROR: Failed to install python-doctr!
+    echo ERROR: Failed to install python-doctr >> "%LOG_FILE%"
+    pause
+    exit /b 1
+)
+echo Python-doctr installed successfully >> "%LOG_FILE%"
+
+echo [Step 6/7] Installing FastAPI and Uvicorn...
+echo [Step 6/7] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
 python -m pip install fastapi==0.121.1 "uvicorn[standard]==0.38.0" python-multipart==0.0.20 pydantic==2.10.5 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn!
@@ -343,8 +360,8 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 6/7] Installing CuPy for GPU color extraction...
-echo [Step 6/7] Installing CuPy... >> "%LOG_FILE%"
+echo [Step 7/7] Installing CuPy for GPU color extraction...
+echo [Step 7/7] Installing CuPy... >> "%LOG_FILE%"
 python -m pip install cupy-cuda12x==13.6.0 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo WARNING: CuPy installation failed, color extraction will use CPU
@@ -353,15 +370,15 @@ if errorlevel 1 (
     echo CuPy installed successfully >> "%LOG_FILE%"
 )
 
-echo [Step 7/7] Pre-downloading EasyOCR models...
-echo This may take a few minutes...
-echo [Step 7/7] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
-python -c "import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
+echo.
+echo Initializing docTR (first-run warmup)...
+echo Initializing docTR... >> "%LOG_FILE%"
+python -c "from doctr.models import ocr_predictor; ocr_predictor(det_arch='db_resnet50', reco_arch='master', pretrained=True)" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo WARNING: Failed to pre-download EasyOCR models
-    echo WARNING: Failed to pre-download models >> "%LOG_FILE%"
+    echo WARNING: Failed to initialize docTR
+    echo WARNING: Failed to initialize docTR >> "%LOG_FILE%"
 ) else (
-    echo Models downloaded successfully >> "%LOG_FILE%"
+    echo DocTR initialized successfully >> "%LOG_FILE%"
 )
 
 echo.
@@ -376,14 +393,14 @@ if errorlevel 1 (
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
 
-python -c "import easyocr; print('EasyOCR imported successfully')" >> "%LOG_FILE%" 2>&1
+python -c "from doctr.models import ocr_predictor; print('DocTR imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: EasyOCR verification failed!
-    echo ERROR: EasyOCR verification failed >> "%LOG_FILE%"
+    echo ERROR: DocTR verification failed!
+    echo ERROR: DocTR verification failed >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo EasyOCR verification passed >> "%LOG_FILE%"
+echo DocTR verification passed >> "%LOG_FILE%"
 
 python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
@@ -440,19 +457,37 @@ if errorlevel 1 (
 )
 echo Core dependencies installed successfully >> "%LOG_FILE%"
 
-echo [Step 4/7] Installing EasyOCR...
-echo [Step 4/7] Installing EasyOCR... >> "%LOG_FILE%"
-python -m pip install easyocr >> "%LOG_FILE%" 2>&1
+echo [Step 4/7] Installing docTR dependencies...
+echo [Step 4/7] Installing docTR dependencies... >> "%LOG_FILE%"
+python -m pip install h5py pypdfium2 rapidfuzz >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: Failed to install EasyOCR!
-    echo ERROR: Failed to install EasyOCR >> "%LOG_FILE%"
+    echo ERROR: Failed to install docTR dependencies!
+    echo ERROR: Failed to install docTR dependencies >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo EasyOCR installed successfully >> "%LOG_FILE%"
+python -m pip install defusedxml langdetect shapely >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo ERROR: Failed to install additional dependencies!
+    echo ERROR: Failed to install additional dependencies >> "%LOG_FILE%"
+    pause
+    exit /b 1
+)
+echo DocTR dependencies installed successfully >> "%LOG_FILE%"
 
-echo [Step 5/7] Installing FastAPI and Uvicorn...
-echo [Step 5/7] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
+echo [Step 5/7] Installing python-doctr...
+echo [Step 5/7] Installing python-doctr... >> "%LOG_FILE%"
+python -m pip install python-doctr >> "%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo ERROR: Failed to install python-doctr!
+    echo ERROR: Failed to install python-doctr >> "%LOG_FILE%"
+    pause
+    exit /b 1
+)
+echo Python-doctr installed successfully >> "%LOG_FILE%"
+
+echo [Step 6/7] Installing FastAPI and Uvicorn...
+echo [Step 6/7] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
 python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn!
@@ -462,8 +497,8 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 6/7] Installing CuPy for GPU color extraction...
-echo [Step 6/7] Installing CuPy... >> "%LOG_FILE%"
+echo [Step 7/7] Installing CuPy for GPU color extraction...
+echo [Step 7/7] Installing CuPy... >> "%LOG_FILE%"
 python -m pip install cupy-cuda12x >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo WARNING: CuPy installation failed, color extraction will use CPU
@@ -472,15 +507,15 @@ if errorlevel 1 (
     echo CuPy installed successfully >> "%LOG_FILE%"
 )
 
-echo [Step 7/7] Pre-downloading EasyOCR models...
-echo This may take a few minutes...
-echo [Step 7/7] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
-python -c "import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
+echo.
+echo Initializing docTR (first-run warmup)...
+echo Initializing docTR... >> "%LOG_FILE%"
+python -c "from doctr.models import ocr_predictor; ocr_predictor(det_arch='db_resnet50', reco_arch='master', pretrained=True)" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo WARNING: Failed to pre-download EasyOCR models
-    echo WARNING: Failed to pre-download models >> "%LOG_FILE%"
+    echo WARNING: Failed to initialize docTR
+    echo WARNING: Failed to initialize docTR >> "%LOG_FILE%"
 ) else (
-    echo Models downloaded successfully >> "%LOG_FILE%"
+    echo DocTR initialized successfully >> "%LOG_FILE%"
 )
 
 echo.
@@ -495,14 +530,14 @@ if errorlevel 1 (
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
 
-python -c "import easyocr; print('EasyOCR imported successfully')" >> "%LOG_FILE%" 2>&1
+python -c "from doctr.models import ocr_predictor; print('DocTR imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: EasyOCR verification failed!
-    echo ERROR: EasyOCR verification failed >> "%LOG_FILE%"
+    echo ERROR: DocTR verification failed!
+    echo ERROR: DocTR verification failed >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo EasyOCR verification passed >> "%LOG_FILE%"
+echo DocTR verification passed >> "%LOG_FILE%"
 
 python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
@@ -514,26 +549,4 @@ if errorlevel 1 (
 echo FastAPI verification passed >> "%LOG_FILE%"
 
 goto :eof
-
-REM -----------------------------------------------------------------
-REM Error handler for unsupported GPU
-REM -----------------------------------------------------------------
-:FailGPU
-echo. >> "%LOG_FILE%"
-echo ERROR: Unsupported GPU series >> "%LOG_FILE%"
-echo.
-echo ===== ERROR: Unsupported GPU =====
-echo.
-echo This setup currently supports:
-echo   - NVIDIA RTX 3050, 3060, 3070, 3080, 3090
-echo   - NVIDIA RTX 4060, 4070, 4080, 4090
-echo   - NVIDIA RTX 5050, 5060, 5070, 5080, 5090
-echo.
-echo If you have one of these GPUs but it wasn't detected correctly,
-echo please ensure your NVIDIA drivers are installed and up to date.
-echo.
-echo Check setup_conda_log.txt for details.
-echo.
-pause
-exit /b 1
 
