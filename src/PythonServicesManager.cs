@@ -99,8 +99,11 @@ namespace UGTLive
         {
             var service = GetServiceByName(serviceName);
             
+            
             if (service != null)
             {
+                if (service.IsRunning) return true;
+
                 return await service.CheckIsRunningAsync();
             }
             
@@ -116,7 +119,7 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Starts all services that have AutoStart enabled
+        /// Starts all services that have AutoStart enabled (parallel execution for faster startup)
         /// </summary>
         public async Task StartAutoStartServicesAsync(bool showWindow, Action<string>? statusCallback = null)
         {
@@ -128,22 +131,45 @@ namespace UGTLive
                 return;
             }
             
-            foreach (var service in autoStartServices)
+            // Phase 1: Check all services in parallel to see if they're already running
+            statusCallback?.Invoke($"Checking status of {autoStartServices.Count} service(s)...");
+            
+            var checkTasks = autoStartServices.Select(async service =>
             {
-                // Check if service is already running first - don't waste time on already-running services
-                // Trust IsRunning property - only check /info if not already marked as running
-                bool alreadyRunning = service.IsRunning;
-                
-                if (!alreadyRunning)
+                if (!service.IsRunning)
                 {
-                    alreadyRunning = await service.CheckIsRunningAsync();
+                    await service.CheckIsRunningAsync();
                 }
-                
-                if (alreadyRunning)
+                return service;
+            });
+            
+            await Task.WhenAll(checkTasks);
+            
+            // Filter to only services that need starting
+            var servicesToStart = autoStartServices.Where(s => !s.IsRunning).ToList();
+            var alreadyRunningCount = autoStartServices.Count - servicesToStart.Count;
+            
+            if (alreadyRunningCount > 0)
+            {
+                statusCallback?.Invoke($"{alreadyRunningCount} service(s) already running - skipping");
+            }
+            
+            if (servicesToStart.Count == 0)
+            {
+                statusCallback?.Invoke("All services already running");
+                return;
+            }
+            
+            // Phase 2: Start all services with staggered launches to avoid conda lock conflicts
+            statusCallback?.Invoke($"Starting {servicesToStart.Count} service(s)...");
+            
+            var startTasks = servicesToStart.Select(async (service, index) =>
+            {
+                // Stagger process starts by 1 second each to avoid conda activation file locks
+                // This prevents "file is being used by another process" errors
+                if (index > 0)
                 {
-                    // Skip immediately, no status message or delay needed
-                    statusCallback?.Invoke($"{service.ServiceName} already running - skipping");
-                    continue;
+                    await Task.Delay(1500 * index);
                 }
                 
                 statusCallback?.Invoke($"Starting {service.ServiceName}...");
@@ -152,21 +178,23 @@ namespace UGTLive
                 
                 if (started)
                 {
-                    // Wait a moment for service to initialize models (startup event)
-                    await Task.Delay(2000);
-                    
-                    // Service is marked as running by StartAsync - trust it without checking /info
                     statusCallback?.Invoke($"{service.ServiceName} started successfully");
                 }
                 else
                 {
                     statusCallback?.Invoke($"Failed to start {service.ServiceName}");
                 }
-            }
+                
+                return started;
+            });
+            
+            await Task.WhenAll(startTasks);
+            
+            statusCallback?.Invoke("Service startup complete");
         }
         
         /// <summary>
-        /// Stops all services that were started by the app
+        /// Stops all services that were started by the app (parallel execution for faster shutdown)
         /// </summary>
         public async Task StopOwnedServicesAsync()
         {
@@ -178,13 +206,17 @@ namespace UGTLive
                 return;
             }
             
-            Console.WriteLine($"Stopping {ownedServices.Count} owned service(s)...");
+            Console.WriteLine($"Stopping {ownedServices.Count} owned service(s) in parallel...");
             
-            foreach (var service in ownedServices)
+            var stopTasks = ownedServices.Select(async service =>
             {
                 Console.WriteLine($"Stopping {service.ServiceName}...");
                 await service.StopAsync();
-            }
+            });
+            
+            await Task.WhenAll(stopTasks);
+            
+            Console.WriteLine("All owned services stopped");
         }
         
         /// <summary>
@@ -200,12 +232,19 @@ namespace UGTLive
         
         /// <summary>
         /// Refreshes the status of all services
+        /// Only checks services that aren't already marked as running
         /// </summary>
         public async Task RefreshAllServicesStatusAsync()
         {
             var tasks = _services.Values.Select(async service =>
             {
-                await service.CheckIsRunningAsync();
+                // Only check if not already marked as running
+                if (!service.IsRunning)
+                {
+                    await service.CheckIsRunningAsync();
+                }
+                
+                // Only check installation if still not running after check
                 if (!service.IsRunning)
                 {
                     await service.CheckIsInstalledAsync();

@@ -485,10 +485,9 @@ namespace UGTLive
         {
             var services = PythonServicesManager.Instance.GetAllServices();
             
-            foreach (var service in services)
-            {
-                await UpdateServiceStatusAsync(service);
-            }
+            // Update all services in parallel for faster diagnostics
+            var tasks = services.Select(service => UpdateServiceStatusAsync(service));
+            await Task.WhenAll(tasks);
         }
         
         private async Task UpdateServiceStatusAsync(PythonService service)
@@ -601,11 +600,8 @@ namespace UGTLive
                         bool started = await service.StartAsync(showWindow);
                         
                         // Wait for service to initialize models (startup event)
-                        await Task.Delay(2000);
-                        
-                        // Update UI based on IsRunning (already set by StartAsync - no /info check needed)
-                        if (started && service.IsRunning)
-                        {
+                        await Task.Delay(500);
+                       
                             viewModel.StatusIcon = "✅";
                             viewModel.StatusText = "Running";
                             viewModel.StatusColor = "Green";
@@ -614,12 +610,7 @@ namespace UGTLive
                             viewModel.InstallEnabled = false;
                             viewModel.UninstallEnabled = true;
                             viewModel.TestEnabled = true;
-                        }
-                        else
-                        {
-                            // If start failed, refresh status to check actual state
-                            await UpdateServiceStatusAsync(service);
-                        }
+                       
                     }
                 }
                 catch (Exception ex)
@@ -712,6 +703,9 @@ namespace UGTLive
                     // Wait for uninstallation to complete
                     await uninstallTask;
                     
+                    // Invalidate conda env cache so it will be re-checked
+                    service.InvalidateCondaEnvCache();
+                    
                     // Show checking status immediately
                     viewModel.StatusText = "Checking status...";
                     viewModel.StatusIcon = "⏳";
@@ -783,37 +777,11 @@ namespace UGTLive
             
             if (runningOwnedServices.Count > 0)
             {
-                var result = MessageBox.Show(
-                    $"To apply this change, running services need to be restarted.\n\n" +
-                    $"Restart {runningOwnedServices.Count} running service(s) now?",
-                    "Restart Services?",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                
-                if (result == MessageBoxResult.Yes)
-                {
-                    statusMessage.Visibility = Visibility.Visible;
-                    progressBar.Visibility = Visibility.Visible;
-                    
-                    foreach (var service in runningOwnedServices)
-                    {
-                        statusMessage.Text = $"Restarting {service.ServiceName}...";
-                        
-                        // Stop the service
-                        await service.StopAsync();
-                        await Task.Delay(1000);
-                        
-                        // Start with new visibility setting
-                        await service.StartAsync(showWindow);
-                        await Task.Delay(2000);
-                        
-                        // Update status
-                        await UpdateServiceStatusAsync(service);
-                    }
-                    
+              //todo, apply visibility to window of the service in question
+
                     statusMessage.Visibility = Visibility.Collapsed;
                     progressBar.Visibility = Visibility.Collapsed;
-                }
+             
             }
         }
         

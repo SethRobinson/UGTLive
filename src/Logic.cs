@@ -102,10 +102,6 @@ namespace UGTLive
                 Interval = TimeSpan.FromSeconds(3)
             };
             _reconnectTimer.Tick += ReconnectTimer_Tick;
-            
-            // Subscribe to SocketManager events
-            SocketManager.Instance.DataReceived += OnSocketDataReceived;
-            // Socket connection no longer used (using HTTP services now)
         }
 
         
@@ -188,16 +184,6 @@ namespace UGTLive
             
           
         }
-        
-        // Socket data received event handler
-        private void OnSocketDataReceived(object? sender, string data)
-        {
-            LogManager.Instance.LogOcrResponse(data);
-
-            // Process the received data
-            ProcessReceivedTextJsonData(data);
-        }
-        
         void OnFinishedThings(bool bResetTranslationStatus)
         {
             SetWaitingForTranslationToFinish(false);
@@ -2060,26 +2046,6 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error triggering target audio preloading: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-        
-        // Send text data through socket
-        public async Task<bool> SendTextDataAsync(string text)
-        {
-            if (!SocketManager.Instance.IsConnected)
-            {
-                Console.WriteLine("Cannot send data: Socket not connected");
-                return false;
-            }
-            
-            try
-            {
-                return await SocketManager.Instance.SendDataAsync(text);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error sending text data: {ex.Message}");
-                return false;
             }
         }
 

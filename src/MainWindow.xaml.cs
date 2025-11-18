@@ -1061,9 +1061,8 @@ namespace UGTLive
                 await Task.Delay(50);
                 Logic.Instance.Finish();
                 
-                shutdownDialog.UpdateStatus("Stopping server...");
-                await Task.Delay(50);
-                ServerProcessManager.Instance.StopServer();
+                // Note: Logic.Finish() already stops Python services via PythonServicesManager
+                // No need for additional server cleanup
                 
                 // Make sure the console is closed
                 if (consoleWindow != IntPtr.Zero)
@@ -1469,11 +1468,9 @@ namespace UGTLive
                     // Clear any existing text objects
                     Logic.Instance.ClearAllTextObjects();
                     
-                    // Update the UI and connection state based on the selected OCR method
+                    // Update the UI based on the selected OCR method
                     if (ocrMethod == "Windows OCR")
                     {
-                        // Using Windows OCR, no need for socket connection
-                        SocketManager.Instance.Disconnect();
                         SetStatus("Using Windows OCR (built-in)");
                     }
                     else if (ocrMethod == "MangaOCR")
@@ -1482,26 +1479,13 @@ namespace UGTLive
                     }
                     else if (ocrMethod == "DocTR")
                     {
-                        // Using docTR, try to connect to the socket server
-                        if (!SocketManager.Instance.IsConnected)
-                        {
-                            _ = SocketManager.Instance.TryReconnectAsync();
-                            SetStatus("Connecting to Python backend for docTR...");
-                        }
-                        else
-                        {
-                            SetStatus("Using docTR");
-                        }
+                        SetStatus("Using DocTR");
                     }
-                    else
+                    else if (ocrMethod == "EasyOCR")
                     {
-                        // Using EasyOCR, try to connect to the socket server
-                        if (!SocketManager.Instance.IsConnected)
-                        {
-                            _ = SocketManager.Instance.TryReconnectAsync();
-                            SetStatus("Connecting to Python backend...");
-                        }
+                        SetStatus("Using EasyOCR");
                     }
+                    // HTTP services are used - connection status is checked per-request
                 }
             }
         }

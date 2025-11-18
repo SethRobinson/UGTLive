@@ -436,34 +436,12 @@ namespace UGTLive
         
         /// <summary>
         /// Checks if the server is running on the expected port
+        /// Legacy method - no longer used (legacy server on port 9999 removed, services are managed by PythonServicesManager)
         /// </summary>
         public async Task<(bool running, string errorMessage)> CheckServerRunningAsync()
         {
-            return await Task.Run(() =>
-            {
-                try
-                {
-                    using (var tcpClient = new System.Net.Sockets.TcpClient())
-                    {
-                        var result = tcpClient.BeginConnect("127.0.0.1", 9999, null, null);
-                        var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
-                        
-                        if (success)
-                        {
-                            tcpClient.EndConnect(result);
-                            return (true, "");
-                        }
-                        else
-                        {
-                            return (false, "Server is not responding on port 9999");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return (false, $"Error checking server: {ex.Message}");
-                }
-            });
+            // Legacy server on port 9999 no longer exists
+            return await Task.FromResult((false, "Legacy server no longer exists - use PythonServicesManager to check service status"));
         }
         
         /// <summary>

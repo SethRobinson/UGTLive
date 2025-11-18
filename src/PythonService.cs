@@ -30,6 +30,9 @@ namespace UGTLive
         public bool IsInstalled { get; private set; }
         public bool AutoStart { get; set; }
         
+        // Caching flags to avoid slow repeated checks
+        private bool _hasCheckedCondaEnv = false;
+        
         // Process management
         private Process? _process;
         private bool _ownedByApp;
@@ -127,6 +130,8 @@ namespace UGTLive
         /// </summary>
         public async Task<bool> CheckIsRunningAsync()
         {
+            if (IsRunning) return true;
+
             try
             {
                 string url = $"http://localhost:{Port}/info";
@@ -137,6 +142,7 @@ namespace UGTLive
                 if (response.IsSuccessStatusCode)
                 {
                     IsRunning = true;
+                    IsInstalled = true;  //well, if it's running it must be installed, right?
                     return true;
                 }
             }
@@ -159,52 +165,86 @@ namespace UGTLive
         
         /// <summary>
         /// Checks if the service is installed by checking if conda environment exists
+        /// Uses caching to avoid slow repeated conda env checks
         /// </summary>
         public async Task<bool> CheckIsInstalledAsync()
         {
-            // First check if service is running - if so, it's definitely installed
+            // If service is already marked as running, it's definitely installed - skip all checks
+            if (IsRunning)
+            {
+                IsInstalled = true;
+                _hasCheckedCondaEnv = true;
+                return true;
+            }
+
+            // If we've already checked the conda env and found it installed, trust that cache
+            if (_hasCheckedCondaEnv && IsInstalled)
+            {
+                return true;
+            }
+
+            // Check if service is running now - if so, it's definitely installed
             if (await CheckIsRunningAsync())
             {
                 IsInstalled = true;
+                _hasCheckedCondaEnv = true;
                 return true;
             }
             
-            // Service not running, check if conda env exists
-            return await Task.Run(() =>
+            
+            // Only do the slow conda env check if we haven't checked before
+            if (!_hasCheckedCondaEnv)
             {
-                try
+                Console.WriteLine($"Checking conda environment for {ServiceName} (this will be cached)...");
+                return await Task.Run(() =>
                 {
-                    ProcessStartInfo psi = new ProcessStartInfo
+                    try
                     {
-                        FileName = "conda",
-                        Arguments = $"env list",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    };
-                    
-                    using (Process process = Process.Start(psi)!)
-                    {
-                        string output = process.StandardOutput.ReadToEnd();
-                        process.WaitForExit();
-                        
-                        if (process.ExitCode == 0)
+                        ProcessStartInfo psi = new ProcessStartInfo
                         {
-                            // Check if our environment name appears in the output
-                            IsInstalled = output.Contains(CondaEnvName);
-                            return IsInstalled;
+                            FileName = "conda",
+                            Arguments = $"env list",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            CreateNoWindow = true
+                        };
+                        
+                        using (Process process = Process.Start(psi)!)
+                        {
+                            string output = process.StandardOutput.ReadToEnd();
+                            process.WaitForExit();
+                            
+                            if (process.ExitCode == 0)
+                            {
+                                // Check if our environment name appears in the output
+                                IsInstalled = output.Contains(CondaEnvName);
+                                _hasCheckedCondaEnv = true;
+                                return IsInstalled;
+                            }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error checking if {ServiceName} is installed: {ex.Message}");
-                }
-                
-                IsInstalled = false;
-                return false;
-            });
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error checking if {ServiceName} is installed: {ex.Message}");
+                    }
+                    
+                    IsInstalled = false;
+                    _hasCheckedCondaEnv = true;
+                    return false;
+                });
+            }
+            
+            return IsInstalled;
+        }
+        
+        /// <summary>
+        /// Marks that conda env check should be re-done (call after uninstall)
+        /// </summary>
+        public void InvalidateCondaEnvCache()
+        {
+            _hasCheckedCondaEnv = false;
+            IsInstalled = false;
         }
         
         /// <summary>
@@ -212,6 +252,7 @@ namespace UGTLive
         /// </summary>
         public async Task<bool> StartAsync(bool showWindow)
         {
+            /*
             // First check if service is already running
             if (await CheckIsRunningAsync())
             {
@@ -220,8 +261,10 @@ namespace UGTLive
                 _ownedByApp = false;
                 return true;
             }
+            */
             
-            return await Task.Run(() =>
+            // Start the process
+            bool processStarted = await Task.Run(() =>
             {
                 try
                 {
@@ -247,9 +290,6 @@ namespace UGTLive
                     if (_process != null)
                     {
                         Console.WriteLine($"Started {ServiceName} service (PID: {_process.Id})");
-                        // Assume service is running after starting - don't check /info immediately
-                        // The service will be marked as not running if a request fails
-                        IsRunning = true;
                         return true;
                     }
                 }
@@ -260,6 +300,42 @@ namespace UGTLive
                 
                 return false;
             });
+            
+            if (!processStarted)
+            {
+                return false;
+            }
+
+            //let's just assume it's ready now
+            IsRunning = true;
+            IsInstalled = true;
+
+            return true;
+            //return await WaitForServiceReadyAsync(timeoutSeconds: 30);
+        }
+        
+        /// <summary>
+        /// Polls the service /info endpoint until it responds or timeout is reached
+        /// </summary>
+        private async Task<bool> WaitForServiceReadyAsync(int timeoutSeconds)
+        {
+            var startTime = DateTime.Now;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            
+            while (DateTime.Now - startTime < timeout)
+            {
+                if (await CheckIsRunningAsync())
+                {
+                    Console.WriteLine($"{ServiceName} is ready!");
+                    return true;
+                }
+                
+                // Wait 500ms before next check
+                await Task.Delay(500);
+            }
+            
+            Console.WriteLine($"{ServiceName} did not respond within {timeoutSeconds} seconds");
+            return false;
         }
         
         /// <summary>

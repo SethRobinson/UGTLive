@@ -136,8 +136,17 @@ public partial class App : Application
         // Cleanup log window if it exists
         LogWindow.Instance?.cleanup();
         
-        // Ensure server cleanup happens on exit
-        ServerProcessManager.Instance.StopServer();
+        // Stop Python services (if Logic.Finish() wasn't called already)
+        // Use GetAwaiter().GetResult() since OnExit is synchronous
+        try
+        {
+            PythonServicesManager.Instance.StopOwnedServicesAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"Error stopping Python services on exit: {ex.Message}");
+        }
+        
         base.OnExit(e);
     }
 }

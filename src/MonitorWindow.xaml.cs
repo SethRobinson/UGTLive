@@ -121,8 +121,6 @@ namespace UGTLive
             // Add MouseWheel event handler for Ctrl+Wheel zoom
             this.MouseWheel += MonitorWindow_MouseWheel;
 
-            SocketManager.Instance.ConnectionChanged += OnSocketConnectionChanged;
-
 
             // Set default size if not already set
             if (this.Width == 0)
@@ -151,14 +149,6 @@ namespace UGTLive
             }
         }
 
-        private void OnSocketConnectionChanged(object? sender, bool isConnected)
-        {
-            if (isConnected)
-            {
-                //set our status text
-                UpdateStatus("Connected to Python backend");
-            }
-        }
 
 
         // Flag to prevent saving during initialization
@@ -196,80 +186,19 @@ namespace UGTLive
             // Clear any existing text objects
             Logic.Instance.ClearAllTextObjects();
             
-            // Update the UI and connection state based on the selected OCR method
+            // Update status based on OCR method
             if (ocrMethod == "Windows OCR")
             {
-                // Using Windows OCR, no need for socket connection
-                _ = Task.Run(() => 
-                {
-                    try
-                    {
-                       SocketManager.Instance.Disconnect();
-                        UpdateStatus("Using Windows OCR (built-in)");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error disconnecting socket: {ex.Message}");
-                    }
-                });
+                UpdateStatus("Using Windows OCR (built-in)");
             }
             else if (ocrMethod == "Google Vision")
             {
-                // Using Google Vision API, no need for socket connection
-                _ = Task.Run(() => 
-                {
-                    try
-                    {
-                       SocketManager.Instance.Disconnect();
-                        UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error disconnecting socket: {ex.Message}");
-                    }
-                });
+                UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
             }
-            else
+            else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "DocTR")
             {
-                // Using EasyOCR, check connection status first
-                _ = Task.Run(async () => 
-                {
-                    try
-                    {
-                        Console.WriteLine("Checking local socket connection...");
-
-                        // If already connected, we're good to go
-                        if (SocketManager.Instance.IsConnected)
-                        {
-                            Console.WriteLine("Already connected to socket server");
-                            UpdateStatus("Connected to Python backend");
-                            return;
-                        }
-
-                        // Not connected yet, attempt to connect silently first
-                        UpdateStatus("Connecting to Python backend...");
-
-                        // Connect without disconnecting first (TryReconnectAsync handles cleanup)
-                        bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                        
-                        // Update status based on reconnection result
-                        if (reconnected && SocketManager.Instance.IsConnected)
-                        {
-                            Console.WriteLine("Successfully connected to socket server");
-                            UpdateStatus("Connected to Python backend");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Failed to connect to socket server - will retry when needed");
-                            UpdateStatus("Not connected to Python backend");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error during socket reconnection: {ex.Message}");
-                        UpdateStatus("Error connecting to Python backend");
-                    }
-                });
+                // HTTP services are used - connection status is checked per-request
+                UpdateStatus($"Using {ocrMethod} (HTTP service)");
             }
             
             // Sync the OCR method selection with MainWindow
