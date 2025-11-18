@@ -218,7 +218,7 @@ namespace UGTLive
                 cancellationToken.ThrowIfCancellationRequested();
                 // Store original text format information
                 bool hasLineBreaks = text.Contains("\n");
-                string[] originalLines = hasLineBreaks ? text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None) : null;
+                string[] originalLines = hasLineBreaks ? text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None) : Array.Empty<string>();
                 
                 // Normalize text for translation - replace line breaks with special marker
                 // Using a marker that's unlikely to appear in normal text
@@ -306,7 +306,7 @@ namespace UGTLive
                                 result = result.Replace(LINE_BREAK_MARKER, "\n");
                             }
                             // If the original had line breaks but they weren't preserved in translation
-                            else if (hasLineBreaks && !result.Contains("\n") && originalLines.Length > 1)
+                            else if (hasLineBreaks && !result.Contains("\n") && originalLines != null && originalLines.Length > 1)
                             {
                                 // Try to restore line breaks based on original text structure
                                 

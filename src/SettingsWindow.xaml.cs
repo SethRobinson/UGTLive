@@ -1812,7 +1812,8 @@ namespace UGTLive
                 // Load service-specific settings if they're being shown
                 if (isGeminiSelected)
                 {
-                    geminiApiKeyPasswordBox.Password = ConfigManager.Instance.GetGeminiApiKey();
+                    if (geminiApiKeyPasswordBox != null)
+                        geminiApiKeyPasswordBox.Password = ConfigManager.Instance.GetGeminiApiKey();
                     
                     // Set selected Gemini model
                     string geminiModel = ConfigManager.Instance.GetGeminiModel();
@@ -1843,9 +1844,12 @@ namespace UGTLive
                 }
                 else if (isOllamaSelected)
                 {
-                    ollamaUrlTextBox.Text = ConfigManager.Instance.GetOllamaUrl();
-                    ollamaPortTextBox.Text = ConfigManager.Instance.GetOllamaPort();
-                    ollamaModelTextBox.Text = ConfigManager.Instance.GetOllamaModel();
+                    if (ollamaUrlTextBox != null)
+                        ollamaUrlTextBox.Text = ConfigManager.Instance.GetOllamaUrl();
+                    if (ollamaPortTextBox != null)
+                        ollamaPortTextBox.Text = ConfigManager.Instance.GetOllamaPort();
+                    if (ollamaModelTextBox != null)
+                        ollamaModelTextBox.Text = ConfigManager.Instance.GetOllamaModel();
                 }
                 else if (isChatGptSelected)
                 {
@@ -1864,42 +1868,51 @@ namespace UGTLive
                     
                     // Set max completion tokens
                     int maxTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
-                    chatGptMaxTokensTextBox.Text = maxTokens.ToString();
+                    if (chatGptMaxTokensTextBox != null)
+                        chatGptMaxTokensTextBox.Text = maxTokens.ToString();
                 }
                 else if (isLlamacppSelected)
                 {
-                    // Temporarily remove event handlers to prevent triggering changes when switching services
-                    llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
-                    llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
-                    
-                    llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
-                    llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
-                    
-                    // Reattach event handlers
-                    llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
-                    llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
+                    if (llamacppUrlTextBox != null && llamacppPortTextBox != null)
+                    {
+                        // Temporarily remove event handlers to prevent triggering changes when switching services
+                        llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
+                        llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
+                        
+                        llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
+                        llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+                        
+                        // Reattach event handlers
+                        llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
+                        llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
+                    }
                 }
                 else if (isGoogleTranslateSelected)
                 {
                     // Set Google Translate service type
                     bool useCloudApi = ConfigManager.Instance.GetGoogleTranslateUseCloudApi();
                     
-                    // Temporarily remove event handler
-                    googleTranslateServiceTypeComboBox.SelectionChanged -= GoogleTranslateServiceTypeComboBox_SelectionChanged;
-                    
-                    googleTranslateServiceTypeComboBox.SelectedIndex = useCloudApi ? 1 : 0; // 0 = Free, 1 = Cloud API
-                    
-                    // Reattach event handler
-                    googleTranslateServiceTypeComboBox.SelectionChanged += GoogleTranslateServiceTypeComboBox_SelectionChanged;
+                    if (googleTranslateServiceTypeComboBox != null)
+                    {
+                        // Temporarily remove event handler
+                        googleTranslateServiceTypeComboBox.SelectionChanged -= GoogleTranslateServiceTypeComboBox_SelectionChanged;
+                        
+                        googleTranslateServiceTypeComboBox.SelectedIndex = useCloudApi ? 1 : 0; // 0 = Free, 1 = Cloud API
+                        
+                        // Reattach event handler
+                        googleTranslateServiceTypeComboBox.SelectionChanged += GoogleTranslateServiceTypeComboBox_SelectionChanged;
+                    }
                     
                     // Set API key if using Cloud API
                    // if (useCloudApi)
+                    if (googleTranslateApiKeyPasswordBox != null)
                     {
                         googleTranslateApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleTranslateApiKey();
                     }
                     
                     // Set language mapping checkbox
-                    googleTranslateMappingCheckBox.IsChecked = ConfigManager.Instance.GetGoogleTranslateAutoMapLanguages();
+                    if (googleTranslateMappingCheckBox != null)
+                        googleTranslateMappingCheckBox.IsChecked = ConfigManager.Instance.GetGoogleTranslateAutoMapLanguages();
                 }
             }
             catch (Exception ex)
@@ -3777,8 +3790,10 @@ namespace UGTLive
                 targetLanguageFontBoldCheckBox.IsChecked = ConfigManager.Instance.GetTargetLanguageFontBold();
                 
                 // Reattach event handlers
-                sourceLanguageFontFamilyComboBox.SelectionChanged += SourceLanguageFontFamilyComboBox_SelectionChanged;
-                targetLanguageFontFamilyComboBox.SelectionChanged += TargetLanguageFontFamilyComboBox_SelectionChanged;
+                if (sourceLanguageFontFamilyComboBox != null)
+                    sourceLanguageFontFamilyComboBox.SelectionChanged += SourceLanguageFontFamilyComboBox_SelectionChanged;
+                if (targetLanguageFontFamilyComboBox != null)
+                    targetLanguageFontFamilyComboBox.SelectionChanged += TargetLanguageFontFamilyComboBox_SelectionChanged;
                 sourceLanguageFontBoldCheckBox.Checked += SourceLanguageFontBoldCheckBox_CheckedChanged;
                 sourceLanguageFontBoldCheckBox.Unchecked += SourceLanguageFontBoldCheckBox_CheckedChanged;
                 targetLanguageFontBoldCheckBox.Checked += TargetLanguageFontBoldCheckBox_CheckedChanged;
@@ -4135,8 +4150,6 @@ namespace UGTLive
         }
         
         private string? _selectedActionId;
-        private bool _isCapturingKeyboard = false;
-        private bool _isCapturingGamepad = false;
         
         // Load actions into the list
         private void loadActions()

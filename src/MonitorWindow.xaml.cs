@@ -270,7 +270,7 @@ namespace UGTLive
             // Install low-level mouse hook to catch messages before they reach WebView2
             _mouseHookProc = LowLevelMouseHookProc;
             _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseHookProc, 
-                GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName), 0);
+                GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule?.ModuleName ?? ""), 0);
             
             // Initialize scrollbar dimensions from system metrics
             initializeScrollbarDimensions();

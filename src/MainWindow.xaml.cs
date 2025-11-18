@@ -124,8 +124,6 @@ namespace UGTLive
         // Socket connection status
         private TextBlock? socketStatusText;
         
-        // Console visibility management
-        private bool isConsoleVisible = false;
         private IntPtr consoleWindow;
 
         static MainWindow? _this = null;
@@ -1836,7 +1834,7 @@ namespace UGTLive
                         // This prevents unnecessary updates if only the transcript arrived
                         if (!string.Equals(lastEntry.TranslatedText?.Trim(), translatedText?.Trim(), StringComparison.OrdinalIgnoreCase))
                         {
-                            lastEntry.TranslatedText = translatedText;
+                            lastEntry.TranslatedText = translatedText ?? "";
                             lastEntry.Timestamp = DateTime.Now;
                             Console.WriteLine($"Updated last translation entry ID: {lastEntry.Id}");
                             entryId = lastEntry.Id;
@@ -1861,7 +1859,7 @@ namespace UGTLive
                     {
                         Id = Guid.NewGuid().ToString(), // Assign new ID
                         OriginalText = originalText,
-                        TranslatedText = translatedText,
+                        TranslatedText = translatedText ?? "",
                         Timestamp = DateTime.Now
                     };
                     _translationHistory.Add(entry); // Use Add for List

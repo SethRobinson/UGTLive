@@ -29,7 +29,6 @@ namespace UGTLive
         private Grid? _overlayContainer;
         private int _textIDCounter = 0;
         
-        private DispatcherTimer _reconnectTimer;
         private string _lastOcrHash = string.Empty;
         
         // Track the current capture position
@@ -95,13 +94,6 @@ namespace UGTLive
             _textObjects = new List<TextObject>();
             _textObjectsOld = new List<TextObject>();
             _random = new Random();
-            
-            // Initialize reconnect timer with 3-second interval
-            _reconnectTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(3)
-            };
-            _reconnectTimer.Tick += ReconnectTimer_Tick;
         }
 
         
@@ -169,21 +161,7 @@ namespace UGTLive
             }
         }
       
-        
-        // Track reconnection attempts
-        private int _reconnectAttempts = 0;
-        private bool _hasShownConnectionErrorMessage = false;
-        
-        // Reconnect timer tick event
-        private async void ReconnectTimer_Tick(object? sender, EventArgs e)
-        {
-            // Socket reconnect logic no longer needed (using HTTP services now)
-            // Stop the timer
-            _reconnectTimer.Stop();
-            return;
-            
-          
-        }
+     
         void OnFinishedThings(bool bResetTranslationStatus)
         {
             SetWaitingForTranslationToFinish(false);
@@ -1819,9 +1797,6 @@ namespace UGTLive
                 
                 // Stop owned Python services
                 await PythonServicesManager.Instance.StopOwnedServicesAsync();
-                
-                // Stop the reconnect timer
-                _reconnectTimer.Stop();
                 
                 // Clear all text objects
                 ClearAllTextObjects();

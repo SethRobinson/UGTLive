@@ -1,20 +1,14 @@
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using MessageBox = System.Windows.MessageBox;
 
 namespace UGTLive
 {
     public partial class ServiceDiagnosticDialog : Window
     {
         private Process? _process;
-        private bool _isComplete = false;
-        
         public ServiceDiagnosticDialog()
         {
             InitializeComponent();
@@ -131,7 +125,6 @@ namespace UGTLive
         /// </summary>
         private void OnProcessComplete()
         {
-            _isComplete = true;
             
             Dispatcher.Invoke(() =>
             {

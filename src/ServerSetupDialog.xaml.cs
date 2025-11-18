@@ -610,7 +610,6 @@ namespace UGTLive
             
             try
             {
-                // Trust IsRunning property first - only check /info if not already marked as running
                 bool isRunning = service.IsRunning;
                 
                 if (!isRunning)
@@ -888,10 +887,9 @@ namespace UGTLive
             
             if (runningOwnedServices.Count > 0)
             {
-              //todo, apply visibility to window of the service in question
-
-                    statusMessage.Visibility = Visibility.Collapsed;
-                    progressBar.Visibility = Visibility.Collapsed;
+                  //todo, apply visibility to window of the service in question
+                  statusMessage.Visibility = Visibility.Collapsed;
+                  progressBar.Visibility = Visibility.Collapsed;
              
             }
         }

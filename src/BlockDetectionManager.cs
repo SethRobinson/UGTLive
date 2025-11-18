@@ -898,7 +898,7 @@ namespace UGTLive
             
             // Check if all colors are identical (common case when characters come from same word)
             bool allIdentical = true;
-            string? firstHex = null;
+           
             JsonElement firstColor = colors[0].color;
             
             foreach (var (color, _) in colors)

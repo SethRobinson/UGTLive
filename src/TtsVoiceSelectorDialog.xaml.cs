@@ -73,7 +73,7 @@ namespace UGTLive
             UpdateVoiceList();
             
             // Set voice (only if not using custom voice ID)
-            if (!UseCustomVoiceId)
+            if (!UseCustomVoiceId && voiceComboBox != null && voiceComboBox.Items != null)
             {
                 foreach (ComboBoxItem item in voiceComboBox.Items)
                 {
