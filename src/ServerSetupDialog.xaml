@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
-        Title="UGTLive Server Setup"
-        Height="810"
-        Width="700"
+        Title="Python Services Manager"
+        Height="850"
+        Width="900"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
@@ -125,80 +125,92 @@
                     </Grid>
                 </Border>
                 
-                <!-- Conda Environment Check -->
-                <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="envStatusIcon" Text="⏳" FontSize="20" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Conda Environment (ocrstuff)" FontWeight="Bold"/>
-                            <TextBlock x:Name="envStatusText" Text="Checking..." Foreground="Gray"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-                
-                <!-- Python Packages Check -->
-                <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Grid Grid.Row="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="packagesStatusIcon" Text="⏳" FontSize="20" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Python Packages" FontWeight="Bold"/>
-                                <TextBlock x:Name="packagesStatusText" Text="Checking..." Foreground="Gray"/>
-                            </StackPanel>
-                            <Button x:Name="installBackendButton" Content="Install/Reinstall Backend" 
-                                    Grid.Column="2" Padding="10,5" Margin="5,0,0,0"
-                                    Click="InstallBackendButton_Click" IsEnabled="False"/>
-                        </Grid>
-                        <ItemsControl x:Name="packagesList" Grid.Row="1" Margin="30,10,0,0">
+                <!-- Python Services Section -->
+                <Border BorderBrush="#3366AA" BorderThickness="2" Padding="10" Margin="0,0,0,10" Background="#F0F8FF">
+                    <StackPanel>
+                        <TextBlock Text="Python Services Manager" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+                        <TextBlock Text="You'll need at least one of these installed and active to use OCR features." 
+                                   Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        
+                        <!-- Show Server Windows Checkbox -->
+                        <CheckBox x:Name="showServerWindowCheckBox" 
+                                  Content="Show server windows (useful for debugging)"
+                                  Margin="0,0,0,10" VerticalAlignment="Center"
+                                  Checked="ShowServerWindowCheckBox_Changed" 
+                                  Unchecked="ShowServerWindowCheckBox_Changed"/>
+                        
+                        <!-- Services List -->
+                        <ItemsControl x:Name="servicesItemsControl" Margin="0,5,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontSize="11" Margin="0,2"/>
+                                    <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,8" Background="White">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <!-- Service Info Row -->
+                                            <Grid Grid.Row="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- Status Icon -->
+                                                <TextBlock Grid.Column="0" Text="{Binding StatusIcon}" FontSize="18" 
+                                                           Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                
+                                                <!-- Service Name & Description -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock FontWeight="Bold" FontSize="13">
+                                                        <Run Text="{Binding ServiceName}"/>
+                                                        <Run Text=" (Port " Foreground="Gray" FontSize="11"/>
+                                                        <Run Text="{Binding Port}" Foreground="Gray" FontSize="11"/>
+                                                        <Run Text=")" Foreground="Gray" FontSize="11"/>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Description}" Foreground="Gray" FontSize="11" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusColor}" 
+                                                               FontSize="11" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                
+                                                <!-- AutoStart Checkbox -->
+                                                <CheckBox Grid.Column="2" Content="AutoStart" 
+                                                          IsChecked="{Binding AutoStart, Mode=TwoWay}"
+                                                          VerticalAlignment="Center" Margin="10,0,0,0"
+                                                          Checked="ServiceAutoStart_Changed"
+                                                          Unchecked="ServiceAutoStart_Changed"/>
+                                            </Grid>
+                                            
+                                            <!-- Buttons Row -->
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="28,8,0,0" HorizontalAlignment="Left">
+                                                <Button Content="{Binding StartStopButtonText}" 
+                                                        Padding="10,4" Margin="0,0,5,0"
+                                                        IsEnabled="{Binding StartStopEnabled}"
+                                                        Click="ServiceStartStop_Click"
+                                                        Tag="{Binding ServiceName}"/>
+                                                <Button Content="Install" 
+                                                        Padding="10,4" Margin="0,0,5,0"
+                                                        IsEnabled="{Binding InstallEnabled}"
+                                                        Click="ServiceInstall_Click"
+                                                        Tag="{Binding ServiceName}"/>
+                                                <Button Content="Uninstall" 
+                                                        Padding="10,4" Margin="0,0,5,0"
+                                                        IsEnabled="{Binding UninstallEnabled}"
+                                                        Click="ServiceUninstall_Click"
+                                                        Tag="{Binding ServiceName}"/>
+                                                <Button Content="Test the install" 
+                                                        Padding="10,4" Margin="0,0,0,0"
+                                                        Click="ServiceTest_Click"
+                                                        Tag="{Binding ServiceName}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </Grid>
-                </Border>
-                
-                <!-- Server Status Check -->
-                <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,0,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="serverStatusIcon" Text="⏳" FontSize="20" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Server Status" FontWeight="Bold"/>
-                            <TextBlock x:Name="serverStatusText" Text="Checking..." Foreground="Gray"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="5,0,0,0" VerticalAlignment="Center">
-                            <CheckBox x:Name="showServerWindowCheckBox" 
-                                      Content="Show Server window"
-                                      Margin="0,0,10,0" VerticalAlignment="Center"
-                                      Checked="ShowServerWindowCheckBox_Changed" Unchecked="ShowServerWindowCheckBox_Changed"/>
-                            <Button x:Name="startServerButton" Content="Start Server" 
-                                    Padding="10,5" Margin="0,0,5,0"
-                                    Click="StartServerButton_Click" IsEnabled="False"/>
-                            <Button x:Name="stopServerButton" Content="Stop Server" 
-                                    Padding="10,5"
-                                    Click="StopServerButton_Click" IsEnabled="False"/>
-                        </StackPanel>
-                    </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>
@@ -233,4 +245,3 @@
         </Grid>
     </Grid>
 </Window>
-

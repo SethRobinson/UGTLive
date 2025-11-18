@@ -6,6 +6,7 @@ setlocal ENABLEDELAYEDEXPANSION
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
 set "LOG_FILE=%SCRIPT_DIR%setup_conda_log.txt"
+set "NOPAUSE=%~1"
 
 REM Delete existing log file
 if exist "%LOG_FILE%" del "%LOG_FILE%"
@@ -168,8 +169,10 @@ echo   3. Run TestService.bat to test the running service
 echo.
 echo Log file: setup_conda_log.txt
 echo.
-echo Press any key to exit...
-pause
+if not "%NOPAUSE%"=="nopause" (
+    echo Press any key to exit...
+    pause >nul
+)
 exit /b 0
 
 REM -----------------------------------------------------------------

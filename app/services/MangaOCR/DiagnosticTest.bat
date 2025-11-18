@@ -5,6 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
+set "NOPAUSE=%~1"
 
 REM -----------------------------------------------------------------
 REM Parse service_config.txt to get environment name
@@ -28,7 +29,7 @@ if exist "%CONFIG_FILE%" (
 
 if "!ENV_NAME!"=="" (
     echo ERROR: Could not find conda_env_name in service_config.txt
-    pause
+    if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
 
@@ -50,7 +51,7 @@ if errorlevel 1 (
     echo.
     echo   Please install Miniconda using the InstallMiniConda.bat script.
     echo.
-    pause
+    if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
 echo   [PASS] Conda is installed
@@ -64,9 +65,9 @@ call conda env list | findstr /C:"!ENV_NAME!" >nul
 if errorlevel 1 (
     echo   [FAIL] Environment !ENV_NAME! does not exist
     echo.
-    echo   Please run SetupServerCondaEnv.bat to create the environment.
+    echo   Click Install to fix this. Manual option: run SetupServerCondaEnv.bat
     echo.
-    pause
+    if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
 echo   [PASS] Environment !ENV_NAME! exists
@@ -80,7 +81,7 @@ call conda activate !ENV_NAME!
 if errorlevel 1 (
     echo   [FAIL] Could not activate environment !ENV_NAME!
     echo.
-    pause
+    if not "%NOPAUSE%"=="nopause" pause
     exit /b 1
 )
 echo   [PASS] Environment activated
@@ -139,16 +140,16 @@ echo   All diagnostic tests passed!
 echo   !SERVICE_NAME! is ready to use.
 echo =============================================================
 echo.
-pause
+if not "%NOPAUSE%"=="nopause" pause
 goto :eof
 
 :TestFail
 echo.
 echo =============================================================
 echo   Diagnostic tests FAILED!
-echo   Please run SetupServerCondaEnv.bat to reinstall dependencies.
+echo   Click Install to fix this ^(or manually run SetupServerCondaEnv.bat^)
 echo =============================================================
 echo.
-pause
+if not "%NOPAUSE%"=="nopause" pause
 exit /b 1
 

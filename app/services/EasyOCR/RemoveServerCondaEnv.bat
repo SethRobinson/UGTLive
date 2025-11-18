@@ -5,6 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
+set "NOPAUSE=%~1"
 set "NOPAUSE_MODE=0"
 
 REM Check for nopause parameter

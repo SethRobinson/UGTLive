@@ -76,8 +76,8 @@ namespace UGTLive
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
         {
             "EasyOCR",
-            "Manga OCR",
-            "docTR",
+            "MangaOCR",
+            "DocTR",
             "Windows OCR",
             "Google Vision"
         };
@@ -85,9 +85,9 @@ namespace UGTLive
         // Display names for OCR methods (can be changed without breaking code)
         private static readonly Dictionary<string, string> _ocrMethodDisplayNames = new Dictionary<string, string>
         {
-            { "EasyOCR", "Easy OCR (Decent at most languages)" },
-            { "Manga OCR", "Manga OCR (Vertical Japanese manga)" },
-            { "docTR", "docTR (Great at non-asian languages)" },
+            { "EasyOCR", "EasyOCR (Decent at most languages)" },
+            { "MangaOCR", "MangaOCR (Vertical Japanese manga)" },
+            { "DocTR", "DocTR (Great at non-asian languages)" },
             { "Windows OCR", "Windows OCR (Decent at English?)" },
             { "Google Vision", "Google Cloud Vision (non-local, costs $)" }
         };
@@ -2719,6 +2719,21 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine("Lesson URL template updated");
             }
+        }
+        
+        // Service AutoStart preferences
+        public bool GetServiceAutoStart(string serviceName)
+        {
+            string key = $"service_{serviceName}_autostart";
+            string value = GetValue(key, "false");
+            return value.ToLower() == "true";
+        }
+        
+        public void SetServiceAutoStart(string serviceName, bool autoStart)
+        {
+            string key = $"service_{serviceName}_autostart";
+            _configValues[key] = autoStart ? "true" : "false";
+            SaveConfig();
         }
     }
 }

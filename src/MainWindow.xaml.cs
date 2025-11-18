@@ -220,11 +220,11 @@ namespace UGTLive
                 {
                     SetStatus("Using Google Cloud Vision (non-local, costs $)");
                 }
-                else if (method == "Manga OCR")
+                else if (method == "MangaOCR")
                 {
-                    SetStatus("Using Manga OCR");
+                    SetStatus("Using MangaOCR");
                 }
-                else if (method == "docTR")
+                else if (method == "DocTR")
                 {
                     SetStatus("Using docTR");
                 }
@@ -249,101 +249,17 @@ namespace UGTLive
                 {
                     SetStatus("Using Google Cloud Vision (non-local, costs $)");
                 }
-                else if (method == "Manga OCR")
+                else if (method == "MangaOCR")
                 {
-                    SetStatus("Using Manga OCR");
-                    
-                    // Ensure we're connected when switching to Manga OCR
-                    if (!SocketManager.Instance.IsConnected)
-                    {
-                        Console.WriteLine("Socket not connected when switching to Manga OCR");
-                        _ = Task.Run(async () => {
-                            try {
-                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                                
-                                if (!reconnected || !SocketManager.Instance.IsConnected)
-                                {
-                                    // Only show an error message if explicitly requested by user action
-                                    Console.WriteLine("Failed to connect to socket server - Manga OCR will not be available");
-                                }
-
-                                
-                            }
-                            catch (Exception ex) {
-                                Console.WriteLine($"Error reconnecting: {ex.Message}");
-                                
-                                // Show an error message
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
-                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                                });
-                            }
-                        });
-                    }
+                    SetStatus("Using MangaOCR");
                 }
-                else if (method == "docTR")
+                else if (method == "DocTR")
                 {
-                    SetStatus("Using docTR");
-                    
-                    // Ensure we're connected when switching to docTR
-                    if (!SocketManager.Instance.IsConnected)
-                    {
-                        Console.WriteLine("Socket not connected when switching to docTR");
-                        _ = Task.Run(async () => {
-                            try {
-                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                                
-                                if (!reconnected || !SocketManager.Instance.IsConnected)
-                                {
-                                    // Only show an error message if explicitly requested by user action
-                                    Console.WriteLine("Failed to connect to socket server - docTR will not be available");
-                                }
-
-                                
-                            }
-                            catch (Exception ex) {
-                                Console.WriteLine($"Error reconnecting: {ex.Message}");
-                                
-                                // Show an error message
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
-                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                                });
-                            }
-                        });
-                    }
+                    SetStatus("Using DocTR");
                 }
                 else
                 {
                     SetStatus("Using EasyOCR");
-                    
-                    // Ensure we're connected when switching to EasyOCR
-                    if (!SocketManager.Instance.IsConnected)
-                    {
-                        Console.WriteLine("Socket not connected when switching to EasyOCR");
-                        _ = Task.Run(async () => {
-                            try {
-                                bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-                                
-                                if (!reconnected || !SocketManager.Instance.IsConnected)
-                                {
-                                    // Only show an error message if explicitly requested by user action
-                                    Console.WriteLine("Failed to connect to socket server - EasyOCR will not be available");
-                                }
-
-                                
-                            }
-                            catch (Exception ex) {
-                                Console.WriteLine($"Error reconnecting: {ex.Message}");
-                                
-                                // Show an error message
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                                    System.Windows.MessageBox.Show($"Socket connection error: {ex.Message}",
-                                        "Connection Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                                });
-                            }
-                        });
-                    }
                 }
             }
         }
@@ -1441,13 +1357,20 @@ namespace UGTLive
                     }
                     else
                     {
-                        //write saving bitmap to log
+                        // Convert bitmap to byte array for HTTP service
+                        byte[] imageBytes;
+                        using (var ms = new System.IO.MemoryStream())
+                        {
+                            bitmap.Save(ms, ImageFormat.Png);
+                            imageBytes = ms.ToArray();
+                        }
+                        
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
                         {
-                            Console.WriteLine($"Saving bitmap to {outputPath}");
+                            Console.WriteLine($"Sending {imageBytes.Length} bytes to HTTP OCR service");
                         }
-                        bitmap.Save(outputPath, ImageFormat.Png);
-                        Logic.Instance.SendImageToEasyOCR(outputPath);
+                        
+                        Logic.Instance.SendImageToHttpOCR(imageBytes);
                     }
 
                     stopwatch.Stop();
@@ -1553,20 +1476,11 @@ namespace UGTLive
                         SocketManager.Instance.Disconnect();
                         SetStatus("Using Windows OCR (built-in)");
                     }
-                    else if (ocrMethod == "Manga OCR")
+                    else if (ocrMethod == "MangaOCR")
                     {
-                        // Using Manga OCR, try to connect to the socket server
-                        if (!SocketManager.Instance.IsConnected)
-                        {
-                            _ = SocketManager.Instance.TryReconnectAsync();
-                            SetStatus("Connecting to Python backend for Manga OCR...");
-                        }
-                        else
-                        {
-                            SetStatus("Using Manga OCR");
-                        }
+                        SetStatus("Using MangaOCR");
                     }
-                    else if (ocrMethod == "docTR")
+                    else if (ocrMethod == "DocTR")
                     {
                         // Using docTR, try to connect to the socket server
                         if (!SocketManager.Instance.IsConnected)

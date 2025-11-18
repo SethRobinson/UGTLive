@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -19,6 +21,11 @@ namespace UGTLive
     public class Logic
     {
         private static Logic? _instance;
+        private static readonly HttpClient _httpClient = new HttpClient()
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+        
         private List<TextObject> _textObjects;
         private List<TextObject> _textObjectsOld;
         private Random _random;
@@ -101,7 +108,7 @@ namespace UGTLive
             
             // Subscribe to SocketManager events
             SocketManager.Instance.DataReceived += OnSocketDataReceived;
-            SocketManager.Instance.ConnectionChanged += OnSocketConnectionChanged;
+            // Socket connection no longer used (using HTTP services now)
         }
 
         
@@ -143,13 +150,11 @@ namespace UGTLive
                 // Load force cursor visible setting
                 // Force cursor visibility is now handled by MouseManager
                 
-                // Only connect to socket server if using EasyOCR, Manga OCR, or docTR
+                // Discover Python services
+                PythonServicesManager.Instance.DiscoverServices();
+                
                 string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-                if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR")
-                {
-                    await ConnectToSocketServerAsync();
-                }
-                else if (ocrMethod == "Google Vision")
+                if (ocrMethod == "Google Vision")
                 {
                     Console.WriteLine("Using Google Cloud Vision - socket connection not needed");
                     
@@ -218,15 +223,10 @@ namespace UGTLive
         // Reconnect timer tick event
         private async void ReconnectTimer_Tick(object? sender, EventArgs e)
         {
-            // Only try to reconnect if we're using EasyOCR, Manga OCR, or docTR
-            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-            if (ocrMethod != "EasyOCR" && ocrMethod != "Manga OCR" && ocrMethod != "docTR")
-            {
-                _reconnectTimer.Stop();
-                _reconnectAttempts = 0;
-                //_hasShownConnectionErrorMessage = false;
-                return;
-            }
+            // Socket reconnect logic no longer needed (using HTTP services now)
+            // Stop the timer
+            _reconnectTimer.Stop();
+            return;
             
             if (!SocketManager.Instance.IsConnected)
             {
@@ -286,27 +286,10 @@ namespace UGTLive
         }
         
         // Socket connection changed event handler
+        // Socket connection handler no longer needed (using HTTP services now)
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
         {
-            // If not connected and we're using EasyOCR, Manga OCR, or docTR, start the reconnect timer
-            string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
-            if (!isConnected && (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR"))
-            {
-                Console.WriteLine("Connection status changed to disconnected. Starting reconnect timer.");
-                SocketManager.Instance._isConnected = false;
-
-                _reconnectTimer.Start();
-            }
-            else if (isConnected)
-            {
-                if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                {
-                    Console.WriteLine("Connection status changed to connected. Stopping reconnect timer.");
-                }
-                _reconnectTimer.Stop();
-                _reconnectAttempts = 0;
-                _hasShownConnectionErrorMessage = false;
-            }
+            // No longer needed - HTTP services don't use socket connections
         }
         
         void OnFinishedThings(bool bResetTranslationStatus)
@@ -1617,117 +1600,234 @@ namespace UGTLive
         
      
         
-        // Called when a screenshot is saved (for EasyOCR method)
-        public async void SendImageToEasyOCR(string filePath)
+        /// <summary>
+        /// Process image using HTTP Python service
+        /// </summary>
+        private async Task<List<TextObject>> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
         {
-            // Update Monitor Window with the screenshot
-          
             try
             {
-                // Check if we're using Windows OCR or EasyOCR
-                string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+                var service = PythonServicesManager.Instance.GetServiceByName(serviceName);
                 
-                if (ocrMethod == "Windows OCR")
+                if (service == null)
                 {
-                    // Windows OCR doesn't require socket connection
-                    Console.WriteLine("Using Windows OCR (built-in)");
-                    // ProcessScreenshot will handle the Windows OCR logic
+                    Console.WriteLine($"Service {serviceName} not found");
+                    return new List<TextObject>();
                 }
-                else if (ocrMethod == "Google Vision")
+                
+                // Check if service is running
+                bool isRunning = await service.CheckIsRunningAsync();
+                
+                if (!isRunning)
                 {
-                    // Google Vision doesn't require socket connection
-                    Console.WriteLine("Using Google Vision API");
-                    // ProcessScreenshot will handle the Google Vision API logic
-                }
-                else
-                {
-                    if (SocketManager.Instance.IsWaitingForSomething())
+                    Console.WriteLine($"Service {serviceName} is not running");
+                    
+                    // Show error dialog offering to start the service
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        Console.WriteLine("Waiting for socket to connect to backend...");
-                        MainWindow.Instance.SetOCRCheckIsWanted(true);
-                        return;
+                        var result = MessageBox.Show(
+                            $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                            "Service Not Available",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Warning);
+                        
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            ServerSetupDialog.ShowDialogSafe(fromSettings: true);
+                        }
+                    });
+                    
+                    return new List<TextObject>();
+                }
+                
+                // Build query parameters
+                string langParam = MapLanguageForService(language);
+                string url = $"http://localhost:{service.Port}/process?lang={langParam}&char_level=true";
+                
+                // Add MangaOCR-specific parameters
+                if (serviceName == "MangaOCR")
+                {
+                    int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
+                    int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
+                    double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
+                    url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
+                }
+                
+                // Send HTTP request
+                var content = new ByteArrayContent(imageBytes);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                
+                var response = await _httpClient.PostAsync(url, content);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP request failed: {response.StatusCode}");
+                    return new List<TextObject>();
+                }
+                
+                // Parse response
+                string jsonResponse = await response.Content.ReadAsStringAsync();
+                
+                using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
+                {
+                    var root = doc.RootElement;
+                    
+                    if (root.GetProperty("status").GetString() != "success")
+                    {
+                        Console.WriteLine("OCR service returned non-success status");
+                        return new List<TextObject>();
                     }
                     
-                    // Get the source language from MainWindow
-                    string sourceLanguage = GetSourceLanguage()!;
+                    var textsArray = root.GetProperty("texts");
+                    var textObjects = new List<TextObject>();
                     
-                    // Map OCR method to server implementation parameter
-                    string implementation = "easyocr"; // Default
-                    if (ocrMethod == "Manga OCR")
+                    foreach (var textElement in textsArray.EnumerateArray())
                     {
-                        implementation = "mangaocr";
-                    }
-                    else if (ocrMethod == "docTR")
-                    {
-                        implementation = "doctr";
+                        string text = textElement.GetProperty("text").GetString() ?? "";
+                        int x = textElement.GetProperty("x").GetInt32();
+                        int y = textElement.GetProperty("y").GetInt32();
+                        int width = textElement.GetProperty("width").GetInt32();
+                        int height = textElement.GetProperty("height").GetInt32();
+                        
+                        // Parse colors if available
+                        SolidColorBrush? bgColor = null;
+                        SolidColorBrush? fgColor = null;
+                        
+                        if (textElement.TryGetProperty("background_color", out var bgColorElement))
+                        {
+                            if (bgColorElement.TryGetProperty("rgb", out var bgRgb) && bgRgb.GetArrayLength() == 3)
+                            {
+                                byte r = (byte)bgRgb[0].GetInt32();
+                                byte g = (byte)bgRgb[1].GetInt32();
+                                byte b = (byte)bgRgb[2].GetInt32();
+                                bgColor = new SolidColorBrush(Color.FromArgb(255, r, g, b));
+                            }
+                        }
+                        
+                        if (textElement.TryGetProperty("foreground_color", out var fgColorElement))
+                        {
+                            if (fgColorElement.TryGetProperty("rgb", out var fgRgb) && fgRgb.GetArrayLength() == 3)
+                            {
+                                byte r = (byte)fgRgb[0].GetInt32();
+                                byte g = (byte)fgRgb[1].GetInt32();
+                                byte b = (byte)fgRgb[2].GetInt32();
+                                fgColor = new SolidColorBrush(Color.FromArgb(255, r, g, b));
+                            }
+                        }
+                        
+                        var textObject = new TextObject(text, x, y, width, height, fgColor, bgColor);
+                        textObjects.Add(textObject);
                     }
                     
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
-                        Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                        Console.WriteLine($"Received {textObjects.Count} text objects from {serviceName}");
                     }
                     
-                    // Check socket connection
-                    if (!SocketManager.Instance.IsConnected)
+                    return textObjects;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing image with HTTP service: {ex.Message}");
+                return new List<TextObject>();
+            }
+        }
+        
+        /// <summary>
+        /// Maps internal language codes to service-specific language codes
+        /// </summary>
+        private string MapLanguageForService(string language)
+        {
+            // Map common language codes
+            return language switch
+            {
+                "en" => "en",
+                "ja" => "japan",
+                "zh" => "ch_sim",
+                "ko" => "korean",
+                "vi" => "vi",
+                "th" => "th",
+                _ => language
+            };
+        }
+        
+        // Called when a screenshot is captured (sends directly to HTTP service)
+        public async void SendImageToHttpOCR(byte[] imageBytes)
+        {
+            try
+            {
+                string ocrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+                
+                if (ocrMethod == "Windows OCR" || ocrMethod == "Google Vision")
+                {
+                    // These are handled in MainWindow.PerformCapture() directly
+                    Console.WriteLine($"SendImageToHttpOCR called for {ocrMethod} - should not happen");
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    return;
+                }
+                else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "DocTR")
+                {
+                    // Get source language
+                    string sourceLanguage = GetSourceLanguage()!;
+                    
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
-                        Console.WriteLine("Socket not connected, attempting to reconnect...");
-                        
-                        // Try to reconnect
-                        bool reconnected = await SocketManager.Instance.TryReconnectAsync();
-
-                        // Wait 300 ms
-                        await Task.Delay(300);
-                        
-                        // Check if reconnection succeeded
-                        if (!reconnected || !SocketManager.Instance.IsConnected)
+                        Console.WriteLine($"Processing {imageBytes.Length} bytes with {ocrMethod} HTTP service, language: {sourceLanguage}");
+                    }
+                    
+                    // Process with HTTP service
+                    var textObjects = await ProcessImageWithHttpServiceAsync(imageBytes, ocrMethod, sourceLanguage);
+                    
+                    // Process OCR results
+                    if (textObjects.Count > 0)
+                    {
+                        // Convert TextObjects to simple serializable format
+                        var serializableTexts = textObjects.Select(t => new
                         {
-                            Console.WriteLine($"Reconnection failed, cannot perform OCR with {ocrMethod}");
-                            
-                            // Make sure the reconnect timer is running to keep trying
-                            if (!_reconnectTimer.IsEnabled)
-                            {
-                                Console.WriteLine("Starting reconnect timer after failed immediate reconnection");
-                                _reconnectAttempts = 0;
-                                _hasShownConnectionErrorMessage = false;
-                                _reconnectTimer.Start();
-                            }
-                            
-                            MainWindow.Instance.SetOCRCheckIsWanted(true);
-                            return;
-                        }
-                        else
+                            text = t.Text,
+                            x = (int)t.X,
+                            y = (int)t.Y,
+                            width = (int)t.Width,
+                            height = (int)t.Height,
+                            vertices = new List<List<int>>(), // Empty for now, not needed
+                            confidence = 1.0
+                        }).ToList();
+                        
+                        var jsonData = System.Text.Json.JsonSerializer.Serialize(new { texts = serializableTexts });
+                        ProcessReceivedTextJsonData(jsonData);
+                    }
+                    else
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
                         {
-                            Console.WriteLine("Successfully reconnected to socket server");
+                            Console.WriteLine("No text objects received from HTTP service");
                         }
                     }
                     
-                    // If we got here, socket is connected - explicitly request character-level OCR
-                    // For Manga OCR, also include min_region_width, min_region_height, and overlap_allowed_percent
-                    string command = $"read_image|{sourceLanguage}|{implementation}|char_level";
-                    if (ocrMethod == "Manga OCR")
-                    {
-                        int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
-                        int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
-                        double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
-                        command += $"|{minWidth}|{minHeight}|{overlapPercent}";
-                    }
-                    await SocketManager.Instance.SendDataAsync(command);
+                    // Re-enable OCR check
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    
+                    // Notify that OCR has completed
+                    NotifyOCRCompleted();
+                }
+                else
+                {
+                    Console.WriteLine($"Unknown OCR method: {ocrMethod}");
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing screenshot: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                MessageBox.Show($"Error processing screenshot: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
             }
-            
-            // We'll do this after we get a reply
-            // MainWindow.Instance.SetOCRCheckIsWanted(true);
         }
 
         // Called when the application is closing
-        public void Finish()
+        public async void Finish()
         {
             try
             {
@@ -1743,8 +1843,8 @@ namespace UGTLive
                 // Note: Audio cache is NOT deleted on shutdown to allow reuse between sessions
                 // Cache can be deleted on startup if the setting is enabled
                 
-                // Disconnect from socket server
-                SocketManager.Instance.Disconnect();
+                // Stop owned Python services
+                await PythonServicesManager.Instance.StopOwnedServicesAsync();
                 
                 // Stop the reconnect timer
                 _reconnectTimer.Stop();
@@ -2545,8 +2645,8 @@ namespace UGTLive
             return ocrMethod switch
             {
                 "EasyOCR" => "Easy",
-                "Manga OCR" => "Manga",
-                "docTR" => "docTR",
+                "MangaOCR" => "Manga",
+                "DocTR" => "docTR",
                 "Google Cloud Vision" => "Google",
                 "Windows OCR" => "Windows",
                 _ => "OCR"
