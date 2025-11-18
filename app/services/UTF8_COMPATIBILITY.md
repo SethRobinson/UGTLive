@@ -87,7 +87,7 @@ for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
 
 These fields **must** use ASCII characters only:
 - `service_name` - Example: `EasyOCR` ✅, `Easy OCR` ❌ (no spaces), `簡単OCR` ❌ (no Japanese)
-- `conda_env_name` - Example: `ugt_easyocr` ✅, `ugt easycr` ❌ (no spaces), `ugt_日本語` ❌ (no Japanese)
+- `venv_name` - Example: `ugt_easyocr` ✅, `ugt easycr` ❌ (no spaces), `ugt_日本語` ❌ (no Japanese)
 - `port` - Example: `5000` ✅
 
 ### Unicode-Allowed Fields
@@ -100,7 +100,7 @@ These fields **can** contain Unicode characters:
 ### Why This Restriction?
 
 - **service_name**: Used in echo statements and window titles
-- **conda_env_name**: Conda environment names should be ASCII-only for compatibility
+- **venv_name**: Conda/virtual environment names should be ASCII-only for compatibility
 - **port**: Must be numeric
 
 Descriptions and metadata can safely contain Unicode because they're only displayed, not used in commands.
@@ -132,7 +132,7 @@ description|A versatile OCR engine supporting multiple languages including 日�
 github_url|https://github.com/JaidedAI/EasyOCR|
 author|JaidedAI (山田太郎)|
 service_name|EasyOCR|
-conda_env_name|ugt_easyocr|
+venv_name|ugt_easyocr|
 port|5000|
 local_only|true|
 version|1.7.2|
@@ -142,7 +142,7 @@ version|1.7.2|
 - Description contains Japanese characters ✅
 - Author contains Japanese characters ✅
 - service_name is ASCII-only ✅
-- conda_env_name is ASCII-only ✅
+- venv_name is ASCII-only ✅
 
 ## Saving Config Files
 

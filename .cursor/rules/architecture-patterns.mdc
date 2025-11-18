@@ -14,11 +14,14 @@ src/
   - Core application files (App.xaml, Logic.cs, ConfigManager.cs)
   - UI/ (Window classes)
   - Services/ (Translation, OCR, TTS services)
-  - Managers/ (BlockDetection, Log, Mouse, etc.)
+  - Managers/ (BlockDetection, Log, Mouse, PythonServicesManager, etc.)
   - Utilities/ (Helper classes)
 app/
   - Compiled binaries
-  - webserver/ (Python server)
+  - services/ (Python OCR services - EasyOCR, MangaOCR, DocTR)
+    - shared/ (Shared Python utilities)
+    - util/ (InstallMiniConda.bat)
+    - EasyOCR/, MangaOCR/, DocTR/ (Individual service directories)
   - media/ (Resources)
 ```
 
@@ -35,6 +38,7 @@ Used for core managers:
 - `Logic.Instance`
 - `BlockDetectionManager.Instance`
 - `LogManager.Instance`
+- `PythonServicesManager.Instance` - Manages Python OCR services
 
 **Implementation:**
 ```csharp
@@ -257,8 +261,25 @@ public async Task<Result?> ProcessAsync()
 ### Adding New OCR Method
 1. Add method name to `SupportedOcrMethods`
 2. Implement processing logic
+   - For Python services: Add service directory in `app/services/` with `service_config.txt` and `server.py`
+   - For built-in OCR: Implement in appropriate manager class
 3. Update OCR selection UI
 4. Add configuration options
+
+### Adding New Python OCR Service
+1. Create service directory in `app/services/` (e.g., `app/services/NewOCR/`)
+2. Create `service_config.txt` with required fields:
+   - `service_name` (ASCII only, no spaces)
+   - `venv_name` (ASCII only, e.g., `ugt_newocr`)
+   - `port` (unique port number)
+   - `description`, `version`, `author`, `github_url`, etc.
+3. Create `server.py` implementing FastAPI endpoints:
+   - `/process` - Process images
+   - `/info` - Service information
+   - `/health` - Health check
+   - `/shutdown` - Graceful shutdown
+4. Create batch scripts: `Install.bat`, `RunServer.bat`, `DiagnosticTest.bat`, `Uninstall.bat`
+5. Service will be automatically discovered by `PythonServicesManager` on app startup
 
 ## Performance Considerations
 

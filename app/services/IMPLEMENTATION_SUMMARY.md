@@ -146,11 +146,14 @@ Gracefully shutdown the service.
 ### Configuration Parsing
 ```batch
 REM All batch scripts dynamically read service_config.txt
-for /f "tokens=1,2 delims=|" %%a in ('type "%CONFIG_FILE%" ^| findstr /v "^#"') do (
-    if "!KEY!"=="conda_env_name" set "ENV_NAME=!VALUE!"
+REM Note: Config files use venv_name (not conda_env_name)
+for /f "usebackq tokens=1,2 delims=| eol=#" %%a in ("%CONFIG_FILE%") do (
+    if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
     if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
 )
 ```
+
+**Note**: The config files use `venv_name` but Python servers return `conda_env_name` in the `/info` endpoint for API consistency.
 
 ### Binary Image Transfer
 ```python
@@ -198,13 +201,30 @@ nvidia-smi --query-gpu=name --format=csv,noheader
 
 ### For Developers (C# App)
 
+The C# application uses `PythonServicesManager` and `PythonService` classes:
+
 ```csharp
+// Discover services on startup
+PythonServicesManager.Instance.DiscoverServices();
+
+// Get a service by name
+var service = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+
+// Check if service is running
+bool isRunning = await service.CheckIsRunningAsync();
+
+// Start service if needed
+if (!isRunning)
+{
+    await service.StartAsync(showWindow: false);
+}
+
 // Send image to service
-var client = new HttpClient();
 var content = new ByteArrayContent(imageBytes);
 content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-var response = await client.PostAsync("http://localhost:5000/process?lang=japan", content);
-var result = await response.Content.ReadAsStringAsync();
+string url = $"{service.ServerUrl}:{service.Port}/process?lang=japan&char_level=true";
+var response = await _httpClient.PostAsync(url, content);
+var jsonResponse = await response.Content.ReadAsStringAsync();
 ```
 
 ## Design Decisions
@@ -265,12 +285,15 @@ var result = await response.Content.ReadAsStringAsync();
 - Verify it works end-to-end
 - Test all endpoints
 
-### 2. Update C# Application
-- Implement HTTP client code
-- Create service manager to start/stop services
-- Implement service discovery
-- Update UI to show available services
-- Add health monitoring
+### 2. C# Application Integration (COMPLETED)
+✅ Implemented HTTP client code in `Logic.cs` (`ProcessImageWithHttpServiceAsync`)
+✅ Created `PythonServicesManager` for service discovery and management
+✅ Created `PythonService` class for individual service lifecycle management
+✅ Implemented service discovery via `service_config.txt` parsing
+✅ Added `ServerSetupDialog` UI for managing services
+✅ Implemented health monitoring via `/health` and `/info` endpoints
+✅ Added auto-start functionality for services
+✅ Integrated with existing OCR workflow in `Logic.cs`
 
 ### 3. Migration Strategy
 - Keep old webserver running during development
@@ -307,7 +330,7 @@ All batch scripts have been updated with UTF-8 encoding support:
 - Documented encoding requirements in README
 
 ### Configuration Requirements
-- **service_name** and **conda_env_name**: Must be ASCII-only (no Unicode)
+- **service_name** and **venv_name**: Must be ASCII-only (no Unicode)
 - **description**, **author**, **github_url**: Can contain Unicode characters
 - All config files should be saved as UTF-8
 

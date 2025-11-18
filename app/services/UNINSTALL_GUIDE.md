@@ -47,7 +47,7 @@ This is used internally by `SetupServerCondaEnv.bat` to remove old environments 
 ## What Gets Removed
 
 The removal script will:
-- ✅ Remove the conda environment (e.g., `ugt_easyocr`, `ugt_mangaocr`, `ugt_doctr`)
+- ✅ Remove the conda environment (e.g., `ugt_easyocr`, `ugt_mangaocr`, `ugt_doctr`) - reads `venv_name` from `service_config.txt`
 - ✅ Free up disk space used by Python packages and dependencies
 - ✅ Remove any cached models specific to that environment
 

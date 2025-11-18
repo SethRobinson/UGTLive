@@ -66,7 +66,7 @@ description|A brief description of the service|
 github_url|https://github.com/project/repo|
 author|Author or organization name|
 service_name|ServiceName|
-conda_env_name|ugt_servicename|
+venv_name|ugt_servicename|
 port|5000|
 local_only|true|
 version|1.0.0|
@@ -78,7 +78,7 @@ version|1.0.0|
 - **github_url**: Link to the OCR engine's repository
 - **author**: Creator or maintainer of the OCR engine
 - **service_name**: Display name of the service (**must be ASCII, no spaces**)
-- **conda_env_name**: Name of the conda environment (**must be ASCII, no spaces**)
+- **venv_name**: Name of the conda/virtual environment (**must be ASCII, no spaces**)
 - **port**: Port number the service listens on (must be unique)
 - **local_only**: If "true", binds to 127.0.0.1; if "false", binds to 0.0.0.0
 - **version**: Version of the OCR engine
@@ -87,7 +87,7 @@ version|1.0.0|
 
 ⚠️ **Important**: For maximum compatibility across different Windows locales:
 
-- **service_name** and **conda_env_name** must use **ASCII characters only** (no Japanese, Chinese, etc.)
+- **service_name** and **venv_name** must use **ASCII characters only** (no Japanese, Chinese, etc.)
 - Other fields (description, author, github_url) can contain Unicode characters
 - Config files are read with UTF-8 encoding
 - All batch scripts force UTF-8 code page (chcp 65001) for international compatibility
@@ -100,7 +100,7 @@ version|1.0.0|
 
 **Best for**: General-purpose OCR, multi-language support, good balance of speed and accuracy.
 
-**Environment**: `ugt_easyocr`
+**Environment**: `ugt_easyocr` (venv_name in config)
 
 ### MangaOCR (Port 5001)
 
@@ -108,7 +108,7 @@ version|1.0.0|
 
 **Best for**: Japanese manga, comic books, stylized Japanese text.
 
-**Environment**: `ugt_mangaocr`
+**Environment**: `ugt_mangaocr` (venv_name in config)
 
 **Special Features**:
 - YOLO-based text region detection
@@ -121,7 +121,7 @@ version|1.0.0|
 
 **Best for**: English documents, forms, printed text.
 
-**Environment**: `ugt_doctr`
+**Environment**: `ugt_doctr` (venv_name in config)
 
 **Note**: DocTR does not support Japanese text. Use EasyOCR or MangaOCR for Japanese.
 
@@ -176,7 +176,7 @@ Get service information and configuration.
   "service_name": "EasyOCR",
   "description": "A versatile OCR engine...",
   "version": "1.7.2",
-  "conda_env_name": "ugt_easyocr",
+  "conda_env_name": "ugt_easyocr",  // Note: Python server reads venv_name from config but returns conda_env_name in /info
   "port": 5000,
   "local_only": true,
   "github_url": "https://github.com/JaidedAI/EasyOCR",
@@ -281,7 +281,7 @@ To add a new OCR service:
    github_url|https://github.com/...|
    author|Author name|
    service_name|NewOCR|
-   conda_env_name|ugt_newocr|
+   venv_name|ugt_newocr|
    port|5003|
    local_only|true|
    version|1.0.0|
@@ -372,9 +372,29 @@ Run `DiagnosticTest.bat` to verify the environment. If it fails, rerun `SetupSer
 4. **Batch processing**: If processing many images, keep the service running instead of starting/stopping
 5. **Appropriate service**: Use MangaOCR for Japanese manga, DocTR for English documents, EasyOCR for general use
 
+## C# Application Integration
+
+The UGTLive C# application integrates with these services through:
+
+- **PythonServicesManager**: Discovers services by scanning `app/services/` directories
+- **PythonService**: Represents each service, manages lifecycle (start/stop), checks status
+- **HTTP Communication**: Uses HttpClient to send binary image data to `/process` endpoint
+- **Service Discovery**: Automatically detects services via `service_config.txt` files
+- **Auto-Start**: Services can be configured to start automatically on app launch
+- **Status Monitoring**: Checks service health via `/health` and `/info` endpoints
+
+### Integration Details
+
+- Services are discovered on app startup via `PythonServicesManager.Instance.DiscoverServices()`
+- Each service is represented by a `PythonService` object with properties from `service_config.txt`
+- The C# app uses `venv_name` from config (not `conda_env_name`) to check if service is installed
+- Services can be started/stopped via the Python Services Manager UI dialog
+- Binary image transfer uses `application/octet-stream` content type
+- HTTP keep-alive is enabled for better performance
+
 ## Migration from Old Webserver
 
-The old monolithic `app/webserver/` system is replaced by this modular architecture:
+The old monolithic `app/webserver/` system has been replaced by this modular architecture:
 
 **Old**:
 - Single conda environment for all OCR engines
@@ -387,6 +407,5 @@ The old monolithic `app/webserver/` system is replaced by this modular architect
 - HTTP/REST API with FastAPI
 - Binary image transfer in memory
 - Independent server.py per service
-
-The UGTLive C# application will be updated to communicate with these services via HTTP instead of sockets.
+- Service discovery and management via C# PythonServicesManager
 

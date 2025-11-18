@@ -34,7 +34,7 @@ SetupServerCondaEnv.bat
 
 Wait for setup to complete (~5-10 minutes). It will:
 - Detect your GPU (RTX 30/40/50 series)
-- Create conda environment `ugt_easyocr`
+- Create conda environment `ugt_easyocr` (from venv_name in service_config.txt)
   - Python 3.10 for RTX 30/40 series
   - Python 3.11 for RTX 50 series
 - Install PyTorch with appropriate CUDA version
@@ -187,7 +187,11 @@ Now you have:
 
 ### Integrate with Your Application
 
-See `MIGRATION_GUIDE.md` for C# integration examples.
+The UGTLive C# application automatically discovers and manages services:
+- Services are discovered on startup via `PythonServicesManager.Instance.DiscoverServices()`
+- Services can be started/stopped via the Python Services Manager UI dialog
+- The app checks service status and shows warnings if services aren't running
+- See `MIGRATION_GUIDE.md` for detailed C# integration examples
 
 ## Service Ports
 

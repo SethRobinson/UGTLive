@@ -179,37 +179,58 @@ public class WindowsOCRManager
 }
 ```
 
-### EasyOCR Socket Pattern
+### Python OCR Service Pattern (HTTP-based)
 ```csharp
-public class SocketManager
+// Services are managed via PythonServicesManager
+// Discover services on startup
+PythonServicesManager.Instance.DiscoverServices();
+
+// Get service by name
+var service = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+
+// Check if service is running
+if (!service.IsRunning)
 {
-    private static readonly HttpClient _httpClient = new HttpClient();
-    private const string ServerUrl = "http://localhost:3928";
-    
-    public async Task<List<TextObject>> ProcessImageAsync(Bitmap bitmap)
+    bool isRunning = await service.CheckIsRunningAsync();
+    if (!isRunning)
     {
-        // Convert bitmap to base64
-        string base64Image = ConvertToBase64(bitmap);
-        
-        // Send to Python server
-        var request = new
-        {
-            image = base64Image,
-            lang = "japan"
-        };
-        
-        var json = JsonSerializer.Serialize(request);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync($"{ServerUrl}/ocr", content);
-        
-        if (response.IsSuccessStatusCode)
-        {
-            var result = await response.Content.ReadAsStringAsync();
-            return ParseOCRResult(result);
-        }
-        
-        return new List<TextObject>();
+        // Show error dialog or start service
+        await service.StartAsync(showWindow: false);
     }
+}
+
+// Process image with HTTP service
+private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
+{
+    var service = PythonServicesManager.Instance.GetServiceByName(serviceName);
+    if (service == null) return null;
+    
+    // Build URL with query parameters
+    string langParam = MapLanguageForService(language);
+    string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level=true";
+    
+    // Add service-specific parameters (e.g., MangaOCR)
+    if (serviceName == "MangaOCR")
+    {
+        url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
+    }
+    
+    // Send binary image data
+    var content = new ByteArrayContent(imageBytes);
+    content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+    
+    using var request = new HttpRequestMessage(HttpMethod.Post, url);
+    request.Content = content;
+    request.Headers.ConnectionClose = false; // Enable HTTP keep-alive
+    var response = await _httpClient.SendAsync(request);
+    
+    if (!response.IsSuccessStatusCode)
+    {
+        service.MarkAsNotRunning();
+        return null;
+    }
+    
+    return await response.Content.ReadAsStringAsync();
 }
 ```
 
@@ -289,8 +310,26 @@ public class OpenAIRealtimeAudioService
 
 ## Service Configuration
 
-### Service-Specific Settings
-Each service reads its configuration from ConfigManager:
+### Python OCR Service Configuration
+Python OCR services are configured via `service_config.txt` files in each service directory:
+
+```csharp
+// Service discovery reads service_config.txt
+// Format: key|value|
+// Fields: service_name, venv_name, port, description, version, author, github_url, local_only, server_url
+
+// C# PythonService.ParseFromConfig() reads the config file
+var service = PythonService.ParseFromConfig(serviceDirectory);
+
+// Service properties available:
+// - service.ServiceName (from service_name)
+// - service.VenvName (from venv_name) - Note: config uses venv_name, not conda_env_name
+// - service.Port (from port)
+// - service.Description, Version, Author, GithubUrl, etc.
+```
+
+### Translation Service Configuration
+Translation services read their configuration from ConfigManager:
 
 ```csharp
 public class GeminiTranslationService

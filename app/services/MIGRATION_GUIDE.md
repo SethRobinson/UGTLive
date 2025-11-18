@@ -119,34 +119,75 @@ using (var stream = client.GetStream())
 
 #### New Code (HTTP-based)
 
-```csharp
-// New HTTP communication
-private static readonly HttpClient _httpClient = new HttpClient();
+The actual implementation uses `PythonServicesManager` and `PythonService`:
 
-public async Task<OCRResponse> ProcessImageAsync(byte[] imageBytes, string lang, string service)
+```csharp
+// In Logic.cs - ProcessImageWithHttpServiceAsync
+private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
 {
-    // Determine service port
-    int port = service switch
-    {
-        "easyocr" => 5000,
-        "mangaocr" => 5001,
-        "doctr" => 5002,
-        _ => 5000
-    };
+    // Get service from manager (discovered on startup)
+    var service = PythonServicesManager.Instance.GetServiceByName(serviceName);
     
-    // Create request
+    if (service == null)
+    {
+        Console.WriteLine($"Service {serviceName} not found");
+        return null;
+    }
+    
+    // Check if service is running
+    if (!service.IsRunning)
+    {
+        bool isRunning = await service.CheckIsRunningAsync();
+        if (!isRunning)
+        {
+            // Show error dialog offering to start service
+            bool openManager = ErrorPopupManager.ShowServiceWarning(
+                $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                "Service Not Available");
+            
+            if (openManager)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    ServerSetupDialog.ShowDialogSafe(fromSettings: true);
+                });
+            }
+            return null;
+        }
+    }
+    
+    // Build query parameters
+    string langParam = MapLanguageForService(language);
+    string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level=true";
+    
+    // Add MangaOCR-specific parameters
+    if (serviceName == "MangaOCR")
+    {
+        int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
+        int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
+        double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
+        url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
+    }
+    
+    // Send HTTP request with keep-alive
     var content = new ByteArrayContent(imageBytes);
     content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
     
-    // Send request
-    var url = $"http://127.0.0.1:{port}/process?lang={lang}&char_level=true";
-    var response = await _httpClient.PostAsync(url, content);
+    using var request = new HttpRequestMessage(HttpMethod.Post, url);
+    request.Content = content;
+    request.Headers.ConnectionClose = false;
+    var response = await _httpClient.SendAsync(request);
     
-    // Parse response
-    var jsonString = await response.Content.ReadAsStringAsync();
-    var result = JsonSerializer.Deserialize<OCRResponse>(jsonString);
+    if (!response.IsSuccessStatusCode)
+    {
+        Console.WriteLine($"HTTP request failed: {response.StatusCode}");
+        service.MarkAsNotRunning();
+        return null;
+    }
     
-    return result;
+    // Return JSON response directly
+    string jsonResponse = await response.Content.ReadAsStringAsync();
+    return jsonResponse;
 }
 
 // Response model
@@ -199,123 +240,57 @@ Process.Start(new ProcessStartInfo
 
 #### New: Manage Multiple Services
 
+The actual implementation uses `PythonServicesManager` and `PythonService`:
+
 ```csharp
-public class ServiceManager
-{
-    private Dictionary<string, Process> _runningServices = new Dictionary<string, Process>();
-    
-    public void StartService(string serviceName)
-    {
-        string serviceDir = Path.Combine("app", "services", serviceName);
-        string batchFile = Path.Combine(serviceDir, "RunServer.bat");
-        
-        var process = Process.Start(new ProcessStartInfo
-        {
-            FileName = batchFile,
-            WorkingDirectory = serviceDir,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        });
-        
-        _runningServices[serviceName] = process;
-    }
-    
-    public async Task StopServiceAsync(string serviceName, int port)
-    {
-        // Send shutdown request
-        using var client = new HttpClient();
-        await client.PostAsync($"http://127.0.0.1:{port}/shutdown", null);
-        
-        // Wait for process to exit
-        if (_runningServices.TryGetValue(serviceName, out var process))
-        {
-            process.WaitForExit(5000);
-            _runningServices.Remove(serviceName);
-        }
-    }
-    
-    public async Task<bool> IsServiceHealthyAsync(int port)
-    {
-        try
-        {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(2);
-            var response = await client.GetAsync($"http://127.0.0.1:{port}/health");
-            return response.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-}
+// Discover services on startup (in Logic.cs Initialize())
+PythonServicesManager.Instance.DiscoverServices();
+
+// Start a service
+var service = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+bool started = await service.StartAsync(showWindow: false);
+
+// Stop a service (graceful shutdown)
+await service.StopAsync();
+
+// Check if service is running
+bool isRunning = await service.CheckIsRunningAsync();
+
+// Check service health
+bool isHealthy = await service.CheckHealthAsync();
+
+// Get all services
+List<PythonService> allServices = PythonServicesManager.Instance.GetAllServices();
+
+// Start all auto-start services
+await PythonServicesManager.Instance.StartAutoStartServicesAsync(showWindow: false);
+
+// Stop all services owned by app
+await PythonServicesManager.Instance.StopOwnedServicesAsync();
 ```
 
 ### Step 5: Service Discovery
 
-The app can dynamically discover available services:
+The app automatically discovers services on startup:
 
 ```csharp
-public class ServiceDiscovery
-{
-    public List<ServiceInfo> DiscoverServices()
-    {
-        var services = new List<ServiceInfo>();
-        var servicesDir = Path.Combine("app", "services");
-        
-        foreach (var dir in Directory.GetDirectories(servicesDir))
-        {
-            var configFile = Path.Combine(dir, "service_config.txt");
-            
-            // Skip special directories
-            if (Path.GetFileName(dir) == "util" || 
-                Path.GetFileName(dir) == "shared" ||
-                !File.Exists(configFile))
-            {
-                continue;
-            }
-            
-            var config = ParseServiceConfig(configFile);
-            services.Add(config);
-        }
-        
-        return services;
-    }
-    
-    private ServiceInfo ParseServiceConfig(string configPath)
-    {
-        var config = new ServiceInfo();
-        
-        foreach (var line in File.ReadAllLines(configPath))
-        {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
-                continue;
-                
-            var parts = line.Split('|');
-            if (parts.Length < 2)
-                continue;
-                
-            var key = parts[0].Trim();
-            var value = parts[1].Trim();
-            
-            switch (key)
-            {
-                case "service_name":
-                    config.ServiceName = value;
-                    break;
-                case "port":
-                    config.Port = int.Parse(value);
-                    break;
-                case "description":
-                    config.Description = value;
-                    break;
-                // ... etc
-            }
-        }
-        
-        return config;
-    }
-}
+// In Logic.cs Initialize() - called on app startup
+PythonServicesManager.Instance.DiscoverServices();
+
+// Internally, PythonServicesManager:
+// 1. Scans app/services/ directory
+// 2. Skips ignored directories: "shared", "util", "localdata"
+// 3. Parses service_config.txt from each service directory
+// 4. Creates PythonService objects with properties:
+//    - ServiceName (from service_name)
+//    - Port (from port)
+//    - VenvName (from venv_name) - Note: config uses venv_name, not conda_env_name
+//    - Description, Version, Author, GithubUrl, etc.
+// 5. Loads AutoStart preference from ConfigManager
+
+// Get discovered services
+var service = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+List<PythonService> allServices = PythonServicesManager.Instance.GetAllServices();
 ```
 
 ## Parameter Mapping

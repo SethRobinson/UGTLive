@@ -10,6 +10,8 @@ Use this checklist to verify all required files are in place.
 - [ ] `color_analysis.py` - GPU color extraction (CRITICAL!)
 - [ ] `README.md` - Documentation
 
+**Note**: `manga_yolo_detector.py` is in MangaOCR directory, not shared
+
 **Required Subdirectories:**
 - [ ] `test_images/` - Test images folder
   - [ ] `test.png` - Test image
@@ -69,9 +71,10 @@ dir /b app\services\shared\*.py
 ```
 color_analysis.py
 config_parser.py
-manga_yolo_detector.py
 response_models.py
 ```
+
+**Note**: `manga_yolo_detector.py` is in `app\services\MangaOCR\` directory, not shared
 
 ### Check All Service Configs
 ```cmd
@@ -99,17 +102,13 @@ dir /s /b app\services\*server.py
 
 ## Common Issues
 
-### Missing color_analysis.py or manga_yolo_detector.py
+### Missing color_analysis.py
 
 **Symptom:** `ModuleNotFoundError: No module named 'color_analysis'`
 
-**Fix:** Copy these files from the Cursor worktree:
-- `C:\Users\Seth\.cursor\worktrees\UGTLive\gvbWQ\app\services\shared\color_analysis.py`
-- `C:\Users\Seth\.cursor\worktrees\UGTLive\gvbWQ\app\services\shared\manga_yolo_detector.py`
+**Fix:** Ensure `color_analysis.py` exists in `app\services\shared\` directory. This file provides GPU-accelerated color extraction.
 
-To your project:
-- `D:\projects\CSharp\UGTLive\app\services\shared\color_analysis.py`
-- `D:\projects\CSharp\UGTLive\app\services\shared\manga_yolo_detector.py`
+**Note**: `manga_yolo_detector.py` should be in `app\services\MangaOCR\` directory, not shared.
 
 ### Directory structure issue
 
@@ -141,11 +140,14 @@ To help verify you have the correct files:
 ## Total File Count
 
 When everything is in place, you should have approximately:
-- **13** Python files (4 shared + 3 servers + others)
-- **13** Batch files (12 service scripts + 1 util)
-- **6** Markdown files (5 docs + 1 checklist)
+- **3** Shared Python files (`config_parser.py`, `response_models.py`, `color_analysis.py`)
+- **3** Server Python files (`EasyOCR/server.py`, `MangaOCR/server.py`, `DocTR/server.py`)
+- **1** MangaOCR-specific Python file (`MangaOCR/manga_yolo_detector.py`)
+- **12** Service batch files (4 per service: Install.bat, RunServer.bat, DiagnosticTest.bat, Uninstall.bat)
+- **1** Utility batch file (`util/InstallMiniConda.bat`)
+- **6** Markdown documentation files
 - **3** service_config.txt files
-- **1** Test image
+- **Multiple** Test images in `shared/test_images/`
 
-**Total: ~36 files** (not counting downloaded models)
+**Total: ~30+ files** (not counting downloaded models and venv directories)
 
