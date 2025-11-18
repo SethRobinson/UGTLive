@@ -121,28 +121,32 @@ Each window inherits from WPF Window class and follows these patterns:
 
 ## Version Management
 
-When incrementing the version number, you must update it in two places:
+When incrementing the version number, you must update it in **THREE places**:
 
-1. **[src/SplashManager.cs](mdc:src/SplashManager.cs)** - Line 31
+1. **[src/SplashManager.cs](mdc:src/SplashManager.cs)** - Line 32
    ```csharp
-   public const double CurrentVersion = 0.27;  // Update this value
+   public const double CurrentVersion = 0.60;  // Update this value
    ```
 
-2. **[media/latest_version_checker.json](mdc:media/latest_version_checker.json)** - Line 3
+2. **[media/latest_version_checker.json](mdc:media/latest_version_checker.json)** - Lines 3 and 4
    ```json
    {
        "name":"Universal Game Translator Live",
-       "latest_version":0.27,  // Update this value
-       "message":"Download V{VERSION_STRING} now from rtsoft.com?"
+       "latest_version":0.60,  // Update this value
+       "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nV0.60: "  // Update version in message
    }
    ```
+
+3. **[README.md](mdc:README.md)** - Lines 3 and 40
+   - Update the version badge on line 3: `[![Version](https://img.shields.io/badge/version-0.60-blue.svg)]`
+   - Add a new history entry at the top of the History section (line 40): `**V0.60** - [description]`
 
 ### Version Increment Rules
 - Default increment: **0.01** (e.g., 0.25 → 0.26)
 - Major features: **0.10** (e.g., 0.25 → 0.35)
 - Complete rewrites: **1.00** (e.g., 0.99 → 1.00)
-- Always update both files to keep them in sync
-- Version format is a double/float (e.g., 0.27, not "0.27")
+- **ALWAYS update all three files** to keep them in sync
+- Version format is a double/float (e.g., 0.60, not "0.60")
 
 ## Important Notes
 - Application is Windows-only due to WPF and Windows OCR dependencies

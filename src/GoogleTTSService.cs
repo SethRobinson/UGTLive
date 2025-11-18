@@ -52,7 +52,11 @@ namespace UGTLive
             
             // Chinese - Neural2 voices
             { "Chinese (Female) - Neural2", "cmn-CN-Neural2-A" },
-            { "Chinese (Male) - Neural2", "cmn-CN-Neural2-C" }
+            { "Chinese (Male) - Neural2", "cmn-CN-Neural2-C" },
+            
+            // Vietnamese - Neural2 voices
+            { "Vietnamese (Female) - Neural2", "vi-VN-Neural2-A" },
+            { "Vietnamese (Male) - Neural2", "vi-VN-Neural2-D" }
         };
         
         public static GoogleTTSService Instance
@@ -182,7 +186,7 @@ namespace UGTLive
                                     byte[] audioBytes = Convert.FromBase64String(base64Audio);
                                     
                                     // Create a temp file path for the audio
-                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                                     Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                                     string audioFile = Path.Combine(tempDir, $"tts_google_{DateTime.Now.Ticks}.mp3");
                                     
@@ -226,6 +230,164 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error initiating Google TTS: {ex.Message}");
                 return false;
+            }
+        }
+        
+        public async Task<string?> GenerateAudioFileAsync(string text, string languageCode, string voiceId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    Console.WriteLine("Cannot generate audio for empty text");
+                    return null;
+                }
+                
+                // Get API key from config
+                string apiKey = ConfigManager.Instance.GetGoogleTtsApiKey();
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    Console.WriteLine("Google Cloud API key is not set. Cannot generate audio file.");
+                    return null;
+                }
+                
+                // Ensure we have a valid voice ID
+                string voice = voiceId;
+                if (string.IsNullOrWhiteSpace(voice) || !AvailableVoices.ContainsValue(voice))
+                {
+                    // Use a default voice if not found
+                    voice = AvailableVoices["Japanese (Female) - Neural2"];
+                }
+                
+                // Extract language code if not provided
+                string langCode = languageCode;
+                if (string.IsNullOrWhiteSpace(langCode))
+                {
+                    // Extract from voice ID
+                    int dashIndex = voice.IndexOf("-Neural2");
+                    if (dashIndex == -1) dashIndex = voice.IndexOf("-Studio");
+                    if (dashIndex == -1) dashIndex = voice.IndexOf("-Standard");
+                    
+                    if (dashIndex > 0)
+                    {
+                        langCode = voice.Substring(0, dashIndex);
+                    }
+                    else
+                    {
+                        langCode = "ja-JP"; // Default
+                    }
+                }
+                
+                // Create request payload
+                var requestData = new
+                {
+                    input = new
+                    {
+                        text = text
+                    },
+                    voice = new
+                    {
+                        languageCode = langCode,
+                        name = voice
+                    },
+                    audioConfig = new
+                    {
+                        audioEncoding = "MP3"
+                    }
+                };
+                
+                // Serialize to JSON
+                string jsonRequest = JsonSerializer.Serialize(requestData);
+                var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+                
+                // Form the URL including API key
+                string url = $"{_baseUrl}?key={apiKey}";
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                }
+                
+                // Send the request
+                return await Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Post request to Google TTS API
+                        HttpResponseMessage response = await _httpClient.PostAsync(url, content);
+                        
+                        // Check if request was successful
+                        if (response.IsSuccessStatusCode)
+                        {
+                            // Parse the JSON response
+                            string jsonResponse = await response.Content.ReadAsStringAsync();
+                            using JsonDocument doc = JsonDocument.Parse(jsonResponse);
+                            
+                            // The response contains a base64-encoded audioContent field
+                            if (doc.RootElement.TryGetProperty("audioContent", out JsonElement audioElement))
+                            {
+                                string base64Audio = audioElement.GetString() ?? "";
+                                if (!string.IsNullOrEmpty(base64Audio))
+                                {
+                                    // Convert base64 to byte array
+                                    byte[] audioBytes = Convert.FromBase64String(base64Audio);
+                                    
+                                    // Create a temp file path for the audio
+                                    string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+                                    Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
+                                    string audioFile = Path.Combine(tempDir, $"tts_google_{DateTime.Now.Ticks}.mp3");
+                                    
+                                    // Save audio to file
+                                    await File.WriteAllBytesAsync(audioFile, audioBytes);
+                                    
+                                    Console.WriteLine($"Audio file generated: {audioFile}");
+                                    return audioFile;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Empty audio content received from Google TTS");
+                                    return null;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("No audioContent field found in Google TTS response");
+                                return null;
+                            }
+                        }
+                        else
+                        {
+                            string errorContent = await response.Content.ReadAsStringAsync();
+                            Console.WriteLine($"Google TTS request failed: {response.StatusCode}. Details: {errorContent}");
+                            
+                            // Throw exception with status code for proper error handling
+                            throw new HttpRequestException($"Google TTS request failed: {response.StatusCode}. Details: {errorContent}")
+                            {
+                                Data = { ["StatusCode"] = response.StatusCode }
+                            };
+                        }
+                    }
+                    catch (HttpRequestException)
+                    {
+                        // Re-throw HttpRequestException so it can be handled by caller
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during Google TTS request: {ex.Message}");
+                        return null;
+                    }
+                });
+            }
+            catch (HttpRequestException)
+            {
+                // Re-throw HttpRequestException so it can be handled by caller
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initiating Google TTS audio generation: {ex.Message}");
+                return null;
             }
         }
         

@@ -246,11 +246,11 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                                     print(f"Unexpected line geometry format: {line_geometry}")
                                     continue
                                 
-                                # Convert to pixel coordinates
-                                x1 = norm_x1 * original_width
-                                y1 = norm_y1 * original_height
-                                x2 = norm_x2 * original_width
-                                y2 = norm_y2 * original_height
+                                # Convert to pixel coordinates (truncate to integers)
+                                x1 = int(norm_x1 * original_width)
+                                y1 = int(norm_y1 * original_height)
+                                x2 = int(norm_x2 * original_width)
+                                y2 = int(norm_y2 * original_height)
                                 
                                 # Create 4-point polygon (assuming rectangular box)
                                 box_native = [

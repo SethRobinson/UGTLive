@@ -1,0 +1,784 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Threading;
+using Application = System.Windows.Application;
+
+namespace UGTLive
+{
+    public class AudioPreloadService
+    {
+        private static AudioPreloadService? _instance;
+        private readonly Dictionary<string, string> _audioCache; // text hash -> file path
+        private readonly Dictionary<string, Task<string?>> _inProgressTasks; // textObject ID -> task
+        private CancellationTokenSource? _cancellationTokenSource;
+        private SemaphoreSlim _concurrencyLimiter;
+        
+        public static AudioPreloadService Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new AudioPreloadService();
+                }
+                return _instance;
+            }
+        }
+        
+        private AudioPreloadService()
+        {
+            _audioCache = new Dictionary<string, string>();
+            _inProgressTasks = new Dictionary<string, Task<string?>>();
+            
+            // Initialize concurrency limiter with config value
+            int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+            // 0 means unlimited - use a very high number
+            if (maxConcurrent == 0)
+            {
+                maxConcurrent = int.MaxValue;
+            }
+            _concurrencyLimiter = new SemaphoreSlim(maxConcurrent, maxConcurrent);
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Initialized with max {maxConcurrent} concurrent downloads");
+            }
+            
+            // Initialize cache on startup
+            InitializeCache();
+        }
+        
+        private void InitializeCache()
+        {
+            try
+            {
+                // Check if we should delete cache on startup
+                if (ConfigManager.Instance.GetTtsDeleteCacheOnStartup())
+                {
+                    DeleteCacheDirectory();
+                    Console.WriteLine("Audio cache deleted on startup (setting enabled)");
+                    return;
+                }
+                
+                // Load existing cache files from disk
+                LoadCacheFromDisk();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing audio cache: {ex.Message}");
+            }
+        }
+        
+        private void DeleteCacheDirectory()
+        {
+            try
+            {
+                string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+                if (Directory.Exists(cacheDir))
+                {
+                    // Delete all files in cache directory
+                    string[] files = Directory.GetFiles(cacheDir);
+                    foreach (string file in files)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error deleting cache file {file}: {ex.Message}");
+                        }
+                    }
+                    Console.WriteLine($"Deleted {files.Length} cached audio files on startup");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting cache directory: {ex.Message}");
+            }
+        }
+        
+        private void LoadCacheFromDisk()
+        {
+            try
+            {
+                string cacheDir = GetCacheDirectory();
+                
+                // Scan cache directory for audio files with hash in filename
+                // Files are named like: {hash}.mp3, {hash}.wav, etc.
+                string[] audioFiles = Directory.GetFiles(cacheDir, "*.mp3")
+                    .Concat(Directory.GetFiles(cacheDir, "*.wav"))
+                    .Concat(Directory.GetFiles(cacheDir, "*.m4a"))
+                    .Concat(Directory.GetFiles(cacheDir, "*.ogg"))
+                    .ToArray();
+                
+                // Rebuild cache mapping from filenames
+                // Filename format: {hash}.{ext} where hash is base64 (may contain /, +, =)
+                // We sanitize the hash for filename, so we need to extract it
+                foreach (string filePath in audioFiles)
+                {
+                    try
+                    {
+                        string fileName = Path.GetFileNameWithoutExtension(filePath);
+                        // The filename should be the hash (base64 encoded)
+                        // Base64 can contain /, +, = which are replaced in filenames
+                        // We use a safe encoding: replace / with _, + with -, = with .
+                        // But for loading, we need to reverse this
+                        string hash = fileName.Replace('_', '/').Replace('-', '+').Replace('.', '=');
+                        
+                        // Validate it looks like a base64 hash (optional, but helps)
+                        if (hash.Length > 20 && File.Exists(filePath))
+                        {
+                            _audioCache[hash] = filePath;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing cache file {filePath}: {ex.Message}");
+                    }
+                }
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Loaded {_audioCache.Count} cached audio files from disk");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading cache from disk: {ex.Message}");
+            }
+        }
+        
+        private string SanitizeHashForFilename(string hash)
+        {
+            // Base64 can contain /, +, = which are not safe for filenames
+            // Replace with safe characters
+            return hash.Replace('/', '_').Replace('+', '-').Replace('=', '.');
+        }
+        
+        public async Task PreloadSourceAudioAsync(List<TextObject> textObjects)
+        {
+            if (textObjects == null || textObjects.Count == 0)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: No text objects to preload");
+                }
+                return;
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Starting source audio preload for {textObjects.Count} text objects");
+            }
+            
+            // Only cancel if we don't already have a cancellation token (avoid cancelling target preload)
+            if (_cancellationTokenSource == null)
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
+            var cancellationToken = _cancellationTokenSource.Token;
+            
+            // Get settings
+            string service = ConfigManager.Instance.GetTtsSourceService();
+            string voice = ConfigManager.Instance.GetTtsSourceVoice();
+            
+            // Check for custom voice ID for ElevenLabs
+            if (service == "ElevenLabs" && ConfigManager.Instance.GetTtsSourceUseCustomVoiceId())
+            {
+                string customVoice = ConfigManager.Instance.GetTtsSourceCustomVoiceId();
+                if (!string.IsNullOrWhiteSpace(customVoice))
+                {
+                    voice = customVoice;
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    }
+                }
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            }
+            
+            // Preload audio for each text object
+            var tasks = new List<Task>();
+            foreach (var textObj in textObjects)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                
+                if (string.IsNullOrWhiteSpace(textObj.Text))
+                {
+                    continue;
+                }
+                
+                // Check if already ready
+                if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                {
+                    continue;
+                }
+                
+                // Create task for this text object
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.Text.Substring(0, Math.Min(50, textObj.Text.Length))}...'");
+                }
+                var task = PreloadAudioForTextObjectAsync(textObj, textObj.Text, service, voice, isSource: true, cancellationToken);
+                tasks.Add(task);
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            }
+            
+            // Wait for all tasks to complete (or cancellation)
+            try
+            {
+                await Task.WhenAll(tasks);
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                }
+            }
+            
+            // Check if auto-play should trigger even if all audio was cached (no tasks were created)
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Source preload complete, checking for auto-play trigger");
+            }
+            CheckAndTriggerAutoPlay();
+        }
+        
+        public async Task PreloadTargetAudioAsync(List<TextObject> textObjects)
+        {
+            if (textObjects == null || textObjects.Count == 0)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: No text objects to preload");
+                }
+                return;
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Starting target audio preload for {textObjects.Count} text objects");
+            }
+            
+            // Only cancel if we don't already have a cancellation token (avoid cancelling source preload)
+            if (_cancellationTokenSource == null)
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
+            var cancellationToken = _cancellationTokenSource.Token;
+            
+            // Get settings
+            string service = ConfigManager.Instance.GetTtsTargetService();
+            string voice = ConfigManager.Instance.GetTtsTargetVoice();
+            
+            // Check for custom voice ID for ElevenLabs
+            if (service == "ElevenLabs" && ConfigManager.Instance.GetTtsTargetUseCustomVoiceId())
+            {
+                string customVoice = ConfigManager.Instance.GetTtsTargetCustomVoiceId();
+                if (!string.IsNullOrWhiteSpace(customVoice))
+                {
+                    voice = customVoice;
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"AudioPreloadService: Using custom ElevenLabs voice ID: {voice}");
+                    }
+                }
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
+            }
+            
+            // Preload audio for each text object
+            var tasks = new List<Task>();
+            foreach (var textObj in textObjects)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                
+                if (string.IsNullOrWhiteSpace(textObj.TextTranslated))
+                {
+                    continue;
+                }
+                
+                // Check if already ready
+                if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                {
+                    continue;
+                }
+                
+                // Create task for this text object
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Queuing preload for text object {textObj.ID}: '{textObj.TextTranslated.Substring(0, Math.Min(50, textObj.TextTranslated.Length))}...'");
+                }
+                var task = PreloadAudioForTextObjectAsync(textObj, textObj.TextTranslated, service, voice, isSource: false, cancellationToken);
+                tasks.Add(task);
+            }
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Queued {tasks.Count} preload tasks");
+            }
+            
+            // Wait for all tasks to complete (or cancellation)
+            try
+            {
+                await Task.WhenAll(tasks);
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"AudioPreloadService: Completed all {tasks.Count} preload tasks");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("AudioPreloadService: Audio preloading cancelled");
+                }
+            }
+            
+            // Check if auto-play should trigger even if all audio was cached (no tasks were created)
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"AudioPreloadService: Target preload complete, checking for auto-play trigger");
+            }
+            CheckAndTriggerAutoPlay();
+        }
+        
+        private async Task PreloadAudioForTextObjectAsync(TextObject textObj, string text, string service, string voice, bool isSource, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // Generate hash for caching
+                string textHash = ComputeTextHash(text);
+                
+                // Check cache first (in-memory and disk)
+                string? cachedPath = GetCachedAudioPath(textHash);
+                if (cachedPath != null && File.Exists(cachedPath))
+                {
+                    // Use cached file
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        if (isSource)
+                        {
+                            textObj.SourceAudioFilePath = cachedPath;
+                            textObj.SourceAudioReady = true;
+                        }
+                        else
+                        {
+                            textObj.TargetAudioFilePath = cachedPath;
+                            textObj.TargetAudioReady = true;
+                        }
+                        
+                        // Refresh overlays
+                        MainWindow.Instance?.RefreshMainWindowOverlays();
+                        MonitorWindow.Instance?.RefreshOverlays();
+                    });
+                    return;
+                }
+                
+                // Wait for available slot (rate limiting)
+                await _concurrencyLimiter.WaitAsync(cancellationToken);
+                
+                try
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    
+                    // Generate audio file
+                    string? audioFilePath = null;
+                    int retryCount = 0;
+                    const int maxRetries = 3;
+                    
+                    while (retryCount < maxRetries && audioFilePath == null)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return;
+                        }
+                        
+                        try
+                        {
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"AudioPreloadService: Generating audio for text object {textObj.ID}, service={service}, voice={voice}");
+                            }
+                            
+                            if (service == "ElevenLabs")
+                            {
+                                // Check API key
+                                string apiKey = ConfigManager.Instance.GetElevenLabsApiKey();
+                                if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
+                                {
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"AudioPreloadService: ElevenLabs API key not configured, skipping preload");
+                                    }
+                                    break;
+                                }
+                                
+                                audioFilePath = await ElevenLabsService.Instance.GenerateAudioFileAsync(text, voice);
+                            }
+                            else if (service == "Google Cloud TTS")
+                            {
+                                // Check API key
+                                string apiKey = ConfigManager.Instance.GetGoogleTtsApiKey();
+                                if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
+                                {
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"AudioPreloadService: Google TTS API key not configured, skipping preload");
+                                    }
+                                    break;
+                                }
+                                
+                                // Extract language code from voice if needed
+                                string languageCode = ExtractLanguageCodeFromVoice(voice);
+                                audioFilePath = await GoogleTTSService.Instance.GenerateAudioFileAsync(text, languageCode, voice);
+                            }
+                            else
+                            {
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Unknown TTS service: {service}");
+                                }
+                                break;
+                            }
+                            
+                            if (audioFilePath != null && File.Exists(audioFilePath))
+                            {
+                                // Rename file to include hash for cache persistence
+                                string cacheDir = GetCacheDirectory();
+                                string extension = Path.GetExtension(audioFilePath);
+                                string sanitizedHash = SanitizeHashForFilename(textHash);
+                                string newFilePath = Path.Combine(cacheDir, $"{sanitizedHash}{extension}");
+                                
+                                try
+                                {
+                                    // If file with this hash already exists, delete the new one and use the existing
+                                    if (File.Exists(newFilePath))
+                                    {
+                                        File.Delete(audioFilePath);
+                                        audioFilePath = newFilePath;
+                                    }
+                                    else
+                                    {
+                                        // Rename to hash-based filename
+                                        File.Move(audioFilePath, newFilePath);
+                                        audioFilePath = newFilePath;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error renaming cache file: {ex.Message}");
+                                    // Continue with original file path if rename fails
+                                }
+                                
+                                // Cache the file
+                                _audioCache[textHash] = audioFilePath;
+                                break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error generating audio (attempt {retryCount + 1}/{maxRetries}): {ex.Message}");
+                            
+                            // Check status code from exception data if available
+                            System.Net.HttpStatusCode? statusCode = null;
+                            if (ex is HttpRequestException httpEx && httpEx.Data.Contains("StatusCode"))
+                            {
+                                statusCode = httpEx.Data["StatusCode"] as System.Net.HttpStatusCode?;
+                            }
+                            
+                            // Check for unauthorized (401) or forbidden (403) - don't retry these
+                            if (statusCode == System.Net.HttpStatusCode.Unauthorized || 
+                                statusCode == System.Net.HttpStatusCode.Forbidden ||
+                                ex.Message.Contains("Unauthorized") || 
+                                ex.Message.Contains("Forbidden") ||
+                                ex.Message.Contains("401") ||
+                                ex.Message.Contains("403"))
+                            {
+                                Console.WriteLine($"TTS authentication/authorization error for {service}. Skipping this audio file.");
+                                break; // Don't retry - just fail this file
+                            }
+                            
+                            // Check for rate limiting (429) or TooManyRequests
+                            if (statusCode == System.Net.HttpStatusCode.TooManyRequests ||
+                                ex.Message.Contains("429") || 
+                                ex.Message.Contains("Too Many Requests") ||
+                                ex.Message.Contains("TooManyRequests"))
+                            {
+                                Console.WriteLine($"TTS Rate limit hit for {service}. Retrying after delay...");
+                                
+                                // Exponential backoff: 1s, 2s, 4s
+                                int delayMs = (int)Math.Pow(2, retryCount) * 1000;
+                                await Task.Delay(delayMs, cancellationToken);
+                                retryCount++;
+                            }
+                            else
+                            {
+                                // For other errors, don't retry
+                                Console.WriteLine($"TTS error for {service} (not retryable). Skipping this audio file.");
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (audioFilePath != null && File.Exists(audioFilePath))
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"AudioPreloadService: Successfully generated audio file: {audioFilePath} for text object {textObj.ID}");
+                        }
+                        
+                        // Update TextObject on UI thread
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            if (isSource)
+                            {
+                                textObj.SourceAudioFilePath = audioFilePath;
+                                textObj.SourceAudioReady = true;
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Set source audio ready for text object {textObj.ID}");
+                                }
+                            }
+                            else
+                            {
+                                textObj.TargetAudioFilePath = audioFilePath;
+                                textObj.TargetAudioReady = true;
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"AudioPreloadService: Set target audio ready for text object {textObj.ID}");
+                                }
+                            }
+                            
+                            // Refresh overlays
+                            MainWindow.Instance?.RefreshMainWindowOverlays();
+                            MonitorWindow.Instance?.RefreshOverlays();
+                        });
+                        
+                        // Check if all preloading is done and trigger auto-play if enabled
+                        CheckAndTriggerAutoPlay();
+                    }
+                    else
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"AudioPreloadService: Failed to generate audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                        }
+                    }
+                }
+                finally
+                {
+                    _concurrencyLimiter.Release();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is expected, just return
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in PreloadAudioForTextObjectAsync: {ex.Message}");
+            }
+        }
+        
+        private string ComputeTextHash(string text)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
+                return Convert.ToBase64String(hashBytes);
+            }
+        }
+        
+        private string ExtractLanguageCodeFromVoice(string voice)
+        {
+            // Extract language code from voice ID (e.g., "ja-JP-Neural2-B" -> "ja-JP")
+            int dashIndex = voice.IndexOf("-Neural2");
+            if (dashIndex == -1) dashIndex = voice.IndexOf("-Studio");
+            if (dashIndex == -1) dashIndex = voice.IndexOf("-Standard");
+            
+            if (dashIndex > 0)
+            {
+                return voice.Substring(0, dashIndex);
+            }
+            
+            return "ja-JP"; // Default
+        }
+        
+        private void CheckAndTriggerAutoPlay()
+        {
+            // This will be called after each audio file is ready
+            // Check if auto-play is enabled and all requested audio is ready
+            if (!ConfigManager.Instance.IsTtsAutoPlayAllEnabled())
+            {
+                return;
+            }
+            
+            // Get current preload mode
+            string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+            if (preloadMode == "Off")
+            {
+                return;
+            }
+            
+            // Get all text objects
+            var textObjects = Logic.Instance?.GetTextObjects();
+            if (textObjects == null || textObjects.Count == 0)
+            {
+                return;
+            }
+            
+            // Determine which audio to check
+            bool checkSource = preloadMode == "Source language" || preloadMode == "Both source and target languages";
+            bool checkTarget = preloadMode == "Target language" || preloadMode == "Both source and target languages";
+            
+            // Check if all requested audio is ready
+            bool allReady = true;
+            foreach (var textObj in textObjects)
+            {
+                if (checkSource && !textObj.SourceAudioReady)
+                {
+                    allReady = false;
+                    break;
+                }
+                if (checkTarget && !string.IsNullOrEmpty(textObj.TextTranslated) && !textObj.TargetAudioReady)
+                {
+                    allReady = false;
+                    break;
+                }
+            }
+            
+            if (allReady)
+            {
+                // Trigger auto-play check in AudioPlaybackManager
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    AudioPlaybackManager.Instance?.CheckAndTriggerAutoPlay();
+                });
+            }
+        }
+        
+        public void CancelAllPreloads()
+        {
+            if (_cancellationTokenSource != null)
+            {
+                _cancellationTokenSource.Cancel();
+                _cancellationTokenSource.Dispose();
+                _cancellationTokenSource = null;
+            }
+            
+            _inProgressTasks.Clear();
+        }
+        
+        public void ClearAudioCache()
+        {
+            // Delete cached audio files
+            foreach (var filePath in _audioCache.Values)
+            {
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting cached audio file {filePath}: {ex.Message}");
+                }
+            }
+            
+            _audioCache.Clear();
+        }
+        
+        public string? GetCachedAudioPath(string textHash)
+        {
+            // First check in-memory cache
+            if (_audioCache.TryGetValue(textHash, out string? path) && File.Exists(path))
+            {
+                return path;
+            }
+            
+            // Check disk cache - look for file with this hash
+            string cacheDir = GetCacheDirectory();
+            string sanitizedHash = SanitizeHashForFilename(textHash);
+            
+            // Try common audio extensions
+            string[] extensions = { ".mp3", ".wav", ".m4a", ".ogg" };
+            foreach (string ext in extensions)
+            {
+                string filePath = Path.Combine(cacheDir, $"{sanitizedHash}{ext}");
+                if (File.Exists(filePath))
+                {
+                    // Add to in-memory cache for faster lookup next time
+                    _audioCache[textHash] = filePath;
+                    return filePath;
+                }
+            }
+            
+            return null;
+        }
+        
+        private string GetCacheDirectory()
+        {
+            string cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+            Directory.CreateDirectory(cacheDir);
+            return cacheDir;
+        }
+        
+        public void UpdateConcurrencyLimit()
+        {
+            // Get new max concurrent value from config
+            int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+            // 0 means unlimited - use a very high number
+            if (maxConcurrent == 0)
+            {
+                maxConcurrent = int.MaxValue;
+            }
+            
+            // Dispose old semaphore
+            _concurrencyLimiter?.Dispose();
+            
+            // Create new semaphore with updated limit
+            _concurrencyLimiter = new SemaphoreSlim(maxConcurrent, maxConcurrent);
+            
+            Console.WriteLine($"AudioPreloadService: Updated max concurrent downloads to {maxConcurrent}{(maxConcurrent == int.MaxValue ? " (unlimited)" : "")}");
+        }
+    }
+}
+

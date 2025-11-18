@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Web;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -27,6 +29,13 @@ namespace UGTLive
         // Constants
         private const int MAX_CONTEXT_HISTORY_SIZE = 100; // Max entries to keep for context purposes
         
+        // Win32 API for WDA_EXCLUDEFROMCAPTURE
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
+        
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        
         // We'll use MainWindow.Instance.translationHistory instead of maintaining our own
         private int _maxHistorySize; // Display history size from config
         private int _displayMode = 0; // 0 = both, 1 = target only, 2 = source only
@@ -44,6 +53,9 @@ namespace UGTLive
             
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
+            
+            // Set up tooltip exclusion from screenshots
+            SetupTooltipExclusion();
 
             // Get max history size from configuration for display purposes
             _maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
@@ -85,6 +97,7 @@ namespace UGTLive
             _animationTimer.Tick += AnimationTimer_Tick;
             
             // Subscribe to events
+            this.SourceInitialized += ChatBoxWindow_SourceInitialized;
             this.Loaded += ChatBoxWindow_Loaded;
             this.Closing += ChatBoxWindow_Closing;
             
@@ -113,10 +126,15 @@ namespace UGTLive
             // Add a separator
             contextMenu.Items.Add(new Separator());
             
-            // Add Learn menu item
-            MenuItem learnItem = new MenuItem() { Header = "Learn" };
-            learnItem.Click += LearnMenuItem_Click;
-            contextMenu.Items.Add(learnItem);
+            // Add Lesson menu item (ChatGPT)
+            MenuItem lessonItem = new MenuItem() { Header = "Lesson" };
+            lessonItem.Click += LessonMenuItem_Click;
+            contextMenu.Items.Add(lessonItem);
+            
+            // Add Jisho lookup menu item (jisho.org)
+            MenuItem lookupKanjiItem = new MenuItem() { Header = "Jisho lookup" };
+            lookupKanjiItem.Click += LookupKanjiMenuItem_Click;
+            contextMenu.Items.Add(lookupKanjiItem);
             
             // Add Speak menu item
             MenuItem speakItem = new MenuItem() { Header = "Speak" };
@@ -127,7 +145,7 @@ namespace UGTLive
             chatHistoryText.ContextMenu = contextMenu;
         }
         
-        private void LearnMenuItem_Click(object sender, RoutedEventArgs e)
+        private void LessonMenuItem_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -138,28 +156,68 @@ namespace UGTLive
                 
                 if (!string.IsNullOrWhiteSpace(selectedText.Text))
                 {
-                    // Construct the ChatGPT URL with the selected text and instructions
-                    string chatGptPrompt = $"Create a lesson to help me learn about this text and its translation: {selectedText.Text}";
-                    string encodedPrompt = HttpUtility.UrlEncode(chatGptPrompt);
-                    string chatGptUrl = $"https://chat.openai.com/?q={encodedPrompt}";
+                    // Get prompt and URL templates from config
+                    string promptTemplate = ConfigManager.Instance.GetLessonPromptTemplate();
+                    string urlTemplate = ConfigManager.Instance.GetLessonUrlTemplate();
+                    
+                    // Format the prompt with the selected text
+                    string lessonPrompt = string.Format(promptTemplate, selectedText.Text);
+                    string encodedPrompt = HttpUtility.UrlEncode(lessonPrompt);
+                    
+                    // Format the URL with the encoded prompt
+                    string lessonUrl = string.Format(urlTemplate, encodedPrompt);
                     
                     // Open in default browser
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = chatGptUrl,
+                        FileName = lessonUrl,
                         UseShellExecute = true
                     });
                     
-                    Console.WriteLine($"Opening ChatGPT with selected text: {selectedText.Text.Substring(0, Math.Min(50, selectedText.Text.Length))}...");
+                    Console.WriteLine($"Opening lesson with selected text: {selectedText.Text.Substring(0, Math.Min(50, selectedText.Text.Length))}...");
                 }
                 else
                 {
-                    Console.WriteLine("No text selected for Learn function");
+                    Console.WriteLine("No text selected for Lesson function");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in Learn function: {ex.Message}");
+                Console.WriteLine($"Error in Lesson function: {ex.Message}");
+            }
+        }
+        
+        private void LookupKanjiMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Get the selected text
+                TextRange selectedText = new TextRange(
+                    chatHistoryText.Selection.Start, 
+                    chatHistoryText.Selection.End);
+                
+                if (!string.IsNullOrWhiteSpace(selectedText.Text))
+                {
+                    string textToLearn = selectedText.Text.Trim();
+                    string url = $"https://jisho.org/search/{Uri.EscapeDataString(textToLearn)}";
+                    
+                    // Open in default browser
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                    
+                    Console.WriteLine($"Opening jisho.org with selected text: {textToLearn.Substring(0, Math.Min(50, textToLearn.Length))}...");
+                }
+                else
+                {
+                    Console.WriteLine("No text selected for Lookup Kanji function");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Lookup Kanji function: {ex.Message}");
             }
         }
         
@@ -390,6 +448,12 @@ namespace UGTLive
             }
         }
 
+        private void ChatBoxWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible
+            SetExcludeFromCapture();
+        }
+        
         private void ChatBoxWindow_Loaded(object sender, RoutedEventArgs e)
         {
             // Position the window based on screen bounds if not already positioned
@@ -407,11 +471,63 @@ namespace UGTLive
             this.SizeChanged += ChatBoxWindow_SizeChanged;
         }
         
+        private void SetExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                var helper = new WindowInteropHelper(this);
+                IntPtr hwnd = helper.Handle;
+                
+                if (hwnd != IntPtr.Zero)
+                {
+                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
+                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
+                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"ChatBox window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set ChatBox capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("ChatBox window HWND is null, cannot set capture mode");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting ChatBox capture mode: {ex.Message}");
+            }
+        }
+        
+        public void UpdateCaptureExclusion()
+        {
+            SetExcludeFromCapture();
+        }
+        
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Forward to the central keyboard shortcuts handler
-            KeyboardShortcuts.HandleKeyDown(e);
+            // Only process hotkeys at window level if global hotkeys are disabled
+            // (When global hotkeys are enabled, the global hook handles them)
+            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            {
+                var modifiers = System.Windows.Input.Keyboard.Modifiers;
+                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+                
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
         }
         
         private void ChatBoxWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -864,6 +980,47 @@ namespace UGTLive
                 // Scroll to the bottom to see newest entries
                 chatScrollViewer.ScrollToEnd();
             });
+        }
+        
+        // Setup tooltip exclusion from screenshots
+        private void SetupTooltipExclusion()
+        {
+            // Use ToolTipService to add an event handler for when any tooltip opens
+            this.AddHandler(ToolTipService.ToolTipOpeningEvent, new RoutedEventHandler(OnToolTipOpening));
+        }
+        
+        private void OnToolTipOpening(object sender, RoutedEventArgs e)
+        {
+            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExcludeTooltipFromCapture();
+            }), DispatcherPriority.Background);
+        }
+        
+        private void ExcludeTooltipFromCapture()
+        {
+            try
+            {
+                // Find all tooltip windows and exclude them
+                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
+                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
+                
+                foreach (var window in tooltipWindows)
+                {
+                    var helper = new WindowInteropHelper(window);
+                    IntPtr hwnd = helper.Handle;
+                    
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
+            }
         }
     }
 

@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 
@@ -14,11 +15,14 @@ namespace UGTLive
         /// </summary>
         /// <param name="jsonData">The JSON data to translate</param>
         /// <param name="prompt">The prompt to guide the translation</param>
+        /// <param name="cancellationToken">Cancellation token to cancel the translation</param>
         /// <returns>The translation result formatted to match Gemini's response structure</returns>
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 // Get the Ollama API endpoint and model from config
                 string ollamaEndpoint = ConfigManager.Instance.GetOllamaApiEndpoint();
                 string ollamaModel = ConfigManager.Instance.GetOllamaModel();
@@ -51,11 +55,11 @@ namespace UGTLive
                 {
                     client.Timeout = TimeSpan.FromMinutes(2); // 2 minute timeout
                     
-                    HttpResponseMessage response = await client.PostAsync(ollamaEndpoint, content);
+                    HttpResponseMessage response = await client.PostAsync(ollamaEndpoint, content, cancellationToken);
                     
                     if (response.IsSuccessStatusCode)
                     {
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
                         
                         // Log the raw Ollama response before any processing
                         
@@ -172,7 +176,7 @@ namespace UGTLive
                     }
                     else
                     {
-                        string errorMessage = await response.Content.ReadAsStringAsync();
+                        string errorMessage = await response.Content.ReadAsStringAsync(cancellationToken);
                         Console.WriteLine($"Ollama API error: {response.StatusCode}, {errorMessage}");
                         
                         // Try to parse the error message from JSON if possible
@@ -204,6 +208,11 @@ namespace UGTLive
                         return null;
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Ollama translation was cancelled");
+                return null;
             }
             catch (Exception ex)
             {

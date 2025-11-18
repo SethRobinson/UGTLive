@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
@@ -368,7 +368,10 @@ namespace UGTLive
 
             if (_isConnected && _clientSocket != null && _clientSocket.Connected)
             {
-                Console.WriteLine("TryReconnectAsync: Already connected");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("TryReconnectAsync: Already connected");
+                }
                 return true;
             }
 
@@ -395,13 +398,19 @@ namespace UGTLive
                 _clientSocket.ReceiveTimeout = 10000; // 10 second timeout
                 _clientSocket.SendTimeout = 10000; // 10 second timeout
 
-                Console.WriteLine("TryReconnectAsync: Connecting to server...");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("TryReconnectAsync: Connecting to server...");
+                }
 
                 // Connect with timeout
                 var connectTask = _clientSocket.ConnectAsync(IPAddress.Parse("127.0.0.1"), _port);
                 if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
                 {
-                    Console.WriteLine("TryReconnectAsync: Connection timed out");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("TryReconnectAsync: Connection timed out");
+                    }
                     _tryingToConnect = false;
                     return false;
                 }
@@ -411,7 +420,10 @@ namespace UGTLive
                     {
                         _tryingToConnect = false;
 
-                        Console.WriteLine("TryReconnectAsync: Failed to connect");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("TryReconnectAsync: Failed to connect");
+                        }
                         return false;
                     }
                 }
@@ -420,7 +432,10 @@ namespace UGTLive
                 _tryingToConnect = false;
                 ConnectionChanged?.Invoke(this, true);
                 _ = StartListeningAsync();
-                Console.WriteLine("TryReconnectAsync: Successfully connected");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("TryReconnectAsync: Successfully connected");
+                }
                 return true;
 
 

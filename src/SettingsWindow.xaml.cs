@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -54,25 +55,40 @@ namespace UGTLive
         {
             // Make sure the initialization flag is set before anything else
             _isInitializing = true;
-            Console.WriteLine("SettingsWindow constructor: Setting _isInitializing to true");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("SettingsWindow constructor: Setting _isInitializing to true");
+            }
             
             InitializeComponent();
             _instance = this;
             
+            // Setup tooltip exclusion from screenshots
+            SetupTooltipExclusion();
+            
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
             
-            // Disable shortcuts while this window has focus so we can type freely
-            this.Activated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(false);
+            // Disable hotkeys while this window has focus so we can type freely
+            this.Activated += (s, e) => 
+            {
+                HotkeyManager.Instance.SetEnabled(false);
+                KeyboardShortcuts.SetShortcutsEnabled(false);
+            };
             // Re-enable when focus leaves (but not yet hidden)
-            this.Deactivated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(true);
+            this.Deactivated += (s, e) => 
+            {
+                HotkeyManager.Instance.SetEnabled(true);
+                KeyboardShortcuts.SetShortcutsEnabled(true);
+            };
             
             // Set up closing behavior (hide instead of close)
             this.Closing += (s, e) => 
             {
                 e.Cancel = true;  // Cancel the close
                 this.Hide();      // Just hide the window
-                // Re-enable shortcuts when settings window is hidden
+                // Re-enable hotkeys when settings window is hidden
+                HotkeyManager.Instance.SetEnabled(true);
                 KeyboardShortcuts.SetShortcutsEnabled(true);
             };
         }
@@ -105,7 +121,10 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine("SettingsWindow_Loaded: Starting initialization");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("SettingsWindow_Loaded: Starting initialization");
+                }
                 
                 // Set initialization flag to prevent saving during setup
                 _isInitializing = true;
@@ -130,6 +149,9 @@ namespace UGTLive
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
                 UpdateServiceSpecificSettings(currentService);
                 
+                // Load hotkeys
+                loadActions();
+                
                 // Now that initialization is complete, allow saving changes
                 _isInitializing = false;
                 
@@ -142,7 +164,10 @@ namespace UGTLive
                 ConfigManager.Instance.SetOcrMethod(configOcrMethod);
                 ConfigManager.Instance.SetTranslationService(configTransService);
                 
-                Console.WriteLine("Settings window fully loaded and initialized. Changes will now be saved.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Settings window fully loaded and initialized. Changes will now be saved.");
+                }
             }
             catch (Exception ex)
             {
@@ -154,8 +179,18 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Forward to the central keyboard shortcuts handler
-            KeyboardShortcuts.HandleKeyDown(e);
+            // Only process hotkeys at window level if global hotkeys are disabled
+            // (When global hotkeys are enabled, the global hook handles them)
+            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            {
+                var modifiers = System.Windows.Input.Keyboard.Modifiers;
+                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+                
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
         }
 
         // Google Translate API Key changed
@@ -290,6 +325,7 @@ namespace UGTLive
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
             
             // Set context settings
             maxContextPiecesTextBox.Text = ConfigManager.Instance.GetMaxContextPieces().ToString();
@@ -319,7 +355,10 @@ namespace UGTLive
                     if (string.Equals(item.Content.ToString(), configSourceLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         sourceLanguageComboBox.SelectedItem = item;
-                        Console.WriteLine($"Settings window: Set source language from config to {configSourceLanguage}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Settings window: Set source language from config to {configSourceLanguage}");
+                        }
                         break;
                     }
                 }
@@ -341,7 +380,10 @@ namespace UGTLive
                     if (string.Equals(item.Content.ToString(), configTargetLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         targetLanguageComboBox.SelectedItem = item;
-                        Console.WriteLine($"Settings window: Set target language from config to {configTargetLanguage}");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Settings window: Set target language from config to {configTargetLanguage}");
+                        }
                         break;
                     }
                 }
@@ -359,7 +401,10 @@ namespace UGTLive
             
             // Set OCR settings from config
             string savedOcrMethod = ConfigManager.Instance.GetOcrMethod();
-            Console.WriteLine($"SettingsWindow: Loading OCR method '{savedOcrMethod}'");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow: Loading OCR method '{savedOcrMethod}'");
+            }
             
             // Temporarily remove event handler to prevent triggering during initialization
             ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
@@ -370,7 +415,10 @@ namespace UGTLive
                 string itemId = item.Tag?.ToString() ?? "";
                 if (string.Equals(itemId, savedOcrMethod, StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                    }
                     ocrMethodComboBox.SelectedItem = item;
                     break;
                 }
@@ -385,7 +433,17 @@ namespace UGTLive
             // Get auto-translate setting from config instead of MainWindow
             // This ensures the setting persists across application restarts
             autoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAutoTranslateEnabled();
-            Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
+            }
+            
+            // Get pause OCR while translating setting from config
+            pauseOcrWhileTranslatingCheckBox.IsChecked = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
+            }
             
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
@@ -396,6 +454,10 @@ namespace UGTLive
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
+            windowsVisibleInScreenshotsCheckBox.IsChecked = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+            
+            // Load debug logging settings
+            logExtraDebugStuffCheckBox.IsChecked = ConfigManager.Instance.GetLogExtraDebugStuff();
             
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
@@ -420,24 +482,41 @@ namespace UGTLive
             // Load Font Settings
             LoadFontSettings();
             
+            // Load Lesson Settings
+            lessonPromptTemplateTextBox.LostFocus -= LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus -= LessonUrlTemplateTextBox_LostFocus;
+            
+            lessonPromptTemplateTextBox.Text = ConfigManager.Instance.GetLessonPromptTemplate();
+            lessonUrlTemplateTextBox.Text = ConfigManager.Instance.GetLessonUrlTemplate();
+            
+            lessonPromptTemplateTextBox.LostFocus += LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus += LessonUrlTemplateTextBox_LostFocus;
+            
             // Set block detection settings directly from BlockDetectionManager
             // Temporarily remove event handlers to prevent triggering changes
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
             
            
             blockDetectionPowerTextBox.Text = BlockDetectionManager.Instance.GetBlockDetectionScale().ToString("F2");
             settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
             maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
+            overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
             
-            Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
-            Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
+                Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
+                Console.WriteLine($"SettingsWindow: Loaded overlay clear delay: {overlayClearDelayTextBox.Text}");
+            }
             
             // Reattach event handlers
             blockDetectionPowerTextBox.LostFocus += BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus += SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus += MaxSettleTimeTextBox_LostFocus;
+            overlayClearDelayTextBox.LostFocus += OverlayClearDelayTextBox_LostFocus;
             
             // Set translation service from config
             string currentService = ConfigManager.Instance.GetCurrentTranslationService();
@@ -577,6 +656,9 @@ namespace UGTLive
                 elevenLabsCustomVoiceIdTextBox.LostFocus += ElevenLabsCustomVoiceIdTextBox_LostFocus;
             }
             
+            // Load audio preload settings
+            LoadAudioPreloadSettings();
+            
             // Load ignore phrases
             LoadIgnorePhrases();
 
@@ -597,7 +679,10 @@ namespace UGTLive
                 if (string.Equals(item.Tag?.ToString(), currentVoice, StringComparison.OrdinalIgnoreCase))
                 {
                     openAiVoiceComboBox.SelectedItem = item;
-                    Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
+                    }
                     break;
                 }
             }
@@ -684,6 +769,11 @@ namespace UGTLive
                 string language = selectedItem.Content.ToString() ?? "ja";
                 Console.WriteLine($"Settings: Source language changed to: {language}");
                 
+                // Cleanup audio preloading when language changes
+                AudioPreloadService.Instance.CancelAllPreloads();
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                AudioPreloadService.Instance.ClearAudioCache();
+                
                 // Save to config
                 ConfigManager.Instance.SetSourceLanguage(language);
                 
@@ -718,6 +808,11 @@ namespace UGTLive
             {
                 string language = selectedItem.Content.ToString() ?? "en";
                 Console.WriteLine($"Settings: Target language changed to: {language}");
+                
+                // Cleanup audio preloading when language changes
+                AudioPreloadService.Instance.CancelAllPreloads();
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                AudioPreloadService.Instance.ClearAudioCache();
                 
                 // Save to config
                 ConfigManager.Instance.SetTargetLanguage(language);
@@ -827,6 +922,21 @@ namespace UGTLive
             {
                 MonitorWindow.Instance.autoTranslateCheckBox.IsChecked = autoTranslateCheckBox.IsChecked;
             }
+        }
+        
+        private void PauseOcrWhileTranslatingCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing to prevent overriding values from config
+            if (_isInitializing)
+            {
+                return;
+            }
+            
+            bool isEnabled = pauseOcrWhileTranslatingCheckBox.IsChecked ?? false;
+            Console.WriteLine($"Settings window: Pause OCR while translating changed to {isEnabled}");
+            
+            // Save to config
+            ConfigManager.Instance.SetPauseOcrWhileTranslatingEnabled(isEnabled);
         }
         
         private void LeaveTranslationOnscreenCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -1241,6 +1351,33 @@ namespace UGTLive
             // Refresh overlays to apply changes immediately
             MonitorWindow.Instance.RefreshOverlays();
         }
+        
+        private void WindowsVisibleInScreenshotsCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool visible = windowsVisibleInScreenshotsCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetWindowsVisibleInScreenshots(visible);
+            Console.WriteLine($"Windows visible in screenshots: {visible}");
+            
+            // Update all windows to apply the new capture exclusion setting
+            ChatBoxWindow.Instance?.UpdateCaptureExclusion();
+            MonitorWindow.Instance?.UpdateCaptureExclusion();
+            MainWindow.Instance?.UpdateCaptureExclusion();
+        }
+        
+        private void LogExtraDebugStuffCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool enabled = logExtraDebugStuffCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetLogExtraDebugStuff(enabled);
+            Console.WriteLine($"Log extra debug stuff: {enabled}");
+        }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1420,7 +1557,10 @@ namespace UGTLive
         private void TranslationServiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Skip event if we're initializing
-            Console.WriteLine($"SettingsWindow.TranslationServiceComboBox_SelectionChanged called (isInitializing: {_isInitializing})");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"SettingsWindow.TranslationServiceComboBox_SelectionChanged called (isInitializing: {_isInitializing})");
+            }
             if (_isInitializing)
             {
                 Console.WriteLine("Skipping translation service change during initialization");
@@ -1863,7 +2003,10 @@ namespace UGTLive
                 
                 // Update the config
                 ConfigManager.Instance.SetGeminiApiKey(apiKey);
-                Console.WriteLine("Gemini API key updated");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Gemini API key updated");
+                }
             }
             catch (Exception ex)
             {
@@ -2400,6 +2543,446 @@ namespace UGTLive
             }
         }
         
+        // Audio Preload Settings
+        
+        private void LoadAudioPreloadSettings()
+        {
+            try
+            {
+                // Detach event handlers
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    ttsPreloadEnabledCheckBox.Checked -= TtsPreloadEnabledCheckBox_CheckedChanged;
+                    ttsPreloadEnabledCheckBox.Unchecked -= TtsPreloadEnabledCheckBox_CheckedChanged;
+                }
+                if (ttsPreloadModeComboBox != null)
+                {
+                    ttsPreloadModeComboBox.SelectionChanged -= TtsPreloadModeComboBox_SelectionChanged;
+                }
+                if (ttsPlayOrderComboBox != null)
+                {
+                    ttsPlayOrderComboBox.SelectionChanged -= TtsPlayOrderComboBox_SelectionChanged;
+                }
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    ttsVerticalOverlapTextBox.TextChanged -= TtsVerticalOverlapTextBox_TextChanged;
+                }
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    ttsAutoPlayAllCheckBox.Checked -= TtsAutoPlayAllCheckBox_CheckedChanged;
+                    ttsAutoPlayAllCheckBox.Unchecked -= TtsAutoPlayAllCheckBox_CheckedChanged;
+                }
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    ttsDeleteCacheOnStartupCheckBox.Checked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                    ttsDeleteCacheOnStartupCheckBox.Unchecked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                }
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    ttsMaxConcurrentDownloadsTextBox.LostFocus -= TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
+                
+                // Load preload enabled checkbox
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    bool preloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
+                    ttsPreloadEnabledCheckBox.IsChecked = preloadEnabled;
+                }
+                
+                // Load preload mode
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                if (ttsPreloadModeComboBox != null)
+                {
+                    foreach (ComboBoxItem item in ttsPreloadModeComboBox.Items)
+                    {
+                        if (string.Equals(item.Content.ToString(), preloadMode, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ttsPreloadModeComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                
+                // Load play order
+                string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+                if (ttsPlayOrderComboBox != null)
+                {
+                    foreach (ComboBoxItem item in ttsPlayOrderComboBox.Items)
+                    {
+                        if (string.Equals(item.Content.ToString(), playOrder, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ttsPlayOrderComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                
+                // Load vertical overlap threshold
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    double threshold = ConfigManager.Instance.GetTtsVerticalOverlapThreshold();
+                    _lastVerticalOverlapValue = threshold;
+                    ttsVerticalOverlapTextBox.Text = threshold.ToString();
+                }
+                
+                // Load auto play all
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    bool autoPlayAll = ConfigManager.Instance.IsTtsAutoPlayAllEnabled();
+                    _lastAutoPlayAllValue = autoPlayAll;
+                    ttsAutoPlayAllCheckBox.IsChecked = autoPlayAll;
+                }
+                
+                // Load delete cache on startup
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    bool deleteCache = ConfigManager.Instance.GetTtsDeleteCacheOnStartup();
+                    _lastDeleteCacheValue = deleteCache;
+                    ttsDeleteCacheOnStartupCheckBox.IsChecked = deleteCache;
+                }
+                
+                // Load max concurrent downloads
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    int maxConcurrent = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+                    _lastMaxConcurrentDownloadsValue = maxConcurrent;
+                    ttsMaxConcurrentDownloadsTextBox.Text = maxConcurrent.ToString();
+                }
+                
+                // Re-attach event handlers
+                if (ttsPreloadEnabledCheckBox != null)
+                {
+                    ttsPreloadEnabledCheckBox.Checked += TtsPreloadEnabledCheckBox_CheckedChanged;
+                    ttsPreloadEnabledCheckBox.Unchecked += TtsPreloadEnabledCheckBox_CheckedChanged;
+                }
+                if (ttsPreloadModeComboBox != null)
+                {
+                    ttsPreloadModeComboBox.SelectionChanged += TtsPreloadModeComboBox_SelectionChanged;
+                }
+                if (ttsPlayOrderComboBox != null)
+                {
+                    ttsPlayOrderComboBox.SelectionChanged += TtsPlayOrderComboBox_SelectionChanged;
+                }
+                if (ttsVerticalOverlapTextBox != null)
+                {
+                    ttsVerticalOverlapTextBox.TextChanged += TtsVerticalOverlapTextBox_TextChanged;
+                }
+                if (ttsAutoPlayAllCheckBox != null)
+                {
+                    ttsAutoPlayAllCheckBox.Checked += TtsAutoPlayAllCheckBox_CheckedChanged;
+                    ttsAutoPlayAllCheckBox.Unchecked += TtsAutoPlayAllCheckBox_CheckedChanged;
+                }
+                if (ttsDeleteCacheOnStartupCheckBox != null)
+                {
+                    ttsDeleteCacheOnStartupCheckBox.Checked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                    ttsDeleteCacheOnStartupCheckBox.Unchecked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                }
+                if (ttsMaxConcurrentDownloadsTextBox != null)
+                {
+                    ttsMaxConcurrentDownloadsTextBox.LostFocus += TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading audio preload settings: {ex.Message}");
+            }
+        }
+        
+        private void TtsPreloadEnabledCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                bool isEnabled = ttsPreloadEnabledCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTtsPreloadEnabled(isEnabled);
+                Console.WriteLine($"TTS preload enabled: {isEnabled}");
+                
+                // Cancel any in-progress preloads and retrigger OCR
+                AudioPreloadService.Instance.CancelAllPreloads();
+                Logic.Instance.ResetHash();
+                Logic.Instance.ClearAllTextObjects();
+                Console.WriteLine("OCR retriggered due to TTS preload enabled change");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS preload enabled: {ex.Message}");
+            }
+        }
+        
+        private void TtsPreloadModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                    
+                if (ttsPreloadModeComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string mode = selectedItem.Content.ToString() ?? "Source language";
+                    string previousMode = ConfigManager.Instance.GetTtsPreloadMode();
+                    ConfigManager.Instance.SetTtsPreloadMode(mode);
+                    Console.WriteLine($"TTS preload mode set to: {mode}");
+                    
+                    // Don't clear cache - just retrigger OCR if mode changed
+                    if (mode != previousMode)
+                    {
+                        // Cancel any in-progress preloads
+                        AudioPreloadService.Instance.CancelAllPreloads();
+                        
+                        // Retrigger OCR to start preloading with new mode
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to TTS preload mode change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS preload mode: {ex.Message}");
+            }
+        }
+        
+        private void TtsPlayOrderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                    
+                if (ttsPlayOrderComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string order = selectedItem.Content.ToString() ?? "Top down, left to right";
+                    ConfigManager.Instance.SetTtsPlayOrder(order);
+                    Console.WriteLine($"TTS play order set to: {order}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS play order: {ex.Message}");
+            }
+        }
+        
+        private static double _lastVerticalOverlapValue = -1;
+        
+        private void TtsVerticalOverlapTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                if (ttsVerticalOverlapTextBox == null)
+                    return;
+                
+                string text = ttsVerticalOverlapTextBox.Text;
+                
+                if (double.TryParse(text, out double threshold))
+                {
+                    if (threshold >= 0)
+                    {
+                        // Only save if the value actually changed
+                        if (Math.Abs(threshold - _lastVerticalOverlapValue) > 0.001)
+                        {
+                            _lastVerticalOverlapValue = threshold;
+                            ConfigManager.Instance.SetTtsVerticalOverlapThreshold(threshold);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS vertical overlap threshold: {ex.Message}");
+            }
+        }
+        
+        private static bool _lastAutoPlayAllValue = false;
+        
+        private void TtsAutoPlayAllCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                bool isEnabled = ttsAutoPlayAllCheckBox.IsChecked ?? false;
+                
+                // Only save if the value actually changed
+                if (isEnabled != _lastAutoPlayAllValue)
+                {
+                    _lastAutoPlayAllValue = isEnabled;
+                    ConfigManager.Instance.SetTtsAutoPlayAllEnabled(isEnabled);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS auto play all: {ex.Message}");
+            }
+        }
+        
+        private static bool _lastDeleteCacheValue = false;
+        
+        private void TtsDeleteCacheOnStartupCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                bool isEnabled = ttsDeleteCacheOnStartupCheckBox.IsChecked ?? false;
+                
+                // Only save if the value actually changed
+                if (isEnabled != _lastDeleteCacheValue)
+                {
+                    _lastDeleteCacheValue = isEnabled;
+                    ConfigManager.Instance.SetTtsDeleteCacheOnStartup(isEnabled);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS delete cache on startup: {ex.Message}");
+            }
+        }
+        
+        private static int _lastMaxConcurrentDownloadsValue = -1;
+        
+        private void TtsMaxConcurrentDownloadsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+                
+                if (ttsMaxConcurrentDownloadsTextBox == null)
+                    return;
+                
+                string text = ttsMaxConcurrentDownloadsTextBox.Text;
+                
+                if (int.TryParse(text, out int maxConcurrent))
+                {
+                    // Allow 0 (unlimited) or any positive value
+                    if (maxConcurrent < 0)
+                    {
+                        maxConcurrent = 0;
+                        ttsMaxConcurrentDownloadsTextBox.Text = "0";
+                    }
+                    
+                    // Only save if the value actually changed
+                    if (maxConcurrent != _lastMaxConcurrentDownloadsValue)
+                    {
+                        _lastMaxConcurrentDownloadsValue = maxConcurrent;
+                        ConfigManager.Instance.SetTtsMaxConcurrentDownloads(maxConcurrent);
+                        
+                        // Update the AudioPreloadService's concurrency limit
+                        AudioPreloadService.Instance.UpdateConcurrencyLimit();
+                    }
+                }
+                else
+                {
+                    // Invalid input, reset to last valid value or default
+                    int currentValue = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+                    ttsMaxConcurrentDownloadsTextBox.Text = currentValue.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS max concurrent downloads: {ex.Message}");
+            }
+        }
+        
+        private void SetSourceTtsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string currentService = ConfigManager.Instance.GetTtsSourceService();
+                string currentVoice = ConfigManager.Instance.GetTtsSourceVoice();
+                bool useCustom = ConfigManager.Instance.GetTtsSourceUseCustomVoiceId();
+                string customVoiceId = ConfigManager.Instance.GetTtsSourceCustomVoiceId();
+                
+                var dialog = new TtsVoiceSelectorDialog(currentService, currentVoice, useCustom, customVoiceId);
+                dialog.Owner = this; // Make it modal to SettingsWindow
+                if (dialog.ShowDialog() == true)
+                {
+                    // Check if voice actually changed
+                    bool voiceChanged = dialog.SelectedService != currentService || 
+                                       dialog.SelectedVoice != currentVoice ||
+                                       dialog.UseCustomVoiceId != useCustom ||
+                                       (dialog.UseCustomVoiceId && dialog.CustomVoiceId != customVoiceId);
+                    
+                    ConfigManager.Instance.SetTtsSourceService(dialog.SelectedService);
+                    ConfigManager.Instance.SetTtsSourceVoice(dialog.SelectedVoice);
+                    ConfigManager.Instance.SetTtsSourceUseCustomVoiceId(dialog.UseCustomVoiceId);
+                    ConfigManager.Instance.SetTtsSourceCustomVoiceId(dialog.CustomVoiceId ?? "");
+                    Console.WriteLine($"Source TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
+                    
+                    // Clear audio cache and retrigger OCR if voice changed
+                    if (voiceChanged)
+                    {
+                        AudioPreloadService.Instance.ClearAudioCache();
+                        Console.WriteLine("Audio cache cleared due to source TTS voice change");
+                        
+                        // Retrigger OCR to regenerate audio with new voice
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to source TTS voice change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting source TTS: {ex.Message}");
+                MessageBox.Show($"Error setting source TTS: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void SetTargetTtsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string currentService = ConfigManager.Instance.GetTtsTargetService();
+                string currentVoice = ConfigManager.Instance.GetTtsTargetVoice();
+                bool useCustom = ConfigManager.Instance.GetTtsTargetUseCustomVoiceId();
+                string customVoiceId = ConfigManager.Instance.GetTtsTargetCustomVoiceId();
+                
+                var dialog = new TtsVoiceSelectorDialog(currentService, currentVoice, useCustom, customVoiceId);
+                dialog.Owner = this; // Make it modal to SettingsWindow
+                if (dialog.ShowDialog() == true)
+                {
+                    // Check if voice actually changed
+                    bool voiceChanged = dialog.SelectedService != currentService || 
+                                       dialog.SelectedVoice != currentVoice ||
+                                       dialog.UseCustomVoiceId != useCustom ||
+                                       (dialog.UseCustomVoiceId && dialog.CustomVoiceId != customVoiceId);
+                    
+                    ConfigManager.Instance.SetTtsTargetService(dialog.SelectedService);
+                    ConfigManager.Instance.SetTtsTargetVoice(dialog.SelectedVoice);
+                    ConfigManager.Instance.SetTtsTargetUseCustomVoiceId(dialog.UseCustomVoiceId);
+                    ConfigManager.Instance.SetTtsTargetCustomVoiceId(dialog.CustomVoiceId ?? "");
+                    Console.WriteLine($"Target TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
+                    
+                    // Clear audio cache and retrigger OCR if voice changed
+                    if (voiceChanged)
+                    {
+                        AudioPreloadService.Instance.ClearAudioCache();
+                        Console.WriteLine("Audio cache cleared due to target TTS voice change");
+                        
+                        // Retrigger OCR to regenerate audio with new voice
+                        Logic.Instance.ResetHash();
+                        Logic.Instance.ClearAllTextObjects();
+                        Console.WriteLine("OCR retriggered due to target TTS voice change");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting target TTS: {ex.Message}");
+                MessageBox.Show($"Error setting target TTS: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
         private void ElevenLabsApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
         {
             try
@@ -2765,7 +3348,10 @@ namespace UGTLive
                 // Set the ListView's ItemsSource
                 ignorePhraseListView.ItemsSource = _ignorePhrases;
                 
-                Console.WriteLine($"Loaded {_ignorePhrases.Count} ignore phrases");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Loaded {_ignorePhrases.Count} ignore phrases");
+                }
             }
             catch (Exception ex)
             {
@@ -3494,5 +4080,535 @@ namespace UGTLive
                 maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             }
         }
+
+        private void OverlayClearDelayTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (double.TryParse(overlayClearDelayTextBox.Text, out double delay) && delay >= 0)
+            {
+                ConfigManager.Instance.SetOverlayClearDelaySeconds(delay);
+                Console.WriteLine($"Overlay clear delay set to: {delay}");
+            }
+            else
+            {
+                // If invalid, reset to current value from config
+                overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
+            }
+        }
+        
+        #region Hotkey Editor
+        
+        // Class to represent hotkey display items
+        // Display item for action list
+        public class ActionDisplayItem
+        {
+            public string ActionId { get; set; } = "";
+            public string ActionName { get; set; } = "";
+            
+            public override string ToString()
+            {
+                return ActionName;
+            }
+        }
+        
+        // Display item for bindings list
+        public class BindingDisplayItem
+        {
+            public HotkeyEntry Binding { get; set; }
+            public string BindingType { get; set; } = "";
+            public string BindingString { get; set; } = "";
+            
+            public BindingDisplayItem(HotkeyEntry entry)
+            {
+                Binding = entry;
+                
+                if (entry.HasKeyboardHotkey())
+                {
+                    BindingType = "Keyboard";
+                    BindingString = entry.GetKeyboardHotkeyString();
+                }
+                else if (entry.HasGamepadHotkey())
+                {
+                    BindingType = "Gamepad";
+                    BindingString = entry.GetGamepadHotkeyString();
+                }
+            }
+        }
+        
+        private string? _selectedActionId;
+        private bool _isCapturingKeyboard = false;
+        private bool _isCapturingGamepad = false;
+        
+        // Load actions into the list
+        private void loadActions()
+        {
+            // Define all available actions
+            var actions = new List<ActionDisplayItem>
+            {
+                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop OCR" },
+                new ActionDisplayItem { ActionId = "toggle_monitor", ActionName = "Toggle Monitor Window" },
+                new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle ChatBox" },
+                new ActionDisplayItem { ActionId = "toggle_settings", ActionName = "Toggle Settings" },
+                new ActionDisplayItem { ActionId = "toggle_log", ActionName = "Toggle Log" },
+                new ActionDisplayItem { ActionId = "toggle_listen", ActionName = "Toggle Listen" },
+                new ActionDisplayItem { ActionId = "view_in_browser", ActionName = "View in Browser" },
+                new ActionDisplayItem { ActionId = "toggle_main_window", ActionName = "Toggle Main Window" },
+                new ActionDisplayItem { ActionId = "clear_overlays", ActionName = "Clear Overlays" },
+                new ActionDisplayItem { ActionId = "toggle_passthrough", ActionName = "Toggle Passthrough" },
+                new ActionDisplayItem { ActionId = "toggle_overlay_mode", ActionName = "Toggle Overlay Mode" }
+            };
+            
+            actionsListBox.ItemsSource = actions;
+            
+            // Load global hotkeys enabled state
+            globalHotkeysEnabledCheckBox.IsChecked = HotkeyManager.Instance.GetGlobalHotkeysEnabled();
+            
+            Console.WriteLine($"Loaded {actions.Count} actions into settings");
+        }
+        
+        // Load bindings for the selected action
+        private void loadBindingsForSelectedAction()
+        {
+            if (string.IsNullOrEmpty(_selectedActionId))
+            {
+                bindingsListView.ItemsSource = null;
+                return;
+            }
+            
+            var bindings = HotkeyManager.Instance.GetBindings(_selectedActionId);
+            var displayItems = bindings.Select(b => new BindingDisplayItem(b)).ToList();
+            
+            bindingsListView.ItemsSource = displayItems;
+            
+            Console.WriteLine($"Loaded {displayItems.Count} bindings for action {_selectedActionId}");
+        }
+        
+        // Actions list selection changed
+        private void ActionsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (actionsListBox.SelectedItem is ActionDisplayItem actionItem)
+            {
+                _selectedActionId = actionItem.ActionId;
+                loadBindingsForSelectedAction();
+            }
+            else
+            {
+                _selectedActionId = null;
+                bindingsListView.ItemsSource = null;
+            }
+        }
+        
+        // Bindings list selection changed
+        private void BindingsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Just track selection, no action needed
+        }
+        
+        // Add keyboard binding
+        private void AddKeyboardBindingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedActionId))
+            {
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            // Show dialog to capture keyboard input
+            var dialog = new Window
+            {
+                Title = "Press Key Combination",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize
+            };
+            
+            var textBox = new System.Windows.Controls.TextBox
+            {
+                Text = "Press a key combination...",
+                IsReadOnly = true,
+                Margin = new Thickness(20),
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                FontSize = 14
+            };
+            
+            HotkeyEntry? capturedBinding = null;
+            
+            textBox.PreviewKeyDown += (s, args) =>
+            {
+                args.Handled = true;
+                
+                var key = args.Key;
+                if (key == System.Windows.Input.Key.System)
+                {
+                    key = args.SystemKey;
+                }
+                
+                // Skip modifier keys themselves
+                if (key == System.Windows.Input.Key.LeftShift || key == System.Windows.Input.Key.RightShift ||
+                    key == System.Windows.Input.Key.LeftCtrl || key == System.Windows.Input.Key.RightCtrl ||
+                    key == System.Windows.Input.Key.LeftAlt || key == System.Windows.Input.Key.RightAlt ||
+                    key == System.Windows.Input.Key.LWin || key == System.Windows.Input.Key.RWin)
+                {
+                    return;
+                }
+                
+                // Escape cancels
+                if (key == System.Windows.Input.Key.Escape)
+                {
+                    dialog.Close();
+                    return;
+                }
+                
+                // Get modifiers
+                bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) == System.Windows.Input.ModifierKeys.Shift;
+                bool ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control;
+                bool alt = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == System.Windows.Input.ModifierKeys.Alt;
+                
+                // Get action name
+                var actionItem = actionsListBox.SelectedItem as ActionDisplayItem;
+                string actionName = actionItem?.ActionName ?? "";
+                
+                // Create binding
+                capturedBinding = new HotkeyEntry(_selectedActionId, actionName);
+                capturedBinding.KeyboardKey = key;
+                capturedBinding.UseShift = shift;
+                capturedBinding.UseCtrl = ctrl;
+                capturedBinding.UseAlt = alt;
+                
+                textBox.Text = capturedBinding.GetKeyboardHotkeyString();
+                
+                // Auto-close after brief delay
+                var closeTimer = new System.Windows.Threading.DispatcherTimer();
+                closeTimer.Interval = TimeSpan.FromMilliseconds(500);
+                closeTimer.Tick += (ts, te) =>
+                {
+                    closeTimer.Stop();
+                    dialog.Close();
+                };
+                closeTimer.Start();
+            };
+            
+            dialog.Content = textBox;
+            textBox.Focus();
+            
+            dialog.ShowDialog();
+            
+            if (capturedBinding != null)
+            {
+                // Add binding and auto-save
+                HotkeyManager.Instance.AddBinding(capturedBinding);
+                loadBindingsForSelectedAction();
+                
+                // Update tooltips in MainWindow
+                MainWindow.Instance.UpdateTooltips();
+            }
+        }
+        
+        // Add gamepad binding
+        private void AddGamepadBindingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedActionId))
+            {
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            // Show dialog to capture gamepad input
+            var dialog = new Window
+            {
+                Title = "Press Gamepad Button(s)",
+                Width = 500,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize
+            };
+            
+            var textBlock = new System.Windows.Controls.TextBlock
+            {
+                Text = "Press and hold gamepad button(s), then release...",
+                Margin = new Thickness(20),
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                FontSize = 14,
+                TextWrapping = System.Windows.TextWrapping.Wrap
+            };
+            
+            dialog.Content = textBlock;
+            
+            HotkeyEntry? capturedBinding = null;
+            List<string> maxButtons = new List<string>();
+            int stableCount = 0;
+            const int STABLE_FRAMES = 5;
+            
+            var timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(100);
+            timer.Tick += (s, args) =>
+            {
+                var pressedButtons = GamepadManager.Instance.GetCurrentlyPressedButtons();
+                
+                if (pressedButtons.Count > maxButtons.Count)
+                {
+                    maxButtons = new List<string>(pressedButtons);
+                    stableCount = 0;
+                    textBlock.Text = $"Holding: {string.Join("+", maxButtons)}... (release when ready)";
+                }
+                else if (pressedButtons.Count == maxButtons.Count && pressedButtons.Count > 0)
+                {
+                    bool same = pressedButtons.All(b => maxButtons.Contains(b));
+                    if (same)
+                    {
+                        stableCount++;
+                    }
+                    else
+                    {
+                        maxButtons = new List<string>(pressedButtons);
+                        stableCount = 0;
+                    }
+                }
+                else if (pressedButtons.Count == 0 && maxButtons.Count > 0 && stableCount >= STABLE_FRAMES)
+                {
+                    // Get action name
+                    var actionItem = actionsListBox.SelectedItem as ActionDisplayItem;
+                    string actionName = actionItem?.ActionName ?? "";
+                    
+                    // Create binding
+                    capturedBinding = new HotkeyEntry(_selectedActionId, actionName);
+                    capturedBinding.GamepadButtons = maxButtons;
+                    
+                    timer.Stop();
+                    dialog.Close();
+                }
+            };
+            
+            dialog.Closed += (s, args) => timer.Stop();
+            timer.Start();
+            dialog.ShowDialog();
+            
+            if (capturedBinding != null)
+            {
+                // Add binding and auto-save
+                HotkeyManager.Instance.AddBinding(capturedBinding);
+                loadBindingsForSelectedAction();
+                
+                // Update tooltips in MainWindow
+                MainWindow.Instance.UpdateTooltips();
+            }
+        }
+        
+        // Remove selected binding
+        private void RemoveBindingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedActionId))
+            {
+                MessageBox.Show("Please select an action first.", "No Action Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            
+            if (bindingsListView.SelectedItem is BindingDisplayItem bindingItem)
+            {
+                // Confirm deletion
+                var result = MessageBox.Show(
+                    $"Remove binding \"{bindingItem.BindingString}\" from this action?",
+                    "Confirm Removal",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Remove binding and auto-save
+                    HotkeyManager.Instance.RemoveBinding(_selectedActionId, bindingItem.Binding);
+                    loadBindingsForSelectedAction();
+                    
+                    // Update tooltips in MainWindow
+                    MainWindow.Instance.UpdateTooltips();
+                }
+            }
+            else
+            {
+                MessageBox.Show("Please select a binding to remove.", "No Binding Selected", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        
+        // Reset all hotkeys to defaults
+        private void ResetHotkeysButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to reset all hotkeys to defaults?", 
+                "Confirm Reset", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                
+            if (result == MessageBoxResult.Yes)
+            {
+                // Reset to defaults
+                HotkeyManager.Instance.ResetToDefaults();
+                
+                // Refresh the UI
+                loadActions();
+                loadBindingsForSelectedAction();
+                
+                // Update tooltips in MainWindow
+                MainWindow.Instance.UpdateTooltips();
+                
+                MessageBox.Show("Hotkeys reset to defaults!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        
+        // Global hotkeys enabled checkbox changed
+        private void GlobalHotkeysEnabledCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            bool enabled = globalHotkeysEnabledCheckBox.IsChecked ?? true;
+            HotkeyManager.Instance.SetGlobalHotkeysEnabled(enabled);
+            HotkeyManager.Instance.SaveHotkeys();
+            
+            Console.WriteLine($"Global hotkeys {(enabled ? "enabled" : "disabled")}");
+        }
+        
+        #endregion
+        
+        #region Tooltip Exclusion from Screenshots
+        
+        // Setup tooltip exclusion from screenshots
+        private void SetupTooltipExclusion()
+        {
+            // Use ToolTipService to add an event handler for when any tooltip opens
+            this.AddHandler(ToolTipService.ToolTipOpeningEvent, new RoutedEventHandler(OnToolTipOpening));
+        }
+        
+        private void OnToolTipOpening(object sender, RoutedEventArgs e)
+        {
+            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExcludeTooltipFromCapture();
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        
+        private void ExcludeTooltipFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                // If visible in screenshots, don't exclude
+                if (visibleInScreenshots)
+                {
+                    return;
+                }
+                
+                // Find all tooltip windows and exclude them
+                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
+                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
+                
+                foreach (var window in tooltipWindows)
+                {
+                    var helper = new System.Windows.Interop.WindowInteropHelper(window);
+                    IntPtr hwnd = helper.Handle;
+                    
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                    }
+                }
+                
+                // Also try to find popup windows via interop
+                // WPF tooltips are displayed in Popup windows which are top-level HWND windows
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+                foreach (System.Diagnostics.ProcessThread thread in currentProcess.Threads)
+                {
+                    try
+                    {
+                        EnumThreadWindows((uint)thread.Id, (hWnd, lParam) =>
+                        {
+                            var className = new System.Text.StringBuilder(256);
+                            GetClassName(hWnd, className, className.Capacity);
+                            string cls = className.ToString();
+                            
+                            // WPF tooltip windows typically have these class names
+                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls.Contains("HwndWrapper"))
+                            {
+                                SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
+                            }
+                            
+                            return true; // Continue enumeration
+                        }, IntPtr.Zero);
+                    }
+                    catch
+                    {
+                        // Thread may have terminated, ignore
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
+            }
+        }
+        
+        // Lesson Settings event handlers
+        private void LessonPromptTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+            
+            ConfigManager.Instance.SetLessonPromptTemplate(lessonPromptTemplateTextBox.Text);
+            Console.WriteLine("Lesson prompt template updated from settings");
+        }
+        
+        private void LessonUrlTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+            
+            ConfigManager.Instance.SetLessonUrlTemplate(lessonUrlTemplateTextBox.Text);
+            Console.WriteLine("Lesson URL template updated from settings");
+        }
+        
+        private void LessonSetDefaultsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Default prompt template
+            string defaultPrompt = "Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{0}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
+            
+            // Default URL template
+            string defaultUrl = "https://chat.openai.com/?q={0}";
+            
+            // Temporarily remove event handlers to prevent triggering changes
+            lessonPromptTemplateTextBox.LostFocus -= LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus -= LessonUrlTemplateTextBox_LostFocus;
+            
+            // Set defaults in config
+            ConfigManager.Instance.SetLessonPromptTemplate(defaultPrompt);
+            ConfigManager.Instance.SetLessonUrlTemplate(defaultUrl);
+            
+            // Update UI
+            lessonPromptTemplateTextBox.Text = defaultPrompt;
+            lessonUrlTemplateTextBox.Text = defaultUrl;
+            
+            // Re-attach event handlers
+            lessonPromptTemplateTextBox.LostFocus += LessonPromptTemplateTextBox_LostFocus;
+            lessonUrlTemplateTextBox.LostFocus += LessonUrlTemplateTextBox_LostFocus;
+            
+            Console.WriteLine("Lesson settings reset to defaults");
+        }
+        
+        // Windows API for excluding windows from screen capture
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+        
+        [DllImport("user32.dll")]
+        private static extern bool EnumThreadWindows(uint dwThreadId, EnumThreadDelegate lpfn, IntPtr lParam);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+        
+        private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
+        
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        
+        #endregion
     }
 }

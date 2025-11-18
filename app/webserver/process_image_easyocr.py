@@ -194,8 +194,8 @@ def process_image(image_path, lang='japan', font_path='./fonts/NotoSansJP-Regula
                 if scale != 1.0:
                     box = [[coord / scale for coord in point] for point in box]
                 
-                # Convert all NumPy types to native Python types for JSON serialization
-                box_native = [[float(coord) for coord in point] for point in box]
+                # Convert all NumPy types to native Python types for JSON serialization (truncate to integers)
+                box_native = [[int(coord) for coord in point] for point in box]
                 
                 text = detection[1]
                 confidence = float(detection[2])
@@ -304,12 +304,12 @@ def split_into_characters(text, box, confidence):
         y_bottom_left = bl[1] + ((br[1] - bl[1]) * (i / len(text)))
         y_bottom_right = bl[1] + ((br[1] - bl[1]) * ((i + 1) / len(text)))
         
-        # Create the character bounding box
+        # Create the character bounding box (truncate to integers)
         char_box = [
-            [x1_top, y_top_left],       # top-left
-            [x2_top, y_top_right],      # top-right
-            [x2_bottom, y_bottom_right], # bottom-right
-            [x1_bottom, y_bottom_left]   # bottom-left
+            [int(x1_top), int(y_top_left)],       # top-left
+            [int(x2_top), int(y_top_right)],      # top-right
+            [int(x2_bottom), int(y_bottom_right)], # bottom-right
+            [int(x1_bottom), int(y_bottom_left)]   # bottom-left
         ]
         
         # Add to results

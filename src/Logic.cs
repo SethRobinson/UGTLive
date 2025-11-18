@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,8 @@ using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 
 namespace UGTLive
 {
@@ -70,6 +73,16 @@ namespace UGTLive
         }
         Stopwatch _translationStopwatch = new Stopwatch();
         Stopwatch _ocrProcessingStopwatch = new Stopwatch();
+        
+        // Cancellation token source for in-progress translations
+        private CancellationTokenSource? _translationCancellationTokenSource;
+        
+        // Centralized OCR status tracking
+        private DispatcherTimer? _ocrStatusTimer;
+        private bool _isOCRActive = false;
+        private DateTime _lastOcrFrameTime = DateTime.MinValue;
+        private Queue<double> _ocrFrameTimes = new Queue<double>();
+        private const int MAX_FPS_SAMPLES = 10;
 
         // Constructor
         private Logic()
@@ -118,6 +131,9 @@ namespace UGTLive
                 
                 // Load configuration
                 string geminiApiKey = ConfigManager.Instance.GetGeminiApiKey();
+
+                // Warm up shared WebView2 environment early to reduce overlay latency
+                _ = WebViewEnvironmentManager.GetEnvironmentAsync();
                 Console.WriteLine($"Loaded Gemini API key: {(string.IsNullOrEmpty(geminiApiKey) ? "Not set" : "Set")}");
                 
                 // Load LLM prompt
@@ -132,6 +148,13 @@ namespace UGTLive
                 if (ocrMethod == "EasyOCR" || ocrMethod == "Manga OCR" || ocrMethod == "docTR")
                 {
                     await ConnectToSocketServerAsync();
+                }
+                else if (ocrMethod == "Google Vision")
+                {
+                    Console.WriteLine("Using Google Cloud Vision - socket connection not needed");
+                    
+                    // Update status message in the UI
+                    MainWindow.Instance.SetStatus("Using Google Cloud Vision (non-local, costs $)");
                 }
                 else
                 {
@@ -276,7 +299,10 @@ namespace UGTLive
             }
             else if (isConnected)
             {
-                Console.WriteLine("Connection status changed to connected. Stopping reconnect timer.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Connection status changed to connected. Stopping reconnect timer.");
+                }
                 _reconnectTimer.Stop();
                 _reconnectAttempts = 0;
                 _hasShownConnectionErrorMessage = false;
@@ -288,11 +314,24 @@ namespace UGTLive
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
             MonitorWindow.Instance.RefreshOverlays();
+            MainWindow.Instance.RefreshMainWindowOverlays();
 
             // Hide translation status
             if (bResetTranslationStatus)
             {
                 MonitorWindow.Instance.HideTranslationStatus();
+                MainWindow.Instance.HideTranslationStatus();
+                ChatBoxWindow.Instance?.HideTranslationStatus();
+            }
+            
+            // Re-enable OCR if it was paused during translation
+            if (ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled())
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Translation finished - re-enabling OCR");
+                }
             }
         }
 
@@ -308,13 +347,19 @@ namespace UGTLive
         {
             try
             {
-                Console.WriteLine("Processing Google Translate JSON response");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Processing Google Translate JSON response");
+                }
                 
                 // Kiểm tra nếu có mảng 'translations' trong JSON
                 if (translatedRoot.TryGetProperty("translations", out JsonElement translationsElement) &&
                     translationsElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"Found {translationsElement.GetArrayLength()} translations in Google Translate JSON");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found {translationsElement.GetArrayLength()} translations in Google Translate JSON");
+                    }
                     
                     // Xử lý từng phần tử dịch
                     for (int i = 0; i < translationsElement.GetArrayLength(); i++)
@@ -341,7 +386,10 @@ namespace UGTLive
                                     // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
-                                    Console.WriteLine($"Updated text object {id} with Google translation");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Updated text object {id} with Google translation");
+                                    }
                                 }
                                 else if (id.StartsWith("text_"))
                                 {
@@ -355,7 +403,10 @@ namespace UGTLive
                                         // Don't modify the original text orientation - it should remain as detected by OCR
 
                                         _textObjects[index].UpdateUIElement();
-                                         Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine($"Updated text object at index {index} with Google translation");
+                                        }
                                     }
                                     else
                                     {
@@ -384,6 +435,10 @@ namespace UGTLive
                     
                     // Cập nhật MonitorWindow
                     MonitorWindow.Instance.RefreshOverlays();
+                    MainWindow.Instance.RefreshMainWindowOverlays();
+                    
+                    // Trigger target audio preloading if enabled
+                    TriggerTargetAudioPreloading();
                 }
                 else
                 {
@@ -401,14 +456,36 @@ namespace UGTLive
         public void ProcessReceivedTextJsonData(string data)
         {
             _ocrProcessingStopwatch.Restart();
-            MainWindow.Instance.SetOCRCheckIsWanted(true);
+            
+            // Reset auto-play trigger flag to allow auto-play on new OCR results
+            AudioPlaybackManager.Instance.ResetAutoPlayTrigger();
+            
+            // Check if we should pause OCR while translating
+            bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+            bool waitingForTranslation = GetWaitingForTranslationToFinish();
+            
+            // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+            if (!waitingForTranslation || !pauseOcrWhileTranslating)
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
+            }
             
             // Notify that OCR has completed
-            MonitorWindow.Instance.NotifyOCRCompleted();
+            NotifyOCRCompleted();
 
-            if (GetWaitingForTranslationToFinish())
+            if (waitingForTranslation)
             {
-                Console.WriteLine("Skipping OCR results - waiting for translation to finish");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Skipping OCR results - waiting for translation to finish");
+                }
                 return;
             }
 
@@ -477,7 +554,7 @@ namespace UGTLive
                                 double settlingElapsed = isSettling ? (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
                                 double lastChangeElapsed = _lastChangeTime != DateTime.MinValue ? (DateTime.Now - _lastChangeTime).TotalSeconds : 0;
                                 
-                                if (isSettling)
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff() && isSettling)
                                 {
                                     Console.WriteLine($"Settling - Elapsed: {settlingElapsed:F2}s, MaxSettleTime: {maxSettleTime}s, LastChange: {lastChangeElapsed:F2}s, SettleTime: {settleTime}s");
                                 }
@@ -486,7 +563,10 @@ namespace UGTLive
                                 if (_settlingStartTime == DateTime.MinValue && settleTime > 0)
                                 {
                                     _settlingStartTime = DateTime.Now;
-                                    Console.WriteLine($"Settling started at: {_settlingStartTime:HH:mm:ss.fff}, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Settling started at: {_settlingStartTime:HH:mm:ss.fff}, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                    }
                                 }
 
                                 if (settleTime > 0)
@@ -518,7 +598,10 @@ namespace UGTLive
                                             // Content is stable, check if normal settle time is reached
                                             if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
                                             {
-                                                Console.WriteLine($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s.");
+                                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                                {
+                                                    Console.WriteLine($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s.");
+                                                }
                                                 _lastChangeTime = DateTime.MinValue; // Indicate settle completed
                                                 _settlingStartTime = DateTime.MinValue; // Reset settling timer
                                                 bForceRender = true;
@@ -530,6 +613,7 @@ namespace UGTLive
                                                 Console.WriteLine($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more...");
                                                 MonitorWindow.Instance.ShowTranslationStatus(true); // Keep showing "Settling..."
                                                 ChatBoxWindow.Instance?.ShowTranslationStatus(true);
+                                                MainWindow.Instance.ShowTranslationStatus(true);
                                                 return; 
                                             }
                                         }
@@ -549,6 +633,7 @@ namespace UGTLive
                                         {
                                             MonitorWindow.Instance.ShowTranslationStatus(true); // Show "Settling..."
                                             ChatBoxWindow.Instance?.ShowTranslationStatus(true);
+                                            MainWindow.Instance.ShowTranslationStatus(true);
                                         }
                                         
                                         // Check again for max settle time to ensure it's enforced even with changing content
@@ -569,7 +654,10 @@ namespace UGTLive
                                                 (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
                                             double remainingMaxSettleTime = maxSettleTime - elapsedSettlingTime;
                                             
-                                            Console.WriteLine($"Content unstable, settling for {elapsedSettlingTime:F2}s, max {remainingMaxSettleTime:F2}s remaining.");
+                                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                            {
+                                                Console.WriteLine($"Content unstable, settling for {elapsedSettlingTime:F2}s, max {remainingMaxSettleTime:F2}s remaining.");
+                                            }
                                             return;
                                         }
                                     }
@@ -577,6 +665,20 @@ namespace UGTLive
 
                                 if (contentHash == _lastOcrHash && bForceRender == false)
                                 {
+                                    // Before returning, check if we need to clear displayed text
+                                    // This handles the case where we move to a blank area and OCR finds no text,
+                                    // but we still have old text objects displayed
+                                    if (resultsElement.GetArrayLength() == 0 && _textObjects.Count > 0)
+                                    {
+                                        // OCR found no text but we have text displayed - clear it
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine("Hash matches but OCR found no text while text objects exist - clearing display");
+                                        }
+                                        ClearAllTextObjects();
+                                        MonitorWindow.Instance.RefreshOverlays();
+                                        MainWindow.Instance.RefreshMainWindowOverlays();
+                                    }
                                     OnFinishedThings(true);
                                     return;
                                 }
@@ -584,7 +686,10 @@ namespace UGTLive
                                 // Looks like new stuff
                                 _lastOcrHash = contentHash;
                                 double scale = BlockDetectionManager.Instance.GetBlockDetectionScale();
-                                Console.WriteLine($"Character-level processing (scale={scale:F2}): {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
+                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                {
+                                    Console.WriteLine($"Character-level processing (scale={scale:F2}): {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
+                                }
                                 
                                 // Create a new JsonDocument with the modified results
                                 using (var stream = new MemoryStream())
@@ -619,7 +724,10 @@ namespace UGTLive
                                     }
 
                                     _ocrProcessingStopwatch.Stop();
-                                    Console.WriteLine($"OCR JSON processing took {_ocrProcessingStopwatch.ElapsedMilliseconds} ms");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"OCR JSON processing took {_ocrProcessingStopwatch.ElapsedMilliseconds} ms");
+                                    }
 
                                 }
 
@@ -968,7 +1076,10 @@ namespace UGTLive
                                     int r = fgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)fgRgb[0].GetDouble();
                                     int g = fgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)fgRgb[1].GetDouble();
                                     int b = fgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)fgRgb[2].GetDouble();
-                                    Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Foreground color for '{text}': RGB({r}, {g}, {b})");
+                                    }
                                 }
                             }
                             
@@ -983,7 +1094,10 @@ namespace UGTLive
                                     int r = bgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)bgRgb[0].GetDouble();
                                     int g = bgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)bgRgb[1].GetDouble();
                                     int b = bgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)bgRgb[2].GetDouble();
-                                    Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                    }
                                 }
                             }
                          
@@ -994,6 +1108,10 @@ namespace UGTLive
                     
                     // Refresh monitor window overlays to ensure they're displayed
                     MonitorWindow.Instance.RefreshOverlays();
+                    MainWindow.Instance.RefreshMainWindowOverlays();
+                    
+                    // Trigger source audio preloading right after OCR results are displayed
+                    TriggerSourceAudioPreloading();
                 }
             }
             catch (Exception ex)
@@ -1107,6 +1225,7 @@ namespace UGTLive
                     return;
                 }
                 
+                using IDisposable profiler = OverlayProfiler.Measure("Logic.CreateTextObjectAtPosition");
                 // Store current capture position with the text object
                 int captureX = _currentCaptureX;
                 int captureY = _currentCaptureY;
@@ -1159,12 +1278,13 @@ namespace UGTLive
                     : new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
                 
                 // Debug: Log final colors being used
-                if (foregroundColor.HasValue || backgroundColor.HasValue)
+                if (ConfigManager.Instance.GetLogExtraDebugStuff() && (foregroundColor.HasValue || backgroundColor.HasValue))
                 {
                     Console.WriteLine($"Creating TextObject '{text.Substring(0, Math.Min(20, text.Length))}...' - TextColor: {textColor.Color}, BackgroundColor: {bgColor.Color}");
                 }
                 
                 // Add the text object to the UI
+                Stopwatch textObjectCtorStopwatch = Stopwatch.StartNew();
                 TextObject textObject = new TextObject(
                     text,  // Just the text, without confidence
                     x, y, width, height,
@@ -1173,10 +1293,15 @@ namespace UGTLive
                     captureX, captureY,  // Store original capture coordinates
                     textOrientation
                 );
+                textObjectCtorStopwatch.Stop();
+                OverlayProfiler.Record("Logic.TextObjectConstructor", textObjectCtorStopwatch.ElapsedMilliseconds);
                 textObject.ID = "text_"+GetNextTextID();
 
                 // Adjust font size
+                Stopwatch fontAdjustStopwatch = Stopwatch.StartNew();
                 textObject.SetFontSize(fontSize);
+                fontAdjustStopwatch.Stop();
+                OverlayProfiler.Record("Logic.TextObjectSetFontSize", fontAdjustStopwatch.ElapsedMilliseconds);
                 
                 // Add to our collection
                 _textObjects.Add(textObject);
@@ -1184,15 +1309,8 @@ namespace UGTLive
                 // Raise event to notify listeners (MonitorWindow)
                 TextObjectAdded?.Invoke(this, textObject);
 
-                if (ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled()
-                    && ConfigManager.Instance.IsAutoTranslateEnabled())
-                {
-                    //do nothing, don't want to show the source language
-                } else
-                {
-                    textObject.UIElement = textObject.CreateUIElement();
-                }
-                    MonitorWindow.Instance.CreateMonitorOverlayFromTextObject(this, textObject);
+                // Notify MonitorWindow to update overlay
+                MonitorWindow.Instance.CreateMonitorOverlayFromTextObject(this, textObject);
 
                 // Console.WriteLine($"Added text '{text}' at position ({x}, {y}) with size {width}x{height}");
             }
@@ -1251,6 +1369,7 @@ namespace UGTLive
                 {
                     MonitorWindow.Instance.RefreshOverlays();
                 }
+                MainWindow.Instance.RefreshMainWindowOverlays();
             }
             catch (Exception ex)
             {
@@ -1409,10 +1528,22 @@ namespace UGTLive
                     // Ignore disposal errors
                 }
 
-                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                // Check if we should pause OCR while translating
+                bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+                bool waitingForTranslation = GetWaitingForTranslationToFinish();
+                
+                // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+                if (!waitingForTranslation || !pauseOcrWhileTranslating)
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
+                else
+                {
+                    Console.WriteLine("Windows OCR: Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
                 
                 // Notify that OCR has completed
-                MonitorWindow.Instance.NotifyOCRCompleted();
+                NotifyOCRCompleted();
             }
         }
         
@@ -1465,10 +1596,22 @@ namespace UGTLive
                     // Ignore disposal errors
                 }
 
-                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                // Check if we should pause OCR while translating
+                bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
+                bool waitingForTranslation = GetWaitingForTranslationToFinish();
+                
+                // Only re-enable OCR if we're not waiting for translation, or if pause setting is disabled
+                if (!waitingForTranslation || !pauseOcrWhileTranslating)
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
+                else
+                {
+                    Console.WriteLine("Google Vision: Pause OCR while translating is enabled - keeping OCR paused until translation finishes");
+                }
                 
                 // Notify that OCR has completed
-                MonitorWindow.Instance.NotifyOCRCompleted();
+                NotifyOCRCompleted();
             }
         }
         
@@ -1519,7 +1662,10 @@ namespace UGTLive
                         implementation = "doctr";
                     }
                     
-                    Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Processing screenshot with {ocrMethod} character-level OCR, language: {sourceLanguage}");
+                    }
                     
                     // Check socket connection
                     if (!SocketManager.Instance.IsConnected)
@@ -1587,6 +1733,15 @@ namespace UGTLive
             {
                 // Clean up resources
                 Console.WriteLine("Logic finalized");
+                
+                // Cancel any in-progress audio preloading
+                AudioPreloadService.Instance.CancelAllPreloads();
+                
+                // Stop any currently playing audio
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                
+                // Note: Audio cache is NOT deleted on shutdown to allow reuse between sessions
+                // Cache can be deleted on startup if the setting is enabled
                 
                 // Disconnect from socket server
                 SocketManager.Instance.Disconnect();
@@ -1660,20 +1815,41 @@ namespace UGTLive
         {
             try
             {
+                // Cancel any in-progress audio preloading
+                AudioPreloadService.Instance.CancelAllPreloads();
+                
+                // Stop any currently playing audio
+                AudioPlaybackManager.Instance.StopCurrentPlayback();
+                
+                // Reset auto-play trigger flag to allow auto-play on next OCR
+                AudioPlaybackManager.Instance.ResetAutoPlayTrigger();
+                
                 // Check if we need to run on the UI thread
                 if (!Application.Current.Dispatcher.CheckAccess())
                 {
-                    // Run on UI thread to ensure STA compliance
-                    Application.Current.Dispatcher.Invoke(() => ClearAllTextObjects());
+                    // Run on UI thread asynchronously to avoid blocking
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() => ClearAllTextObjects()), DispatcherPriority.Send);
                     return;
                 }
                 
+                // Skip profiler for instant clearing
+                foreach (TextObject textObject in _textObjects)
+                {
+                    MonitorWindow.Instance?.RemoveOverlay(textObject);
+                    textObject.Dispose();
+                }
+
+                MonitorWindow.Instance?.ClearOverlays();
+
                 // Clear the collection
                 _textObjects.Clear();
                 _textIDCounter = 0;
                 // No need to remove from the main window UI anymore
                 
-                Console.WriteLine("All text objects cleared");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("All text objects cleared");
+                }
             }
             catch (Exception ex)
             {
@@ -1682,6 +1858,120 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
+            }
+        }
+        
+        // Trigger source audio preloading
+        private void TriggerSourceAudioPreloading()
+        {
+            try
+            {
+                // Check if preloading is enabled
+                if (!ConfigManager.Instance.IsTtsPreloadEnabled())
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Logic: Source audio preloading skipped (feature disabled)");
+                    }
+                    return;
+                }
+                
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Logic: TriggerSourceAudioPreloading called, preloadMode={preloadMode}");
+                }
+                
+                if (preloadMode == "Source language" || preloadMode == "Both source and target languages")
+                {
+                    var textObjects = _textObjects.ToList();
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Found {textObjects.Count} text objects for source audio preloading");
+                    }
+                    
+                    if (textObjects.Count > 0)
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Logic: Starting source audio preload...");
+                        }
+                        _ = AudioPreloadService.Instance.PreloadSourceAudioAsync(textObjects);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Logic: No text objects to preload source audio");
+                    }
+                }
+                else
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Source audio preloading skipped (preloadMode={preloadMode})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error triggering source audio preloading: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+        
+        // Trigger target audio preloading
+        private void TriggerTargetAudioPreloading()
+        {
+            try
+            {
+                // Check if preloading is enabled
+                if (!ConfigManager.Instance.IsTtsPreloadEnabled())
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Logic: Target audio preloading skipped (feature disabled)");
+                    }
+                    return;
+                }
+                
+                string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Logic: TriggerTargetAudioPreloading called, preloadMode={preloadMode}");
+                }
+                
+                if (preloadMode == "Target language" || preloadMode == "Both source and target languages")
+                {
+                    var textObjects = _textObjects.ToList();
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Found {textObjects.Count} text objects for target audio preloading");
+                    }
+                    
+                    if (textObjects.Count > 0)
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Logic: Starting target audio preload...");
+                        }
+                        _ = AudioPreloadService.Instance.PreloadTargetAudioAsync(textObjects);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Logic: No text objects to preload target audio");
+                    }
+                }
+                else
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Logic: Target audio preloading skipped (preloadMode={preloadMode})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error triggering target audio preloading: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
         
@@ -1711,12 +2001,18 @@ namespace UGTLive
   
             try
             {
-                Console.WriteLine("Processing structured JSON translation");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Processing structured JSON translation");
+                }
                 // Check if we have text_blocks array in the translated JSON
                 if (translatedRoot.TryGetProperty("text_blocks", out JsonElement textBlocksElement) &&
                     textBlocksElement.ValueKind == JsonValueKind.Array)
                 {
-                    Console.WriteLine($"Found {textBlocksElement.GetArrayLength()} text blocks in translated JSON");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Found {textBlocksElement.GetArrayLength()} text blocks in translated JSON");
+                    }
                     
                     // Process each translated block
                     for (int i = 0; i < textBlocksElement.GetArrayLength(); i++)
@@ -1743,7 +2039,10 @@ namespace UGTLive
                                     // Don't modify the original text orientation - it should remain as detected by OCR
 
                                     matchingTextObj.UpdateUIElement();
-                                    Console.WriteLine($"Updated text object {id} with translation");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine($"Updated text object {id} with translation");
+                                    }
                                 }
                                 else if (id.StartsWith("text_"))
                                 {
@@ -1754,7 +2053,10 @@ namespace UGTLive
                                         // Update by index if ID matches format
                                         _textObjects[index].TextTranslated = translatedText;
                                         _textObjects[index].UpdateUIElement();
-                                        Console.WriteLine($"Updated text object at index {index} with translation");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Console.WriteLine($"Updated text object at index {index} with translation");
+                                        }
                                     }
                                     else
                                     {
@@ -1778,6 +2080,13 @@ namespace UGTLive
 
 
 
+            // Update overlays
+            MonitorWindow.Instance.RefreshOverlays();
+            MainWindow.Instance.RefreshMainWindowOverlays();
+            
+            // Trigger target audio preloading if enabled
+            TriggerTargetAudioPreloading();
+            
             // Sort text objects by Y coordinate
             var sortedTextObjects = _textObjects.OrderBy(t => t.Y).ToList();
             // Add each translated text to the ChatBox
@@ -1829,7 +2138,8 @@ namespace UGTLive
                     if (doc.RootElement.TryGetProperty("translated_text", out JsonElement translatedTextElement))
                     {
                         string translatedTextJson = translatedTextElement.GetString() ?? "";
-                        Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
+                        // Debug line removed - too slow for logs
+                        // Console.WriteLine($"{currentService} translated_text: {translatedTextJson}");
                         
                         // If the translated_text is a JSON string, parse it
                         if (!string.IsNullOrEmpty(translatedTextJson) && 
@@ -1886,7 +2196,10 @@ namespace UGTLive
                                 // Check if we already have a proper translation with source_language, target_language, text_blocks
                                 if (text.Contains("\"source_language\"") && text.Contains("\"text_blocks\""))
                                 {
-                                    Console.WriteLine("Direct translation detected, using it as is");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Console.WriteLine("Direct translation detected, using it as is");
+                                    }
                                     
                                     // Look for JSON within the text
                                     int directJsonStart = text.IndexOf('{');
@@ -1922,7 +2235,10 @@ namespace UGTLive
                     // Google Translate trả về định dạng: {"translations": [{"id": "...", "original_text": "...", "translated_text": "..."}]}
                     if (doc.RootElement.TryGetProperty("translations", out JsonElement _))
                     {
-                        Console.WriteLine("Google Translate response detected");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Google Translate response detected");
+                        }
                         ProcessGoogleTranslateJson(doc.RootElement);
                         return; // Bỏ qua xử lý tiếp theo
                     }
@@ -1935,13 +2251,34 @@ namespace UGTLive
             }
         }
 
+        //!Cancel any in-progress translation
+        public void CancelTranslation()
+        {
+            if (_translationCancellationTokenSource != null && !_translationCancellationTokenSource.Token.IsCancellationRequested)
+            {
+                Console.WriteLine("Cancelling in-progress translation");
+                _translationCancellationTokenSource.Cancel();
+                _translationCancellationTokenSource.Dispose();
+                _translationCancellationTokenSource = null;
+                SetWaitingForTranslationToFinish(false);
+            }
+        }
+
         //!Convert textobjects to json and send for translation
         public async Task TranslateTextObjectsAsync()
         {
+            // Cancel any existing translation
+            CancelTranslation();
+            
+            // Create new cancellation token source for this translation
+            _translationCancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = _translationCancellationTokenSource.Token;
+            
             try
             {
                 // Show translation status at the beginning
                 MonitorWindow.Instance.ShowTranslationStatus(false);
+                MainWindow.Instance.ShowTranslationStatus(false);
                 
                 // Also show translation status in ChatBoxWindow if it's open
                 if (ChatBoxWindow.Instance != null)
@@ -1964,6 +2301,8 @@ namespace UGTLive
                     return;
                 }
 
+                // Check for cancellation before proceeding
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Prepare JSON data for translation with rectangle coordinates
                 var textsToTranslate = new List<object>();
@@ -2024,12 +2363,22 @@ namespace UGTLive
 
                 SetWaitingForTranslationToFinish(true);
 
+                // Check for cancellation before making API call
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Create translation service based on current configuration
                 ITranslationService translationService = TranslationServiceFactory.CreateService();
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
                 
                 // Call the translation API with the modified prompt if context exists
-                string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt);
+                string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt, cancellationToken);
+                
+                // Check if translation was cancelled
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Console.WriteLine("Translation was cancelled");
+                    return;
+                }
                 
                 if (string.IsNullOrEmpty(translationResponse))
                 {
@@ -2039,7 +2388,10 @@ namespace UGTLive
                 }
 
                 _translationStopwatch.Stop();
-                Console.WriteLine($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                }
 
                 // We've already logged the raw LLM response in the respective service
                 // This would log the post-processed response, which we don't need
@@ -2048,10 +2400,24 @@ namespace UGTLive
                 ProcessTranslatedJSON(translationResponse);
               
             }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Translation was cancelled");
+                SetWaitingForTranslationToFinish(false);
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error translating text objects: {ex.Message}");
                 OnFinishedThings(true);
+            }
+            finally
+            {
+                // Clean up cancellation token source
+                if (_translationCancellationTokenSource != null)
+                {
+                    _translationCancellationTokenSource.Dispose();
+                    _translationCancellationTokenSource = null;
+                }
             }
 
             //all done
@@ -2157,6 +2523,135 @@ namespace UGTLive
                 default:
                     return true;
             }
+        }
+        
+        // Centralized OCR Status Management
+        
+        // Calculate average FPS from recent samples
+        private double CalculateAverageFPS()
+        {
+            if (_ocrFrameTimes.Count == 0) return 0.0;
+            
+            double averageFrameTime = _ocrFrameTimes.Average();
+            return averageFrameTime > 0 ? 1.0 / averageFrameTime : 0.0;
+        }
+        
+        // Get the display name for the current OCR method
+        private string GetCurrentOCRMethodDisplayName()
+        {
+            string ocrMethod = ConfigManager.Instance.GetOcrMethod();
+            
+            // Map to display names
+            return ocrMethod switch
+            {
+                "EasyOCR" => "Easy",
+                "Manga OCR" => "Manga",
+                "docTR" => "docTR",
+                "Google Cloud Vision" => "Google",
+                "Windows OCR" => "Windows",
+                _ => "OCR"
+            };
+        }
+        
+        // Centralized method to notify OCR frame completed
+        public void NotifyOCRCompleted()
+        {
+            DateTime now = DateTime.Now;
+            if (_lastOcrFrameTime != DateTime.MinValue)
+            {
+                double frameTime = (now - _lastOcrFrameTime).TotalSeconds;
+                _ocrFrameTimes.Enqueue(frameTime);
+                
+                // Keep only last N samples
+                while (_ocrFrameTimes.Count > MAX_FPS_SAMPLES)
+                {
+                    _ocrFrameTimes.Dequeue();
+                }
+            }
+            _lastOcrFrameTime = now;
+            
+            // Only show OCR status if OCR is still running AND no other status is showing
+            if (MainWindow.Instance.GetIsStarted())
+            {
+                ShowOCRStatus();
+            }
+        }
+        
+        // Show OCR status on both windows
+        public void ShowOCRStatus()
+        {
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                return;
+            }
+            
+            _isOCRActive = true;
+            double fps = CalculateAverageFPS();
+            string ocrMethod = GetCurrentOCRMethodDisplayName();
+            
+            // Update both windows with the same data
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+            });
+            
+            // Start the timer if not already running
+            if (_ocrStatusTimer == null)
+            {
+                _ocrStatusTimer = new DispatcherTimer();
+                _ocrStatusTimer.Interval = TimeSpan.FromMilliseconds(250); // Update 4 times per second
+                _ocrStatusTimer.Tick += OCRStatusTimer_Tick;
+            }
+            
+            if (!_ocrStatusTimer.IsEnabled)
+            {
+                _ocrStatusTimer.Start();
+            }
+        }
+        
+        // OCR status timer tick
+        private void OCRStatusTimer_Tick(object? sender, EventArgs e)
+        {
+            // Check if OCR is still running
+            if (!MainWindow.Instance.GetIsStarted())
+            {
+                HideOCRStatus();
+                return;
+            }
+            
+            if (_isOCRActive)
+            {
+                double fps = CalculateAverageFPS();
+                string ocrMethod = GetCurrentOCRMethodDisplayName();
+                
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                    MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
+                });
+            }
+        }
+        
+        // Hide OCR status on both windows
+        public void HideOCRStatus()
+        {
+            _isOCRActive = false;
+            
+            // Stop the timer
+            if (_ocrStatusTimer != null && _ocrStatusTimer.IsEnabled)
+            {
+                _ocrStatusTimer.Stop();
+            }
+            
+            // Clear frame times
+            _ocrFrameTimes.Clear();
+            
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                MonitorWindow.Instance.HideOCRStatusDisplay();
+                MainWindow.Instance.HideOCRStatusDisplay();
+            });
         }
     }
 }

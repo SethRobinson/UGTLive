@@ -41,6 +41,22 @@
                                Text="V0.28 by Seth A. Robinson" 
                                FontSize="14" FontWeight="SemiBold"
                                Foreground="#5A5A5A"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock FontSize="12" Margin="0,0,15,0">
+                            <Hyperlink NavigateUri="https://github.com/SethRobinson/UGTLive" 
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#0066CC">
+                                github
+                            </Hyperlink>
+                        </TextBlock>
+                        <TextBlock FontSize="12">
+                            <Hyperlink NavigateUri="https://www.rtsoft.com" 
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#0066CC">
+                                rtsoft.com
+                            </Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>

@@ -69,6 +69,8 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_WIDTH = "manga_ocr_min_region_width";
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
+        public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
+        public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -117,6 +119,27 @@ namespace UGTLive
         public const string GOOGLE_TTS_API_KEY = "google_tts_api_key";
         public const string GOOGLE_TTS_VOICE = "google_tts_voice";
         
+        // TTS Preload configuration keys
+        public const string TTS_SOURCE_SERVICE = "tts_source_service";
+        public const string TTS_SOURCE_VOICE = "tts_source_voice";
+        public const string TTS_SOURCE_USE_CUSTOM_VOICE_ID = "tts_source_use_custom_voice_id";
+        public const string TTS_SOURCE_CUSTOM_VOICE_ID = "tts_source_custom_voice_id";
+        public const string TTS_TARGET_SERVICE = "tts_target_service";
+        public const string TTS_TARGET_VOICE = "tts_target_voice";
+        public const string TTS_TARGET_USE_CUSTOM_VOICE_ID = "tts_target_use_custom_voice_id";
+        public const string TTS_TARGET_CUSTOM_VOICE_ID = "tts_target_custom_voice_id";
+        public const string TTS_PRELOAD_ENABLED = "tts_preload_enabled";
+        public const string TTS_PRELOAD_MODE = "tts_preload_mode";
+        public const string TTS_PLAY_ORDER = "tts_play_order";
+        public const string TTS_AUTO_PLAY_ALL = "tts_auto_play_all";
+        public const string TTS_DELETE_CACHE_ON_STARTUP = "tts_delete_cache_on_startup";
+        public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
+        public const string TTS_MAX_CONCURRENT_DOWNLOADS = "tts_max_concurrent_downloads";
+        
+        // UI Icon Constants
+        public const string ICON_SPEAKER_READY = "🔉";
+        public const string ICON_SPEAKER_NOT_READY = "◯";
+        
         // ChatBox configuration keys
         public const string CHATBOX_FONT_FAMILY = "chatbox_font_family";
         public const string CHATBOX_FONT_SIZE = "chatbox_font_size";
@@ -162,6 +185,9 @@ namespace UGTLive
         public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
         public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
         public const string MONITOR_OVERLAY_MODE = "monitor_overlay_mode";
+        public const string MAIN_WINDOW_OVERLAY_MODE = "main_window_overlay_mode";
+        public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
+        public const string WINDOWS_VISIBLE_IN_SCREENSHOTS = "windows_visible_in_screenshots";
         
         // docTR-specific glue toggle
         public const string GLUE_DOCTR_LINES = "glue_doctr_lines";
@@ -171,6 +197,13 @@ namespace UGTLive
         public const string SOURCE_LANGUAGE_FONT_BOLD = "source_language_font_bold";
         public const string TARGET_LANGUAGE_FONT_FAMILY = "target_language_font_family";
         public const string TARGET_LANGUAGE_FONT_BOLD = "target_language_font_bold";
+        
+        // Lesson feature settings
+        public const string LESSON_PROMPT_TEMPLATE = "lesson_prompt_template";
+        public const string LESSON_URL_TEMPLATE = "lesson_url_template";
+        
+        // Debug logging settings
+        public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";
 
         // Singleton instance
         public static ConfigManager Instance
@@ -208,6 +241,10 @@ namespace UGTLive
             
             // Load main config values
             LoadConfig();
+            
+            // Force "windows visible in screenshots" to false at startup (dangerous option)
+            SetWindowsVisibleInScreenshots(false);
+            Console.WriteLine("Forced 'windows visible in screenshots' to false at startup (dangerous option disabled)");
             
             // Load translation service from config
             if (_configValues.TryGetValue(TRANSLATION_SERVICE, out string? service))
@@ -368,7 +405,22 @@ namespace UGTLive
             _configValues[TTS_SERVICE] = "Google Cloud TTS";
             _configValues[GOOGLE_TTS_API_KEY] = "<your API key here>";
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
-            _configValues[TTS_ENABLED] = "true";
+            _configValues[TTS_ENABLED] = "false";
+            
+            // TTS Preload defaults
+            _configValues[TTS_SOURCE_SERVICE] = "Google Cloud TTS";
+            _configValues[TTS_SOURCE_VOICE] = "ja-JP-Neural2-B";
+            _configValues[TTS_SOURCE_USE_CUSTOM_VOICE_ID] = "false";
+            _configValues[TTS_SOURCE_CUSTOM_VOICE_ID] = "";
+            _configValues[TTS_TARGET_SERVICE] = "Google Cloud TTS";
+            _configValues[TTS_TARGET_VOICE] = "en-US-Studio-O";
+            _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = "false";
+            _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = "";
+            _configValues[TTS_PRELOAD_ENABLED] = "false";
+            _configValues[TTS_PRELOAD_MODE] = "Source language";
+            _configValues[TTS_PLAY_ORDER] = "Top down, left to right";
+            _configValues[TTS_AUTO_PLAY_ALL] = "false";
+            _configValues[TTS_DELETE_CACHE_ON_STARTUP] = "false";
             _configValues[MAX_CONTEXT_PIECES] = "20";
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
@@ -386,6 +438,8 @@ namespace UGTLive
             _configValues[MIN_LINE_CONFIDENCE] = "0.1";
             _configValues[AUTO_TRANSLATE_ENABLED] = "false";
             _configValues[IGNORE_PHRASES] = "";
+            _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = "0.1";
+            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = "true";
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
@@ -440,6 +494,10 @@ namespace UGTLive
                         string key = match.Groups[1].Value;
                         string value = match.Groups[2].Value;
                         
+                        // Trim leading and trailing newlines/whitespace to prevent accumulation
+                        // This preserves intentional newlines within the content but removes leading/trailing ones
+                        value = value.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
+                        
                         // Store the value
                         _configValues[key] = value;
                         
@@ -490,7 +548,10 @@ namespace UGTLive
                                 phraseValue = phraseValue.Substring(0, phraseValue.Length - 1);
                                 
                             _configValues[key] = phraseValue;
-                            Console.WriteLine($"Loaded ignore phrases config: {key}");
+                            if (GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"Loaded ignore phrases config: {key}");
+                            }
                             continue;
                         }
                         
@@ -534,14 +595,19 @@ namespace UGTLive
                 {
                     sb.AppendLine();
                     sb.AppendLine($"<{entry.Key}_start>");
-                    sb.AppendLine(entry.Value);
+                    // Append value directly without adding extra newline to prevent accumulation
+                    sb.Append(entry.Value);
+                    sb.AppendLine();
                     sb.AppendLine($"<{entry.Key}_end>");
                 }
                 
                 // Write to file
                 File.WriteAllText(_configFilePath, sb.ToString());
                 
-                Console.WriteLine($"Saved config to {_configFilePath}");
+                if (GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Saved config to {_configFilePath}");
+                }
             }
             catch (Exception ex)
             {
@@ -714,13 +780,19 @@ namespace UGTLive
         // Set current OCR method
         public void SetOcrMethod(string method)
         {
-            Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
+            if (GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"ConfigManager.SetOcrMethod called with method: {method}");
+            }
             if (IsSupportedOcrMethod(method))
             {
                 var normalized = _supportedOcrMethods.First(m => string.Equals(m, method, StringComparison.OrdinalIgnoreCase));
                 _configValues[OCR_METHOD] = normalized;
                 SaveConfig();
-                Console.WriteLine($"OCR method set to {normalized} and saved to config");
+                if (GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"OCR method set to {normalized} and saved to config");
+                }
             }
             else
             {
@@ -735,19 +807,7 @@ namespace UGTLive
             try
             {
                 // Default prompts for each service
-                string defaultPrompt = @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog.
-
-You should:
-
-* Output ONLY the resulting JSON data.
-* The output JSON must have the exact same structure as the input JSON, with a source_language, target_language, and a text_blocks array.
-* Each element in the text_blocks array must include its id and its rect (the bounding box).
-* No extra text, explanations, or formatting should be included.
-* If ""previous_context"" data exist in the json, this should not be translated, but used to better understand the context of the text that IS being translated.
-* Don't return the ""previous_context"" or ""game_info"" json parms, that's for input only, not what you output.
-* If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together, but each on their own text line.
-
-Here is the input JSON:";
+                string defaultPrompt = GetDefaultPrompt("");
                 
                 string defaultGeminiPrompt = defaultPrompt;
                 string defaultOllamaPrompt = defaultPrompt;
@@ -866,7 +926,7 @@ Here is the input JSON:";
             }
             
             // All services use the same default prompt
-            return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog.
+            return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
 
 You should:
 
@@ -945,6 +1005,21 @@ Here is the input JSON:";
             _configValues[AUTO_TRANSLATE_ENABLED] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Auto translate enabled: {enabled}");
+        }
+        
+        // Check if pause OCR while translating is enabled
+        public bool IsPauseOcrWhileTranslatingEnabled()
+        {
+            string value = GetValue(PAUSE_OCR_WHILE_TRANSLATING, "true");
+            return value.ToLower() == "true";
+        }
+        
+        // Set pause OCR while translating enabled
+        public void SetPauseOcrWhileTranslatingEnabled(bool enabled)
+        {
+            _configValues[PAUSE_OCR_WHILE_TRANSLATING] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Pause OCR while translating enabled: {enabled}");
         }
         
         // Get ChatBox font family
@@ -1318,7 +1393,7 @@ Here is the input JSON:";
         // Get/Set TTS enabled
         public bool IsTtsEnabled()
         {
-            string value = GetValue(TTS_ENABLED, "true");
+            string value = GetValue(TTS_ENABLED, "false");
             return value.ToLower() == "true";
         }
         
@@ -1429,6 +1504,235 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine($"Google TTS voice set to: {voiceId}");
             }
+        }
+        
+        // TTS Preload methods
+        
+        // Get/Set TTS Source Service
+        public string GetTtsSourceService()
+        {
+            return GetValue(TTS_SOURCE_SERVICE, GetTtsService()); // Default to main TTS service
+        }
+        
+        public void SetTtsSourceService(string service)
+        {
+            if (!string.IsNullOrWhiteSpace(service))
+            {
+                _configValues[TTS_SOURCE_SERVICE] = service;
+                SaveConfig();
+                Console.WriteLine($"TTS source service set to: {service}");
+            }
+        }
+        
+        // Get/Set TTS Source Voice
+        public string GetTtsSourceVoice()
+        {
+            return GetValue(TTS_SOURCE_VOICE, GetGoogleTtsVoice()); // Default to Google TTS voice
+        }
+        
+        public void SetTtsSourceVoice(string voiceId)
+        {
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                _configValues[TTS_SOURCE_VOICE] = voiceId;
+                SaveConfig();
+                Console.WriteLine($"TTS source voice set to: {voiceId}");
+            }
+        }
+        
+        // Get/Set TTS Source Use Custom Voice ID
+        public bool GetTtsSourceUseCustomVoiceId()
+        {
+            return GetBoolValue(TTS_SOURCE_USE_CUSTOM_VOICE_ID, false);
+        }
+        
+        public void SetTtsSourceUseCustomVoiceId(bool useCustom)
+        {
+            _configValues[TTS_SOURCE_USE_CUSTOM_VOICE_ID] = useCustom.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS source use custom voice ID: {useCustom}");
+        }
+        
+        // Get/Set TTS Source Custom Voice ID
+        public string GetTtsSourceCustomVoiceId()
+        {
+            return GetValue(TTS_SOURCE_CUSTOM_VOICE_ID, "");
+        }
+        
+        public void SetTtsSourceCustomVoiceId(string voiceId)
+        {
+            _configValues[TTS_SOURCE_CUSTOM_VOICE_ID] = voiceId ?? "";
+            SaveConfig();
+            Console.WriteLine("TTS source custom voice ID updated");
+        }
+        
+        // Get/Set TTS Target Service
+        public string GetTtsTargetService()
+        {
+            return GetValue(TTS_TARGET_SERVICE, GetTtsService()); // Default to main TTS service
+        }
+        
+        public void SetTtsTargetService(string service)
+        {
+            if (!string.IsNullOrWhiteSpace(service))
+            {
+                _configValues[TTS_TARGET_SERVICE] = service;
+                SaveConfig();
+                Console.WriteLine($"TTS target service set to: {service}");
+            }
+        }
+        
+        // Get/Set TTS Target Voice
+        public string GetTtsTargetVoice()
+        {
+            return GetValue(TTS_TARGET_VOICE, "en-US-Studio-O"); // Default to English Studio voice
+        }
+        
+        public void SetTtsTargetVoice(string voiceId)
+        {
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                _configValues[TTS_TARGET_VOICE] = voiceId;
+                SaveConfig();
+                Console.WriteLine($"TTS target voice set to: {voiceId}");
+            }
+        }
+        
+        // Get/Set TTS Target Use Custom Voice ID
+        public bool GetTtsTargetUseCustomVoiceId()
+        {
+            return GetBoolValue(TTS_TARGET_USE_CUSTOM_VOICE_ID, false);
+        }
+        
+        public void SetTtsTargetUseCustomVoiceId(bool useCustom)
+        {
+            _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = useCustom.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS target use custom voice ID: {useCustom}");
+        }
+        
+        // Get/Set TTS Target Custom Voice ID
+        public string GetTtsTargetCustomVoiceId()
+        {
+            return GetValue(TTS_TARGET_CUSTOM_VOICE_ID, "");
+        }
+        
+        public void SetTtsTargetCustomVoiceId(string voiceId)
+        {
+            _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = voiceId ?? "";
+            SaveConfig();
+            Console.WriteLine("TTS target custom voice ID updated");
+        }
+        
+        // Get/Set TTS Preload Enabled
+        public bool IsTtsPreloadEnabled()
+        {
+            return GetBoolValue(TTS_PRELOAD_ENABLED, false);
+        }
+        
+        public void SetTtsPreloadEnabled(bool enabled)
+        {
+            _configValues[TTS_PRELOAD_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS preload enabled: {enabled}");
+        }
+        
+        // Get/Set TTS Preload Mode
+        public string GetTtsPreloadMode()
+        {
+            return GetValue(TTS_PRELOAD_MODE, "Source language");
+        }
+        
+        public void SetTtsPreloadMode(string mode)
+        {
+            if (!string.IsNullOrWhiteSpace(mode))
+            {
+                _configValues[TTS_PRELOAD_MODE] = mode;
+                SaveConfig();
+                Console.WriteLine($"TTS preload mode set to: {mode}");
+            }
+        }
+        
+        // Get/Set TTS Play Order
+        public string GetTtsPlayOrder()
+        {
+            return GetValue(TTS_PLAY_ORDER, "Top down, left to right");
+        }
+        
+        public void SetTtsPlayOrder(string order)
+        {
+            if (!string.IsNullOrWhiteSpace(order))
+            {
+                _configValues[TTS_PLAY_ORDER] = order;
+                SaveConfig();
+                Console.WriteLine($"TTS play order set to: {order}");
+            }
+        }
+        
+        // Get/Set TTS Auto Play All
+        public bool IsTtsAutoPlayAllEnabled()
+        {
+            return GetBoolValue(TTS_AUTO_PLAY_ALL, false);
+        }
+        
+        public void SetTtsAutoPlayAllEnabled(bool enabled)
+        {
+            _configValues[TTS_AUTO_PLAY_ALL] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS auto play all enabled: {enabled}");
+        }
+        
+        // Get/Set TTS Delete Cache On Startup
+        public bool GetTtsDeleteCacheOnStartup()
+        {
+            return GetBoolValue(TTS_DELETE_CACHE_ON_STARTUP, false);
+        }
+        
+        public void SetTtsDeleteCacheOnStartup(bool enabled)
+        {
+            _configValues[TTS_DELETE_CACHE_ON_STARTUP] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS delete cache on startup: {enabled}");
+        }
+        
+        // Get/Set TTS Vertical Overlap Threshold (in pixels)
+        public double GetTtsVerticalOverlapThreshold()
+        {
+            string value = GetValue(TTS_VERTICAL_OVERLAP_THRESHOLD, "120");
+            if (double.TryParse(value, out double threshold))
+            {
+                return threshold;
+            }
+            return 120.0; // Default to 120 pixels
+        }
+        
+        public void SetTtsVerticalOverlapThreshold(double threshold)
+        {
+            _configValues[TTS_VERTICAL_OVERLAP_THRESHOLD] = threshold.ToString();
+            SaveConfig();
+            Console.WriteLine($"TTS vertical overlap threshold set to: {threshold} pixels");
+        }
+        
+        // Get/Set TTS Max Concurrent Downloads
+        public int GetTtsMaxConcurrentDownloads()
+        {
+            string value = GetValue(TTS_MAX_CONCURRENT_DOWNLOADS, "2");
+            if (int.TryParse(value, out int maxConcurrent) && maxConcurrent >= 0)
+            {
+                return maxConcurrent;
+            }
+            return 2; // Default to 2 concurrent downloads
+        }
+        
+        public void SetTtsMaxConcurrentDownloads(int maxConcurrent)
+        {
+            if (maxConcurrent < 0)
+            {
+                maxConcurrent = 0; // Minimum of 0 (unlimited)
+            }
+            _configValues[TTS_MAX_CONCURRENT_DOWNLOADS] = maxConcurrent.ToString();
+            SaveConfig();
+            Console.WriteLine($"TTS max concurrent downloads set to: {maxConcurrent}{(maxConcurrent == 0 ? " (unlimited)" : "")}");
         }
         
         // ChatGPT methods
@@ -1603,6 +1907,28 @@ Here is the input JSON:";
                 _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = seconds.ToString("F2");
                 SaveConfig();
                 Console.WriteLine($"Block detection max settle time set to: {seconds:F2} seconds");
+            }
+        }
+        
+        // Get Overlay Clear Delay
+        public double GetOverlayClearDelaySeconds()
+        {
+            string value = GetValue(OVERLAY_CLEAR_DELAY_SECONDS, "0.5");
+            if (double.TryParse(value, out double delay) && delay >= 0)
+            {
+                return delay;
+            }
+            return 0.5; // Default
+        }
+        
+        // Set Overlay Clear Delay
+        public void SetOverlayClearDelaySeconds(double seconds)
+        {
+            if (seconds >= 0)
+            {
+                _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = seconds.ToString("F2");
+                SaveConfig();
+                Console.WriteLine($"Overlay clear delay set to: {seconds:F2} seconds");
             }
         }
         
@@ -2236,6 +2562,64 @@ Here is the input JSON:";
                 Console.WriteLine($"Monitor overlay mode set to: {mode}");
             }
         }
+        
+        public string GetMainWindowOverlayMode()
+        {
+            return GetValue(MAIN_WINDOW_OVERLAY_MODE, "Translated"); // Default to Translated
+        }
+
+        public void SetMainWindowOverlayMode(string mode)
+        {
+            if (!string.IsNullOrWhiteSpace(mode))
+            {
+                _configValues[MAIN_WINDOW_OVERLAY_MODE] = mode;
+                SaveConfig();
+                Console.WriteLine($"Main window overlay mode set to: {mode}");
+            }
+        }
+        
+        public bool GetMainWindowMousePassthrough()
+        {
+            string value = GetValue(MAIN_WINDOW_MOUSE_PASSTHROUGH, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetMainWindowMousePassthrough(bool enabled)
+        {
+            _configValues[MAIN_WINDOW_MOUSE_PASSTHROUGH] = enabled.ToString().ToLower();
+            SaveConfig();
+            if (GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Main window mouse passthrough set to: {enabled}");
+            }
+        }
+        
+        public bool GetWindowsVisibleInScreenshots()
+        {
+            string value = GetValue(WINDOWS_VISIBLE_IN_SCREENSHOTS, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetWindowsVisibleInScreenshots(bool visible)
+        {
+            _configValues[WINDOWS_VISIBLE_IN_SCREENSHOTS] = visible.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Windows visible in screenshots set to: {visible}");
+        }
+        
+        // Debug logging settings
+        public bool GetLogExtraDebugStuff()
+        {
+            string value = GetValue(LOG_EXTRA_DEBUG_STUFF, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetLogExtraDebugStuff(bool enabled)
+        {
+            _configValues[LOG_EXTRA_DEBUG_STUFF] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Log extra debug stuff set to: {enabled}");
+        }
 
         // Font Settings methods
         
@@ -2295,6 +2679,46 @@ Here is the input JSON:";
             _configValues[TARGET_LANGUAGE_FONT_BOLD] = bold.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Target language font bold set to: {bold}");
+        }
+        
+        // Lesson feature methods
+        
+        // Get/Set Lesson Prompt Template
+        // The template should contain {0} as a placeholder for the text to learn
+        public string GetLessonPromptTemplate()
+        {
+            string defaultValue = "Create a comprehensive lesson to help me learn about this Japanese text and its translation: \"{0}\"\n\nPlease include:\n1. A detailed breakdown table with columns for: Japanese text, Reading (furigana), Literal meaning, and Grammar notes\n2. Key vocabulary with example sentences\n3. Cultural or contextual notes if relevant\n4. At the end, provide 5 helpful flashcards in a clear format for memorization";
+            return GetValue(LESSON_PROMPT_TEMPLATE, defaultValue);
+        }
+        
+        public void SetLessonPromptTemplate(string template)
+        {
+            if (!string.IsNullOrWhiteSpace(template))
+            {
+                // Trim leading and trailing newlines/whitespace to prevent accumulation
+                _configValues[LESSON_PROMPT_TEMPLATE] = template.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
+                SaveConfig();
+                Console.WriteLine("Lesson prompt template updated");
+            }
+        }
+        
+        // Get/Set Lesson URL Template
+        // The template should contain {0} as a placeholder for the URL-encoded prompt
+        public string GetLessonUrlTemplate()
+        {
+            string defaultValue = "https://chat.openai.com/?q={0}";
+            return GetValue(LESSON_URL_TEMPLATE, defaultValue);
+        }
+        
+        public void SetLessonUrlTemplate(string urlTemplate)
+        {
+            if (!string.IsNullOrWhiteSpace(urlTemplate))
+            {
+                // Trim leading and trailing newlines/whitespace to prevent accumulation
+                _configValues[LESSON_URL_TEMPLATE] = urlTemplate.TrimStart('\r', '\n').TrimEnd('\r', '\n', ' ', '\t');
+                SaveConfig();
+                Console.WriteLine("Lesson URL template updated");
+            }
         }
     }
 }

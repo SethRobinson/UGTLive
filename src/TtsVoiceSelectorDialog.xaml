@@ -1,0 +1,73 @@
+<Window x:Class="UGTLive.TtsVoiceSelectorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Select TTS Service and Voice" 
+        Height="300" 
+        Width="500" 
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        Icon="/media/Icon1.ico">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- TTS Service Selection -->
+        <TextBlock Text="TTS Service:" Grid.Row="0" 
+                  VerticalAlignment="Center" Margin="0,0,0,10"/>
+        <ComboBox x:Name="ttsServiceComboBox" Grid.Row="1" 
+                 Margin="0,0,0,20" SelectionChanged="TtsServiceComboBox_SelectionChanged">
+            <ComboBoxItem Content="ElevenLabs"/>
+            <ComboBoxItem Content="Google Cloud TTS"/>
+        </ComboBox>
+        
+        <!-- Voice Selection -->
+        <TextBlock Text="Voice:" Grid.Row="2" 
+                  VerticalAlignment="Center" Margin="0,0,0,10"/>
+        <ComboBox x:Name="voiceComboBox" Grid.Row="3" 
+                 Margin="0,0,0,10" SelectionChanged="VoiceComboBox_SelectionChanged">
+            <!-- ElevenLabs Voices (default) -->
+            <ComboBoxItem Content="Rachel" Tag="21m00Tcm4TlvDq8ikWAM"/>
+            <ComboBoxItem Content="Domi" Tag="AZnzlk1XvdvUeBnXmlld"/>
+            <ComboBoxItem Content="Bella" Tag="EXAVITQu4vr4xnSDxMaL"/>
+            <ComboBoxItem Content="Antoni" Tag="ErXwobaYiN019PkySvjV"/>
+            <ComboBoxItem Content="Elli" Tag="MF3mGyEYCl7XYWbV9V6O"/>
+            <ComboBoxItem Content="Josh" Tag="TxGEqnHWrfWFTfGW9XjX"/>
+            <ComboBoxItem Content="Arnold" Tag="VR6AewLTigWG4xSOukaG"/>
+            <ComboBoxItem Content="Adam" Tag="pNInz6obpgDQGcFmaJgB"/>
+            <ComboBoxItem Content="Sam" Tag="yoZ06aMxZJJ28mfd3POQ"/>
+        </ComboBox>
+        
+        <!-- Custom Voice ID (only for ElevenLabs) -->
+        <StackPanel x:Name="customVoicePanel" Grid.Row="4" Orientation="Vertical" 
+                   Margin="0,0,0,20" Visibility="Collapsed">
+            <CheckBox x:Name="useCustomVoiceCheckBox" Content="Use custom voice ID" 
+                     Margin="0,0,0,5"
+                     Checked="UseCustomVoiceCheckBox_CheckedChanged"
+                     Unchecked="UseCustomVoiceCheckBox_CheckedChanged"/>
+            <TextBox x:Name="customVoiceIdTextBox" 
+                    Margin="0,0,0,0"
+                    IsEnabled="{Binding ElementName=useCustomVoiceCheckBox, Path=IsChecked}"/>
+        </StackPanel>
+        
+        <!-- Buttons -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" 
+                   HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Cancel" Click="CancelButton_Click" 
+                   Margin="0,0,10,0" Padding="15,5" MinWidth="80"/>
+            <Button Content="OK" Click="OkButton_Click" 
+                   IsDefault="True" Padding="15,5" MinWidth="80"/>
+        </StackPanel>
+    </Grid>
+</Window>
+

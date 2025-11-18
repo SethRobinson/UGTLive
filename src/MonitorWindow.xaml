@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="Screen Capture Monitor" 
         Height="600" Width="800"
@@ -34,6 +35,11 @@
             <Button x:Name="viewInBrowserButton" Content="View in browser" Margin="10,2,2,2" 
                     Click="ViewInBrowserButton_Click" Background="#404040" Foreground="White"
                     Padding="8,2"/>
+            
+            <!-- Play All Audio Button -->
+            <Button x:Name="playAllAudioButton" Content="🔊 All" Margin="10,2,2,2" 
+                    Click="PlayAllAudioButton_Click" Background="#404040" Foreground="White"
+                    Padding="8,2" ToolTip="Play all audio files in order"/>
                     
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
@@ -78,7 +84,11 @@
                 <Image x:Name="captureImage" Stretch="None" 
                        RenderOptions.BitmapScalingMode="NearestNeighbor"
                        HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <Canvas x:Name="textOverlayCanvas" Panel.ZIndex="1"/>
+                <wv2:WebView2 x:Name="textOverlayWebView" 
+                              Panel.ZIndex="1"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              DefaultBackgroundColor="Transparent"/>
             </Grid>
         </ScrollViewer>
         

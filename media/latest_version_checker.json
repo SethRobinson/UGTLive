@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":0.52,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nV0.52: Manga OCR can ignore furigana, misc improvements. No backend changes."
+    "latest_version":0.60,
+     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nV0.60: Page reading, tabbed settings, configurable hotkeys, tons of new stuff\n\nBackend reinstall required: No"
 }

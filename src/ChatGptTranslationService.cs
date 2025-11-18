@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -43,10 +44,12 @@ namespace UGTLive
             }
         }
 
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 // Get API key and model from config
                 string apiKey = ConfigManager.Instance.GetChatGptApiKey();
                 string model = ConfigManager.Instance.GetChatGptModel();
@@ -113,24 +116,14 @@ namespace UGTLive
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
                 // Send request to OpenAI API
-                var response = await _httpClient.SendAsync(request);
-                string responseContent = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 
                 // Check if request was successful
                 if (response.IsSuccessStatusCode)
                 {
                     // Log raw response before any processing
                     LogManager.Instance.LogLlmReply(responseContent);
-                    
-                    // Log to console for debugging (limited to first 500 chars)
-                    if (responseContent.Length > 500)
-                    {
-                        Console.WriteLine($"ChatGPT API response: {responseContent.Substring(0, 500)}...");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"ChatGPT API response: {responseContent}");
-                    }
                     
                     try
                     {
@@ -140,16 +133,6 @@ namespace UGTLive
                         {
                             var firstChoice = choices[0];
                             string translatedText = firstChoice.GetProperty("message").GetProperty("content").GetString() ?? "";
-                            
-                            // Log the extracted translation
-                            if (translatedText.Length > 100)
-                            {
-                                Console.WriteLine($"ChatGPT translation extracted: {translatedText.Substring(0, 100)}...");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"ChatGPT translation extracted: {translatedText}");
-                            }
                             
                             // Clean up the response - sometimes there might be markdown code block markers
                             translatedText = translatedText.Trim();
@@ -192,7 +175,6 @@ namespace UGTLive
                                         WriteIndented = false // This ensures compact JSON without any newlines
                                     };
                                     translatedText = JsonSerializer.Serialize(tempJson, options);
-                                    Console.WriteLine("Successfully normalized JSON format");
                                 }
                                 catch (Exception ex)
                                 {
@@ -208,14 +190,10 @@ namespace UGTLive
                                     // Validate it's proper JSON by parsing it
                                     var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
                                     
-                                    // Log that we got valid JSON
-                                    Console.WriteLine("ChatGPT returned valid JSON");
-                                    
                                     // Check if this is a game JSON translation with text_blocks
                                     if (translatedJson.TryGetProperty("text_blocks", out _))
                                     {
                                         // For game JSON format, we need to match the format that the other translation services use
-                                        Console.WriteLine("This is a game JSON format - wrapping in the standard format");
                                         
                                         // Save the translated JSON to a debug file for inspection
                                         try 
@@ -239,7 +217,6 @@ namespace UGTLive
                                         };
                                         
                                         string finalOutput = JsonSerializer.Serialize(outputJson);
-                                        Console.WriteLine($"Final wrapped output: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
                                         
                                         return finalOutput;
                                     }
@@ -349,6 +326,11 @@ namespace UGTLive
                     ErrorPopupManager.ShowError(detailedMessage, "ChatGPT Translation Error");
                 }
                 
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("ChatGPT translation was cancelled");
                 return null;
             }
             catch (HttpRequestException ex)

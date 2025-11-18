@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -29,9 +31,15 @@ namespace UGTLive
         private double currentZoom = 1.0;
         private const double zoomIncrement = 0.1;
         private string lastImagePath = string.Empty;
-        private readonly Dictionary<string, Border> _overlayElements = new();
         private readonly Dictionary<string, (SolidColorBrush bgColor, SolidColorBrush textColor)> _originalColors = new();
         private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
+        
+        // WebView2 hit testing control for scrollbar and titlebar interaction
+        private bool _webViewHitTestingEnabled = true;
+        private int _scrollbarWidth = 0;
+        private int _scrollbarHeight = 0;
+        private int _titleBarHeight = 0;
+        private string _lastHitRegion = ""; // Track which region we're over to reduce logging noise
         
         // Singleton pattern to match application style
         private static MonitorWindow? _instance;
@@ -70,6 +78,11 @@ namespace UGTLive
             InitializeComponent();
             
             Console.WriteLine("MonitorWindow constructor started");
+            
+            // Subscribe to Play All state changes
+            AudioPlaybackManager.Instance.PlayAllStateChanged += AudioPlaybackManager_PlayAllStateChanged;
+            // Subscribe to current playing text object changes
+            AudioPlaybackManager.Instance.CurrentPlayingTextObjectChanged += AudioPlaybackManager_CurrentPlayingTextObjectChanged;
 
             PopulateOcrMethodOptions();
             if (ocrMethodComboBox.Items.Count > 0)
@@ -83,11 +96,15 @@ namespace UGTLive
             // Set initial status
             UpdateStatus("Ready");
              
-            // Add loaded event handler
+            // Add event handlers
+            this.SourceInitialized += MonitorWindow_SourceInitialized;
             this.Loaded += MonitorWindow_Loaded;
             
             // Add size changed handler to update scrollbars
             this.SizeChanged += MonitorWindow_SizeChanged;
+            
+            // Set up tooltip exclusion from screenshots
+            SetupTooltipExclusion();
             
             // Manually connect events (to ensure we have control over when they're attached)
             ocrMethodComboBox.SelectionChanged += OcrMethodComboBox_SelectionChanged;
@@ -151,13 +168,7 @@ namespace UGTLive
         private DispatcherTimer? _translationStatusTimer;
         private DateTime _translationStartTime;
         
-        // OCR timing and FPS tracking
-        private DateTime _lastOCRTime = DateTime.MinValue;
-        private DateTime _currentOCRStartTime = DateTime.MinValue;
-        private readonly Queue<double> _ocrFrameTimes = new Queue<double>();
-        private const int MAX_FPS_SAMPLES = 10; // Keep last 10 samples for averaging
-        private bool _isOCRActive = false;
-        private DispatcherTimer? _ocrStatusTimer;
+        // OCR status display (no tracking - handled by Logic.cs)
         private bool _isShowingSettling = false; // Track if settling message is showing
         
         // OCR Method Selection Changed
@@ -305,7 +316,10 @@ namespace UGTLive
         
         private void MonitorWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            Console.WriteLine("MonitorWindow_Loaded: Starting initialization");
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("MonitorWindow_Loaded: Starting initialization");
+            }
             
             // Set initialization flag to true to prevent saving during setup
             _isInitializing = true;
@@ -329,6 +343,13 @@ namespace UGTLive
             _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseHookProc, 
                 GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName), 0);
             
+            // Initialize scrollbar dimensions from system metrics
+            initializeScrollbarDimensions();
+            
+            // Mouse move tracking is handled by the low-level mouse hook
+            // which catches events before WebView2 consumes them
+            this.MouseLeave += monitorWindow_MouseLeave;
+            
             // Try to load the last screenshot if available
             if (!string.IsNullOrEmpty(lastImagePath) && File.Exists(lastImagePath))
             {
@@ -340,7 +361,10 @@ namespace UGTLive
             {
                 // Get OCR method from config
                 string ocrMethod = ConfigManager.Instance.GetOcrMethod();
-                Console.WriteLine($"MonitorWindow_Loaded: Loading OCR method from config: '{ocrMethod}'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow_Loaded: Loading OCR method from config: '{ocrMethod}'");
+                }
                 
                 // Temporarily remove the event handler to prevent triggering
                 // a new connection while initializing
@@ -351,11 +375,17 @@ namespace UGTLive
                 foreach (ComboBoxItem comboItem in ocrMethodComboBox.Items)
                 {
                     string itemId = comboItem.Tag?.ToString() ?? "";
-                    Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Comparing OCR method: '{itemId}' with config value: '{ocrMethod}'");
+                    }
                     
                     if (string.Equals(itemId, ocrMethod, StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Found matching OCR method: '{itemId}'");
+                        }
                         ocrMethodComboBox.SelectedItem = comboItem;
                         foundMatch = true;
                         break;
@@ -374,7 +404,10 @@ namespace UGTLive
                 // Log what we actually set
                 if (ocrMethodComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"OCR ComboBox is now set to: '{selectedItem.Tag}' (display: '{selectedItem.Content}')");
+                    }
                 }
                 
                 // Re-attach the event handler
@@ -392,7 +425,10 @@ namespace UGTLive
                 
                 // Load overlay mode from config
                 string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
-                Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow_Loaded: Loading overlay mode from config: '{overlayMode}'");
+                }
                 
                 // Temporarily remove event handlers to prevent triggering saves during initialization
                 overlayHideRadio.Checked -= OverlayRadioButton_Checked;
@@ -424,12 +460,18 @@ namespace UGTLive
                 
                 // Initialization complete, now we can save settings changes
                 _isInitializing = false;
-                Console.WriteLine("MonitorWindow initialization complete. Settings changes will now be saved.");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("MonitorWindow initialization complete. Settings changes will now be saved.");
+                }
                 
                 // Force the OCR method to match the config again
                 // This ensures the config value is preserved and not overwritten
                 string configOcrMethod = ConfigManager.Instance.GetOcrMethod();
-                Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Ensuring config OCR method is preserved: {configOcrMethod}");
+                }
                 
                 // Now that initialization is complete, save the OCR method from config
                 ConfigManager.Instance.SetOcrMethod(configOcrMethod);
@@ -445,14 +487,1066 @@ namespace UGTLive
                 autoTranslateCheckBox.Unchecked += AutoTranslateCheckBox_CheckedChanged;
             }
             
-            Console.WriteLine("MonitorWindow initialization complete");
+            // Initialize the overlay WebView2
+            InitializeOverlayWebView();
+            
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine("MonitorWindow initialization complete");
+            }
+        }
+        
+        private void MonitorWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
+            SetExcludeFromCapture();
+        }
+        
+        private void SetExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                var helper = new WindowInteropHelper(this);
+                IntPtr hwnd = helper.Handle;
+                
+                if (hwnd != IntPtr.Zero)
+                {
+                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
+                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
+                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"Monitor window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set Monitor window capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Monitor window HWND is null, cannot set capture mode");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Monitor window capture mode: {ex.Message}");
+            }
+        }
+        
+        public void UpdateCaptureExclusion()
+        {
+            // Update the main window
+            SetExcludeFromCapture();
+            
+            // Update WebView2 child windows
+            if (_overlayWebViewInitialized && textOverlayWebView?.CoreWebView2 != null)
+            {
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                SetWebView2ExcludeFromCapture(visibleInScreenshots);
+            }
+        }
+        
+        private void initializeScrollbarDimensions()
+        {
+            // Get scrollbar dimensions from Windows system metrics
+            _scrollbarWidth = GetSystemMetrics(SM_CXVSCROLL);
+            _scrollbarHeight = GetSystemMetrics(SM_CYHSCROLL);
+            _titleBarHeight = GetSystemMetrics(SM_CYCAPTION);
+        }
+        
+        private void checkMousePositionAndUpdateHitTesting(System.Windows.Point screenPoint)
+        {
+            // Check if mouse is over scrollbars or title bar
+            // If so, disable WebView2 hit testing to allow interaction with these UI elements
+            
+            try
+            {
+                System.Windows.Point mousePosWindow = this.PointFromScreen(screenPoint);
+                System.Windows.Point mousePosScrollViewer = imageScrollViewer.PointFromScreen(screenPoint);
+                bool shouldDisableHitTesting = false;
+                string currentRegion = "content";
+                
+                // Check if mouse is over title bar first (using window coordinates)
+                // Title bar area includes borders, so we check top portion of window
+                if (mousePosWindow.Y <= _titleBarHeight && mousePosWindow.Y >= 0)
+                {
+                    shouldDisableHitTesting = true;
+                    currentRegion = "titlebar";
+                }
+                // Check scrollbars using ScrollViewer coordinates
+                else if (mousePosScrollViewer.X >= 0 && mousePosScrollViewer.Y >= 0 &&
+                         mousePosScrollViewer.X <= imageScrollViewer.ActualWidth &&
+                         mousePosScrollViewer.Y <= imageScrollViewer.ActualHeight)
+                {
+                    // Mouse is within the ScrollViewer bounds
+                    double scrollViewerWidth = imageScrollViewer.ActualWidth;
+                    double scrollViewerHeight = imageScrollViewer.ActualHeight;
+                    
+                    // Check if vertical scrollbar is visible and mouse is over it
+                    if (imageScrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible)
+                    {
+                        double vScrollbarLeft = scrollViewerWidth - _scrollbarWidth;
+                        if (mousePosScrollViewer.X >= vScrollbarLeft)
+                        {
+                            shouldDisableHitTesting = true;
+                            currentRegion = "vertical_scrollbar";
+                        }
+                    }
+                    
+                    // Check if horizontal scrollbar is visible and mouse is over it
+                    if (imageScrollViewer.ComputedHorizontalScrollBarVisibility == Visibility.Visible)
+                    {
+                        double hScrollbarTop = scrollViewerHeight - _scrollbarHeight;
+                        if (mousePosScrollViewer.Y >= hScrollbarTop)
+                        {
+                            shouldDisableHitTesting = true;
+                            currentRegion = "horizontal_scrollbar";
+                        }
+                    }
+                }
+                
+                // Track region changes
+                if (currentRegion != _lastHitRegion)
+                {
+                    _lastHitRegion = currentRegion;
+                }
+                
+                // Update WebView2 hit testing state if it changed
+                if (shouldDisableHitTesting != !_webViewHitTestingEnabled)
+                {
+                    _webViewHitTestingEnabled = !shouldDisableHitTesting;
+                    
+                    if (textOverlayWebView != null)
+                    {
+                        // WebView2 is a native control, so IsHitTestVisible doesn't work
+                        // We need to use IsEnabled to prevent it from capturing mouse events
+                        textOverlayWebView.IsEnabled = _webViewHitTestingEnabled;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in checkMousePositionAndUpdateHitTesting: {ex.Message}");
+            }
+        }
+        
+        private void monitorWindow_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // When mouse leaves the window, re-enable WebView2 interaction
+            _lastHitRegion = ""; // Reset region tracker
+            
+            if (!_webViewHitTestingEnabled)
+            {
+                _webViewHitTestingEnabled = true;
+                
+                if (textOverlayWebView != null)
+                {
+                    textOverlayWebView.IsEnabled = true;
+                }
+            }
+        }
+        
+        private void SetWebView2ExcludeFromCapture(bool visibleInScreenshots)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    // WebView2 is based on Chromium and doesn't create traditional Win32 child windows
+                    // Instead, we need to get the WebView2 control's HWND using HwndSource
+                    var presentationSource = PresentationSource.FromVisual(textOverlayWebView);
+                    if (presentationSource is HwndSource hwndSource)
+                    {
+                        IntPtr webViewHwnd = hwndSource.Handle;
+                        
+                        if (webViewHwnd != IntPtr.Zero)
+                        {
+                            uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                            bool success = SetWindowDisplayAffinity(webViewHwnd, affinity);
+                            
+                            if (success)
+                            {
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Failed to set Monitor WebView2 capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Monitor WebView2 HWND is null");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Monitor WebView2: Could not get HwndSource, WebView2 may share parent window HWND");
+                        // WebView2 shares the parent window's HWND, so the main window exclusion covers it
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Monitor WebView2 capture mode: {ex.Message}");
+            }
+        }
+        
+        // Win32 API for enumerating child windows
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        
+        private bool _overlayWebViewInitialized = false;
+        
+        private async void InitializeOverlayWebView()
+        {
+            try
+            {
+                var environment = await WebViewEnvironmentManager.GetEnvironmentAsync();
+                await textOverlayWebView.EnsureCoreWebView2Async(environment);
+                
+                if (textOverlayWebView.CoreWebView2 != null)
+                {
+                    textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+                    textOverlayWebView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
+                    
+                    // Add event handlers for context menu
+                    textOverlayWebView.CoreWebView2.WebMessageReceived += OverlayWebView_WebMessageReceived;
+                    textOverlayWebView.CoreWebView2.ContextMenuRequested += OverlayWebView_ContextMenuRequested;
+                    
+                    _overlayWebViewInitialized = true;
+                    
+                    // Initial empty render
+                    UpdateOverlayWebView();
+                    
+                    // Apply WDA_EXCLUDEFROMCAPTURE to WebView2 child windows
+                    // Use a longer delay to ensure child windows are fully created
+                    _ = Task.Delay(1500).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                            SetWebView2ExcludeFromCapture(visibleInScreenshots);
+                        });
+                    });
+                    
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing overlay WebView2: {ex.Message}");
+            }
+        }
+        
+        private string _lastOverlayHtml = string.Empty;
+        
+        private void UpdateOverlayWebView()
+        {
+            if (!_overlayWebViewInitialized || textOverlayWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+            
+            try
+            {
+                string html = GenerateOverlayHtml();
+                
+                // Only update if HTML changed
+                if (html == _lastOverlayHtml)
+                {
+                    return;
+                }
+                
+                _lastOverlayHtml = html;
+                textOverlayWebView.CoreWebView2.NavigateToString(html);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating overlay WebView: {ex.Message}");
+            }
+        }
+        
+        private string GenerateOverlayHtml()
+        {
+            var html = new StringBuilder();
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset='utf-8'/>");
+            html.AppendLine("<style>");
+            html.AppendLine("html, body {");
+            html.AppendLine("  margin: 0;");
+            html.AppendLine("  padding: 0;");
+            html.AppendLine("  width: 100%;");
+            html.AppendLine("  height: 100%;");
+            html.AppendLine("  overflow: hidden;");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  pointer-events: none;");
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  box-sizing: border-box;");
+            html.AppendLine("  overflow: visible;"); // Allow audio icon to show outside box
+            html.AppendLine("  white-space: normal;");
+            html.AppendLine("  word-wrap: break-word;");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("  user-select: text;");
+            html.AppendLine("  padding: 2px;"); // Minimal padding for visual spacing
+            html.AppendLine("  margin: 0;");
+            html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: flex-start;");
+            html.AppendLine("}");
+            html.AppendLine(".vertical-text {");
+            html.AppendLine("  writing-mode: vertical-rl;");
+            html.AppendLine("  text-orientation: upright;");
+            html.AppendLine("  align-items: flex-start;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("}");
+            html.AppendLine(".text-content {");
+            html.AppendLine("  flex: 1;"); // Take up all available space
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  width: 100%;");
+            html.AppendLine("  height: 100%;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  top: 0px;"); // Align with top of text box
+            html.AppendLine("  left: -24px;"); // Position outside to the left
+            html.AppendLine("  width: 20px;");
+            html.AppendLine("  height: 20px;");
+            html.AppendLine("  cursor: pointer;");
+            html.AppendLine("  font-size: 16px;");
+            html.AppendLine("  z-index: 10;");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.5);");
+            html.AppendLine("  border-radius: 3px;");
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("  user-select: none;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:hover {");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading {");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #cc0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading:hover {");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #ff0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:not(.loading) {");
+            html.AppendLine("  filter: grayscale(0.7) sepia(0.3) hue-rotate(10deg) saturate(0.6) brightness(1.1);");
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay.playing {");
+            html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
+            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
+            html.AppendLine("}");
+            html.AppendLine("@keyframes playingPulse {");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
+            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
+            html.AppendLine("}");
+            html.AppendLine("</style>");
+            html.AppendLine("<script>");
+            html.AppendLine("function fitTextToBox(element, container) {");
+            html.AppendLine("  const minSize = 8;");
+            html.AppendLine("  const maxSize = 128;"); // Increased from 64 to allow larger text
+            html.AppendLine("  ");
+            html.AppendLine("  // Use container for size if provided, otherwise use element");
+            html.AppendLine("  const sizeRef = container || element;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Get computed style to check for padding and vertical text");
+            html.AppendLine("  const computedStyle = window.getComputedStyle(sizeRef);");
+            html.AppendLine("  const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
+            html.AppendLine("  ");
+            html.AppendLine("  // Calculate initial font size based on box dimensions");
+            html.AppendLine("  // Use height for horizontal text, width for vertical text");
+            html.AppendLine("  const boxHeight = sizeRef.clientHeight;");
+            html.AppendLine("  const boxWidth = sizeRef.clientWidth;");
+            html.AppendLine("  let estimatedSize;");
+            html.AppendLine("  if (isVertical) {");
+            html.AppendLine("    estimatedSize = Math.floor(boxWidth * 0.7); // 70% of width for vertical");
+            html.AppendLine("  } else {");
+            html.AppendLine("    estimatedSize = Math.floor(boxHeight * 0.7); // 70% of height for horizontal");
+            html.AppendLine("  }");
+            html.AppendLine("  estimatedSize = Math.max(minSize, Math.min(maxSize, estimatedSize));");
+            html.AppendLine("  ");
+            html.AppendLine("  let bestSize = minSize;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Binary search for the best font size, starting from estimated size");
+            html.AppendLine("  let low = minSize;");
+            html.AppendLine("  let high = maxSize;");
+            html.AppendLine("  ");
+            html.AppendLine("  while (high - low > 0.5) {");
+            html.AppendLine("    const mid = (low + high) / 2;");
+            html.AppendLine("    element.style.fontSize = mid + 'px';");
+            html.AppendLine("    ");
+            html.AppendLine("    // Check if content fits (including scrollable content)");
+            html.AppendLine("    const fitsHeight = element.scrollHeight <= element.clientHeight;");
+            html.AppendLine("    const fitsWidth = element.scrollWidth <= element.clientWidth;");
+            html.AppendLine("    ");
+            html.AppendLine("    if (fitsHeight && fitsWidth) {");
+            html.AppendLine("      bestSize = mid;");
+            html.AppendLine("      low = mid;");
+            html.AppendLine("    } else {");
+            html.AppendLine("      high = mid;");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  // Apply the best size found");
+            html.AppendLine("  element.style.fontSize = bestSize + 'px';");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("window.addEventListener('load', function() {");
+            html.AppendLine("  const overlays = document.querySelectorAll('.text-overlay');");
+            html.AppendLine("  overlays.forEach(overlay => {");
+            html.AppendLine("    const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("    if (textContent) fitTextToBox(textContent, overlay);");
+            html.AppendLine("    else fitTextToBox(overlay); // Fallback for overlays without text-content wrapper");
+            html.AppendLine("  });");
+            html.AppendLine("});");
+            html.AppendLine("");
+            html.AppendLine("let currentlyPlayingId = null;");
+            html.AppendLine("");
+            html.AppendLine("function handleAudioIconClick(textObjectId, isSource) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (!icon) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Check if this audio is currently playing");
+            html.AppendLine("  if (currentlyPlayingId === textObjectId) {");
+            html.AppendLine("    // Stop playing");
+            html.AppendLine("    const message = {");
+            html.AppendLine("      kind: 'stopAudio',");
+            html.AppendLine("      textObjectId: textObjectId");
+            html.AppendLine("    };");
+            html.AppendLine("    if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("    }");
+            html.AppendLine("    return;");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  const audioPath = isSource ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
+            html.AppendLine("  if (!audioPath) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update icon to stop icon and add playing class to overlay");
+            html.AppendLine("  icon.textContent = '⏹️';");
+            html.AppendLine("  icon.classList.remove('loading');");
+            html.AppendLine("  overlay.classList.add('playing');");
+            html.AppendLine("  currentlyPlayingId = textObjectId;");
+            html.AppendLine("  ");
+            html.AppendLine("  const message = {");
+            html.AppendLine("    kind: 'playAudio',");
+            html.AppendLine("    textObjectId: textObjectId,");
+            html.AppendLine("    audioPath: audioPath,");
+            html.AppendLine("    isSource: isSource");
+            html.AppendLine("  };");
+            html.AppendLine("  ");
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("// Function to update icon when playback stops");
+            html.AppendLine("function updateAudioIcon(textObjectId, isPlaying) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (!icon) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  if (isPlaying) {");
+            html.AppendLine("    icon.textContent = '⏹️';");
+            html.AppendLine("    icon.classList.remove('loading');");
+            html.AppendLine("    overlay.classList.add('playing');");
+            html.AppendLine("    currentlyPlayingId = textObjectId;");
+            html.AppendLine("  } else {");
+            html.AppendLine("    // Check if audio is ready");
+            html.AppendLine("    const isReady = icon.getAttribute('data-is-ready') === 'true';");
+            html.AppendLine($"    icon.textContent = isReady ? '{ConfigManager.ICON_SPEAKER_READY}' : '{ConfigManager.ICON_SPEAKER_NOT_READY}';");
+            html.AppendLine("    if (!isReady) icon.classList.add('loading');");
+            html.AppendLine("    else icon.classList.remove('loading');");
+            html.AppendLine("    overlay.classList.remove('playing');");
+            html.AppendLine("    if (currentlyPlayingId === textObjectId) {");
+            html.AppendLine("      currentlyPlayingId = null;");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("document.addEventListener('contextmenu', function(event) {");
+            html.AppendLine("  try {");
+            html.AppendLine("    // Find which text overlay was clicked");
+            html.AppendLine("    let target = event.target;");
+            html.AppendLine("    while (target && !target.classList.contains('text-overlay')) {");
+            html.AppendLine("      target = target.parentElement;");
+            html.AppendLine("    }");
+            html.AppendLine("    if (target && target.id) {");
+            html.AppendLine("      const selection = window.getSelection();");
+            html.AppendLine("      const message = {");
+            html.AppendLine("        kind: 'contextmenu',");
+            html.AppendLine("        textObjectId: target.id.replace('overlay-', ''),");
+            html.AppendLine("        x: event.clientX,");
+            html.AppendLine("        y: event.clientY,");
+            html.AppendLine("        selection: selection ? selection.toString() : ''");
+            html.AppendLine("      };");
+            html.AppendLine("      if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("        window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("      }");
+            html.AppendLine("    }");
+            html.AppendLine("    event.preventDefault();");
+            html.AppendLine("  } catch (error) {");
+            html.AppendLine("    console.error(error);");
+            html.AppendLine("  }");
+            html.AppendLine("});");
+            html.AppendLine("</script>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            
+            // Add all text overlays if mode is not Hide
+            if (_currentOverlayMode != OverlayMode.Hide && Logic.Instance != null)
+            {
+                var textObjects = Logic.Instance.GetTextObjects();
+                if (textObjects != null)
+                {
+                    foreach (var textObj in textObjects)
+                    {
+                        if (textObj == null) continue;
+                        
+                        // Determine which text to show
+                        string textToShow;
+                        bool isTranslated = false;
+                        string displayOrientation = textObj.TextOrientation;
+                        
+                        if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated))
+                        {
+                            textToShow = textObj.TextTranslated;
+                            isTranslated = true;
+                            
+                            // Check if target language supports vertical
+                            if (textObj.TextOrientation == "vertical")
+                            {
+                                string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                                if (!IsVerticalSupportedLanguage(targetLang))
+                                {
+                                    displayOrientation = "horizontal";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            textToShow = textObj.Text;
+                        }
+                        
+                        // Get colors with override logic
+                        Color bgColor;
+                        Color textColor;
+                        
+                        if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                        {
+                            bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                        }
+                        else
+                        {
+                            bgColor = textObj.BackgroundColor?.Color ?? Colors.Black;
+                        }
+                        
+                        if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                        {
+                            textColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                        }
+                        else
+                        {
+                            textColor = textObj.TextColor?.Color ?? Colors.White;
+                        }
+                        
+                        // Get font settings
+                        string fontFamily = isTranslated
+                            ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                            : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                        bool isBold = isTranslated
+                            ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                            : ConfigManager.Instance.GetSourceLanguageFontBold();
+                        
+                        // Encode text for HTML (trim to remove leading/trailing whitespace)
+                        // Also normalize internal whitespace
+                        string encodedText = System.Web.HttpUtility.HtmlEncode(textToShow.Trim())
+                            .Replace("\r\n", " ")
+                            .Replace("\r", " ")
+                            .Replace("\n", " ");
+                        
+                        // Apply zoom factor to positions and dimensions
+                        double left = textObj.X * currentZoom;
+                        double top = textObj.Y * currentZoom;
+                        double width = textObj.Width * currentZoom;
+                        double height = textObj.Height * currentZoom;
+                        
+                        // Calculate initial font size based on box height (will be refined by JavaScript)
+                        // Use 70% of height as a starting point, ensuring it's reasonable
+                        double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
+                        
+                        // Build the div for this text object (all on one line to avoid newline issues)
+                        string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
+                            $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
+                            $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
+                            $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
+                            $"font-weight: {(isBold ? "bold" : "normal")}; " +
+                            $"font-size: {initialFontSize}px;";
+                        
+                        string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
+                        html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");
+                        html.Append($"data-source-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.SourceAudioFilePath ?? "")}' ");
+                        html.Append($"data-target-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.TargetAudioFilePath ?? "")}' ");
+                        html.Append($"data-source-ready='{textObj.SourceAudioReady.ToString().ToLower()}' ");
+                        html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'>");
+                        
+                        // Add speaker icon - show if preload is enabled
+                        bool isTtsPreloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
+                        string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                        bool preloadEnabled = isTtsPreloadEnabled && preloadMode != "Off";
+                        
+                        if (preloadEnabled)
+                        {
+                            // Determine which audio should be shown for current mode
+                            bool audioIsReady = false;
+                            bool isSource = true;
+                            
+                            // Only show speaker icon if the EXPECTED audio for current mode is ready
+                            // (no visual fallback - but clicking will still try fallback audio)
+                            if (isTranslated)
+                            {
+                                // In translated mode, only show speaker if target audio is ready
+                                if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                                {
+                                    audioIsReady = true;
+                                    isSource = false;
+                                }
+                                else
+                                {
+                                    // Show hourglass but set isSource for fallback playback if user clicks
+                                    isSource = textObj.SourceAudioReady ? true : false;
+                                }
+                            }
+                            else
+                            {
+                                // In source mode, only show speaker if source audio is ready
+                                if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                                {
+                                    audioIsReady = true;
+                                    isSource = true;
+                                }
+                            }
+                            
+                            // Show icon with appropriate state
+                            string iconEmoji = audioIsReady ? ConfigManager.ICON_SPEAKER_READY : ConfigManager.ICON_SPEAKER_NOT_READY;
+                            string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
+                            html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
+                        }
+                        
+                        // Wrap text in span to isolate it from audio icon in flex layout
+                        html.Append($"<span class='text-content'>{encodedText}</span>");
+                        html.AppendLine("</div>");
+                    }
+                }
+            }
+            
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+            
+            return html.ToString();
+        }
+        
+        private string? _currentContextMenuTextObjectId;
+        private string? _currentContextMenuSelection;
+        
+        private void OverlayWebView_WebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                string message = e.TryGetWebMessageAsString();
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return;
+                }
+                
+                using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(message);
+                System.Text.Json.JsonElement root = document.RootElement;
+                
+                if (root.TryGetProperty("kind", out System.Text.Json.JsonElement kindElement))
+                {
+                    string kind = kindElement.GetString() ?? "";
+                    
+                    if (kind == "contextmenu")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idElement) 
+                            ? idElement.GetString() ?? string.Empty : string.Empty;
+                        double x = root.TryGetProperty("x", out System.Text.Json.JsonElement xElement) ? xElement.GetDouble() : 0;
+                        double y = root.TryGetProperty("y", out System.Text.Json.JsonElement yElement) ? yElement.GetDouble() : 0;
+                        string selection = root.TryGetProperty("selection", out System.Text.Json.JsonElement selectionElement)
+                            ? selectionElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        ShowOverlayContextMenu(textObjectId, x, y, selection);
+                    }
+                    else if (kind == "playAudio")
+                    {
+                        string audioPath = root.TryGetProperty("audioPath", out System.Text.Json.JsonElement audioPathElement)
+                            ? audioPathElement.GetString() ?? string.Empty : string.Empty;
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement textObjectIdElement)
+                            ? textObjectIdElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        if (!string.IsNullOrEmpty(audioPath))
+                        {
+                            // Play audio - the AudioPlaybackManager event will update icons
+                            _ = PlayAudioAndUpdateIcon(audioPath, textObjectId);
+                        }
+                    }
+                    else if (kind == "stopAudio")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement textObjectIdElement)
+                            ? textObjectIdElement.GetString() ?? string.Empty : string.Empty;
+                        
+                        AudioPlaybackManager.Instance.StopCurrentPlayback();
+                        
+                        if (!string.IsNullOrEmpty(textObjectId))
+                        {
+                            UpdateAudioIconInWebView(textObjectId, false);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling overlay WebView message: {ex.Message}");
+            }
+        }
+        
+        private void UpdateAudioIconInWebView(string textObjectId, bool isPlaying)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    string script = $"updateAudioIcon('{textObjectId}', {isPlaying.ToString().ToLower()});";
+                    textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating audio icon in WebView: {ex.Message}");
+            }
+        }
+        
+        private async Task PlayAudioAndUpdateIcon(string audioPath, string textObjectId)
+        {
+            try
+            {
+                await AudioPlaybackManager.Instance.PlayAudioFileAsync(audioPath, textObjectId);
+                
+                // Update icon back to speaker when playback finishes
+                if (!string.IsNullOrEmpty(textObjectId))
+                {
+                    UpdateAudioIconInWebView(textObjectId, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error playing audio: {ex.Message}");
+                if (!string.IsNullOrEmpty(textObjectId))
+                {
+                    UpdateAudioIconInWebView(textObjectId, false);
+                }
+            }
+        }
+        
+        private void OverlayWebView_ContextMenuRequested(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2ContextMenuRequestedEventArgs e)
+        {
+            try
+            {
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error suppressing default WebView2 context menu: {ex.Message}");
+            }
+        }
+        
+        private void ShowOverlayContextMenu(string textObjectId, double clientX, double clientY, string? selection)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(textObjectId))
+                {
+                    return;
+                }
+                
+                _currentContextMenuTextObjectId = textObjectId;
+                _currentContextMenuSelection = string.IsNullOrWhiteSpace(selection) ? null : selection.Trim();
+                
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        // WebView2 coordinates are in content space, need to divide by zoom
+                        // because the imageContainer (which contains the WebView) is scaled
+                        System.Windows.Point contentPoint = new System.Windows.Point(clientX / currentZoom, clientY / currentZoom);
+                        System.Windows.Point relativeToWebView = textOverlayWebView.TranslatePoint(contentPoint, this);
+                        System.Windows.Point screenPoint = this.PointToScreen(relativeToWebView);
+                        
+                        ContextMenu contextMenu = CreateOverlayContextMenu();
+                        contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint;
+                        contextMenu.HorizontalOffset = screenPoint.X;
+                        contextMenu.VerticalOffset = screenPoint.Y;
+                        contextMenu.IsOpen = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error showing context menu: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error preparing context menu: {ex.Message}");
+            }
+        }
+        
+        private ContextMenu CreateOverlayContextMenu()
+        {
+            ContextMenu contextMenu = new ContextMenu();
+            
+            // Copy menu item
+            MenuItem copyMenuItem = new MenuItem();
+            copyMenuItem.Header = "Copy";
+            copyMenuItem.Click += OverlayContextMenu_Copy_Click;
+            contextMenu.Items.Add(copyMenuItem);
+            
+            // Copy Translated menu item (only shown when in Source mode)
+            MenuItem copyTranslatedMenuItem = new MenuItem();
+            copyTranslatedMenuItem.Header = "Copy Translated";
+            copyTranslatedMenuItem.Click += OverlayContextMenu_CopyTranslated_Click;
+            contextMenu.Items.Add(copyTranslatedMenuItem);
+            
+            // Separator
+            contextMenu.Items.Add(new Separator());
+            
+            // Lesson menu item (ChatGPT)
+            MenuItem lessonMenuItem = new MenuItem();
+            lessonMenuItem.Header = "Lesson";
+            lessonMenuItem.Click += OverlayContextMenu_Lesson_Click;
+            contextMenu.Items.Add(lessonMenuItem);
+            
+            // Jisho lookup menu item (jisho.org)
+            MenuItem lookupKanjiMenuItem = new MenuItem();
+            lookupKanjiMenuItem.Header = "Jisho lookup";
+            lookupKanjiMenuItem.Click += OverlayContextMenu_LookupKanji_Click;
+            contextMenu.Items.Add(lookupKanjiMenuItem);
+            
+            // Speak menu item
+            MenuItem speakMenuItem = new MenuItem();
+            speakMenuItem.Header = "Speak";
+            speakMenuItem.Click += OverlayContextMenu_Speak_Click;
+            contextMenu.Items.Add(speakMenuItem);
+            
+            // Speak (source) menu item (only shown when in Translated mode)
+            MenuItem speakSourceMenuItem = new MenuItem();
+            speakSourceMenuItem.Header = "Speak (source)";
+            speakSourceMenuItem.Click += OverlayContextMenu_SpeakSource_Click;
+            contextMenu.Items.Add(speakSourceMenuItem);
+            
+            // Update menu visibility when opened
+            contextMenu.Opened += (s, e) =>
+            {
+                TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+                if (textObj != null)
+                {
+                    copyTranslatedMenuItem.Visibility = _currentOverlayMode == OverlayMode.Source ? Visibility.Visible : Visibility.Collapsed;
+                    copyTranslatedMenuItem.IsEnabled = !string.IsNullOrEmpty(textObj.TextTranslated);
+                    speakSourceMenuItem.Visibility = _currentOverlayMode == OverlayMode.Translated ? Visibility.Visible : Visibility.Collapsed;
+                }
+            };
+            
+            contextMenu.Closed += (s, e) =>
+            {
+                _currentContextMenuTextObjectId = null;
+                _currentContextMenuSelection = null;
+            };
+            
+            return contextMenu;
+        }
+        
+        private TextObject? GetTextObjectById(string? id)
+        {
+            if (string.IsNullOrEmpty(id) || Logic.Instance == null)
+            {
+                return null;
+            }
+            
+            var textObjects = Logic.Instance.GetTextObjects();
+            return textObjects?.FirstOrDefault(t => t.ID == id);
+        }
+        
+        private void OverlayContextMenu_Copy_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToCopy = !string.IsNullOrWhiteSpace(_currentContextMenuSelection) 
+                    ? _currentContextMenuSelection 
+                    : (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) 
+                        ? textObj.TextTranslated 
+                        : textObj.Text);
+                
+                System.Windows.Forms.Clipboard.SetText(textToCopy);
+                UpdateStatus("Text copied to clipboard");
+            }
+        }
+        
+        private void OverlayContextMenu_CopyTranslated_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null && !string.IsNullOrEmpty(textObj.TextTranslated))
+            {
+                System.Windows.Forms.Clipboard.SetText(textObj.TextTranslated);
+                UpdateStatus("Translated text copied to clipboard");
+            }
+        }
+        
+        private void OverlayContextMenu_Lesson_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToLearn = !string.IsNullOrWhiteSpace(_currentContextMenuSelection) 
+                    ? _currentContextMenuSelection 
+                    : textObj.Text;
+                
+                if (!string.IsNullOrWhiteSpace(textToLearn))
+                {
+                    // Get prompt and URL templates from config
+                    string promptTemplate = ConfigManager.Instance.GetLessonPromptTemplate();
+                    string urlTemplate = ConfigManager.Instance.GetLessonUrlTemplate();
+                    
+                    // Format the prompt with the text to learn
+                    string lessonPrompt = string.Format(promptTemplate, textToLearn);
+                    string encodedPrompt = Uri.EscapeDataString(lessonPrompt);
+                    
+                    // Format the URL with the encoded prompt
+                    string lessonUrl = string.Format(urlTemplate, encodedPrompt);
+                    
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = lessonUrl,
+                        UseShellExecute = true
+                    });
+                }
+            }
+        }
+        
+        private void OverlayContextMenu_LookupKanji_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToLearn = !string.IsNullOrWhiteSpace(_currentContextMenuSelection) 
+                    ? _currentContextMenuSelection 
+                    : textObj.Text;
+                
+                if (!string.IsNullOrWhiteSpace(textToLearn))
+                {
+                    string url = $"https://jisho.org/search/{Uri.EscapeDataString(textToLearn)}";
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+            }
+        }
+        
+        private void OverlayContextMenu_Speak_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                string textToSpeak = !string.IsNullOrWhiteSpace(_currentContextMenuSelection)
+                    ? _currentContextMenuSelection
+                    : (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated)
+                        ? textObj.TextTranslated
+                        : textObj.Text);
+                
+                if (!string.IsNullOrWhiteSpace(textToSpeak))
+                {
+                    // Use the configured TTS service
+                    string ttsService = ConfigManager.Instance.GetTtsService();
+                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _ = GoogleTTSService.Instance.SpeakText(textToSpeak);
+                    }
+                    else // Default to ElevenLabs
+                    {
+                        _ = ElevenLabsService.Instance.SpeakText(textToSpeak);
+                    }
+                }
+            }
+        }
+        
+        private void OverlayContextMenu_SpeakSource_Click(object sender, RoutedEventArgs e)
+        {
+            TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+            if (textObj != null)
+            {
+                // Always speak the source text (ignoring selection)
+                string textToSpeak = textObj.Text;
+                
+                if (!string.IsNullOrWhiteSpace(textToSpeak))
+                {
+                    // Use the configured TTS service
+                    string ttsService = ConfigManager.Instance.GetTtsService();
+                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _ = GoogleTTSService.Instance.SpeakText(textToSpeak);
+                    }
+                    else // Default to ElevenLabs
+                    {
+                        _ = ElevenLabsService.Instance.SpeakText(textToSpeak);
+                    }
+                }
+            }
         }
         
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Forward to the central keyboard shortcuts handler
-            KeyboardShortcuts.HandleKeyDown(e);
+            // Only process hotkeys at window level if global hotkeys are disabled
+            // (When global hotkeys are enabled, the global hook handles them)
+            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            {
+                var modifiers = System.Windows.Input.Keyboard.Modifiers;
+                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
+                
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
         }
         
         private void MonitorWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -488,7 +1582,7 @@ namespace UGTLive
         }
         
         // Update the monitor with a bitmap directly (no file saving required)
-        public void UpdateScreenshotFromBitmap(System.Drawing.Bitmap bitmap)
+        public void UpdateScreenshotFromBitmap(System.Drawing.Bitmap bitmap, bool showWindow = true)
         {
             if (!Dispatcher.CheckAccess())
             {
@@ -521,8 +1615,8 @@ namespace UGTLive
                         {
                             captureImage.Source = bitmapSource;
                             
-                            // Show window if needed
-                            if (!IsVisible)
+                            // Show window if needed and requested
+                            if (showWindow && !IsVisible)
                             {
                                 Show();
                             }
@@ -565,8 +1659,8 @@ namespace UGTLive
                     DeleteObject(hBitmap);
                 }
                 
-                // Show the window if not visible
-                if (!IsVisible)
+                // Show the window if not visible and requested
+                if (showWindow && !IsVisible)
                 {
                     Show();
                 }
@@ -707,12 +1801,12 @@ namespace UGTLive
         {
             if (captureImage.Source != null)
             {
-                // Make sure the image and canvas are sized correctly
+                // Make sure the image and WebView are sized correctly
                 if (captureImage.Source is BitmapSource bitmapSource)
                 {
-                    // Set the canvas size to match the image
-                    textOverlayCanvas.Width = bitmapSource.PixelWidth;
-                    textOverlayCanvas.Height = bitmapSource.PixelHeight;
+                    // Set the WebView size to match the image
+                    textOverlayWebView.Width = bitmapSource.PixelWidth;
+                    textOverlayWebView.Height = bitmapSource.PixelHeight;
                     
                     // This ensures the scrollbars will appear when the image is larger
                     // than the available space in the ScrollViewer
@@ -725,15 +1819,12 @@ namespace UGTLive
         // Handle TextObject added event
         public void CreateMonitorOverlayFromTextObject(object? sender, TextObject textObject)
         {
-
-
-
             try
             {
-                // Check for null references
-                if (textObject == null || textOverlayCanvas == null)
+                using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.CreateOverlayFromTextObject");
+                if (textObject == null)
                 {
-                    Console.WriteLine("Warning: TextObject or Canvas is null in OnTextObjectAdded");
+                    Console.WriteLine("Warning: TextObject is null in CreateMonitorOverlayFromTextObject");
                     return;
                 }
                 
@@ -746,91 +1837,8 @@ namespace UGTLive
                     );
                 }
                 
-                // Get original colors
-                var (originalBgColor, originalTextColor) = _originalColors[textObject.ID];
-                
-                // Apply override colors if enabled, otherwise restore originals
-                if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
-                {
-                    Color overrideBgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
-                    textObject.BackgroundColor = new SolidColorBrush(overrideBgColor);
-                }
-                else
-                {
-                    // Restore original background color
-                    textObject.BackgroundColor = originalBgColor.Clone();
-                }
-                
-                if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
-                {
-                    Color overrideFontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
-                    textObject.TextColor = new SolidColorBrush(overrideFontColor);
-                }
-                else
-                {
-                    // Restore original text color
-                    textObject.TextColor = originalTextColor.Clone();
-                }
-                
-                // We need to create a NEW UI element with positioning appropriate for Canvas
-                // but we'll use the existing Border and WebView references so updates work
-                Border? border = textObject.Border;
-                if (border == null || border.Child == null)
-                {
-                    textObject.CreateUIElement(useRelativePosition: false);
-                    border = textObject.Border;
-                }
-                else
-                {
-                    // Update existing UI element with current colors (override or original)
-                    border.Background = textObject.BackgroundColor;
-                }
-                
-                // Update WebView overlays with the current overlay mode
-                // This ensures correct text and orientation are displayed
-                if (textObject.WebView != null)
-                {
-                    textObject.UpdateUIElement(_currentOverlayMode);
-                }
-
-                if (border == null)
-                {
-                    Console.WriteLine("Warning: TextObject.Border is null");
-                    return;
-                }
-
-                border.Margin = new Thickness(0);
-
-                textObject.TextCopied -= TextObject_TextCopied;
-                textObject.TextCopied += TextObject_TextCopied;
-
-                if (!_overlayElements.TryGetValue(textObject.ID, out Border? existingBorder) || existingBorder != border)
-                {
-                    if (existingBorder != null)
-                    {
-                        textOverlayCanvas.Children.Remove(existingBorder);
-                    }
-
-                    if (!textOverlayCanvas.Children.Contains(border))
-                    {
-                        textOverlayCanvas.Children.Add(border);
-                    }
-
-                    _overlayElements[textObject.ID] = border;
-                }
-
-                Canvas.SetLeft(border, textObject.X);
-                Canvas.SetTop(border, textObject.Y);
-                
-                // Set visibility last, after all content updates and positioning
-                if (_currentOverlayMode == OverlayMode.Hide)
-                {
-                    border.Visibility = Visibility.Collapsed;
-                }
-                else
-                {
-                    border.Visibility = Visibility.Visible;
-                }
+                // Trigger WebView update
+                UpdateOverlayWebView();
             }
             catch (Exception ex)
             {
@@ -871,9 +1879,144 @@ namespace UGTLive
             }
         }
         
-        // Export current view to browser
-        private void ExportToBrowser()
+        private void PlayAllAudioButton_Click(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                // If currently playing all, stop it
+                if (AudioPlaybackManager.Instance.IsPlayingAll())
+                {
+                    AudioPlaybackManager.Instance.StopCurrentPlayback();
+                    return;
+                }
+                
+                var textObjects = Logic.Instance?.GetTextObjects();
+                if (textObjects == null || textObjects.Count == 0)
+                {
+                    // Show info message explaining why there's nothing to play
+                    System.Windows.MessageBox.Show(
+                        "There is no text detected on the current screen to play.\n\n" +
+                        "To enable page reading features:\n" +
+                        "1. Open Settings and go to 'Page Reading' tab\n" +
+                        "2. Enable 'Preload audio' and configure preload options\n" +
+                        "3. Enable 'Auto play all after preloading' if desired\n" +
+                        "4. Resize and position the capture area over text you want to read\n" +
+                        "5. Click the 'Start' button in the main window to begin OCR capture\n\n" +
+                        "Once running, audio will automatically preload and play when text is detected.",
+                        "No Text to Play",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+                
+                // Determine which audio to play based on overlay mode
+                string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
+                bool useSourceAudio = overlayMode != "Translated";
+                
+                // Get play order setting
+                string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+                
+                // Play all audio
+                _ = AudioPlaybackManager.Instance.PlayAllAudioAsync(textObjects.ToList(), playOrder, useSourceAudio);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in PlayAllAudioButton_Click: {ex.Message}");
+            }
+        }
+        
+        private void AudioPlaybackManager_PlayAllStateChanged(object? sender, bool isPlaying)
+        {
+            try
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"MonitorWindow: AudioPlaybackManager_PlayAllStateChanged: isPlaying={isPlaying}, updating button");
+                }
+                if (playAllAudioButton != null)
+                {
+                    if (isPlaying)
+                    {
+                        playAllAudioButton.Content = "🔇 Stop";
+                        playAllAudioButton.ToolTip = "Stop playing all audio";
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"MonitorWindow: Play All button updated to: 🔇 Stop");
+                        }
+                    }
+                    else
+                    {
+                        playAllAudioButton.Content = "🔊 All";
+                        playAllAudioButton.ToolTip = "Play all audio files in order";
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"MonitorWindow: Play All button updated to: 🔊 All");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("MonitorWindow: playAllAudioButton is null!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating Play All button: {ex.Message}");
+            }
+        }
+        
+        private void AudioPlaybackManager_CurrentPlayingTextObjectChanged(object? sender, string? textObjectId)
+        {
+            try
+            {
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                    // Update all icons and overlays - set playing one to stop icon with playing class
+                    string script = $@"
+                        (function() {{
+                            const allOverlays = document.querySelectorAll('.text-overlay');
+                            allOverlays.forEach(overlay => {{
+                                const icon = overlay.querySelector('.audio-icon');
+                                if (icon) {{
+                                    const overlayId = overlay.id.replace('overlay-', '');
+                                    if (overlayId === '{textObjectId ?? ""}') {{
+                                        icon.textContent = '⏹️';
+                                        icon.classList.remove('loading');
+                                        overlay.classList.add('playing');
+                                    }} else {{
+                                        const isReady = icon.getAttribute('data-is-ready') === 'true';
+                                        icon.textContent = isReady ? '{ConfigManager.ICON_SPEAKER_READY}' : '{ConfigManager.ICON_SPEAKER_NOT_READY}';
+                                        if (!isReady) icon.classList.add('loading');
+                                        else icon.classList.remove('loading');
+                                        overlay.classList.remove('playing');
+                                    }}
+                                }}
+                            }});
+                        }})();
+                    ";
+                    textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating playing icon: {ex.Message}");
+            }
+        }
+        
+        // Export current view to browser
+        public void ExportToBrowser()
+        {
+            // Always read overlay mode from config to ensure we have the latest value
+            // (especially important if window hasn't been opened yet)
+            string overlayMode = ConfigManager.Instance.GetMonitorOverlayMode();
+            _currentOverlayMode = overlayMode switch
+            {
+                "Hide" => OverlayMode.Hide,
+                "Source" => OverlayMode.Source,
+                "Translated" => OverlayMode.Translated,
+                _ => OverlayMode.Translated
+            };
+            
             // Check if we have an image to export
             if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
             {
@@ -881,14 +2024,18 @@ namespace UGTLive
                 return;
             }
             
-            // Create temp directory
-            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
-            Directory.CreateDirectory(tempDir);
+            // Create temp/html directory
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string htmlDir = Path.Combine(appDirectory, "temp", "html");
+            Directory.CreateDirectory(htmlDir);
             
             // Generate filenames with timestamp to avoid conflicts
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string imagePath = Path.Combine(tempDir, $"monitor_image_{timestamp}.png");
-            string htmlPath = Path.Combine(tempDir, $"monitor_view_{timestamp}.html");
+            string imagePath = Path.Combine(htmlDir, $"monitor_image_{timestamp}.png");
+            string htmlPath = Path.Combine(htmlDir, $"monitor_view_{timestamp}.html");
+            
+            // Copy audio files to export directory (same as HTML file)
+            CopyAudioFilesForExport(htmlDir);
             
             // Save the image with zoom applied
             SaveImageWithZoom(bitmapSource, imagePath);
@@ -937,6 +2084,46 @@ namespace UGTLive
             }
         }
         
+        private void CopyAudioFilesForExport(string htmlDir)
+        {
+            try
+            {
+                var textObjects = Logic.Instance?.GetTextObjects();
+                if (textObjects == null || textObjects.Count == 0)
+                {
+                    return;
+                }
+                
+                // Copy audio files to html directory (same location as HTML file)
+                foreach (var textObj in textObjects)
+                {
+                    if (textObj == null) continue;
+                    
+                    // Copy source audio if available
+                    if (!string.IsNullOrEmpty(textObj.SourceAudioFilePath) && File.Exists(textObj.SourceAudioFilePath))
+                    {
+                        string fileName = Path.GetFileName(textObj.SourceAudioFilePath);
+                        string destPath = Path.Combine(htmlDir, fileName);
+                        // Always copy to ensure latest version is available
+                        File.Copy(textObj.SourceAudioFilePath, destPath, overwrite: true);
+                    }
+                    
+                    // Copy target audio if available
+                    if (!string.IsNullOrEmpty(textObj.TargetAudioFilePath) && File.Exists(textObj.TargetAudioFilePath))
+                    {
+                        string fileName = Path.GetFileName(textObj.TargetAudioFilePath);
+                        string destPath = Path.Combine(htmlDir, fileName);
+                        // Always copy to ensure latest version is available
+                        File.Copy(textObj.TargetAudioFilePath, destPath, overwrite: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error copying audio files for export: {ex.Message}");
+            }
+        }
+        
         private string GenerateHtml(string imagePath, int originalWidth, int originalHeight)
         {
             StringBuilder html = new StringBuilder();
@@ -956,8 +2143,8 @@ namespace UGTLive
             html.AppendLine(".content-wrapper { display: flex; flex-direction: column; align-items: center; padding-top: 60px; }");
             html.AppendLine(".container { position: relative; display: inline-block; transform: translateZ(0); will-change: auto; }");
             html.AppendLine(".monitor-image { display: block; transform: translateZ(0); will-change: auto; }");
-            html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: hidden; }");
-            html.AppendLine(".text-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
+            html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: visible; display: flex; align-items: center; justify-content: flex-start; padding: 2px; }");
+            html.AppendLine(".text-content { flex: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
             html.AppendLine(".controls-container { position: fixed; top: 10px; left: 0; right: 0; z-index: 1000; display: flex; justify-content: center; }");
             html.AppendLine(".controls { background-color: #202020; padding: 10px 20px; border-radius: 5px; display: inline-block; }");
             html.AppendLine(".controls button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }");
@@ -966,6 +2153,48 @@ namespace UGTLive
             html.AppendLine(".footer { background-color: rgba(0,0,0,0.8); color: white; padding: 10px; text-align: center; font-size: 14px; width: 100%; }");
             html.AppendLine(".footer a { color: #00aaff; text-decoration: none; }");
             html.AppendLine(".footer a:hover { text-decoration: underline; }");
+            html.AppendLine(".audio-icon {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  top: 0px;"); // Align with top of text box
+            html.AppendLine("  left: -24px;"); // Position outside to the left
+            html.AppendLine("  width: 20px;");
+            html.AppendLine("  height: 20px;");
+            html.AppendLine("  cursor: pointer;");
+            html.AppendLine("  font-size: 16px;");
+            html.AppendLine("  z-index: 10;");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.5);");
+            html.AppendLine("  border-radius: 3px;");
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:hover {");
+            html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading {");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #cc0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon.loading:hover {");
+            html.AppendLine("  background: transparent;");
+            html.AppendLine("  color: #ff0000 !important;");
+            html.AppendLine("  font-size: 20px !important;");
+            html.AppendLine("  line-height: 1;");
+            html.AppendLine("}");
+            html.AppendLine(".audio-icon:not(.loading) {");
+            html.AppendLine("  filter: grayscale(0.7) sepia(0.3) hue-rotate(10deg) saturate(0.6) brightness(1.1);");
+            html.AppendLine("}");
+            html.AppendLine(".text-overlay.playing {");
+            html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
+            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
+            html.AppendLine("}");
+            html.AppendLine("@keyframes playingPulse {");
+            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
+            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
+            html.AppendLine("}");
             
             // Add font imports if needed
             html.AppendLine("</style>");
@@ -993,66 +2222,85 @@ namespace UGTLive
             html.AppendLine("<div class=\"container\">");
             html.AppendLine($"<img class=\"monitor-image\" src=\"{imageFileName}\" width=\"{(int)(originalWidth * currentZoom)}\" height=\"{(int)(originalHeight * currentZoom)}\">");
             
-            // Add text overlays
-            foreach (var kvp in _overlayElements)
+            // Add text overlays from Logic
+            var textObjects = Logic.Instance?.GetTextObjects();
+            if (textObjects != null)
             {
-                string textObjectId = kvp.Key;
-                Border border = kvp.Value;
-                
-                // Get the corresponding TextObject
-                TextObject? textObj = Logic.Instance.GetTextObjects().FirstOrDefault(t => t.ID == textObjectId);
-                if (textObj == null) continue;
-                
-                // Get position with zoom applied
-                double left = Canvas.GetLeft(border) * currentZoom;
-                double top = Canvas.GetTop(border) * currentZoom;
-                
-                // Use TextObject dimensions when border is collapsed (Hidden mode)
-                // If ActualWidth/Height are 0 (collapsed), use TextObject dimensions
-                double width = border.ActualWidth > 0 
-                    ? border.ActualWidth * currentZoom
-                    : textObj.Width > 0 
+                foreach (var textObj in textObjects)
+                {
+                    if (textObj == null) continue;
+                    
+                    // Get position with zoom applied
+                    double left = textObj.X * currentZoom;
+                    double top = textObj.Y * currentZoom;
+                    
+                    // Use TextObject dimensions with zoom
+                    double width = textObj.Width > 0 
                         ? textObj.Width * currentZoom 
                         : 200 * currentZoom; // Default fallback width
                         
-                double height = border.ActualHeight > 0 
-                    ? border.ActualHeight * currentZoom
-                    : textObj.Height > 0 
+                    double height = textObj.Height > 0 
                         ? textObj.Height * currentZoom 
                         : 100 * currentZoom; // Default fallback height
-                
-                // Get colors
-                string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
-                string textColor = ColorToHex(textObj.TextColor?.Color ?? Colors.White);
-                
-                // Determine font settings based on translation state
-                bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
-                string fontFamily = isTranslated
-                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
-                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
-                bool isBold = isTranslated
-                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
-                    : ConfigManager.Instance.GetSourceLanguageFontBold();
-                
-                // Get both source and translated text
-                string sourceText = textObj.Text;
-                string translatedText = textObj.TextTranslated;
-                
-                // Escape both texts for HTML
-                string escapedSourceText = System.Web.HttpUtility.HtmlEncode(sourceText).Replace("\n", "<br>");
-                string escapedTranslatedText = System.Web.HttpUtility.HtmlEncode(translatedText).Replace("\n", "<br>");
-                
-                // Default to source text for initial display (matching the radio button default)
-                string displayText = escapedSourceText;
-                
-                // Calculate font size with zoom
-                double fontSize = 24 * currentZoom; // Default font size with zoom
-                
-                // Generate overlay div with unique ID for text fitting and data attributes for both texts
-                html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObjectId}\" " +
-                    $"data-source-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceText)}\" " +
-                    $"data-translated-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(translatedText)}\" " +
-                    $"data-original-font-size=\"{fontSize}\" style=\"");
+                    
+                    // Get colors
+                    string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
+                    string textColor = ColorToHex(textObj.TextColor?.Color ?? Colors.White);
+                    
+                    // Determine font settings based on translation state
+                    bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
+                    string fontFamily = isTranslated
+                        ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                        : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                    bool isBold = isTranslated
+                        ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                        : ConfigManager.Instance.GetSourceLanguageFontBold();
+                    
+                    // Get both source and translated text
+                    string sourceText = textObj.Text;
+                    string translatedText = textObj.TextTranslated;
+                    
+                    // Escape both texts for HTML
+                    string escapedSourceText = System.Web.HttpUtility.HtmlEncode(sourceText).Replace("\n", "<br>");
+                    string escapedTranslatedText = System.Web.HttpUtility.HtmlEncode(translatedText).Replace("\n", "<br>");
+                    
+                    // Use text based on current overlay mode
+                    string displayText;
+                    if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(translatedText))
+                    {
+                        displayText = escapedTranslatedText;
+                    }
+                    else
+                    {
+                        displayText = escapedSourceText;
+                    }
+                    
+                    // Calculate font size with zoom
+                    double fontSize = 24 * currentZoom; // Default font size with zoom
+                    
+                    // Get relative audio file paths for export
+                    string sourceAudioPath = "";
+                    string targetAudioPath = "";
+                    if (!string.IsNullOrEmpty(textObj.SourceAudioFilePath) && File.Exists(textObj.SourceAudioFilePath))
+                    {
+                        string fileName = Path.GetFileName(textObj.SourceAudioFilePath);
+                        sourceAudioPath = fileName; // Relative path in export directory
+                    }
+                    if (!string.IsNullOrEmpty(textObj.TargetAudioFilePath) && File.Exists(textObj.TargetAudioFilePath))
+                    {
+                        string fileName = Path.GetFileName(textObj.TargetAudioFilePath);
+                        targetAudioPath = fileName; // Relative path in export directory
+                    }
+                    
+                    // Generate overlay div with unique ID for text fitting and data attributes for both texts
+                    html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObj.ID}\" " +
+                        $"data-source-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceText)}\" " +
+                        $"data-translated-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(translatedText)}\" " +
+                        $"data-source-audio=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceAudioPath)}\" " +
+                        $"data-target-audio=\"{System.Web.HttpUtility.HtmlAttributeEncode(targetAudioPath)}\" " +
+                        $"data-source-ready=\"{textObj.SourceAudioReady.ToString().ToLower()}\" " +
+                        $"data-target-ready=\"{textObj.TargetAudioReady.ToString().ToLower()}\" " +
+                        $"data-original-font-size=\"{fontSize}\" style=\"");
                 html.AppendLine($"  left: {left}px;");
                 html.AppendLine($"  top: {top}px;");
                 html.AppendLine($"  width: {width}px;");
@@ -1062,42 +2310,89 @@ namespace UGTLive
                 html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
                 html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
                 html.AppendLine($"  font-size: {fontSize}px;");
-                html.AppendLine($"  padding: 0;");
-                html.AppendLine($"  margin: 0;");
-                html.AppendLine($"  line-height: 1.2;");
-                
-                // Add data attributes for orientation
-                html.AppendLine($"\" data-orientation=\"{textObj.TextOrientation}\">");
-                
-                // Add inner div for text content with orientation support
-                string initialOrientation = textObj.TextOrientation;
-                
-                // Only modify orientation if we're in Translated mode AND showing translated text
-                if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) && textObj.TextOrientation == "vertical")
-                {
-                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
-                    if (!IsVerticalSupportedLanguage(targetLang))
+                    html.AppendLine($"  padding: 0;");
+                    html.AppendLine($"  margin: 0;");
+                    html.AppendLine($"  line-height: 1.2;");
+                    
+                    // Set initial display based on overlay mode
+                    string initialDisplay = _currentOverlayMode == OverlayMode.Hide ? "none" : "flex";
+                    html.AppendLine($"  display: {initialDisplay};");
+                    
+                    // Add data attributes for orientation
+                    html.AppendLine($"\" data-orientation=\"{textObj.TextOrientation}\">");
+                    
+                    // Add speaker icon FIRST - as sibling to text-content, show if preload is enabled
+                    bool isTtsPreloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
+                    string preloadMode = ConfigManager.Instance.GetTtsPreloadMode();
+                    bool preloadEnabled = isTtsPreloadEnabled && preloadMode != "Off";
+                    
+                    if (preloadEnabled)
                     {
-                        initialOrientation = "horizontal";
+                        // Determine which audio should be shown based on CURRENT overlay mode (not just translation availability)
+                        bool audioIsReady = false;
+                        bool isSource = true;
+                        
+                        // Only show speaker icon if the EXPECTED audio for current mode is ready
+                        // (no visual fallback - but clicking will still try fallback audio)
+                        if (_currentOverlayMode == OverlayMode.Translated)
+                        {
+                            // In translated mode, only show speaker if target audio is ready
+                            if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                            {
+                                audioIsReady = true;
+                                isSource = false;
+                            }
+                            else
+                            {
+                                // Show hourglass but set isSource for fallback playback if user clicks
+                                isSource = textObj.SourceAudioReady ? true : false;
+                            }
+                        }
+                        else
+                        {
+                            // In source mode, only show speaker if source audio is ready
+                            if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                            {
+                                audioIsReady = true;
+                                isSource = true;
+                            }
+                        }
+                        
+                        // Show icon with appropriate state
+                        string iconEmoji = audioIsReady ? ConfigManager.ICON_SPEAKER_READY : ConfigManager.ICON_SPEAKER_NOT_READY;
+                        string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
+                        html.AppendLine($"<div class=\"{iconClass}\" data-is-ready=\"{audioIsReady.ToString().ToLower()}\" onclick=\"handleAudioIconClick('{textObj.ID}', {isSource.ToString().ToLower()})\">{iconEmoji}</div>");
                     }
-                }
-                
-                html.AppendLine($"<div class=\"text-content\" style=\"");
-                if (initialOrientation == "vertical")
-                {
-                    html.AppendLine($"  writing-mode: vertical-rl;");
-                    html.AppendLine($"  text-orientation: upright;");
+                    
+                    // Add inner div for text content with orientation support
+                    string initialOrientation = textObj.TextOrientation;
+                    
+                    // Only modify orientation if we're in Translated mode AND showing translated text
+                    if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated) && textObj.TextOrientation == "vertical")
+                    {
+                        string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                        if (!IsVerticalSupportedLanguage(targetLang))
+                        {
+                            initialOrientation = "horizontal";
+                        }
+                    }
+                    
+                    html.AppendLine($"<span class=\"text-content\" style=\"");
+                    html.AppendLine($"  flex: 1;");
                     html.AppendLine($"  display: flex;");
                     html.AppendLine($"  align-items: center;");
                     html.AppendLine($"  justify-content: center;");
                     html.AppendLine($"  width: 100%;");
                     html.AppendLine($"  height: 100%;");
+                    if (initialOrientation == "vertical")
+                    {
+                        html.AppendLine($"  writing-mode: vertical-rl;");
+                        html.AppendLine($"  text-orientation: upright;");
+                    }
+                    
+                    html.AppendLine($"\">{displayText}</span>");
+                    html.AppendLine("</div>");
                 }
-                
-                html.AppendLine($"\">");
-                html.AppendLine($"<span class=\"overlay-content\">{displayText}</span>");
-                html.AppendLine("</div>");
-                html.AppendLine("</div>");
             }
             
             html.AppendLine("</div>"); // End container
@@ -1137,14 +2432,13 @@ namespace UGTLive
             html.AppendLine("    if (mode === 'hide') {");
             html.AppendLine("      overlay.style.display = 'none';");
             html.AppendLine("    } else {");
-            html.AppendLine("      overlay.style.display = 'block';");
+            html.AppendLine("      overlay.style.display = 'flex';");
             html.AppendLine("      ");
             html.AppendLine("      // Get the appropriate text based on mode");
             html.AppendLine("      const sourceText = overlay.getAttribute('data-source-text') || '';");
             html.AppendLine("      const translatedText = overlay.getAttribute('data-translated-text') || '';");
             html.AppendLine("      const originalOrientation = overlay.getAttribute('data-orientation') || 'horizontal';");
-            html.AppendLine("      const contentSpan = overlay.querySelector('.overlay-content');");
-            html.AppendLine("      const textContentDiv = overlay.querySelector('.text-content');");
+            html.AppendLine("      const contentSpan = overlay.querySelector('.text-content');");
             html.AppendLine("      ");
             html.AppendLine("      if (contentSpan) {");
             html.AppendLine("        if (mode === 'translated' && translatedText) {");
@@ -1156,26 +2450,53 @@ namespace UGTLive
             html.AppendLine("      }");
             html.AppendLine("      ");
             html.AppendLine("      // Handle orientation");
-            html.AppendLine("      if (textContentDiv) {");
+            html.AppendLine("      if (contentSpan) {");
             html.AppendLine("        if (mode === 'source' || (mode === 'translated' && !translatedText)) {");
             html.AppendLine("          // Show source orientation");
             html.AppendLine("          if (originalOrientation === 'vertical') {");
-            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
-            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("            contentSpan.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            contentSpan.style.textOrientation = 'upright';");
             html.AppendLine("          } else {");
-            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
-            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("            contentSpan.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            contentSpan.style.textOrientation = 'mixed';");
             html.AppendLine("          }");
             html.AppendLine("        } else if (mode === 'translated') {");
             html.AppendLine("          // For translated, check if target supports vertical");
             html.AppendLine("          if (originalOrientation === 'vertical' && targetSupportsVertical) {");
-            html.AppendLine("            textContentDiv.style.writingMode = 'vertical-rl';");
-            html.AppendLine("            textContentDiv.style.textOrientation = 'upright';");
+            html.AppendLine("            contentSpan.style.writingMode = 'vertical-rl';");
+            html.AppendLine("            contentSpan.style.textOrientation = 'upright';");
             html.AppendLine("          } else {");
-            html.AppendLine("            textContentDiv.style.writingMode = 'horizontal-tb';");
-            html.AppendLine("            textContentDiv.style.textOrientation = 'mixed';");
+            html.AppendLine("            contentSpan.style.writingMode = 'horizontal-tb';");
+            html.AppendLine("            contentSpan.style.textOrientation = 'mixed';");
             html.AppendLine("          }");
             html.AppendLine("        }");
+            html.AppendLine("      }");
+            html.AppendLine("      ");
+            html.AppendLine("      // Update speaker icon based on mode");
+            html.AppendLine("      const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("      if (icon) {");
+            html.AppendLine("        const sourceReady = overlay.getAttribute('data-source-ready') === 'true';");
+            html.AppendLine("        const targetReady = overlay.getAttribute('data-target-ready') === 'true';");
+            html.AppendLine("        let audioIsReady = false;");
+            html.AppendLine("        ");
+            html.AppendLine("        if (mode === 'translated') {");
+            html.AppendLine("          // In translated mode, check if target audio is ready");
+            html.AppendLine("          audioIsReady = targetReady;");
+            html.AppendLine("        } else {");
+            html.AppendLine("          // In source mode, check if source audio is ready");
+            html.AppendLine("          audioIsReady = sourceReady;");
+            html.AppendLine("        }");
+            html.AppendLine("        ");
+            html.AppendLine("        // Update icon appearance");
+            html.AppendLine($"        icon.textContent = audioIsReady ? '{ConfigManager.ICON_SPEAKER_READY}' : '{ConfigManager.ICON_SPEAKER_NOT_READY}';");
+            html.AppendLine("        if (audioIsReady) {");
+            html.AppendLine("          icon.classList.remove('loading');");
+            html.AppendLine("        } else {");
+            html.AppendLine("          icon.classList.add('loading');");
+            html.AppendLine("        }");
+            html.AppendLine("        ");
+            html.AppendLine("        // Update data-is-ready attribute for future reference");
+            html.AppendLine("        icon.setAttribute('data-is-ready', audioIsReady.toString());");
             html.AppendLine("      }");
             html.AppendLine("    }");
             html.AppendLine("  }");
@@ -1186,61 +2507,117 @@ namespace UGTLive
             html.AppendLine("  }");
             html.AppendLine("}");
             html.AppendLine("");
+            html.AppendLine("function handleAudioIconClick(textObjectId, isSource) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Determine which audio to play based on current overlay mode");
+            html.AppendLine("  // Ignore the isSource parameter and check current mode instead");
+            html.AppendLine("  let useSourceAudio = false;");
+            html.AppendLine("  if (currentOverlayMode === 'source') {");
+            html.AppendLine("    useSourceAudio = true;");
+            html.AppendLine("  } else if (currentOverlayMode === 'translated') {");
+            html.AppendLine("    useSourceAudio = false;");
+            html.AppendLine("  } else {");
+            html.AppendLine("    // Fallback: use the isSource parameter if mode is not set");
+            html.AppendLine("    useSourceAudio = isSource;");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  // Get the appropriate audio path");
+            html.AppendLine("  let audioPath = useSourceAudio ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
+            html.AppendLine("  ");
+            html.AppendLine("  // If the preferred audio is not available, try the other one");
+            html.AppendLine("  if (!audioPath || audioPath === '') {");
+            html.AppendLine("    audioPath = useSourceAudio ? overlay.getAttribute('data-target-audio') : overlay.getAttribute('data-source-audio');");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  if (!audioPath || audioPath === '') return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Check if audio is already playing");
+            html.AppendLine("  const existingAudio = overlay._currentAudio;");
+            html.AppendLine("  if (existingAudio && !existingAudio.paused) {");
+            html.AppendLine("    // Stop playing");
+            html.AppendLine("    existingAudio.pause();");
+            html.AppendLine("    existingAudio.currentTime = 0;");
+            html.AppendLine("    overlay._currentAudio = null;");
+            html.AppendLine("    const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine($"    if (icon) icon.textContent = '{ConfigManager.ICON_SPEAKER_READY}';");
+            html.AppendLine("    return;");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  // Create audio element and play");
+            html.AppendLine("  const audio = new Audio(audioPath);");
+            html.AppendLine("  overlay._currentAudio = audio;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update icon to stop icon while playing");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (icon) {");
+            html.AppendLine("    icon.textContent = '⏸️';");
+            html.AppendLine("    ");
+            html.AppendLine("    audio.addEventListener('ended', function() {");
+            html.AppendLine($"      icon.textContent = '{ConfigManager.ICON_SPEAKER_READY}';");
+            html.AppendLine("      overlay._currentAudio = null;");
+            html.AppendLine("    });");
+            html.AppendLine("    ");
+            html.AppendLine("    audio.addEventListener('error', function() {");
+            html.AppendLine($"      icon.textContent = '{ConfigManager.ICON_SPEAKER_READY}';");
+            html.AppendLine("      overlay._currentAudio = null;");
+            html.AppendLine("      console.error('Error playing audio:', audioPath);");
+            html.AppendLine("    });");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  audio.play().catch(err => {");
+            html.AppendLine("    console.error('Error playing audio:', err);");
+            html.AppendLine("    const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine($"    if (icon) icon.textContent = '{ConfigManager.ICON_SPEAKER_READY}';");
+            html.AppendLine("    overlay._currentAudio = null;");
+            html.AppendLine("  });");
+            html.AppendLine("}");
+            html.AppendLine("");
             html.AppendLine("// Function to scale text to fit within its container");
-            html.AppendLine("function fitTextToContainer(overlay) {");
+            html.AppendLine("function fitTextToContainer(element, container) {");
             html.AppendLine("  try {");
-            html.AppendLine("    const originalFontSize = parseFloat(overlay.getAttribute('data-original-font-size')) || parseFloat(getComputedStyle(overlay).fontSize);");
-            html.AppendLine("    const containerWidth = overlay.offsetWidth;");
-            html.AppendLine("    const containerHeight = overlay.offsetHeight;");
+            html.AppendLine("    const sizeRef = container || element;");
+            html.AppendLine("    const minSize = 8;");
+            html.AppendLine("    const maxSize = 128;");
             html.AppendLine("    ");
-            html.AppendLine("    if (containerWidth <= 0 || containerHeight <= 0) return;");
-            html.AppendLine("    ");
-            html.AppendLine("    // Check if this is vertical text");
-            html.AppendLine("    const computedStyle = getComputedStyle(overlay);");
+            html.AppendLine("    // Get computed style to check for padding and vertical text");
+            html.AppendLine("    const computedStyle = window.getComputedStyle(sizeRef);");
             html.AppendLine("    const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
             html.AppendLine("    ");
-            html.AppendLine("    // Temporarily change overflow to auto to measure scroll dimensions");
-            html.AppendLine("    const originalOverflow = overlay.style.overflow;");
-            html.AppendLine("    overlay.style.overflow = 'auto';");
+            html.AppendLine("    // Calculate initial font size based on box dimensions");
+            html.AppendLine("    const boxHeight = sizeRef.clientHeight;");
+            html.AppendLine("    const boxWidth = sizeRef.clientWidth;");
+            html.AppendLine("    let estimatedSize;");
+            html.AppendLine("    if (isVertical) {");
+            html.AppendLine("      estimatedSize = Math.floor(boxWidth * 0.7);");
+            html.AppendLine("    } else {");
+            html.AppendLine("      estimatedSize = Math.floor(boxHeight * 0.7);");
+            html.AppendLine("    }");
+            html.AppendLine("    estimatedSize = Math.max(minSize, Math.min(maxSize, estimatedSize));");
             html.AppendLine("    ");
-            html.AppendLine("    // Check current scroll dimensions");
-            html.AppendLine("    const scrollWidth = overlay.scrollWidth;");
-            html.AppendLine("    const scrollHeight = overlay.scrollHeight;");
+            html.AppendLine("    let bestSize = minSize;");
             html.AppendLine("    ");
-            html.AppendLine("    // Restore overflow");
-            html.AppendLine("    overlay.style.overflow = originalOverflow || 'hidden';");
+            html.AppendLine("    // Binary search for the best font size");
+            html.AppendLine("    let low = minSize;");
+            html.AppendLine("    let high = maxSize;");
             html.AppendLine("    ");
-            html.AppendLine("    // Check if text already fits");
-            html.AppendLine("    const fitsWidth = scrollWidth <= containerWidth;");
-            html.AppendLine("    const fitsHeight = scrollHeight <= containerHeight;");
-            html.AppendLine("    ");
-            html.AppendLine("    if (fitsWidth && fitsHeight) {");
-            html.AppendLine("      return; // Text already fits");
+            html.AppendLine("    while (high - low > 0.5) {");
+            html.AppendLine("      const mid = (low + high) / 2;");
+            html.AppendLine("      element.style.fontSize = mid + 'px';");
+            html.AppendLine("      ");
+            html.AppendLine("      const fitsHeight = element.scrollHeight <= element.clientHeight;");
+            html.AppendLine("      const fitsWidth = element.scrollWidth <= element.clientWidth;");
+            html.AppendLine("      ");
+            html.AppendLine("      if (fitsHeight && fitsWidth) {");
+            html.AppendLine("        bestSize = mid;");
+            html.AppendLine("        low = mid;");
+            html.AppendLine("      } else {");
+            html.AppendLine("        high = mid;");
+            html.AppendLine("      }");
             html.AppendLine("    }");
             html.AppendLine("    ");
-            html.AppendLine("    // Calculate scale factor needed");
-            html.AppendLine("    let scaleFactor = 1;");
-            html.AppendLine("    if (!fitsWidth) {");
-            html.AppendLine("      scaleFactor = Math.min(scaleFactor, containerWidth / scrollWidth);");
-            html.AppendLine("    }");
-            html.AppendLine("    if (!fitsHeight) {");
-            html.AppendLine("      scaleFactor = Math.min(scaleFactor, containerHeight / scrollHeight);");
-            html.AppendLine("    }");
-            html.AppendLine("    ");
-            html.AppendLine("    // Apply scaled font size (with a small safety margin to prevent edge cases)");
-            html.AppendLine("    const newFontSize = Math.max(1, originalFontSize * scaleFactor * 0.98);");
-            html.AppendLine("    overlay.style.fontSize = newFontSize + 'px';");
-            html.AppendLine("    ");
-            html.AppendLine("    // Verify it fits after scaling (iterative refinement if needed)");
-            html.AppendLine("    overlay.style.overflow = 'auto';");
-            html.AppendLine("    let iterations = 0;");
-            html.AppendLine("    while (iterations < 5 && (overlay.scrollWidth > containerWidth || overlay.scrollHeight > containerHeight)) {");
-            html.AppendLine("      const currentScale = Math.min(containerWidth / overlay.scrollWidth, containerHeight / overlay.scrollHeight);");
-            html.AppendLine("      const currentFontSize = parseFloat(getComputedStyle(overlay).fontSize);");
-            html.AppendLine("      overlay.style.fontSize = (currentFontSize * currentScale * 0.98) + 'px';");
-            html.AppendLine("      iterations++;");
-            html.AppendLine("    }");
-            html.AppendLine("    overlay.style.overflow = originalOverflow || 'hidden';");
+            html.AppendLine("    element.style.fontSize = bestSize + 'px';");
             html.AppendLine("  } catch (e) {");
             html.AppendLine("    console.error('Error fitting text:', e);");
             html.AppendLine("  }");
@@ -1252,7 +2629,12 @@ namespace UGTLive
             html.AppendLine("  for (let overlay of overlays) {");
             html.AppendLine("    // Only fit if overlay has dimensions");
             html.AppendLine("    if (overlay.offsetWidth > 0 && overlay.offsetHeight > 0) {");
-            html.AppendLine("      fitTextToContainer(overlay);");
+            html.AppendLine("      const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("      if (textContent) {");
+            html.AppendLine("        fitTextToContainer(textContent, overlay);");
+            html.AppendLine("      } else {");
+            html.AppendLine("        fitTextToContainer(overlay);");
+            html.AppendLine("      }");
             html.AppendLine("    }");
             html.AppendLine("  }");
             html.AppendLine("}");
@@ -1309,7 +2691,7 @@ namespace UGTLive
         }
         
         // Check if a language supports vertical text
-        private bool IsVerticalSupportedLanguage(string languageCode)
+        public static bool IsVerticalSupportedLanguage(string languageCode)
         {
             // Languages that typically support vertical text (CJK languages)
             string[] verticalLanguages = { "ja", "zh", "ko", "zh-cn", "zh-tw", "zh-hk", "ja-jp", "ko-kr" };
@@ -1366,6 +2748,9 @@ namespace UGTLive
             zoomTextBox.Text = ((int)(currentZoom * 100)).ToString();
             UpdateStatus($"Zoom: {(int)(currentZoom * 100)}%");
             Console.WriteLine($"Zoom level changed to {(int)(currentZoom * 100)}%");
+            
+            // Refresh overlays to apply new zoom factor
+            RefreshOverlays();
         }
         
         // Method to refresh text overlays
@@ -1376,60 +2761,14 @@ namespace UGTLive
                 // Check if we need to invoke on the UI thread
                 if (!Dispatcher.CheckAccess())
                 {
-                    // Use Invoke to ensure we wait for completion
-                    Dispatcher.Invoke(() => RefreshOverlays());
+                    // Use Invoke with high priority for immediate update
+                    Dispatcher.Invoke(new Action(() => RefreshOverlays()), DispatcherPriority.Send);
                     return;
                 }
                 
-                // Check if canvas is initialized
-                if (textOverlayCanvas == null)
-                {
-                    Console.WriteLine("Warning: textOverlayCanvas is null. Overlay refresh skipped.");
-                    return;
-                }
-                
-                // Now we're on the UI thread, safe to update UI elements
-                
-                var remainingIds = new HashSet<string>(_overlayElements.Keys);
-
-                // Check if Logic is initialized
-                if (Logic.Instance == null)
-                {
-                    Console.WriteLine("Warning: Logic.Instance is null. Cannot refresh text objects.");
-                    return;
-                }
-                
-                var textObjects = Logic.Instance.GetTextObjects();
-                if (textObjects == null)
-                {
-                    Console.WriteLine("Warning: Text objects collection is null.");
-                    return;
-                }
-                
-                // Re-add all current text objects
-                foreach (TextObject textObj in textObjects)
-                {
-                    if (textObj != null)
-                    {
-                        // Call our OnTextObjectAdded method to add it to the canvas
-                        CreateMonitorOverlayFromTextObject(this, textObj);
-                        remainingIds.Remove(textObj.ID);
-                    }
-                }
-
-                foreach (string id in remainingIds)
-                {
-                    if (_overlayElements.TryGetValue(id, out Border? border))
-                    {
-                        textOverlayCanvas.Children.Remove(border);
-                        _overlayElements.Remove(id);
-                    }
-                    // Clean up stored original colors
-                    _originalColors.Remove(id);
-                }
-                
-                //UpdateStatus("Text overlays refreshed");
-                //Console.WriteLine($"Monitor window refreshed {textOverlayCanvas.Children.Count} text overlays");
+                // Skip profiler for faster refresh
+                // Trigger WebView update immediately
+                UpdateOverlayWebView();
             }
             catch (Exception ex)
             {
@@ -1437,6 +2776,46 @@ namespace UGTLive
             }
         }
         
+        public void RemoveOverlay(TextObject textObject)
+        {
+            if (textObject == null)
+            {
+                return;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => RemoveOverlay(textObject));
+                return;
+            }
+
+            using IDisposable profiler = OverlayProfiler.Measure("MonitorWindow.RemoveOverlay");
+            
+            _originalColors.Remove(textObject.ID);
+            
+            // Trigger WebView update
+            UpdateOverlayWebView();
+        }
+
+        public void ClearOverlays()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                // Use Invoke with high priority for immediate update
+                Dispatcher.Invoke(new Action(() => ClearOverlays()), DispatcherPriority.Send);
+                return;
+            }
+
+            // Skip profiler for faster clearing
+            _originalColors.Clear();
+            
+            // Clear the HTML cache to force WebView update even if HTML is the same
+            _lastOverlayHtml = string.Empty;
+            
+            // Trigger WebView update immediately
+            UpdateOverlayWebView();
+        }
+
         // Update status message
         private void UpdateStatus(string message)
         {
@@ -1524,174 +2903,65 @@ namespace UGTLive
             
             Dispatcher.Invoke(() =>
             {
-                translationStatusBorder.Visibility = Visibility.Collapsed;
-                
                 // Stop the timer
                 if (_translationStatusTimer != null && _translationStatusTimer.IsEnabled)
                 {
                     _translationStatusTimer.Stop();
                 }
                 
-                // Show OCR status if OCR is still active and running
-                if (_isOCRActive && MainWindow.Instance.GetIsStarted())
-                {
-                    ShowOCRStatus();
-                }
-            });
-        }
-        
-        // OCR Status Methods
-        
-        // Calculate average FPS from recent samples
-        private double CalculateAverageFPS()
-        {
-            if (_ocrFrameTimes.Count == 0) return 0.0;
-            
-            double averageFrameTime = _ocrFrameTimes.Average();
-            return averageFrameTime > 0 ? 1.0 / averageFrameTime : 0.0;
-        }
-        
-        // Initialize the OCR status timer
-        private void InitializeOCRStatusTimer()
-        {
-            _ocrStatusTimer = new DispatcherTimer();
-            _ocrStatusTimer.Interval = TimeSpan.FromMilliseconds(250); // Update 4 times per second
-            _ocrStatusTimer.Tick += OCRStatusTimer_Tick;
-        }
-        
-        // Update the OCR status display
-        private void OCRStatusTimer_Tick(object sender, EventArgs e)
-        {
-            // Check if OCR is still running
-            if (!MainWindow.Instance.GetIsStarted())
-            {
-                // OCR has been stopped, hide the status
-                HideOCRStatus();
-                return;
-            }
-            
-            if (_isOCRActive)
-            {
-                // Don't update if showing settling or translation
-                if (_isShowingSettling || _translationStatusTimer?.IsEnabled == true)
-                {
-                    return;
-                }
-                
-                double fps = CalculateAverageFPS();
-                string ocrMethod = GetCurrentOCRMethodDisplayName();
-                
-                Dispatcher.Invoke(() =>
-                {
-                    translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
-                });
-            }
-        }
-        
-        // Get the display name for the current OCR method
-        private string GetCurrentOCRMethodDisplayName()
-        {
-            if (ocrMethodComboBox.SelectedItem == null) return "OCR";
-            
-            // Get the short name (key) from the Tag property
-            string? shortName = (ocrMethodComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-            return shortName ?? "OCR";
-        }
-        
-        // Show OCR status
-        public void ShowOCRStatus()
-        {
-            // Only show if OCR is actually running (Start button is active)
-            if (!MainWindow.Instance.GetIsStarted())
-            {
-                return; // Don't show if stopped
-            }
-            
-            // Only show if no translation is in progress
-            if (_translationStatusTimer?.IsEnabled == true)
-            {
-                return; // Don't override translation status
-            }
-            
-            
-            _isOCRActive = true;
-            double fps = CalculateAverageFPS();
-            string ocrMethod = GetCurrentOCRMethodDisplayName();
-            
-            Dispatcher.Invoke(() =>
-            {
-                translationStatusLabel.Text = $"{ocrMethod} active (fps: {fps:F1})";
-                
-                translationStatusBorder.Visibility = Visibility.Visible;
-                
-                // Start the timer if not already running
-                if (_ocrStatusTimer == null)
-                {
-                    InitializeOCRStatusTimer();
-                }
-                
-                if (!_ocrStatusTimer!.IsEnabled)
-                {
-                    _ocrStatusTimer.Start();
-                }
-            });
-        }
-        
-        // Hide OCR status
-        public void HideOCRStatus()
-        {
-            _isOCRActive = false;
-            
-            // Clear frame times when stopping
-            _ocrFrameTimes.Clear();
-            
-            Dispatcher.Invoke(() =>
-            {
-                // Only hide if we're showing OCR status (not translation status)
-                if (translationStatusLabel.Text.Contains("fps"))
+                // Don't hide the border if OCR is active - it will seamlessly transition to OCR status
+                // This prevents flickering when transitioning from settling/translation to OCR status
+                bool isOCRActive = MainWindow.Instance?.GetIsStarted() ?? false;
+                if (!isOCRActive)
                 {
                     translationStatusBorder.Visibility = Visibility.Collapsed;
                 }
-                
-                // Stop the timer
-                if (_ocrStatusTimer != null && _ocrStatusTimer.IsEnabled)
-                {
-                    _ocrStatusTimer.Stop();
-                }
             });
         }
         
-        // Notify that OCR has started
-        public void NotifyOCRStarted()
-        {
-            _currentOCRStartTime = DateTime.Now;
-        }
+        // OCR Status Display Methods (called by Logic.cs)
         
-        // Notify that OCR has completed
-        public void NotifyOCRCompleted()
+        // Update OCR status display with computed values from Logic
+        public void UpdateOCRStatusDisplay(string ocrMethod, double fps)
         {
-            if (_currentOCRStartTime != DateTime.MinValue)
+            if (!Dispatcher.CheckAccess())
             {
-                // Calculate frame time
-                double frameTime = (DateTime.Now - _currentOCRStartTime).TotalSeconds;
-                
-                // Add to queue
-                _ocrFrameTimes.Enqueue(frameTime);
-                
-                // Keep only the last N samples
-                while (_ocrFrameTimes.Count > MAX_FPS_SAMPLES)
-                {
-                    _ocrFrameTimes.Dequeue();
-                }
-                
-                _lastOCRTime = DateTime.Now;
+                Dispatcher.Invoke(() => UpdateOCRStatusDisplay(ocrMethod, fps));
+                return;
             }
             
-            // Only show OCR status if OCR is still running AND no other status is showing
-            if (MainWindow.Instance.GetIsStarted() && 
-                translationStatusBorder.Visibility != Visibility.Visible)
+            // Don't show if translation or settling is in progress
+            if (_translationStatusTimer?.IsEnabled == true || _isShowingSettling)
             {
-                ShowOCRStatus();
+                return;
+            }
+            
+            // Only update text if it has changed to avoid flickering
+            string newText = $"{ocrMethod} active (fps: {fps:F1})";
+            if (translationStatusLabel.Text != newText)
+            {
+                translationStatusLabel.Text = newText;
+            }
+            
+            if (translationStatusBorder.Visibility != Visibility.Visible)
+            {
+                translationStatusBorder.Visibility = Visibility.Visible;
+            }
+        }
+        
+        // Hide OCR status display
+        public void HideOCRStatusDisplay()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => HideOCRStatusDisplay());
+                return;
+            }
+            
+            // Only hide if we're showing OCR status (not translation status)
+            if (translationStatusLabel.Text.Contains("fps"))
+            {
+                translationStatusBorder.Visibility = Visibility.Collapsed;
             }
         }
         
@@ -1723,13 +2993,60 @@ namespace UGTLive
             base.OnClosed(e);
         }
 
-        // Low-level mouse hook to intercept WM_MOUSEWHEEL before it reaches WebView2
+        // Low-level mouse hook to intercept mouse events before they reach WebView2
         private IntPtr LowLevelMouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0)
             {
                 int msg = wParam.ToInt32();
-                if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
+                
+                // Handle mouse move to detect scrollbar/titlebar regions
+                if (msg == WM_MOUSEMOVE)
+                {
+                    try
+                    {
+                        // Get the mouse position from the hook structure
+                        MSLLHOOKSTRUCT hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                        
+                        // Check if the target window is our MonitorWindow or a child of it
+                        IntPtr targetWindow = WindowFromPoint(hookStruct.pt);
+                        bool isOurWindow = false;
+                        
+                        if (targetWindow == _monitorWindowHandle)
+                        {
+                            isOurWindow = true;
+                        }
+                        else if (targetWindow != IntPtr.Zero)
+                        {
+                            IntPtr parent = GetParent(targetWindow);
+                            while (parent != IntPtr.Zero)
+                            {
+                                if (parent == _monitorWindowHandle)
+                                {
+                                    isOurWindow = true;
+                                    break;
+                                }
+                                parent = GetParent(parent);
+                            }
+                        }
+                        
+                        if (isOurWindow)
+                        {
+                            System.Windows.Point screenPoint = new System.Windows.Point(hookStruct.pt.x, hookStruct.pt.y);
+                            
+                            // Use Dispatcher to check UI elements on UI thread
+                            Dispatcher.BeginInvoke(() =>
+                            {
+                                checkMousePositionAndUpdateHitTesting(screenPoint);
+                            }, DispatcherPriority.Normal);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in mouse move hook: {ex.Message}");
+                    }
+                }
+                else if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)
                 {
                     try
                     {
@@ -1944,6 +3261,7 @@ namespace UGTLive
         // Windows message constants
         private const int WM_MOUSEWHEEL = 0x020A;
         private const int WM_MOUSEHWHEEL = 0x020E;
+        private const int WM_MOUSEMOVE = 0x0200;
         private const int VK_CONTROL = 0x11;
         private const int WH_MOUSE_LL = 14;
         private const int WM_MOUSEWHEEL_LL = 0x020A;
@@ -1972,6 +3290,21 @@ namespace UGTLive
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+        
+        // Win32 API for WDA_EXCLUDEFROMCAPTURE
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
+        
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        
+        // Win32 API for GetSystemMetrics - used for scrollbar and titlebar dimensions
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+        
+        private const int SM_CXVSCROLL = 2;  // Width of vertical scrollbar
+        private const int SM_CYHSCROLL = 3;  // Height of horizontal scrollbar
+        private const int SM_CYCAPTION = 4;  // Height of window caption/titlebar
 
         [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
         private struct POINT
@@ -2143,6 +3476,46 @@ namespace UGTLive
             }
         }
         
+        // Setup tooltip exclusion from screenshots
+        private void SetupTooltipExclusion()
+        {
+            // Use ToolTipService to add an event handler for when any tooltip opens
+            this.AddHandler(ToolTipService.ToolTipOpeningEvent, new RoutedEventHandler(OnToolTipOpening));
+        }
+        
+        private void OnToolTipOpening(object sender, RoutedEventArgs e)
+        {
+            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExcludeTooltipFromCapture();
+            }), DispatcherPriority.Background);
+        }
+        
+        private void ExcludeTooltipFromCapture()
+        {
+            try
+            {
+                // Find all tooltip windows and exclude them
+                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
+                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
+                
+                foreach (var window in tooltipWindows)
+                {
+                    var helper = new WindowInteropHelper(window);
+                    IntPtr hwnd = helper.Handle;
+                    
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
+            }
+        }
        
     }
 }

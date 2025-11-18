@@ -122,13 +122,16 @@ namespace UGTLive
                         {
                             // Log the content type
                             string contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
-                            Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            }
                             
                             // Get audio data as stream
                             using Stream audioStream = await response.Content.ReadAsStreamAsync();
                             
                             // Create a temp file path for the audio with appropriate extension
-                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
                             Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
                             
                             // Determine file extension based on content type
@@ -183,6 +186,151 @@ namespace UGTLive
             {
                 Console.WriteLine($"Error initiating TTS: {ex.Message}");
                 return false;
+            }
+        }
+        
+        public async Task<string?> GenerateAudioFileAsync(string text, string voiceId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    Console.WriteLine("Cannot generate audio for empty text");
+                    return null;
+                }
+                
+                // Get API key from config
+                string apiKey = ConfigManager.Instance.GetElevenLabsApiKey();
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    Console.WriteLine("ElevenLabs API key is not set. Cannot generate audio file.");
+                    return null;
+                }
+                
+                // Get voice ID
+                string voice = voiceId;
+                if (string.IsNullOrWhiteSpace(voice))
+                {
+                    // Use Rachel as default
+                    voice = "21m00Tcm4TlvDq8ikWAM";
+                }
+                
+                // Set API key in headers
+                _httpClient.DefaultRequestHeaders.Remove("xi-api-key");
+                _httpClient.DefaultRequestHeaders.Add("xi-api-key", apiKey);
+                
+                // Create request payload
+                var requestData = new
+                {
+                    text = text,
+                    model_id = "eleven_v3",
+                    voice_settings = new
+                    {
+                        stability = 0.5,
+                        similarity_boost = 0.75
+                    }
+                };
+                
+                // Serialize to JSON
+                string jsonRequest = JsonSerializer.Serialize(requestData);
+                var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+                
+                // Form the URL for text-to-speech endpoint
+                string url = $"{_baseUrl}/text-to-speech/{voice}";
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Generating audio file for text: {text.Substring(0, Math.Min(50, text.Length))}...");
+                }
+                
+                // Send the request
+                return await Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Post request to ElevenLabs API
+                        HttpResponseMessage response = await _httpClient.PostAsync(url, content);
+                        
+                        // Check if request was successful
+                        if (response.IsSuccessStatusCode)
+                        {
+                            // Log the content type
+                            string contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
+                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                            {
+                                Console.WriteLine($"TTS request successful, received audio data with content type: {contentType}");
+                            }
+                            
+                            // Get audio data as stream
+                            using Stream audioStream = await response.Content.ReadAsStreamAsync();
+                            
+                            // Create a temp file path for the audio with appropriate extension
+                            string tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "cache");
+                            Directory.CreateDirectory(tempDir); // Create directory if it doesn't exist
+                            
+                            // Determine file extension based on content type
+                            string extension = ".mp3"; // Default
+                            if (contentType.Contains("audio/mpeg") || contentType.Contains("audio/mp3"))
+                            {
+                                extension = ".mp3";
+                            }
+                            else if (contentType.Contains("audio/wav") || contentType.Contains("audio/x-wav"))
+                            {
+                                extension = ".wav";
+                            }
+                            else if (contentType.Contains("audio/mp4") || contentType.Contains("audio/x-m4a"))
+                            {
+                                extension = ".m4a";
+                            }
+                            else if (contentType.Contains("audio/ogg"))
+                            {
+                                extension = ".ogg";
+                            }
+                            
+                            string audioFile = Path.Combine(tempDir, $"tts_elevenlabs_{DateTime.Now.Ticks}{extension}");
+                            
+                            // Save audio to file
+                            using (FileStream fileStream = File.Create(audioFile))
+                            {
+                                await audioStream.CopyToAsync(fileStream);
+                            }
+                            
+                            Console.WriteLine($"Audio file generated: {audioFile}");
+                            return audioFile;
+                        }
+                        else
+                        {
+                            string errorContent = await response.Content.ReadAsStringAsync();
+                            Console.WriteLine($"TTS request failed: {response.StatusCode}. Details: {errorContent}");
+                            
+                            // Throw exception with status code for proper error handling
+                            throw new HttpRequestException($"TTS request failed: {response.StatusCode}. Details: {errorContent}")
+                            {
+                                Data = { ["StatusCode"] = response.StatusCode }
+                            };
+                        }
+                    }
+                    catch (HttpRequestException)
+                    {
+                        // Re-throw HttpRequestException so it can be handled by caller
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during TTS request: {ex.Message}");
+                        return null;
+                    }
+                });
+            }
+            catch (HttpRequestException)
+            {
+                // Re-throw HttpRequestException so it can be handled by caller
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initiating ElevenLabs audio generation: {ex.Message}");
+                return null;
             }
         }
         

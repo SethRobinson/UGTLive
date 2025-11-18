@@ -123,7 +123,10 @@ namespace UGTLive
                 var nonCharacters = characters.Where(c => !c.IsCharacter || c.IsProcessed).ToList();
                 characters = characters.Where(c => c.IsCharacter && !c.IsProcessed).ToList();
                 
-                Console.WriteLine($"Filtered out {lowConfidenceCount} elements with confidence < {minLetterConfidence}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Filtered out {lowConfidenceCount} elements with confidence < {minLetterConfidence}");
+                }
                 
                 // PHASE 2: Group characters into words based on proximity
                 var words = GroupCharactersIntoWords(characters, blockPower);
@@ -137,7 +140,11 @@ namespace UGTLive
                 double minLineConfidence = ConfigManager.Instance.GetMinLineConfidence();
                 int lowConfidenceLineCount = lines.Count(l => l.Confidence < minLineConfidence);
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
-                Console.WriteLine($"Filtered out {lowConfidenceLineCount} lines with confidence < {minLineConfidence}");
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Filtered out {lowConfidenceLineCount} lines with confidence < {minLineConfidence}");
+                }
                 
                 // If there are NO character-level elements but we do have non-character items
                 // (e.g., docTR returns line-level rectangles), treat those non-character items
@@ -149,7 +156,10 @@ namespace UGTLive
                     && isDocTR
                     && ConfigManager.Instance.GetGlueDocTRLinesEnabled())
                 {
-                    Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing: found {nonCharacters.Count} non-character line items");
+                    }
                     
                     // Map non-character elements into line elements
                     var fallbackLines = new List<TextElement>();
@@ -182,7 +192,10 @@ namespace UGTLive
                     // Group lines into vertical columns by horizontal overlap before paragraph gluing,
                     // so we don't interleave separate speech bubbles/columns.
                     var columnGroups = GroupLinesIntoColumnsByHorizontalOverlap(fallbackLines);
-                    Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing: grouped into {columnGroups.Count} columns");
+                    }
                     
                     // PHASE 4 (fallback): For each column, group lines into paragraphs
                     var gluedParagraphs = new List<TextElement>();
@@ -193,7 +206,10 @@ namespace UGTLive
                         gluedParagraphs.AddRange(groupParagraphs);
                     }
                     
-                    Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"docTR fallback gluing result: {fallbackLines.Count} lines -> {gluedParagraphs.Count} paragraphs");
+                    }
                     
                     // Return ONLY the glued paragraphs; do not append original non-character items
                     // to avoid duplicate overlays.
@@ -674,7 +690,10 @@ namespace UGTLive
                     if (centerDistance > (averageHeight * spacingMultiplierForBreak) + paragraphBreakThreshold)
                     {
                         startNewParagraph = true;
-                        Console.WriteLine("New paragraph: Large gap detected");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("New paragraph: Large gap detected");
+                        }
                     }
                     // Moderate gap more than normal line spacing threshold indicates line break
                     else
@@ -1097,7 +1116,7 @@ namespace UGTLive
                         }
                         
                         // Debug: Log color collection for diagnosis
-                        if (foregroundColors.Count > 0 || backgroundColors.Count > 0)
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff() && (foregroundColors.Count > 0 || backgroundColors.Count > 0))
                         {
                             Console.WriteLine($"Paragraph '{paragraph.Text.Substring(0, Math.Min(20, paragraph.Text.Length))}...' - Found {foregroundColors.Count} foreground colors, {backgroundColors.Count} background colors");
                         }

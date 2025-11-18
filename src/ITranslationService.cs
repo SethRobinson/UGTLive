@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -13,7 +14,8 @@ namespace UGTLive
         /// </summary>
         /// <param name="jsonData">The JSON data to translate</param>
         /// <param name="prompt">The prompt to guide the translation</param>
+        /// <param name="cancellationToken">Cancellation token to cancel the translation</param>
         /// <returns>The translation result as a JSON string or null if translation failed</returns>
-        Task<string?> TranslateAsync(string jsonData, string prompt);
+        Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default);
     }
 }

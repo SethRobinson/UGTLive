@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UGTLive
@@ -17,10 +18,12 @@ namespace UGTLive
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "WPFScreenCapture");
         }
 
-        public async Task<string?> TranslateAsync(string jsonData, string prompt)
+        public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 // Get the llama.cpp API endpoint from config
                 string llamaCppEndpoint = ConfigManager.Instance.GetLlamaCppApiEndpoint();
                 
@@ -69,8 +72,8 @@ namespace UGTLive
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
                 // Send request to llama.cpp API
-                var response = await _httpClient.SendAsync(request);
-                string responseContent = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 
                 // Check if request was successful
                 if (response.IsSuccessStatusCode)
@@ -141,7 +144,6 @@ namespace UGTLive
                                         WriteIndented = false
                                     };
                                     translatedText = JsonSerializer.Serialize(tempJson, options);
-                                    Console.WriteLine("Successfully normalized JSON format");
                                 }
                                 catch (Exception ex)
                                 {
@@ -157,14 +159,10 @@ namespace UGTLive
                                     // Validate it's proper JSON by parsing it
                                     var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
                                     
-                                    // Log that we got valid JSON
-                                    Console.WriteLine("llama.cpp returned valid JSON");
-                                    
                                     // Check if this is a game JSON translation with text_blocks
                                     if (translatedJson.TryGetProperty("text_blocks", out _))
                                     {
                                         // For game JSON format, we need to match the format that the other translation services use
-                                        Console.WriteLine("This is a game JSON format - wrapping in the standard format");
                                         
                                         var outputJson = new Dictionary<string, object>
                                         {
@@ -174,7 +172,6 @@ namespace UGTLive
                                         };
                                         
                                         string finalOutput = JsonSerializer.Serialize(outputJson);
-                                        Console.WriteLine($"Final wrapped output: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
                                         
                                         return finalOutput;
                                     }
@@ -246,6 +243,11 @@ namespace UGTLive
                     ErrorPopupManager.ShowError(detailedMessage, "llama.cpp Translation Error");
                 }
                 
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("llama.cpp translation was cancelled");
                 return null;
             }
             catch (HttpRequestException ex)
