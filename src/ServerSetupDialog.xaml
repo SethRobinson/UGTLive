@@ -39,7 +39,7 @@
                                FontSize="20" FontWeight="Bold" 
                                Foreground="#1E1E6E" Margin="0,0,0,5"/>
                     <TextBlock x:Name="versionTextBlock" 
-                               Text="V0.28 by Seth A. Robinson" 
+                               Text="" 
                                FontSize="14" FontWeight="SemiBold"
                                Foreground="#5A5A5A"/>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">

@@ -25,8 +25,10 @@ namespace UGTLive
         private static ServerSetupDialog? _instance;
         private bool _isRunningDiagnostics = false;
         private bool _fromSettings = false;
+        private bool _normalClose = false;
         private ObservableCollection<ServiceItemViewModel> _serviceViewModels = new ObservableCollection<ServiceItemViewModel>();
         private Dictionary<string, ServiceItemViewModel> _serviceViewModelMap = new Dictionary<string, ServiceItemViewModel>();
+        private VersionInfo? _latestVersionInfo;
         
         /// <summary>
         /// Gets or creates the singleton instance of ServerSetupDialog
@@ -94,6 +96,7 @@ namespace UGTLive
         {
             InitializeComponent();
             this.Loaded += ServerSetupDialog_Loaded;
+            this.Closing += ServerSetupDialog_Closing;
             
             // Load checkbox state from config
             showServerWindowCheckBox.IsChecked = ConfigManager.Instance.GetShowServerWindow();
@@ -115,6 +118,15 @@ namespace UGTLive
             };
         }
         
+        private void ServerSetupDialog_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // If dialog is closed via X button (not via Continue) and not from settings, shut down the app
+            if (!_normalClose && !_fromSettings)
+            {
+                System.Windows.Application.Current.Shutdown();
+            }
+        }
+        
         private void LoadSplashBranding()
         {
             try
@@ -127,8 +139,8 @@ namespace UGTLive
                     appIconImage.Source = bitmapSource;
                 }
                 
-                // Set version text
-                versionTextBlock.Text = "V0.28 by Seth A. Robinson";
+                // Set version text from SplashManager
+                versionTextBlock.Text = $"V{SplashManager.CurrentVersion.ToString("0.00")} by Seth A. Robinson";
             }
             catch (Exception ex)
             {
@@ -138,6 +150,9 @@ namespace UGTLive
         
         private async void ServerSetupDialog_Loaded(object sender, RoutedEventArgs e)
         {
+            // Reset normal close flag when dialog is loaded
+            _normalClose = false;
+            
             await RunDiagnosticsAsync();
         }
         
@@ -184,6 +199,9 @@ namespace UGTLive
                 
                 statusMessage.Text = "Diagnostics complete";
                 
+                // Update status label based on autostart services state
+                UpdateStatusLabel();
+                
                 // Auto-hide status message after delay
                 await Task.Delay(2000);
                 Dispatcher.Invoke(() =>
@@ -203,6 +221,41 @@ namespace UGTLive
             }
         }
         
+        private void UpdateStatusLabel()
+        {
+            try
+            {
+                var services = PythonServicesManager.Instance.GetAllServices();
+                var autoStartServices = services.Where(s => s.AutoStart).ToList();
+                
+                if (autoStartServices.Count == 0)
+                {
+                    statusLabel.Text = "No services configured for auto-start";
+                    statusLabel.Foreground = new SolidColorBrush(Colors.Orange);
+                    return;
+                }
+                
+                var allRunning = autoStartServices.All(s => s.IsRunning);
+                
+                if (allRunning)
+                {
+                    statusLabel.Text = "Everything looks good, click Continue.";
+                    statusLabel.Foreground = new SolidColorBrush(Colors.Green);
+                }
+                else
+                {
+                    statusLabel.Text = "Making sure everything is ready...";
+                    statusLabel.Foreground = new SolidColorBrush(Colors.Black);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating status label: {ex.Message}");
+                statusLabel.Text = "Making sure everything is ready...";
+                statusLabel.Foreground = new SolidColorBrush(Colors.Black);
+            }
+        }
+        
         private async Task CheckForUpdatesAsync()
         {
             try
@@ -210,18 +263,74 @@ namespace UGTLive
                 updateStatusIcon.Text = "⏳";
                 updateStatusText.Text = "Checking for updates...";
                 
-                // Check for updates logic here (using existing code if available)
-                // For now, just mark as up to date
-                await Task.Delay(100);
+                // Use SplashManager's version checking logic
+                var versionInfo = await FetchVersionInfoAsync();
                 
-                updateStatusIcon.Text = "✅";
-                updateStatusText.Text = "Up to date";
+                if (versionInfo == null)
+                {
+                    updateStatusIcon.Text = "⚠️";
+                    updateStatusText.Text = "Could not check for updates";
+                    return;
+                }
+                
+                if (versionInfo.LatestVersion > SplashManager.CurrentVersion)
+                {
+                    _latestVersionInfo = versionInfo;
+                    updateStatusIcon.Text = "⬇️";
+                    updateStatusText.Text = $"New version {versionInfo.LatestVersion.ToString("0.00")} available!";
+                    downloadUpdateButton.IsEnabled = true;
+                    downloadUpdateButton.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    updateStatusIcon.Text = "✅";
+                    updateStatusText.Text = "Up to date";
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error checking updates: {ex.Message}");
                 updateStatusIcon.Text = "⚠️";
                 updateStatusText.Text = "Could not check for updates";
+            }
+        }
+        
+        private class VersionInfo
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("name")]
+            public string? Name { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("latest_version")]
+            public double LatestVersion { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("message")]
+            public string? Message { get; set; }
+        }
+        
+        private async Task<VersionInfo?> FetchVersionInfoAsync()
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    string versionCheckerUrl = "https://raw.githubusercontent.com/SethRobinson/UGTLive/refs/heads/main/media/latest_version_checker.json";
+                    string json = await client.GetStringAsync(versionCheckerUrl);
+                    Console.WriteLine($"Received JSON: {json}");
+                    
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    
+                    var result = JsonSerializer.Deserialize<VersionInfo>(json, options);
+                    Console.WriteLine($"Deserialized version: {result?.LatestVersion}, name: {result?.Name}");
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching version info: {ex.Message}");
+                return null;
             }
         }
         
@@ -433,6 +542,9 @@ namespace UGTLive
                         viewModel.UninstallEnabled = false;
                     }
                 }
+                
+                // Update status label when service status changes
+                UpdateStatusLabel();
             }
             catch (Exception ex)
             {
@@ -724,7 +836,39 @@ namespace UGTLive
         
         private void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
         {
-            // Update download logic (if needed)
+            if (_latestVersionInfo == null)
+            {
+                MessageBox.Show("Update information not available.", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            try
+            {
+                string downloadUrl = "https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip";
+                
+                // Format the message by replacing {VERSION_STRING} placeholder
+                string message = _latestVersionInfo.Message?.Replace("{VERSION_STRING}", _latestVersionInfo.LatestVersion.ToString("0.00")) ?? "New update available!";
+                
+                // Show custom update dialog
+                var updateDialog = new UpdateAvailableDialog(
+                    _latestVersionInfo.LatestVersion,
+                    message,
+                    downloadUrl
+                );
+                updateDialog.Owner = this;
+                
+                bool? result = updateDialog.ShowDialog();
+                
+                // If user clicked Download Now, the app will have already shut down
+                // If they clicked Cancel, result will be false and we just continue
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error showing update dialog: {ex.Message}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
@@ -755,25 +899,34 @@ namespace UGTLive
                 if (!_fromSettings)
                 {
                     bool showWindow = showServerWindowCheckBox.IsChecked ?? false;
+                    var services = PythonServicesManager.Instance.GetAllServices();
+                    var autoStartServices = services.Where(s => s.AutoStart).ToList();
                     
-                    statusMessage.Visibility = Visibility.Visible;
-                    progressBar.Visibility = Visibility.Visible;
+                    // Check if any autostart services need to be started
+                    var needsStarting = autoStartServices.Where(s => !s.IsRunning).ToList();
                     
-                    await PythonServicesManager.Instance.StartAutoStartServicesAsync(showWindow, (message) =>
+                    if (needsStarting.Count > 0)
                     {
-                        Dispatcher.Invoke(() =>
+                        // Only show progress if we actually need to start services
+                        statusMessage.Visibility = Visibility.Visible;
+                        progressBar.Visibility = Visibility.Visible;
+                        
+                        await PythonServicesManager.Instance.StartAutoStartServicesAsync(showWindow, (message) =>
                         {
-                            statusMessage.Text = message;
+                            Dispatcher.Invoke(() =>
+                            {
+                                statusMessage.Text = message;
+                            });
                         });
-                    });
-                    
-                    // Give services a moment to stabilize
-                    await Task.Delay(1000);
-                    
-                    progressBar.Visibility = Visibility.Collapsed;
-                    statusMessage.Visibility = Visibility.Collapsed;
+                        
+                        progressBar.Visibility = Visibility.Collapsed;
+                        statusMessage.Visibility = Visibility.Collapsed;
+                    }
+                    // If all services are already running, close immediately - no delay needed
                 }
                 
+                // Mark as normal close so the Closing event doesn't shut down the app
+                _normalClose = true;
                 this.Close();
             }
             catch (Exception ex)

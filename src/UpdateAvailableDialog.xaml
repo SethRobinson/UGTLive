@@ -1,0 +1,120 @@
+<Window x:Class="UGTLive.UpdateAvailableDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:UGTLive"
+        mc:Ignorable="d"
+        Title="Update Available"
+        Height="400"
+        Width="550"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="White"
+        Icon="/media/Icon1.ico">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header with Icon -->
+        <Border Grid.Row="0" Background="#4CAF50" Padding="20">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⬇️" FontSize="32" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Update Available!" 
+                               FontSize="20" FontWeight="Bold" 
+                               Foreground="White"/>
+                    <TextBlock x:Name="versionTextBlock"
+                               Text="A new version is ready to download" 
+                               FontSize="13"
+                               Foreground="#E8F5E9"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        
+        <!-- Update Message -->
+        <Border Grid.Row="1" Padding="20" Background="White">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="What's New:" 
+                               FontSize="14" FontWeight="Bold" 
+                               Foreground="#333333" Margin="0,0,0,10"/>
+                    
+                    <Border BorderBrush="#E0E0E0" BorderThickness="1" 
+                            Padding="15" Background="#F9F9F9" CornerRadius="5">
+                        <TextBlock x:Name="updateMessageTextBlock"
+                                   Text=""
+                                   FontSize="13"
+                                   Foreground="#555555"
+                                   TextWrapping="Wrap"
+                                   LineHeight="20"/>
+                    </Border>
+                    
+                    <Border BorderBrush="#FFC107" BorderThickness="2" 
+                            Padding="15" Background="#FFF9E6" CornerRadius="5"
+                            Margin="0,15,0,0">
+                        <StackPanel>
+                            <TextBlock Text="📋 Installation Instructions:" 
+                                       FontSize="13" FontWeight="Bold" 
+                                       Foreground="#F57C00" Margin="0,0,0,8"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#555555" LineHeight="18">
+                                <Run Text="1. Click "/>
+                                <Run Text="'Download Now'" FontWeight="Bold"/>
+                                <Run Text=" to open the download in your browser"/>
+                                <LineBreak/>
+                                <Run Text="2. This app will automatically close"/>
+                                <LineBreak/>
+                                <Run Text="3. Once downloaded, extract the ZIP file"/>
+                                <LineBreak/>
+                                <Run Text="4. Overwrite your existing installation folder"/>
+                                <LineBreak/>
+                                <Run Text="5. Run the updated app"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+        
+        <!-- Buttons -->
+        <Border Grid.Row="3" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" 
+                Padding="20,15" Background="#FAFAFA">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <Button x:Name="cancelButton"
+                        Grid.Column="1"
+                        Content="Cancel" 
+                        Padding="20,8" 
+                        Margin="0,0,10,0"
+                        FontSize="13"
+                        Click="CancelButton_Click"
+                        Background="White"
+                        BorderBrush="#CCCCCC"
+                        BorderThickness="1"/>
+                
+                <Button x:Name="downloadButton"
+                        Grid.Column="2"
+                        Content="Download Now" 
+                        Padding="20,8"
+                        FontSize="13"
+                        FontWeight="Bold"
+                        Click="DownloadButton_Click"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        BorderBrush="#4CAF50"
+                        BorderThickness="1"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+

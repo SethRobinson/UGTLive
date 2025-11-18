@@ -29,7 +29,7 @@ namespace UGTLive
         // Event to notify when splash screen is closed
         public event EventHandler? SplashClosed;
         
-        public const double CurrentVersion = 0.60;
+        public const double CurrentVersion = 0.59;
         private const string VersionCheckerUrl = "https://raw.githubusercontent.com/SethRobinson/UGTLive/refs/heads/main/media/latest_version_checker.json";
         private const string DownloadUrl = "https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip";
 
@@ -188,7 +188,7 @@ namespace UGTLive
 
                 if (versionInfo.LatestVersion > CurrentVersion)
                 {
-                    string message = versionInfo.Message?.Replace("{VERSION_STRING}", versionInfo.LatestVersion.ToString("0.00"));
+                    string message = versionInfo.Message?.Replace("{VERSION_STRING}", versionInfo.LatestVersion.ToString("0.00")) ?? "New update available!";
                     
                     // Update status text
                     UpdateStatusText($"New version {versionInfo.LatestVersion.ToString("0.00")} available!");
@@ -204,14 +204,22 @@ namespace UGTLive
                             _splashWindow.Topmost = false;
                         }
                         
-                        System.Windows.MessageBoxResult result = System.Windows.MessageBox.Show(message, "Update Available", 
-                            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information);
+                        // Show custom update dialog
+                        var updateDialog = new UpdateAvailableDialog(
+                            versionInfo.LatestVersion,
+                            message,
+                            DownloadUrl
+                        );
                         
-                        if (result == System.Windows.MessageBoxResult.Yes)
+                        if (_splashWindow != null)
                         {
-                            DownloadUpdate();
+                            updateDialog.Owner = _splashWindow;
                         }
                         
+                        updateDialog.ShowDialog();
+                        
+                        // If user clicked Download Now, app will shut down
+                        // If they clicked Cancel, just close splash and continue
                         CloseSplash();
                     });
                 }
@@ -265,32 +273,6 @@ namespace UGTLive
             });
         }
 
-        private void DownloadUpdate()
-        {
-            try
-            {
-                UpdateStatusText("Starting download...");
-                
-                // Open the download URL in the default browser
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = DownloadUrl,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error downloading update: {ex.Message}");
-                // Ensure error dialog is visible
-                if (_splashWindow != null)
-                {
-                    _splashWindow.Topmost = false;
-                }
-                
-                System.Windows.MessageBox.Show($"Failed to download update: {ex.Message}", "Error", 
-                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
-        }
 
         private void CloseSplashAfterDelay(int delay)
         {

@@ -12,9 +12,6 @@ using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using System.Diagnostics;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 
 namespace UGTLive
 {
@@ -175,46 +172,7 @@ namespace UGTLive
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        
-        // Connect to socket server
-        private async Task ConnectToSocketServerAsync()
-        {
-            try
-            {
-                Console.WriteLine("Attempting to connect to socket server...");
-                
-                // Check if already connected
-                if (SocketManager.Instance.IsConnected)
-                {
-                    Console.WriteLine("Already connected to socket server");
-                    return;
-                }
-                
-                await SocketManager.Instance.ConnectAsync();
-                
-                // Start the reconnect timer if connection failed
-                if (!SocketManager.Instance.IsConnected)
-                {
-                    Console.WriteLine("Connection failed, starting reconnect timer");
-                    _reconnectAttempts = 0;
-                    _hasShownConnectionErrorMessage = false;
-                    _reconnectTimer.Start();
-                }
-                else
-                {
-                    Console.WriteLine("Successfully connected to socket server");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Socket connection error: {ex.Message}");
-                
-                // Start the reconnect timer
-                _reconnectAttempts = 0;
-                _hasShownConnectionErrorMessage = false;
-                _reconnectTimer.Start();
-            }
-        }
+      
         
         // Track reconnection attempts
         private int _reconnectAttempts = 0;
@@ -228,52 +186,7 @@ namespace UGTLive
             _reconnectTimer.Stop();
             return;
             
-            if (!SocketManager.Instance.IsConnected)
-            {
-                _reconnectAttempts++;
-                await SocketManager.Instance.TryReconnectAsync();
-                
-                // Stop the timer if connected
-                if (SocketManager.Instance.IsConnected)
-                {
-                    _reconnectTimer.Stop();
-                    _reconnectAttempts = 0;
-                    //_hasShownConnectionErrorMessage = false;
-                }
-                // Show setup dialog after several failed attempts (approximately 15 seconds)
-                else if (_reconnectAttempts >= 1 && !_hasShownConnectionErrorMessage)
-                {
-                    _hasShownConnectionErrorMessage = true;
-                    
-                    // Show the server setup dialog on the UI thread
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        try
-                        {
-                            ServerSetupDialog.ShowDialogSafe();
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error showing server setup dialog: {ex.Message}");
-                            // Fallback to MessageBox if dialog fails
-                            string serverUrl = $"localhost:{SocketManager.Instance.GetPort()}";
-                            MessageBox.Show(
-                                $"Connection Error: UGTLive AI backend server not running at {serverUrl}\n\n" +
-                                "Please use the Server Setup dialog to configure and start the server.",
-                                "Server Connection Error", 
-                                MessageBoxButton.OK, 
-                                MessageBoxImage.Warning);
-                        }
-                    });
-                }
-            }
-            else
-            {
-                // Stop the timer if already connected
-                _reconnectTimer.Stop();
-                _reconnectAttempts = 0;
-                _hasShownConnectionErrorMessage = false;
-            }
+          
         }
         
         // Socket data received event handler
@@ -283,13 +196,6 @@ namespace UGTLive
 
             // Process the received data
             ProcessReceivedTextJsonData(data);
-        }
-        
-        // Socket connection changed event handler
-        // Socket connection handler no longer needed (using HTTP services now)
-        private void OnSocketConnectionChanged(object? sender, bool isConnected)
-        {
-            // No longer needed - HTTP services don't use socket connections
         }
         
         void OnFinishedThings(bool bResetTranslationStatus)
@@ -325,7 +231,7 @@ namespace UGTLive
         }
         
 
-        // Thêm phương thức xử lý kết quả từ Google Translate
+    
         private void ProcessGoogleTranslateJson(JsonElement translatedRoot)
         {
             try
@@ -335,7 +241,7 @@ namespace UGTLive
                     Console.WriteLine("Processing Google Translate JSON response");
                 }
                 
-                // Kiểm tra nếu có mảng 'translations' trong JSON
+                
                 if (translatedRoot.TryGetProperty("translations", out JsonElement translationsElement) &&
                     translationsElement.ValueKind == JsonValueKind.Array)
                 {
@@ -344,7 +250,7 @@ namespace UGTLive
                         Console.WriteLine($"Found {translationsElement.GetArrayLength()} translations in Google Translate JSON");
                     }
                     
-                    // Xử lý từng phần tử dịch
+                    
                     for (int i = 0; i < translationsElement.GetArrayLength(); i++)
                     {
                         var translation = translationsElement[i];
@@ -359,11 +265,11 @@ namespace UGTLive
                             
                             if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(translatedText))
                             {
-                                // Tìm text object tương ứng theo ID
+                               
                                 var matchingTextObj = _textObjects.FirstOrDefault(t => t.ID == id);
                                 if (matchingTextObj != null)
                                 {
-                                    // Cập nhật text object với bản dịch
+                                   
                                     matchingTextObj.TextTranslated = translatedText;
 
                                     // Don't modify the original text orientation - it should remain as detected by OCR
@@ -410,13 +316,13 @@ namespace UGTLive
                         }
                     }
                     
-                    // Cập nhật ChatBox với bản dịch mới
+                    
                     if (ChatBoxWindow.Instance != null)
                     {
                         ChatBoxWindow.Instance.UpdateChatHistory();
                     }
                     
-                    // Cập nhật MonitorWindow
+                   
                     MonitorWindow.Instance.RefreshOverlays();
                     MainWindow.Instance.RefreshMainWindowOverlays();
                     

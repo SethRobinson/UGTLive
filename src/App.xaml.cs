@@ -48,11 +48,24 @@ public partial class App : Application
                 // Set up event handler for when dialog closes
                 dialog.Closed += (s, args) =>
                 {
-                    // Show main window after dialog closes
-                    _mainWindow?.Show();
-                    
-                    // Attach key handler to other windows once main window is shown
-                    AttachKeyHandlersToAllWindows();
+                    try
+                    {
+                        // Only show main window if app isn't shutting down
+                        // (e.g., user clicked "Download Now" in update dialog)
+                        if (!Current.Dispatcher.HasShutdownStarted && !Current.Dispatcher.HasShutdownFinished)
+                        {
+                            // Show main window after dialog closes
+                            _mainWindow?.Show();
+                            
+                            // Attach key handler to other windows once main window is shown
+                            AttachKeyHandlersToAllWindows();
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // App is shutting down - this is expected when user downloads update
+                        System.Console.WriteLine("Skipping main window display - app is shutting down");
+                    }
                 };
                 
                 // Show the dialog (modal - blocks until closed)
@@ -61,9 +74,21 @@ public partial class App : Application
             catch (Exception ex)
             {
                 System.Console.WriteLine($"Error showing server setup dialog at startup: {ex.Message}");
-                // Fallback: show main window if dialog fails
-                _mainWindow?.Show();
-                AttachKeyHandlersToAllWindows();
+                
+                try
+                {
+                    // Fallback: show main window if dialog fails (unless app is shutting down)
+                    if (!Current.Dispatcher.HasShutdownStarted && !Current.Dispatcher.HasShutdownFinished)
+                    {
+                        _mainWindow?.Show();
+                        AttachKeyHandlersToAllWindows();
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // App is shutting down - this is fine
+                    System.Console.WriteLine("Skipping main window display - app is shutting down");
+                }
             }
         }
     
