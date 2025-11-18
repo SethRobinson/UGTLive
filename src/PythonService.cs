@@ -150,6 +150,14 @@ namespace UGTLive
         }
         
         /// <summary>
+        /// Marks the service as not running (call this when a request fails)
+        /// </summary>
+        public void MarkAsNotRunning()
+        {
+            IsRunning = false;
+        }
+        
+        /// <summary>
         /// Checks if the service is installed by checking if conda environment exists
         /// </summary>
         public async Task<bool> CheckIsInstalledAsync()
@@ -239,6 +247,9 @@ namespace UGTLive
                     if (_process != null)
                     {
                         Console.WriteLine($"Started {ServiceName} service (PID: {_process.Id})");
+                        // Assume service is running after starting - don't check /info immediately
+                        // The service will be marked as not running if a request fails
+                        IsRunning = true;
                         return true;
                     }
                 }

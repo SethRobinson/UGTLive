@@ -445,6 +445,42 @@ async def health_check():
     })
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Pre-load OCR and YOLO models at startup to avoid delay on first request."""
+    print("=" * 60)
+    print("PRE-LOADING MANGA OCR AND YOLO MODELS AT STARTUP")
+    print("=" * 60)
+    
+    # Pre-load Manga OCR engine
+    try:
+        initialize_manga_ocr()
+        print("✓ Manga OCR model pre-loaded successfully")
+    except Exception as e:
+        print(f"✗ Failed to pre-load Manga OCR model: {e}")
+        print("Model will be loaded on first request instead.")
+    
+    # Pre-load YOLO detector
+    try:
+        from manga_yolo_detector import _ensure_model
+        _ensure_model()
+        print("✓ YOLO text detection model pre-loaded successfully")
+    except Exception as e:
+        print(f"✗ Failed to pre-load YOLO model: {e}")
+        print("Model will be loaded on first request instead.")
+    
+    # Pre-load color extractor
+    try:
+        from color_analysis import _get_color_extractor
+        _get_color_extractor()
+        print("✓ Color extractor pre-loaded successfully")
+    except Exception as e:
+        print(f"✗ Failed to pre-load color extractor: {e}")
+    
+    print("✓ All models ready - service is ready for requests!")
+    print("=" * 60)
+
+
 if __name__ == "__main__":
     host = "127.0.0.1" if get_config_value(SERVICE_CONFIG, 'local_only', 'true') == 'true' else "0.0.0.0"
     

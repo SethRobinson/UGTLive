@@ -1586,27 +1586,31 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Check if service is running
-                bool isRunning = await service.CheckIsRunningAsync();
-                
-                if (!isRunning)
+                // Only check if service is running if not already marked as running
+                // This avoids the /info endpoint check on every OCR request
+                if (!service.IsRunning)
                 {
-                    Console.WriteLine($"Service {serviceName} is not running");
+                    bool isRunning = await service.CheckIsRunningAsync();
                     
-                    // Show error dialog offering to start the service (if not already showing)
-                    bool openManager = ErrorPopupManager.ShowServiceWarning(
-                        $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
-                        "Service Not Available");
-                    
-                    if (openManager)
+                    if (!isRunning)
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        Console.WriteLine($"Service {serviceName} is not running");
+                        
+                        // Show error dialog offering to start the service (if not already showing)
+                        bool openManager = ErrorPopupManager.ShowServiceWarning(
+                            $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                            "Service Not Available");
+                        
+                        if (openManager)
                         {
-                            ServerSetupDialog.ShowDialogSafe(fromSettings: true);
-                        });
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                ServerSetupDialog.ShowDialogSafe(fromSettings: true);
+                            });
+                        }
+                        
+                        return null;
                     }
-                    
-                    return null;
                 }
                 
                 // Build query parameters
@@ -1634,6 +1638,7 @@ namespace UGTLive
                 if (!response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"HTTP request failed: {response.StatusCode}");
+                    service.MarkAsNotRunning();
                     return null;
                 }
                 
@@ -1694,6 +1699,14 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing image with HTTP service: {ex.Message}");
+                
+                // Mark service as not running if we get a connection error
+                var service = PythonServicesManager.Instance.GetServiceByName(serviceName);
+                if (service != null)
+                {
+                    service.MarkAsNotRunning();
+                }
+                
                 return null;
             }
         }

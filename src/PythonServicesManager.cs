@@ -131,11 +131,18 @@ namespace UGTLive
             foreach (var service in autoStartServices)
             {
                 // Check if service is already running first - don't waste time on already-running services
-                bool alreadyRunning = await service.CheckIsRunningAsync();
+                // Trust IsRunning property - only check /info if not already marked as running
+                bool alreadyRunning = service.IsRunning;
+                
+                if (!alreadyRunning)
+                {
+                    alreadyRunning = await service.CheckIsRunningAsync();
+                }
                 
                 if (alreadyRunning)
                 {
                     // Skip immediately, no status message or delay needed
+                    statusCallback?.Invoke($"{service.ServiceName} already running - skipping");
                     continue;
                 }
                 
@@ -145,20 +152,11 @@ namespace UGTLive
                 
                 if (started)
                 {
-                    // Wait a moment for service to become available
+                    // Wait a moment for service to initialize models (startup event)
                     await Task.Delay(2000);
                     
-                    // Check if it's actually running
-                    bool isRunning = await service.CheckIsRunningAsync();
-                    
-                    if (isRunning)
-                    {
-                        statusCallback?.Invoke($"{service.ServiceName} started successfully");
-                    }
-                    else
-                    {
-                        statusCallback?.Invoke($"{service.ServiceName} process started but not responding yet");
-                    }
+                    // Service is marked as running by StartAsync - trust it without checking /info
+                    statusCallback?.Invoke($"{service.ServiceName} started successfully");
                 }
                 else
                 {

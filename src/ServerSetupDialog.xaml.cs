@@ -500,8 +500,14 @@ namespace UGTLive
             
             try
             {
-                // First check if running (fast check via HTTP)
-                bool isRunning = await service.CheckIsRunningAsync();
+                // Trust IsRunning property first - only check /info if not already marked as running
+                bool isRunning = service.IsRunning;
+                
+                if (!isRunning)
+                {
+                    // Only hit /info endpoint if we don't already know it's running
+                    isRunning = await service.CheckIsRunningAsync();
+                }
                 
                 if (isRunning)
                 {
@@ -594,9 +600,26 @@ namespace UGTLive
                         bool showWindow = showServerWindowCheckBox.IsChecked ?? false;
                         bool started = await service.StartAsync(showWindow);
                         
-                        // Always refresh status after start attempt
+                        // Wait for service to initialize models (startup event)
                         await Task.Delay(2000);
-                        await UpdateServiceStatusAsync(service);
+                        
+                        // Update UI based on IsRunning (already set by StartAsync - no /info check needed)
+                        if (started && service.IsRunning)
+                        {
+                            viewModel.StatusIcon = "✅";
+                            viewModel.StatusText = "Running";
+                            viewModel.StatusColor = "Green";
+                            viewModel.StartStopButtonText = "Stop";
+                            viewModel.StartStopEnabled = true;
+                            viewModel.InstallEnabled = false;
+                            viewModel.UninstallEnabled = true;
+                            viewModel.TestEnabled = true;
+                        }
+                        else
+                        {
+                            // If start failed, refresh status to check actual state
+                            await UpdateServiceStatusAsync(service);
+                        }
                     }
                 }
                 catch (Exception ex)

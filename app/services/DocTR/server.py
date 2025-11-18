@@ -307,6 +307,33 @@ async def health_check():
     })
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Pre-load OCR model at startup to avoid delay on first request."""
+    print("=" * 60)
+    print("PRE-LOADING DOCTR OCR MODEL AT STARTUP")
+    print("=" * 60)
+    
+    # Pre-load docTR predictor
+    try:
+        initialize_doctr()
+        print("✓ DocTR OCR model pre-loaded successfully")
+    except Exception as e:
+        print(f"✗ Failed to pre-load DocTR OCR model: {e}")
+        print("Model will be loaded on first request instead.")
+    
+    # Pre-load color extractor
+    try:
+        from color_analysis import _get_color_extractor
+        _get_color_extractor()
+        print("✓ Color extractor pre-loaded successfully")
+    except Exception as e:
+        print(f"✗ Failed to pre-load color extractor: {e}")
+    
+    print("✓ All models ready - service is ready for requests!")
+    print("=" * 60)
+
+
 if __name__ == "__main__":
     host = "127.0.0.1" if get_config_value(SERVICE_CONFIG, 'local_only', 'true') == 'true' else "0.0.0.0"
     
