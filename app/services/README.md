@@ -24,9 +24,13 @@ services/
 │   ├── config_parser.py      # Service configuration parser
 │   ├── response_models.py    # Pydantic response models
 │   ├── color_analysis.py     # GPU color extraction
-│   ├── manga_yolo_detector.py # YOLO text detection (for MangaOCR)
 │   ├── test_images/          # Test images for validation
 │   └── README.md
+├── localdata/                 # Downloaded models and cache (in .gitignore)
+│   └── models/               # Auto-downloaded AI models
+│       └── manga109_yolo/    # YOLO text detection model (~50MB)
+│           ├── model.pt      # Downloaded from HuggingFace
+│           └── labels.json
 ├── EasyOCR/                   # EasyOCR service (port 5000)
 │   ├── service_config.txt
 │   ├── server.py
@@ -37,7 +41,8 @@ services/
 ├── MangaOCR/                  # MangaOCR service (port 5001)
 │   ├── service_config.txt
 │   ├── server.py
-│   ├── models/               # YOLO models directory
+│   ├── manga_yolo_detector.py # YOLO text detection (MangaOCR-specific)
+│   ├── test_model_download.py # Test YOLO model download
 │   ├── SetupServerCondaEnv.bat
 │   ├── RunServer.bat
 │   ├── DiagnosticTest.bat
@@ -221,8 +226,13 @@ Gracefully shutdown the service.
    ```
    
    This will:
-   - Detect your GPU
-   - Create a conda environment
+   - Detect your GPU (RTX 30/40/50 series)
+   - Create a conda environment with appropriate Python version
+     - Python 3.10 for RTX 30/40 series
+     - Python 3.11 for RTX 50 series
+   - Install PyTorch with appropriate CUDA version
+     - PyTorch 2.6.0 + CUDA 11.8 for RTX 30/40 series
+     - PyTorch nightly + CUDA 12.8 for RTX 50 series
    - Install all dependencies
    - Download required models
 
@@ -324,6 +334,9 @@ FastAPI/Uvicorn automatically supports HTTP keep-alive, allowing persistent conn
 
 All services support GPU acceleration when available:
 - Automatically detect CUDA availability
+- Auto-detect GPU series and install appropriate PyTorch version:
+  - RTX 30/40 series: PyTorch 2.6.0 with CUDA 11.8
+  - RTX 50 series: PyTorch nightly with CUDA 12.8
 - Move models to GPU if available
 - Report backend (gpu/cpu) in responses
 
@@ -337,7 +350,7 @@ Services use GPU-accelerated k-means clustering (via CuPy) to extract dominant f
 Run `services\util\InstallMiniConda.bat`, then restart your terminal/application.
 
 ### GPU not detected
-Ensure NVIDIA drivers are installed and up to date. Run `nvidia-smi` to verify.
+Ensure NVIDIA drivers are installed and up to date. Run `nvidia-smi` to verify. For RTX 50 series cards, ensure you have the latest NVIDIA drivers that support CUDA 12.8.
 
 ### Port already in use
 Check `service_config.txt` and ensure each service uses a unique port. Default ports:

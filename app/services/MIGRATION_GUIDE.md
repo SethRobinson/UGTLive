@@ -13,7 +13,6 @@ app/webserver/
 ├── process_image_mangaocr.py    # MangaOCR implementation
 ├── process_image_doctr.py       # DocTR implementation
 ├── color_analysis.py            # Shared utilities
-├── manga_yolo_detector.py       # Shared utilities
 ├── SetupServerCondaEnv.bat      # Single environment for all
 └── _NVidia30And40Series.bat     # GPU-specific setup
 ```
@@ -32,7 +31,6 @@ app/services/
 │   ├── config_parser.py
 │   ├── response_models.py
 │   ├── color_analysis.py
-│   └── manga_yolo_detector.py
 ├── EasyOCR/
 │   ├── service_config.txt
 │   ├── server.py              # FastAPI server

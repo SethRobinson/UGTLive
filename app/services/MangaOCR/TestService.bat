@@ -5,7 +5,7 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
-set "TEST_IMAGE=%SCRIPT_DIR%..\shared\test_images\test.png"
+set "TEST_IMAGE=%SCRIPT_DIR%..\shared\test_images\vertical_manga1.jpg"
 
 REM -----------------------------------------------------------------
 REM Parse service_config.txt to get port and service name

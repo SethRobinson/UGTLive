@@ -6,6 +6,8 @@ Get your OCR services up and running in 5 minutes!
 
 - Windows 10/11
 - NVIDIA GPU (RTX 30/40/50 series recommended)
+  - RTX 30/40 series: Uses PyTorch 2.6.0 with CUDA 11.8
+  - RTX 50 series: Uses PyTorch nightly with CUDA 12.8
 - Internet connection (for downloading models and packages)
 
 ## Step 1: Install Miniconda
@@ -31,9 +33,14 @@ SetupServerCondaEnv.bat
 ```
 
 Wait for setup to complete (~5-10 minutes). It will:
-- Detect your GPU
+- Detect your GPU (RTX 30/40/50 series)
 - Create conda environment `ugt_easyocr`
-- Install PyTorch, EasyOCR, and dependencies
+  - Python 3.10 for RTX 30/40 series
+  - Python 3.11 for RTX 50 series
+- Install PyTorch with appropriate CUDA version
+  - PyTorch 2.6.0 + CUDA 11.8 for RTX 30/40
+  - PyTorch nightly + CUDA 12.8 for RTX 50
+- Install EasyOCR and dependencies
 - Download EasyOCR models
 
 ### Option B: MangaOCR (For Japanese manga)
@@ -150,6 +157,8 @@ $response.Content | ConvertFrom-Json
 - Check your internet connection
 - Try running setup again
 - Check GPU compatibility (RTX 30/40/50 series)
+- For RTX 50 series: Ensure you have the latest NVIDIA drivers
+- For CUDA compatibility issues: The setup automatically selects the correct PyTorch version based on your GPU
 
 ## Next Steps
 

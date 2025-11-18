@@ -16,19 +16,25 @@ import numpy as np
 from PIL import Image
 import torch
 
-# Add shared folder to path
+# Add local MangaOCR folder to path first (for manga_yolo_detector)
+local_dir = Path(__file__).parent
+sys.path.insert(0, str(local_dir))
+
+# Add shared folder to path (for common utilities)
 shared_dir = Path(__file__).parent.parent / "shared"
 print(f"[DEBUG] Script location: {Path(__file__).absolute()}")
 print(f"[DEBUG] Shared directory: {shared_dir.absolute()}")
 print(f"[DEBUG] Shared directory exists: {shared_dir.exists()}")
 if shared_dir.exists():
     print(f"[DEBUG] Files in shared: {list(shared_dir.glob('*.py'))}")
-sys.path.insert(0, str(shared_dir))
+sys.path.insert(1, str(shared_dir))
 print(f"[DEBUG] sys.path[0]: {sys.path[0]}")
+print(f"[DEBUG] sys.path[1]: {sys.path[1]}")
 
 from config_parser import parse_service_config, get_config_value
 from response_models import OCRResponse, ErrorResponse, ServiceInfo, ShutdownResponse, TextObject
 from color_analysis import extract_foreground_background_colors, attach_color_info
+# Import manga_yolo_detector from local MangaOCR directory
 from manga_yolo_detector import detect_regions_from_path, ModelNotFoundError
 
 # Load service configuration
@@ -375,12 +381,12 @@ async def process_image(request: Request):
         return JSONResponse(content=response)
         
     except ModelNotFoundError as e:
-        print(f"YOLO model not found: {e}")
+        print(f"YOLO model error: {e}")
         return JSONResponse(
             status_code=500,
             content={
                 "status": "error",
-                "message": "YOLO model not found. Please run setup script to download the model.",
+                "message": str(e),
                 "error_type": "ModelNotFoundError"
             }
         )

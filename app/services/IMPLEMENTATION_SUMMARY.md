@@ -16,7 +16,6 @@ app/services/
 │   ├── config_parser.py              # Parse service_config.txt files
 │   ├── response_models.py            # Pydantic models for API responses
 │   ├── color_analysis.py             # GPU-accelerated color extraction
-│   ├── manga_yolo_detector.py        # YOLO text detection (for MangaOCR)
 │   ├── test_images/test.png          # Test image for validation
 │   └── README.md                     # Shared utilities documentation
 ├── EasyOCR/                          # Port 5000

@@ -412,9 +412,9 @@ app/webserver/*
 
 # Include new services directory and its important files
 !app/services/
-# But ignore Python cache and downloaded YOLO models (they're large ~50MB, downloaded during setup)
+# But ignore Python cache and downloaded data (models are ~50MB, downloaded during setup)
 app/services/**/__pycache__/
-app/services/**/models/manga109_yolo/model.pt
+app/services/localdata/
 # Keep everything else in services (Python, batch, config, markdown, test images, model configs)
 
 UniversalGameTranslatorLive_Windows.zip

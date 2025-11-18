@@ -21,10 +21,18 @@ Specialized OCR engine optimized for Japanese manga and comic text recognition, 
 
 ## How It Works
 
-1. **Text Detection**: Uses Manga109 YOLO model to detect text regions
+1. **Text Detection**: Uses Manga109 YOLO model to detect text regions (auto-downloads to `../localdata/models/`)
 2. **Region Filtering**: Filters out small regions and overlapping regions
 3. **Text Recognition**: Uses Manga OCR to recognize Japanese text in each region
 4. **Color Extraction**: Extracts foreground/background colors for each region
+
+## Model Download
+
+The YOLO model (~50MB) is automatically downloaded from HuggingFace on first use:
+- **Download Location**: `services/localdata/models/manga109_yolo/model.pt`
+- **Source**: https://huggingface.co/deepghs/manga109_yolo
+- **Auto-download**: Handled by `manga_yolo_detector.py`
+- **Test Download**: Run `python test_model_download.py` from this directory
 
 ## API Usage
 
@@ -58,7 +66,10 @@ curl http://localhost:5001/health
 ## Setup
 
 1. Run `SetupServerCondaEnv.bat` to:
-   - Create conda environment
+   - Automatically detect your GPU (RTX 30/40/50 series)
+   - Create conda environment with appropriate PyTorch version:
+     - RTX 30/40: PyTorch 2.6.0 + CUDA 11.8
+     - RTX 50: PyTorch nightly + CUDA 12.8
    - Install dependencies
    - Download Manga109 YOLO model
    - Download Manga OCR model
@@ -87,14 +98,18 @@ Maximum overlap percentage between regions. When two regions overlap more than t
 
 **Example**: Set to `90` for dense text, `30` for well-separated speech bubbles
 
-## Models Directory
+## Files
 
-The service automatically downloads the Manga109 YOLO model to:
-```
-services/MangaOCR/models/manga109_yolo/
-├── model.pt       # YOLO model weights
-└── labels.json    # Label metadata
-```
+**Service Files**:
+- `server.py` - FastAPI service implementation
+- `manga_yolo_detector.py` - YOLO text detection module
+- `test_model_download.py` - Test script for YOLO model download
+- `service_config.txt` - Service configuration
+
+**Models** (auto-downloaded to `../localdata/models/`):
+- The Manga109 YOLO model is automatically downloaded on first use
+- Location: `services/localdata/models/manga109_yolo/model.pt`
+- Size: ~50MB
 
 ## Performance
 

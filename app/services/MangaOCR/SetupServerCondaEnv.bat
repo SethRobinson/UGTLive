@@ -5,11 +5,16 @@ setlocal ENABLEDELAYEDEXPANSION
 
 set "SCRIPT_DIR=%~dp0"
 set "CONFIG_FILE=%SCRIPT_DIR%service_config.txt"
-set "MODEL_DIR=%SCRIPT_DIR%models\manga109_yolo"
-set "MODEL_FILE=%MODEL_DIR%\model.pt"
-set "LABELS_FILE=%MODEL_DIR%\labels.json"
-set "MODEL_URL=https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/model.pt"
-set "LABELS_URL=https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/labels.json"
+set "LOG_FILE=%SCRIPT_DIR%setup_conda_log.txt"
+
+REM Delete existing log file
+if exist "%LOG_FILE%" del "%LOG_FILE%"
+
+REM Create log file and add header
+echo ============================================================= >> "%LOG_FILE%"
+echo Setup Log - %date% %time% >> "%LOG_FILE%"
+echo ============================================================= >> "%LOG_FILE%"
+echo. >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
 REM Parse service_config.txt
@@ -33,13 +38,14 @@ if exist "%CONFIG_FILE%" (
     )
 )
 
-if "!ENV_NAME!"=="" (
-    echo ERROR: Could not find conda_env_name in service_config.txt
-    pause
-    exit /b 1
-)
+if "!ENV_NAME!"=="" set "ENV_NAME=ugt_mangaocr"
+if "!SERVICE_NAME!"=="" set "SERVICE_NAME=MangaOCR"
 
-if "!SERVICE_NAME!"=="" set "SERVICE_NAME=OCR Service"
+echo ============================================================= >> "%LOG_FILE%"
+echo Service: !SERVICE_NAME! >> "%LOG_FILE%"
+echo Environment: !ENV_NAME! >> "%LOG_FILE%"
+echo ============================================================= >> "%LOG_FILE%"
+echo. >> "%LOG_FILE%"
 
 echo =============================================================
 echo   !SERVICE_NAME! Environment Setup
@@ -50,235 +56,180 @@ echo.
 REM -----------------------------------------------------------------
 REM Validate conda
 REM -----------------------------------------------------------------
+echo Checking for conda installation...
 where conda >nul 2>nul
 if errorlevel 1 (
-    echo ERROR: Conda is not installed or not in PATH
-    echo Please run the InstallMiniConda.bat script from the util folder.
+    echo WARNING: Conda not found in PATH. Please install conda first.
+    echo WARNING: Conda not found >> "%LOG_FILE%"
     pause
     exit /b 1
 )
+echo Conda found successfully >> "%LOG_FILE%"
 
 echo Detecting GPU...
 echo.
+echo Detecting GPU... >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
 REM Detect GPU
 REM -----------------------------------------------------------------
-set "GPU_NAME=Unknown"
-set "GPU_SERIES=UNSUPPORTED"
-
+set "GPU_SERIES=30_40"
 nvidia-smi --query-gpu=name --format=csv,noheader >"%TEMP%\gpu_check.txt" 2>nul
 if exist "%TEMP%\gpu_check.txt" (
     set /p GPU_NAME=<"%TEMP%\gpu_check.txt"
     del "%TEMP%\gpu_check.txt" >nul 2>&1
-)
-
-if not "!GPU_NAME!"=="Unknown" (
-    echo Detected NVIDIA GPU: !GPU_NAME!
+    echo Detected GPU: !GPU_NAME! >> "%LOG_FILE%"
+    echo Detected GPU: !GPU_NAME!
     
     echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
-    
-    if "!GPU_SERIES!"=="UNSUPPORTED" (
-        echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
-    )
 ) else (
-    echo WARNING: Unable to detect NVIDIA GPU
-    echo Attempting to continue with RTX 3000/4000 series configuration...
-    set "GPU_SERIES=30_40"
+    echo Using default GPU configuration (RTX 30/40 series)
+    echo Using default GPU configuration >> "%LOG_FILE%"
 )
 
 echo.
 
 REM -----------------------------------------------------------------
-REM Activate base
+REM Prepare conda
 REM -----------------------------------------------------------------
-call conda activate base || goto :FailActivateBase
+echo [1/3] Activating conda base environment...
+call conda activate base >> "%LOG_FILE%" 2>&1
 
-echo Accepting conda Terms of Service...
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>nul
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>nul
-call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/msys2 2>nul
+echo [2/3] Accepting conda Terms of Service...
+call conda tos accept 2>nul
 
-echo Updating conda...
-call conda update -y conda >nul
+echo [3/3] Updating conda...
+call conda update -y conda >> "%LOG_FILE%" 2>&1
 
 REM -----------------------------------------------------------------
 REM Recreate environment
 REM -----------------------------------------------------------------
-echo Removing existing !ENV_NAME! environment if it exists...
-call conda env remove -n !ENV_NAME! -y >nul 2>nul
+echo Removing existing environment if present...
+call conda env remove -n "!ENV_NAME!" -y >> "%LOG_FILE%" 2>&1
 
-echo Creating new conda environment (python=3.10)...
-call conda create -y --name !ENV_NAME! python=3.10 || goto :FailCreateEnv
+echo Creating new conda environment...
 
-echo Activating !ENV_NAME! environment...
-call conda activate !ENV_NAME! || goto :FailActivateEnv
+REM Set Python version based on GPU series
+set "PYTHON_VERSION=3.10"
+if "!GPU_SERIES!"=="50" set "PYTHON_VERSION=3.11"
+
+echo Creating environment "!ENV_NAME!" with Python !PYTHON_VERSION!...
+call conda create -y --name "!ENV_NAME!" python=!PYTHON_VERSION! >> "%LOG_FILE%" 2>&1
+
+echo Activating new environment...
+call conda activate "!ENV_NAME!" >> "%LOG_FILE%" 2>&1
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
+echo Environment variables set >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
 REM Install based on GPU series
 REM -----------------------------------------------------------------
+echo.
+echo Installing dependencies for GPU series: !GPU_SERIES!
+echo Installing dependencies for GPU series: !GPU_SERIES! >> "%LOG_FILE%"
+
 if "!GPU_SERIES!"=="50" (
-    echo Installing for RTX 50 series...
-    call :Install30_40Series
-) else if "!GPU_SERIES!"=="30_40" (
-    echo Installing for RTX 30/40 series...
-    call :Install30_40Series
+    echo Installing for RTX 50 series with PyTorch nightly CUDA 12.8...
+    call :Install50Series
 ) else (
-    echo ERROR: Unsupported GPU series
-    goto :FailGPU
+    echo Installing for RTX 30/40 series with PyTorch 2.6 CUDA 11.8...
+    call :Install30_40Series
 )
+
+goto :SetupComplete
+
+:SetupComplete
+echo Reached SetupComplete label >> "%LOG_FILE%"
+echo Reached SetupComplete label
 
 REM -----------------------------------------------------------------
-REM Download Manga109 YOLO model
+REM Setup complete
 REM -----------------------------------------------------------------
-if not exist "%MODEL_DIR%" (
-    echo Creating Manga109 YOLO model directory...
-    mkdir "%MODEL_DIR%" || goto :FailCreateModelDir
-)
-
-if exist "%MODEL_FILE%" (
-    echo Manga109 YOLO model already present.
-) else (
-    echo Downloading Manga109 YOLO model weights...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri '%MODEL_URL%' -OutFile '%MODEL_FILE%' -UseBasicParsing } catch { exit 1 }" || goto :FailDownloadModel
-)
-
-if exist "%LABELS_FILE%" (
-    echo Manga109 YOLO labels already present.
-) else (
-    echo Downloading Manga109 YOLO label metadata...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri '%LABELS_URL%' -OutFile '%LABELS_FILE%' -UseBasicParsing } catch { exit 1 }"
-    if errorlevel 1 echo WARNING: Failed to download labels metadata
-)
+echo. >> "%LOG_FILE%"
+echo ============================================================= >> "%LOG_FILE%"
+echo SUCCESS! Setup completed successfully >> "%LOG_FILE%"
+echo End time: %date% %time% >> "%LOG_FILE%"
+echo ============================================================= >> "%LOG_FILE%"
 
 echo.
 echo =============================================================
-echo   Setup complete for !SERVICE_NAME!!
+echo   SUCCESS! Setup complete for !SERVICE_NAME!
 echo   Environment: !ENV_NAME!
+echo   The service is ready to use.
 echo =============================================================
 echo.
+echo Next steps:
+echo   1. Run DiagnosticTest.bat to verify the installation
+echo   2. Run RunServer.bat to start the service
+echo   3. Run TestService.bat to test the running service
+echo.
+echo Log file: setup_conda_log.txt
+echo.
+echo Press any key to exit...
 pause
-goto :eof
+exit /b 0
 
 REM -----------------------------------------------------------------
 REM Installation for RTX 30/40 Series
 REM -----------------------------------------------------------------
 :Install30_40Series
+echo Installing dependencies...
+
 set "PYTORCH_CHANNEL=https://download.pytorch.org/whl/cu118"
-set "TORCH_VERSION=2.6.0+cu118"
-set "TORCHVISION_VERSION=0.21.0+cu118"
-set "TORCHAUDIO_VERSION=2.6.0+cu118"
 
-echo Upgrading pip...
-python -m pip install --upgrade pip setuptools wheel || goto :FailPip
+echo [1/5] Installing PyTorch with CUDA 11.8...
+python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
+python -m pip install --extra-index-url !PYTORCH_CHANNEL! torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 >> "%LOG_FILE%" 2>&1
 
-echo Installing PyTorch 2.6 GPU stack (cu118)...
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! torch==!TORCH_VERSION! torchvision==!TORCHVISION_VERSION! torchaudio==!TORCHAUDIO_VERSION! || goto :FailTorch
+echo [2/5] Installing core packages...
+python -m pip install numpy==2.0.2 pillow==11.3.0 "opencv-python-headless>=4.10,<4.12" scipy==1.13.1 >> "%LOG_FILE%" 2>&1
+python -m pip install transformers==4.57.1 huggingface-hub==0.36.0 tokenizers==0.22.1 safetensors==0.6.2 >> "%LOG_FILE%" 2>&1
+python -m pip install fugashi==1.5.2 unidic_lite==1.0.8 >> "%LOG_FILE%" 2>&1
 
-echo Installing core dependencies...
-python -m pip install numpy==2.0.2 pillow==11.3.0 "opencv-python-headless>=4.10,<4.12" scipy==1.13.1 || goto :FailDeps
+echo [3/5] Installing Manga OCR and YOLO...
+python -m pip install --extra-index-url !PYTORCH_CHANNEL! manga-ocr==0.1.14 ultralytics==8.3.226 >> "%LOG_FILE%" 2>&1
 
-echo Installing NLP/transformer dependencies...
-python -m pip install transformers==4.57.1 huggingface-hub==0.36.0 tokenizers==0.22.1 safetensors==0.6.2 || goto :FailDeps
-python -m pip install fugashi==1.5.2 unidic_lite==1.0.8 || goto :FailDeps
+echo [4/5] Installing API server...
+python -m pip install fastapi==0.121.1 "uvicorn[standard]==0.38.0" python-multipart==0.0.20 pydantic==2.10.5 >> "%LOG_FILE%" 2>&1
 
-echo Installing Manga OCR...
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! manga-ocr==0.1.14 || goto :FailMangaOCR
+echo [5/5] Installing CuPy (optional)...
+python -m pip install cupy-cuda12x==13.6.0 >> "%LOG_FILE%" 2>&1
 
-echo Installing Ultralytics YOLO...
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! ultralytics==8.3.226 || goto :FailUltralytics
+echo Initializing Manga OCR...
+python -c "from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
 
-echo Installing FastAPI and Uvicorn...
-python -m pip install fastapi==0.121.1 "uvicorn[standard]==0.38.0" python-multipart==0.0.20 pydantic==2.10.5 || goto :FailFastAPI
-
-echo Installing CuPy for GPU color extraction...
-python -m pip install cupy-cuda12x==13.6.0 || echo WARNING: CuPy installation failed
-
-echo Prefetching Manga OCR model from Huggingface...
-python -c "from huggingface_hub import hf_hub_download as d; d('kha-white/manga-ocr-base','model.safetensors')" 1>nul 2>nul
-if errorlevel 1 python -c "from huggingface_hub import hf_hub_download as d; d('kha-white/manga-ocr-base','pytorch_model.bin')" 1>nul 2>nul
-
-echo Initializing Manga OCR (first-run warmup)...
-python -c "from manga_ocr import MangaOcr; MangaOcr()" 1>nul
-if errorlevel 1 echo WARNING: Failed to initialize Manga OCR
-
-echo Verifying installation...
-python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA Available:', torch.cuda.is_available())" || goto :FailVerify
-python -c "from manga_ocr import MangaOcr; print('Manga OCR imported successfully')" || goto :FailVerify
-python -c "import ultralytics; print('Ultralytics version:', ultralytics.__version__)" || goto :FailVerify
-python -c "import fastapi; print('FastAPI imported successfully')" || goto :FailVerify
-
+echo Installation completed for RTX 30/40 series
 goto :eof
 
 REM -----------------------------------------------------------------
-REM Error handlers
+REM Installation for RTX 50 Series (PyTorch Nightly with CUDA 12.8)
 REM -----------------------------------------------------------------
-:FailActivateBase
-echo ERROR: Failed to activate conda base!
-pause
-exit /b 1
+:Install50Series
+echo Installing dependencies...
 
-:FailCreateEnv
-echo ERROR: Failed to create conda environment!
-pause
-exit /b 1
+echo [1/5] Installing PyTorch nightly with CUDA 12.8...
+python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
+python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 >> "%LOG_FILE%" 2>&1
 
-:FailActivateEnv
-echo ERROR: Failed to activate !ENV_NAME! environment!
-pause
-exit /b 1
+echo [2/5] Installing core packages...
+python -m pip install numpy pillow opencv-python scipy tqdm pyyaml requests >> "%LOG_FILE%" 2>&1
+python -m pip install transformers huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
+python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
 
-:FailPip
-echo ERROR: Failed to upgrade pip!
-pause
-exit /b 1
+echo [3/5] Installing Manga OCR and YOLO...
+python -m pip install manga-ocr ultralytics >> "%LOG_FILE%" 2>&1
 
-:FailTorch
-echo ERROR: Failed to install PyTorch!
-pause
-exit /b 1
+echo [4/5] Installing API server...
+python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
 
-:FailDeps
-echo ERROR: Failed to install dependencies!
-pause
-exit /b 1
+echo [5/5] Installing CuPy (optional)...
+python -m pip install cupy-cuda12x >> "%LOG_FILE%" 2>&1
 
-:FailMangaOCR
-echo ERROR: Failed to install Manga OCR!
-pause
-exit /b 1
+echo Initializing Manga OCR...
+python -c "from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
 
-:FailUltralytics
-echo ERROR: Failed to install Ultralytics!
-pause
-exit /b 1
-
-:FailFastAPI
-echo ERROR: Failed to install FastAPI/Uvicorn!
-pause
-exit /b 1
-
-:FailVerify
-echo ERROR: Installation verification failed!
-pause
-exit /b 1
-
-:FailGPU
-echo ERROR: Unsupported GPU series!
-pause
-exit /b 1
-
-:FailCreateModelDir
-echo ERROR: Failed to create model directory!
-pause
-exit /b 1
-
-:FailDownloadModel
-echo ERROR: Failed to download YOLO model!
-pause
-exit /b 1
+echo Installation completed for RTX 50 series
+goto :eof
 

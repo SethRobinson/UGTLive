@@ -8,7 +8,6 @@ Use this checklist to verify all required files are in place.
 - [ ] `config_parser.py` - Configuration file parser
 - [ ] `response_models.py` - Pydantic response models
 - [ ] `color_analysis.py` - GPU color extraction (CRITICAL!)
-- [ ] `manga_yolo_detector.py` - YOLO text detection (for MangaOCR)
 - [ ] `README.md` - Documentation
 
 **Required Subdirectories:**
@@ -122,7 +121,6 @@ app/
     │   ├── config_parser.py
     │   ├── response_models.py
     │   ├── color_analysis.py          ← Must be here!
-    │   ├── manga_yolo_detector.py     ← Must be here!
     │   └── test_images/test.png
     ├── EasyOCR/
     │   └── server.py
@@ -137,7 +135,6 @@ app/
 To help verify you have the correct files:
 
 - `color_analysis.py` - ~23 KB
-- `manga_yolo_detector.py` - ~12 KB
 - `config_parser.py` - ~2.5 KB
 - `response_models.py` - ~1.7 KB
 

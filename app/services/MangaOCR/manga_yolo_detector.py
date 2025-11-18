@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import urllib.request
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from types import ModuleType
@@ -23,11 +24,14 @@ _ULTRA_BLOCK: Optional[ModuleType] = None
 _YOLO_CLASS: Optional[Type[Any]] = None
 _MODEL_HANDLE: Optional[Any] = None
 _UPGRADE_ATTEMPTED = False
-_MODEL_PATH = Path(__file__).resolve().parent / "models" / "manga109_yolo" / "model.pt"
+# Model path points to services/localdata/models (shared location for downloaded models)
+_MODEL_PATH = Path(__file__).resolve().parent.parent / "localdata" / "models" / "manga109_yolo" / "model.pt"
+_MODEL_URL = "https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/model.pt"
+_LABELS_URL = "https://huggingface.co/deepghs/manga109_yolo/resolve/main/v2023.12.07_l_yv11/labels.json"
 
 
 class ModelNotFoundError(FileNotFoundError):
-    """Raised when the expected YOLO model file is missing."""
+    """Raised when the YOLO model file is missing and cannot be downloaded."""
 
 
 class _GitWrapper:
@@ -179,6 +183,38 @@ def _import_ultralytics() -> None:
     _YOLO_CLASS = YOLO
 
 
+def _download_model() -> None:
+    """Download the YOLO model from HuggingFace if it doesn't exist."""
+    
+    # Create model directory if it doesn't exist
+    model_dir = _MODEL_PATH.parent
+    model_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Download model file
+    if not _MODEL_PATH.exists():
+        _debug(f"Downloading YOLO model from {_MODEL_URL}")
+        _debug(f"This may take a few minutes (~50MB)...")
+        try:
+            urllib.request.urlretrieve(_MODEL_URL, str(_MODEL_PATH))
+            _debug(f"Model downloaded successfully to {_MODEL_PATH}")
+        except Exception as e:
+            _debug(f"Failed to download model: {e}")
+            raise ModelNotFoundError(
+                f"Failed to download Manga109 YOLO model from {_MODEL_URL}. "
+                f"Please download manually and place at '{_MODEL_PATH}'"
+            )
+    
+    # Download labels file (optional, don't fail if it doesn't work)
+    labels_path = _MODEL_PATH.parent / "labels.json"
+    if not labels_path.exists():
+        try:
+            _debug(f"Downloading labels from {_LABELS_URL}")
+            urllib.request.urlretrieve(_LABELS_URL, str(labels_path))
+            _debug("Labels downloaded successfully")
+        except Exception as e:
+            _debug(f"Failed to download labels (not critical): {e}")
+
+
 def _ensure_model() -> Any:
     """Load the YOLO model lazily and cache the handle for reuse."""
 
@@ -195,10 +231,8 @@ def _ensure_model() -> Any:
         )
 
         if not _MODEL_PATH.exists():
-            raise ModelNotFoundError(
-                "Could not find Manga109 YOLO model at "
-                f"'{_MODEL_PATH}'. Please rerun SetupServerCondaEnvNVidia.bat to download the assets."
-            )
+            _debug(f"YOLO model not found at {_MODEL_PATH}")
+            _download_model()
 
         _debug(f"About to load model from {_MODEL_PATH}")
         _MODEL_HANDLE = _YOLO_CLASS(str(_MODEL_PATH))

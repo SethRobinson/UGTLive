@@ -55,6 +55,10 @@ curl http://localhost:5000/health
 ## Setup
 
 1. Run `SetupServerCondaEnv.bat` to create the conda environment and install dependencies
+   - Automatically detects your GPU (RTX 30/40/50 series)
+   - Installs appropriate PyTorch version:
+     - RTX 30/40: PyTorch 2.6.0 + CUDA 11.8
+     - RTX 50: PyTorch nightly + CUDA 12.8
 2. Run `DiagnosticTest.bat` to verify the installation
 3. Run `RunServer.bat` to start the service
 4. Run `TestService.bat` to test the running service
