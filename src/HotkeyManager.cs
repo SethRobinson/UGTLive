@@ -398,10 +398,10 @@ namespace UGTLive
             togglePassthrough.UseShift = true;
             _actionBindings["toggle_passthrough"] = new List<HotkeyEntry> { togglePassthrough };
             
-            // Toggle Overlay Mode - Shift+O
+            // Toggle Overlay Mode - Tab
             var toggleOverlayMode = new HotkeyEntry("toggle_overlay_mode", "Toggle Overlay Mode");
-            toggleOverlayMode.KeyboardKey = Key.O;
-            toggleOverlayMode.UseShift = true;
+            toggleOverlayMode.KeyboardKey = Key.Tab;
+            toggleOverlayMode.UseShift = false;
             _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
             
             // Toggle Listen - Shift+I
