@@ -37,7 +37,7 @@ Use this checklist to verify all required files are in place.
 - [ ] `README.md` - Service documentation
 - [ ] `models/manga109_yolo/` - Models directory (empty until setup)
 
-## DocTR Service (`app/services/DocTR/`)
+## docTR Service (`app/services/docTR/`)
 
 - [ ] `service_config.txt` - Service configuration
 - [ ] `server.py` - FastAPI server
@@ -83,7 +83,7 @@ dir /s /b app\services\*service_config.txt
 
 **Expected output:**
 ```
-...\app\services\DocTR\service_config.txt
+...\app\services\docTR\service_config.txt
 ...\app\services\EasyOCR\service_config.txt
 ...\app\services\MangaOCR\service_config.txt
 ```
@@ -95,7 +95,7 @@ dir /s /b app\services\*server.py
 
 **Expected output:**
 ```
-...\app\services\DocTR\server.py
+...\app\services\docTR\server.py
 ...\app\services\EasyOCR\server.py
 ...\app\services\MangaOCR\server.py
 ```
@@ -125,7 +125,7 @@ app/
     │   └── server.py
     ├── MangaOCR/
     │   └── server.py
-    └── DocTR/
+    └── docTR/
         └── server.py
 ```
 
@@ -141,7 +141,7 @@ To help verify you have the correct files:
 
 When everything is in place, you should have approximately:
 - **3** Shared Python files (`config_parser.py`, `response_models.py`, `color_analysis.py`)
-- **3** Server Python files (`EasyOCR/server.py`, `MangaOCR/server.py`, `DocTR/server.py`)
+- **3** Server Python files (`EasyOCR/server.py`, `MangaOCR/server.py`, `docTR/server.py`)
 - **1** MangaOCR-specific Python file (`MangaOCR/manga_yolo_detector.py`)
 - **12** Service batch files (4 per service: Install.bat, RunServer.bat, DiagnosticTest.bat, Uninstall.bat)
 - **1** Utility batch file (`util/InstallMiniConda.bat`)

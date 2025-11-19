@@ -1,10 +1,10 @@
-# DocTR Service
+# docTR Service
 
 Document OCR engine with strong English text recognition capabilities. **Does NOT support Japanese text.**
 
 ## Service Information
 
-- **Service Name**: DocTR
+- **Service Name**: docTR
 - **Port**: 5002
 - **Conda Environment**: ugt_doctr
 - **Version**: 0.10.0
@@ -21,7 +21,7 @@ Document OCR engine with strong English text recognition capabilities. **Does NO
 
 ## ⚠️ Important Limitation
 
-**DocTR does NOT support Japanese text recognition.**
+**docTR does NOT support Japanese text recognition.**
 
 For Japanese OCR, use:
 - **EasyOCR** (general Japanese text)
@@ -29,7 +29,7 @@ For Japanese OCR, use:
 
 ## Supported Languages
 
-DocTR primarily supports:
+docTR primarily supports:
 - English
 - French
 - German
@@ -51,7 +51,7 @@ curl -X POST "http://localhost:5002/process?lang=english&char_level=true" \
 - `lang`: Language code (default: `english`, primarily for API consistency)
 - `char_level`: Split text into characters (default: `true`)
 
-**Note**: The `lang` parameter is accepted for API consistency but does not change DocTR's behavior. DocTR's master model is language-agnostic for Latin-alphabet text.
+**Note**: The `lang` parameter is accepted for API consistency but does not change docTR's behavior. docTR's master model is language-agnostic for Latin-alphabet text.
 
 ### Service Info
 
@@ -80,7 +80,7 @@ curl http://localhost:5002/health
 
 ## Models
 
-DocTR automatically downloads two models on first use:
+docTR automatically downloads two models on first use:
 - **db_resnet50**: Text detection model (~100MB)
 - **master**: Text recognition model (~50MB)
 

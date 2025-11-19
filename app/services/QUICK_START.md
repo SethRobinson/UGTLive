@@ -52,10 +52,10 @@ SetupServerCondaEnv.bat
 
 Downloads additional YOLO model (~50MB).
 
-### Option C: DocTR (For English documents)
+### Option C: docTR (For English documents)
 
 ```batch
-cd app\services\DocTR
+cd app\services\docTR
 SetupServerCondaEnv.bat
 ```
 
@@ -176,14 +176,14 @@ cd app\services\MangaOCR
 RunServer.bat
 
 # Terminal 3
-cd app\services\DocTR
+cd app\services\docTR
 RunServer.bat
 ```
 
 Now you have:
 - EasyOCR on port 5000
 - MangaOCR on port 5001
-- DocTR on port 5002
+- docTR on port 5002
 
 ### Integrate with Your Application
 
@@ -199,7 +199,7 @@ The UGTLive C# application automatically discovers and manages services:
 |---------|------|----------|
 | EasyOCR | 5000 | General OCR, multi-language |
 | MangaOCR | 5001 | Japanese manga, comics |
-| DocTR | 5002 | English documents |
+| docTR | 5002 | English documents |
 
 ## API Quick Reference
 
@@ -230,7 +230,7 @@ POST /shutdown
 1. **Use GPU**: 5-10x faster than CPU
 2. **Keep service running**: First request initializes models (slow)
 3. **Reuse HTTP connections**: Use HttpClient with keep-alive
-4. **Choose right service**: MangaOCR for Japanese manga, DocTR for English
+4. **Choose right service**: MangaOCR for Japanese manga, docTR for English
 
 ## Getting Help
 
@@ -247,7 +247,7 @@ services/
 ├── shared/             # Shared Python code
 ├── EasyOCR/            # Port 5000
 ├── MangaOCR/           # Port 5001
-└── DocTR/              # Port 5002
+└── docTR/              # Port 5002
 ```
 
 ## Success!

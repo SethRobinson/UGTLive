@@ -1067,7 +1067,7 @@ namespace UGTLive
             try
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
-                bool isDocTRSelected = string.Equals(selectedOcr, "DocTR", StringComparison.OrdinalIgnoreCase);
+                bool isDocTRSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
                 bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
 
                 // Show/hide docTR-specific settings

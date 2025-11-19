@@ -79,10 +79,10 @@ if errorlevel 1 (
     goto :TestFail
 )
 
-echo   - Testing DocTR...
-python -c "from doctr.models import ocr_predictor; print('    DocTR imported successfully')" 2>nul
+echo   - Testing docTR...
+python -c "from doctr.models import ocr_predictor; print('    docTR imported successfully')" 2>nul
 if errorlevel 1 (
-    echo   [FAIL] DocTR import failed
+    echo   [FAIL] docTR import failed
     goto :TestFail
 )
 

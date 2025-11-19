@@ -1320,7 +1320,7 @@ namespace UGTLive
                                 continue;
                             }
                             
-                            // Handle null confidence (DocTR returns null for character-level)
+                            // Handle null confidence (docTR returns null for character-level)
                             if (confElement.ValueKind == JsonValueKind.Null)
                             {
                                 // Include items with null confidence
@@ -1722,7 +1722,7 @@ namespace UGTLive
                     MainWindow.Instance.SetOCRCheckIsWanted(true);
                     return;
                 }
-                else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "DocTR")
+                else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || string.Equals(ocrMethod, "docTR", StringComparison.OrdinalIgnoreCase))
                 {
                     // Get source language
                     string sourceLanguage = GetSourceLanguage()!;
@@ -1766,7 +1766,14 @@ namespace UGTLive
                 else
                 {
                     Console.WriteLine($"Unknown OCR method: {ocrMethod}");
-                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    // Disable OCR to prevent loop
+                    MainWindow.Instance.SetOCRCheckIsWanted(false);
+
+                    // Show error popup
+                    ErrorPopupManager.ShowError(
+                        $"Unknown OCR method: '{ocrMethod}'.\n\nPlease select a valid OCR method in the Settings or Monitor window.",
+                        "Invalid OCR Method"
+                    );
                 }
             }
             catch (Exception ex)

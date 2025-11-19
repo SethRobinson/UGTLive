@@ -47,7 +47,7 @@ services/
 │   ├── RunServer.bat
 │   ├── DiagnosticTest.bat
 │   └── TestService.bat
-├── DocTR/                     # DocTR service (port 5002)
+├── docTR/                     # docTR service (port 5002)
 │   ├── service_config.txt
 │   ├── server.py
 │   ├── SetupServerCondaEnv.bat
@@ -115,7 +115,7 @@ version|1.0.0|
 - Configurable region filtering (min_region_width, min_region_height, overlap_allowed_percent)
 - Automatic image padding for small images
 
-### DocTR (Port 5002)
+### docTR (Port 5002)
 
 **Description**: Document OCR engine with strong English text recognition (does NOT support Japanese).
 
@@ -123,7 +123,7 @@ version|1.0.0|
 
 **Environment**: `ugt_doctr` (venv_name in config)
 
-**Note**: DocTR does not support Japanese text. Use EasyOCR or MangaOCR for Japanese.
+**Note**: docTR does not support Japanese text. Use EasyOCR or MangaOCR for Japanese.
 
 ## Standard API Endpoints
 
@@ -306,7 +306,7 @@ To add a new OCR service:
    - Start server
    - Test with TestService.bat
 
-See existing services (EasyOCR, MangaOCR, DocTR) as reference implementations.
+See existing services (EasyOCR, MangaOCR, docTR) as reference implementations.
 
 ## Technical Details
 
@@ -356,7 +356,7 @@ Ensure NVIDIA drivers are installed and up to date. Run `nvidia-smi` to verify. 
 Check `service_config.txt` and ensure each service uses a unique port. Default ports:
 - EasyOCR: 5000
 - MangaOCR: 5001
-- DocTR: 5002
+- docTR: 5002
 
 ### Model download failures
 Ensure you have a stable internet connection. Models are downloaded automatically on first setup.
@@ -370,7 +370,7 @@ Run `DiagnosticTest.bat` to verify the environment. If it fails, rerun `SetupSer
 2. **Keep connections alive**: Reuse HTTP client connections for multiple requests
 3. **Binary transfer**: Always send images as binary data, not base64
 4. **Batch processing**: If processing many images, keep the service running instead of starting/stopping
-5. **Appropriate service**: Use MangaOCR for Japanese manga, DocTR for English documents, EasyOCR for general use
+5. **Appropriate service**: Use MangaOCR for Japanese manga, docTR for English documents, EasyOCR for general use
 
 ## C# Application Integration
 

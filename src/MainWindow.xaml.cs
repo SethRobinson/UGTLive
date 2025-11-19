@@ -222,7 +222,7 @@ namespace UGTLive
                 {
                     SetStatus("Using MangaOCR");
                 }
-                else if (method == "DocTR")
+                else if (method == "docTR")
                 {
                     SetStatus("Using docTR");
                 }
@@ -251,9 +251,9 @@ namespace UGTLive
                 {
                     SetStatus("Using MangaOCR");
                 }
-                else if (method == "DocTR")
+                else if (method == "docTR")
                 {
-                    SetStatus("Using DocTR");
+                    SetStatus("Using docTR");
                 }
                 else
                 {
@@ -1489,9 +1489,9 @@ namespace UGTLive
                     {
                         SetStatus("Using MangaOCR");
                     }
-                    else if (ocrMethod == "DocTR")
+                    else if (ocrMethod == "docTR")
                     {
-                        SetStatus("Using DocTR");
+                        SetStatus("Using docTR");
                     }
                     else if (ocrMethod == "EasyOCR")
                     {

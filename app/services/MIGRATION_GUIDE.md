@@ -11,7 +11,7 @@ app/webserver/
 ├── server.py                    # Monolithic socket server
 ├── process_image_easyocr.py     # EasyOCR implementation
 ├── process_image_mangaocr.py    # MangaOCR implementation
-├── process_image_doctr.py       # DocTR implementation
+├── process_image_doctr.py       # docTR implementation
 ├── color_analysis.py            # Shared utilities
 ├── SetupServerCondaEnv.bat      # Single environment for all
 └── _NVidia30And40Series.bat     # GPU-specific setup
@@ -39,7 +39,7 @@ app/services/
 │   ├── service_config.txt
 │   ├── server.py              # FastAPI server
 │   └── [batch scripts]
-└── DocTR/
+└── docTR/
     ├── service_config.txt
     ├── server.py              # FastAPI server
     └── [batch scripts]
@@ -72,7 +72,7 @@ SetupServerCondaEnv.bat
 cd app\services\MangaOCR
 SetupServerCondaEnv.bat
 
-cd app\services\DocTR
+cd app\services\docTR
 SetupServerCondaEnv.bat
 ```
 
@@ -313,7 +313,7 @@ List<PythonService> allServices = PythonServicesManager.Instance.GetAllServices(
 | `min_region_height` | `min_region_height` | Same (default: 10) |
 | `overlap_allowed_percent` | `overlap_allowed_percent` | Same (default: 50.0) |
 
-### DocTR
+### docTR
 
 | Old Parameter | New Parameter | Notes |
 |--------------|---------------|-------|

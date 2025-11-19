@@ -77,7 +77,7 @@ namespace UGTLive
         {
             "EasyOCR",
             "MangaOCR",
-            "DocTR",
+            "docTR",
             "Windows OCR",
             "Google Vision"
         };
@@ -87,7 +87,7 @@ namespace UGTLive
         {
             { "EasyOCR", "EasyOCR (Decent at most languages)" },
             { "MangaOCR", "MangaOCR (Vertical Japanese manga)" },
-            { "DocTR", "DocTR (Great at non-asian languages)" },
+            { "docTR", "docTR (Great at non-asian languages)" },
             { "Windows OCR", "Windows OCR (Decent at English?)" },
             { "Google Vision", "Google Cloud Vision (non-local, costs $)" }
         };
@@ -764,6 +764,14 @@ namespace UGTLive
         public string GetOcrMethod()
         {
             string ocrMethod = GetValue(OCR_METHOD, "Windows OCR"); // Default to Windows OCR if not set
+            
+            // Normalize method name if it's one of the supported methods (handles case differences)
+            var match = _supportedOcrMethods.FirstOrDefault(m => string.Equals(m, ocrMethod, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                return match;
+            }
+            
             return ocrMethod;
         }
         

@@ -22,8 +22,8 @@ RemoveServerCondaEnv.bat
 cd app\services\MangaOCR
 RemoveServerCondaEnv.bat
 
-# DocTR
-cd app\services\DocTR
+# docTR
+cd app\services\docTR
 RemoveServerCondaEnv.bat
 ```
 
@@ -106,7 +106,7 @@ call RemoveServerCondaEnv.bat nopause
 cd ..\MangaOCR
 call RemoveServerCondaEnv.bat nopause
 
-cd ..\DocTR
+cd ..\docTR
 call RemoveServerCondaEnv.bat nopause
 
 echo All services uninstalled!
@@ -153,7 +153,7 @@ conda env list
 Look for environments starting with `ugt_`:
 - `ugt_easyocr` - EasyOCR service
 - `ugt_mangaocr` - MangaOCR service  
-- `ugt_doctr` - DocTR service
+- `ugt_doctr` - docTR service
 
 ### Manual Removal (Without Script)
 
@@ -170,7 +170,7 @@ conda env remove -n ugt_doctr -y
 Typical conda environment sizes:
 - **EasyOCR**: ~3-4 GB (includes PyTorch, EasyOCR models)
 - **MangaOCR**: ~3-4 GB (includes PyTorch, MangaOCR, YOLO models)
-- **DocTR**: ~3-4 GB (includes PyTorch, DocTR models)
+- **docTR**: ~3-4 GB (includes PyTorch, docTR models)
 
 Removing unused services can free up significant disk space!
 

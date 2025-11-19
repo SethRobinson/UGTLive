@@ -336,7 +336,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-echo DocTR dependencies installed successfully >> "%LOG_FILE%"
+echo docTR dependencies installed successfully >> "%LOG_FILE%"
 
 echo [Step 5/7] Installing python-doctr...
 echo [Step 5/7] Installing python-doctr... >> "%LOG_FILE%"
@@ -378,7 +378,7 @@ if errorlevel 1 (
     echo WARNING: Failed to initialize docTR
     echo WARNING: Failed to initialize docTR >> "%LOG_FILE%"
 ) else (
-    echo DocTR initialized successfully >> "%LOG_FILE%"
+    echo docTR initialized successfully >> "%LOG_FILE%"
 )
 
 echo.
@@ -393,14 +393,14 @@ if errorlevel 1 (
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
 
-python -c "from doctr.models import ocr_predictor; print('DocTR imported successfully')" >> "%LOG_FILE%" 2>&1
+python -c "from doctr.models import ocr_predictor; print('docTR imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: DocTR verification failed!
-    echo ERROR: DocTR verification failed >> "%LOG_FILE%"
+    echo ERROR: docTR verification failed!
+    echo ERROR: docTR verification failed >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo DocTR verification passed >> "%LOG_FILE%"
+echo docTR verification passed >> "%LOG_FILE%"
 
 python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
@@ -473,7 +473,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-echo DocTR dependencies installed successfully >> "%LOG_FILE%"
+echo docTR dependencies installed successfully >> "%LOG_FILE%"
 
 echo [Step 5/7] Installing python-doctr...
 echo [Step 5/7] Installing python-doctr... >> "%LOG_FILE%"
@@ -515,7 +515,7 @@ if errorlevel 1 (
     echo WARNING: Failed to initialize docTR
     echo WARNING: Failed to initialize docTR >> "%LOG_FILE%"
 ) else (
-    echo DocTR initialized successfully >> "%LOG_FILE%"
+    echo docTR initialized successfully >> "%LOG_FILE%"
 )
 
 echo.
@@ -530,14 +530,14 @@ if errorlevel 1 (
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
 
-python -c "from doctr.models import ocr_predictor; print('DocTR imported successfully')" >> "%LOG_FILE%" 2>&1
+python -c "from doctr.models import ocr_predictor; print('docTR imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: DocTR verification failed!
-    echo ERROR: DocTR verification failed >> "%LOG_FILE%"
+    echo ERROR: docTR verification failed!
+    echo ERROR: docTR verification failed >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo DocTR verification passed >> "%LOG_FILE%"
+echo docTR verification passed >> "%LOG_FILE%"
 
 python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (

@@ -1,4 +1,4 @@
-"""FastAPI server for DocTR service."""
+"""FastAPI server for docTR service."""
 
 import sys
 import os
@@ -34,7 +34,7 @@ config_path = Path(__file__).parent / "service_config.txt"
 SERVICE_CONFIG = parse_service_config(str(config_path))
 
 # Get service settings
-SERVICE_NAME = get_config_value(SERVICE_CONFIG, 'service_name', 'DocTR')
+SERVICE_NAME = get_config_value(SERVICE_CONFIG, 'service_name', 'docTR')
 SERVICE_PORT = int(get_config_value(SERVICE_CONFIG, 'port', '5002'))
 SERVICE_VERSION = get_config_value(SERVICE_CONFIG, 'version', '0.10.0')
 
@@ -201,7 +201,7 @@ async def process_image(request: Request):
     """
     Process an image for OCR using docTR.
     
-    NOTE: DocTR does NOT support Japanese text. Use EasyOCR or MangaOCR for Japanese.
+    NOTE: docTR does NOT support Japanese text. Use EasyOCR or MangaOCR for Japanese.
     
     Query parameters:
     - lang: Language code (default: 'english', docTR primarily supports Latin-based languages)
@@ -268,7 +268,7 @@ async def process_image(request: Request):
 async def get_info():
     """Get service information."""
     info = {
-        "service_name": get_config_value(SERVICE_CONFIG, 'service_name', 'DocTR'),
+        "service_name": get_config_value(SERVICE_CONFIG, 'service_name', 'docTR'),
         "description": get_config_value(SERVICE_CONFIG, 'description', ''),
         "version": get_config_value(SERVICE_CONFIG, 'version', '0.10.0'),
         "conda_env_name": get_config_value(SERVICE_CONFIG, 'conda_env_name', 'ugt_doctr'),
@@ -311,15 +311,15 @@ async def health_check():
 async def startup_event():
     """Pre-load OCR model at startup to avoid delay on first request."""
     print("=" * 60)
-    print("PRE-LOADING DOCTR OCR MODEL AT STARTUP")
+    print("PRE-LOADING docTR OCR MODEL AT STARTUP")
     print("=" * 60)
     
     # Pre-load docTR predictor
     try:
         initialize_doctr()
-        print("✓ DocTR OCR model pre-loaded successfully")
+        print("✓ docTR OCR model pre-loaded successfully")
     except Exception as e:
-        print(f"✗ Failed to pre-load DocTR OCR model: {e}")
+        print(f"✗ Failed to pre-load docTR OCR model: {e}")
         print("Model will be loaded on first request instead.")
     
     # Pre-load color extractor

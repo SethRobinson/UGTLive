@@ -68,7 +68,7 @@ for /f "tokens=*" %%x in ("!KEY!") do set "KEY=%%x"
 - ✅ DiagnosticTest.bat
 - ✅ TestService.bat
 
-**DocTR (4 files)**:
+**docTR (4 files)**:
 - ✅ SetupServerCondaEnv.bat
 - ✅ RunServer.bat
 - ✅ DiagnosticTest.bat

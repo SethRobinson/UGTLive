@@ -195,7 +195,7 @@ namespace UGTLive
             {
                 UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
             }
-            else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "DocTR")
+            else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "docTR")
             {
                 // HTTP services are used - connection status is checked per-request
                 UpdateStatus($"Using {ocrMethod} (HTTP service)");

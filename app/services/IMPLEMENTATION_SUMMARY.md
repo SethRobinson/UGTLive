@@ -35,7 +35,7 @@ app/services/
 │   ├── DiagnosticTest.bat
 │   ├── TestService.bat
 │   └── README.md
-├── DocTR/                            # Port 5002
+├── docTR/                            # Port 5002
 │   ├── service_config.txt
 │   ├── server.py
 │   ├── SetupServerCondaEnv.bat
@@ -91,7 +91,7 @@ app/services/
 - **Dependencies**: Manga-OCR 0.1.14, Ultralytics 8.3.226, PyTorch 2.6.0, FastAPI 0.121.1
 - **Special Features**: YOLO text detection, region filtering
 
-### DocTR (Port 5002)
+### docTR (Port 5002)
 - **Environment**: ugt_doctr
 - **Languages**: English and Latin-alphabet languages
 - **Use Case**: Document OCR, forms, printed English text
@@ -138,7 +138,7 @@ Gracefully shutdown the service.
 ### Service Documentation
 - **EasyOCR/README.md**: EasyOCR-specific documentation
 - **MangaOCR/README.md**: MangaOCR-specific documentation and parameters
-- **DocTR/README.md**: DocTR-specific documentation and limitations
+- **docTR/README.md**: docTR-specific documentation and limitations
 - **shared/README.md**: Shared utilities documentation
 
 ## Technical Highlights

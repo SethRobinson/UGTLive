@@ -267,7 +267,7 @@ namespace UGTLive
                 
                 string text = textElement.GetString() ?? "";
                 
-                // Handle null confidence (DocTR returns null for character-level)
+                // Handle null confidence (docTR returns null for character-level)
                 double confidence = 1.0;
                 if (confElement.ValueKind != JsonValueKind.Null)
                 {
