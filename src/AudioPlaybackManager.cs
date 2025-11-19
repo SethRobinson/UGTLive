@@ -286,7 +286,7 @@ namespace UGTLive
                 CleanupCurrentPlayback();
                 _isPlaying = false;
                 _isPlayingAll = false;
-                _autoPlayTriggered = false; // Reset auto-play trigger flag when manually stopped
+                // Don't reset _autoPlayTriggered here - if stopped manually, we don't want auto-play to trigger again for this session
             }
             
             // Update current playing ID and transition state
@@ -497,7 +497,7 @@ namespace UGTLive
                 lock (_playbackLock)
                 {
                     _isPlayingAll = false;
-                    _autoPlayTriggered = false; // Reset auto-play trigger flag when playback completes
+                    // Don't reset _autoPlayTriggered here - this prevents auto-play from triggering again for the same session
                 }
                 OnPlayAllStateChanged(false);
             }
