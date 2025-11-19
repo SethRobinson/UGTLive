@@ -225,6 +225,9 @@ namespace UGTLive
                 
                 statusMessage.Text = "Diagnostics complete";
                 
+                // Mark diagnostics as done so the status label can update correctly
+                _isRunningDiagnostics = false;
+                
                 // Update status label based on autostart services state
                 UpdateStatusLabel();
                 
@@ -269,6 +272,14 @@ namespace UGTLive
         
         private void UpdateStatusLabel()
         {
+            // Don't show ready state if we're still running initial diagnostics
+            if (_isRunningDiagnostics)
+            {
+                statusLabel.Text = "Checking system status...";
+                statusLabel.Foreground = new SolidColorBrush(Colors.Black);
+                return;
+            }
+
             try
             {
                 var services = PythonServicesManager.Instance.GetAllServices();
@@ -507,13 +518,8 @@ namespace UGTLive
             
             try
             {
-                bool isRunning = service.IsRunning;
-                
-                if (!isRunning)
-                {
-                    // Only hit /info endpoint if we don't already know it's running
-                    isRunning = await service.CheckIsRunningAsync();
-                }
+                // Always force a check to ensure we catch external closures
+                bool isRunning = await service.CheckIsRunningAsync(forceCheck: true);
                 
                 if (isRunning)
                 {

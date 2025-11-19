@@ -161,9 +161,9 @@ namespace UGTLive
         /// <summary>
         /// Checks if the service is currently running by hitting the /info endpoint
         /// </summary>
-        public async Task<bool> CheckIsRunningAsync()
+        public async Task<bool> CheckIsRunningAsync(bool forceCheck = false)
         {
-            if (IsRunning) return true;
+            if (!forceCheck && IsRunning) return true;
 
             try
             {
@@ -457,22 +457,29 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Stops the service by sending /shutdown endpoint (fire and forget)
+        /// Stops the service by sending /shutdown endpoint and waiting for confirmation
         /// </summary>
         public async Task<bool> StopAsync()
         {
             try
             {
-                // Send shutdown signal and don't wait around
+                // Send shutdown signal
                 string url = $"{ServerUrl}:{Port}/shutdown";
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Headers.ConnectionClose = false;
-                var response = await _httpClient.SendAsync(request);
                 
-                if (response.IsSuccessStatusCode)
+                // Use a short timeout for the shutdown request itself
+                // The server might die before responding fully
+                var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(2));
+                try 
                 {
-                    Console.WriteLine($"Sent shutdown signal to {ServiceName}");
+                    var response = await _httpClient.SendAsync(request, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Sent shutdown signal to {ServiceName}");
+                    }
                 }
+                catch (Exception) { /* Ignore timeout/error during shutdown request */ }
             }
             catch (Exception ex)
             {
@@ -482,9 +489,39 @@ namespace UGTLive
             // Mark as not owned anymore
             _process = null;
             _ownedByApp = false;
+            
+            // Force IsRunning to false so the verification check actually hits the network
             IsRunning = false;
             
-            return true;
+            // Wait for it to actually stop
+            return await WaitForServiceShutdownAsync(10);
+        }
+        
+        private async Task<bool> WaitForServiceShutdownAsync(int timeoutSeconds)
+        {
+            var startTime = DateTime.Now;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            
+            while (DateTime.Now - startTime < timeout)
+            {
+                // Reset flag to force network check
+                IsRunning = false;
+                
+                // Check if service is still responding
+                bool isRunning = await CheckIsRunningAsync();
+                
+                if (!isRunning)
+                {
+                    Console.WriteLine($"Service {ServiceName} has stopped.");
+                    return true;
+                }
+                
+                Console.WriteLine($"Service {ServiceName} is still stopping...");
+                await Task.Delay(500);
+            }
+            
+            Console.WriteLine($"Service {ServiceName} failed to stop within {timeoutSeconds} seconds");
+            return false;
         }
         
         /// <summary>
