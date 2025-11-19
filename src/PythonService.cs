@@ -48,7 +48,7 @@ namespace UGTLive
         public string Version { get; private set; } = "";
         public string Author { get; private set; } = "";
         public string GithubUrl { get; private set; } = "";
-        public string ServerUrl { get; private set; } = "http://localhost";
+        public string ServerUrl { get; private set; } = "http://127.0.0.1";
         public bool LocalOnly { get; private set; } = true;
         public string ServiceDirectory { get; private set; } = "";
         

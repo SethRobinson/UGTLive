@@ -4,7 +4,7 @@ author|Mindee|
 service_name|DocTR|
 venv_name|ugt_doctr|
 port|5002|
-server_url|http://localhost|
+server_url|http://127.0.0.1|
 local_only|true|
 version|0.10.0|
 

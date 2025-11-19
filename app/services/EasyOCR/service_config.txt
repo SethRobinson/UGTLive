@@ -4,7 +4,7 @@ author|JaidedAI|
 service_name|EasyOCR|
 venv_name|ugt_easyocr|
 port|5000|
-server_url|http://localhost|
+server_url|http://127.0.0.1|
 local_only|true|
 version|1.7.2|
 
