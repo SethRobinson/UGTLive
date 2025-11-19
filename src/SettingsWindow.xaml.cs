@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Documents;
 using System.Windows.Navigation;
@@ -65,6 +66,9 @@ namespace UGTLive
             
             // Setup tooltip exclusion from screenshots
             SetupTooltipExclusion();
+            
+            // Add SourceInitialized event handler for screenshot exclusion
+            this.SourceInitialized += SettingsWindow_SourceInitialized;
             
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
@@ -1366,6 +1370,9 @@ namespace UGTLive
             ChatBoxWindow.Instance?.UpdateCaptureExclusion();
             MonitorWindow.Instance?.UpdateCaptureExclusion();
             MainWindow.Instance?.UpdateCaptureExclusion();
+            
+            // Update this window as well
+            UpdateCaptureExclusion();
         }
         
         private void LogExtraDebugStuffCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -1491,6 +1498,12 @@ namespace UGTLive
             
             // The SelectionChanged events will handle updating the MainWindow
             Console.WriteLine($"Languages swapped: {GetLanguageCode(sourceLanguageComboBox)} ⇄ {GetLanguageCode(targetLanguageComboBox)}");
+            
+            // Trigger fresh OCR/translation after swapping languages
+            Logic.Instance.ResetHash();
+            Logic.Instance.ClearAllTextObjects();
+            MainWindow.Instance.SetOCRCheckIsWanted(true);
+            MonitorWindow.Instance.RefreshOverlays();
         }
         
         // Helper method to get language code from ComboBox
@@ -4482,6 +4495,58 @@ namespace UGTLive
         
         #endregion
         
+        #region Screenshot Exclusion
+        
+        private void SettingsWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
+            SetExcludeFromCapture();
+        }
+        
+        private void SetExcludeFromCapture()
+        {
+            try
+            {
+                // Check if user wants windows visible in screenshots
+                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
+                
+                var helper = new WindowInteropHelper(this);
+                IntPtr hwnd = helper.Handle;
+                
+                if (hwnd != IntPtr.Zero)
+                {
+                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
+                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
+                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
+                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"Settings window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set Settings window capture mode. Last error: {Marshal.GetLastWin32Error()}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Settings window HWND is null, cannot set capture mode");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Settings window capture mode: {ex.Message}");
+            }
+        }
+        
+        public void UpdateCaptureExclusion()
+        {
+            SetExcludeFromCapture();
+        }
+        
+        #endregion
+        
         #region Tooltip Exclusion from Screenshots
         
         // Setup tooltip exclusion from screenshots
@@ -4621,6 +4686,7 @@ namespace UGTLive
         private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
         
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        private const uint WDA_NONE = 0x00000000;
         
         #endregion
     }
