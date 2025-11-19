@@ -38,7 +38,7 @@ namespace UGTLive
             _logDirectory = appDirectory;
             
             // Set log file paths
-            _ocrResponsePath = Path.Combine(_logDirectory, "last_ocr_response.json");
+            _ocrResponsePath = Path.Combine(_logDirectory, "last_ocr_reply_received.txt");
             _llmRequestPath = Path.Combine(_logDirectory, "last_llm_request_sent.txt");
             _llmReplyPath = Path.Combine(_logDirectory, "last_llm_reply_received.txt");
             

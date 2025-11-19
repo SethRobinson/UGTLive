@@ -308,6 +308,9 @@ namespace UGTLive
         //! Process the OCR text data, this is before it's been translated
         public void ProcessReceivedTextJsonData(string data)
         {
+            // Log OCR reply for debugging (fire-and-forget, non-blocking)
+            LogManager.Instance.LogOcrResponse(data);
+            
             _ocrProcessingStopwatch.Restart();
             
             // Reset auto-play trigger flag to allow auto-play on new OCR results
