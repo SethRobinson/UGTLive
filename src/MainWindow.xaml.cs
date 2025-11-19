@@ -1046,6 +1046,20 @@ namespace UGTLive
         {
             try
             {
+                // Stop OCR if it's currently running to prevent conflicts during shutdown
+                if (isStarted)
+                {
+                    shutdownDialog.UpdateStatus("Stopping OCR...");
+                    await Task.Delay(50);
+                    
+                    Logic.Instance.ResetHash();
+                    isStarted = false;
+                    MonitorWindow.Instance.HideTranslationStatus();
+                    ChatBoxWindow.Instance?.HideTranslationStatus();
+                    Logic.Instance.HideOCRStatus();
+                    HideTranslationStatus();
+                }
+                
                 // Remove global keyboard hook
                 shutdownDialog.UpdateStatus("Closing connections...");
                 await Task.Delay(50); // Small delay to allow UI update
