@@ -19,9 +19,23 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
                         <!-- Server Setup Button -->
-                        <Button x:Name="serverSetupButton" Content="Open UGTLive backend server install/fix screen" 
-                                Padding="10,5" Margin="0,0,0,15" HorizontalAlignment="Stretch"
-                                Click="ServerSetupButton_Click" FontWeight="Bold"/>
+                        <Button x:Name="serverSetupButton" 
+                                Click="ServerSetupButton_Click" 
+                                Margin="0,0,0,20" 
+                                HorizontalAlignment="Stretch"
+                                Background="#F0F8FF" 
+                                BorderBrush="#007ACC"
+                                BorderThickness="2"
+                                Padding="10">
+                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="🛠️" FontSize="24" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Open Python Service Manager" FontWeight="Bold" FontSize="16" Foreground="#007ACC"/>
+                                    <TextBlock Text="Install, start, stop, and troubleshoot OCR services" FontSize="12" Foreground="Gray"/>
+                                </StackPanel>
+                             </StackPanel>
+                        </Button>
                         
                         <!-- Language Settings -->
                         <GroupBox Header="Language Settings" Margin="0,0,0,15" Padding="10">

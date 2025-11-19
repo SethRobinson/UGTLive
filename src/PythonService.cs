@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -9,6 +10,31 @@ namespace UGTLive
 {
     public class PythonService
     {
+        // Windows API for showing/hiding console windows
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+        
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        
+        [DllImport("user32.dll")]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+        
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        
+        private const int SW_HIDE = 0;
+        private const int SW_SHOW = 5;
+        private const int SW_RESTORE = 9;
+        
         private static readonly HttpClient _httpClient = new HttpClient()
         {
             Timeout = TimeSpan.FromSeconds(5)
@@ -37,6 +63,7 @@ namespace UGTLive
         // Process management
         private Process? _process;
         private bool _ownedByApp;
+        private IntPtr _consoleWindowHandle = IntPtr.Zero;
         
         public bool IsOwnedByApp => _ownedByApp;
         
@@ -252,16 +279,15 @@ namespace UGTLive
         /// </summary>
         public async Task<bool> StartAsync(bool showWindow)
         {
-            /*
             // First check if service is already running
+            // This handles cases where the service was left running from a previous session
             if (await CheckIsRunningAsync())
             {
                 Console.WriteLine($"{ServiceName} is already running on port {Port}");
-                // Mark as not owned by app since it was started externally
+                // Mark as not owned by app since it was started externally/previously
                 _ownedByApp = false;
                 return true;
             }
-            */
             
             // Start the process
             bool processStarted = await Task.Run(() =>
@@ -276,13 +302,20 @@ namespace UGTLive
                         return false;
                     }
                     
+                    // Generate a unique title for the window to help us find it later
+                    // This is crucial for reliable window finding and hiding
+                    string uniqueTitle = $"UGTLive_Service_{ServiceName}_{Port}";
+                    
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
-                        FileName = batchFile,
-                        Arguments = "nopause", // Tell batch file not to pause on error
+                        FileName = "cmd.exe",
+                        // Use /c to run the command and terminate, but the command runs the batch file
+                        // We set the title first so we can find the window later
+                        Arguments = $"/c title {uniqueTitle} & \"{batchFile}\" nopause",
                         WorkingDirectory = ServiceDirectory,
-                        UseShellExecute = showWindow,
-                        CreateNoWindow = !showWindow
+                        UseShellExecute = true, // Always use shell execute to get a window we can control
+                        WindowStyle = showWindow ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden,
+                        CreateNoWindow = false // Ignored when UseShellExecute is true
                     };
                     
                     _process = Process.Start(psi);
@@ -313,6 +346,36 @@ namespace UGTLive
                             Console.WriteLine($"Cannot check if process exited: {ex.Message}");
                         }
                         
+                        // Try to find and store the console window handle
+                        // Wait a bit for the window to appear
+                        if (showWindow)
+                        {
+                            System.Threading.Thread.Sleep(500);
+                        }
+                        else
+                        {
+                            // If hidden, we still need to wait a bit for the window to be created
+                            System.Threading.Thread.Sleep(200);
+                        }
+                        
+                        // Try to find by unique title first (most reliable)
+                        _consoleWindowHandle = FindConsoleWindowByTitle();
+                        
+                        // Fallback to process ID if title search failed
+                        if (_consoleWindowHandle == IntPtr.Zero)
+                        {
+                            _consoleWindowHandle = FindConsoleWindowForProcess(_process.Id);
+                        }
+                        
+                        if (_consoleWindowHandle != IntPtr.Zero)
+                        {
+                            Console.WriteLine($"Found console window for {ServiceName}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Could not find console window for {ServiceName} yet (will retry later if needed)");
+                        }
+                        
                         return true;
                     }
                     else
@@ -334,12 +397,31 @@ namespace UGTLive
                 return false;
             }
 
-            //let's just assume it's ready now
-            IsRunning = true;
-            IsInstalled = true;
-
-            return true;
-            //return await WaitForServiceReadyAsync(timeoutSeconds: 30);
+            // Wait for the service to actually become ready
+            // This ensures we detect startup failures (like port conflicts)
+            bool isReady = await WaitForServiceReadyAsync(timeoutSeconds: 30);
+            
+            if (isReady)
+            {
+                IsRunning = true;
+                IsInstalled = true;
+                return true;
+            }
+            else
+            {
+                Console.WriteLine($"Service {ServiceName} failed to start properly");
+                // Cleanup if process is still running but not responding (zombie)
+                if (_process != null && !_process.HasExited)
+                {
+                    try { _process.Kill(); } catch { }
+                }
+                
+                // Reset state
+                _process = null;
+                _ownedByApp = false;
+                IsRunning = false;
+                return false;
+            }
         }
         
         /// <summary>
@@ -352,6 +434,14 @@ namespace UGTLive
             
             while (DateTime.Now - startTime < timeout)
             {
+                // Check if process died while we were waiting
+                // This catches immediate failures like port conflicts
+                if (_process != null && _process.HasExited)
+                {
+                     Console.WriteLine($"Service {ServiceName} process exited unexpectedly with code {_process.ExitCode}");
+                     return false;
+                }
+
                 if (await CheckIsRunningAsync())
                 {
                     Console.WriteLine($"{ServiceName} is ready!");
@@ -438,6 +528,123 @@ namespace UGTLive
             catch (Exception)
             {
                 return false;
+            }
+        }
+        
+        /// <summary>
+        /// Finds the console window handle for a given process ID
+        /// </summary>
+        private IntPtr FindConsoleWindowForProcess(int processId)
+        {
+            IntPtr foundWindow = IntPtr.Zero;
+            
+            EnumWindows((hWnd, lParam) =>
+            {
+                GetWindowThreadProcessId(hWnd, out uint windowProcessId);
+                
+                if (windowProcessId == processId)
+                {
+                    // Get window title to verify it's a console window
+                    var title = new System.Text.StringBuilder(256);
+                    GetWindowText(hWnd, title, 256);
+                    
+                    // Console windows typically have titles
+                    if (title.Length > 0)
+                    {
+                        foundWindow = hWnd;
+                        return false; // Stop enumeration
+                    }
+                }
+                
+                return true; // Continue enumeration
+            }, IntPtr.Zero);
+            
+            return foundWindow;
+        }
+        
+        /// <summary>
+        /// Finds console window by searching for service name or port in window title
+        /// This is more reliable when UseShellExecute=true since we might not have the right process ID
+        /// </summary>
+        private IntPtr FindConsoleWindowByTitle()
+        {
+            IntPtr foundWindow = IntPtr.Zero;
+            string uniqueTitle = $"UGTLive_Service_{ServiceName}_{Port}";
+            
+            EnumWindows((hWnd, lParam) =>
+            {
+                // First check if this is a console window by class name
+                // We check for standard ConsoleWindowClass and Windows Terminal's CASCADIA_HOSTING_WINDOW_CLASS
+                var className = new System.Text.StringBuilder(256);
+                GetClassName(hWnd, className, 256);
+                string classNameStr = className.ToString();
+                
+                bool isConsole = classNameStr.Equals("ConsoleWindowClass", StringComparison.OrdinalIgnoreCase) ||
+                                 classNameStr.Equals("CASCADIA_HOSTING_WINDOW_CLASS", StringComparison.OrdinalIgnoreCase);
+                
+                if (!isConsole)
+                {
+                    return true; // Not a console window, continue enumeration
+                }
+                
+                var title = new System.Text.StringBuilder(256);
+                GetWindowText(hWnd, title, 256);
+                
+                if (title.Length > 0)
+                {
+                    string titleStr = title.ToString();
+                    
+                    // Check for our unique title
+                    if (titleStr.Contains(uniqueTitle, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Found console window by unique title for {ServiceName}: '{titleStr}'");
+                        foundWindow = hWnd;
+                        return false; // Stop enumeration
+                    }
+                }
+                
+                return true; // Continue enumeration
+            }, IntPtr.Zero);
+            
+            return foundWindow;
+        }
+        
+        /// <summary>
+        /// Shows or hides the service console window (if owned by app)
+        /// </summary>
+        public void SetWindowVisibility(bool show)
+        {
+            if (!_ownedByApp)
+            {
+                Console.WriteLine($"Cannot change window visibility for {ServiceName} - not owned by app");
+                return;
+            }
+            
+            // If we don't have the handle yet, try to find it
+            if (_consoleWindowHandle == IntPtr.Zero)
+            {
+                // First try by process ID if we have a process handle
+                if (_process != null)
+                {
+                    _consoleWindowHandle = FindConsoleWindowForProcess(_process.Id);
+                }
+                
+                // If that didn't work, try finding by window title
+                if (_consoleWindowHandle == IntPtr.Zero)
+                {
+                    _consoleWindowHandle = FindConsoleWindowByTitle();
+                }
+            }
+            
+            if (_consoleWindowHandle != IntPtr.Zero)
+            {
+                int command = show ? SW_RESTORE : SW_HIDE;
+                bool result = ShowWindow(_consoleWindowHandle, command);
+                Console.WriteLine($"Set window visibility for {ServiceName}: {(show ? "SHOW" : "HIDE")} - Result: {result}");
+            }
+            else
+            {
+                Console.WriteLine($"Could not find console window for {ServiceName}");
             }
         }
     }

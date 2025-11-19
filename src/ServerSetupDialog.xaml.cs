@@ -122,6 +122,51 @@ namespace UGTLive
             // If dialog is closed via X button (not via Continue) and not from settings, shut down the app
             if (!_normalClose && !_fromSettings)
             {
+                // Check if any services are running that need to be shut down
+                var services = PythonServicesManager.Instance.GetAllServices();
+                var runningServices = services.Where(s => s.IsRunning).ToList();
+                
+                if (runningServices.Count > 0)
+                {
+                    // Cancel the close for now
+                    e.Cancel = true;
+                    
+                    // Show shutdown dialog and perform graceful shutdown
+                    PerformGracefulShutdown();
+                }
+                else
+                {
+                    // No services running, just shut down immediately
+                    System.Windows.Application.Current.Shutdown();
+                }
+            }
+        }
+        
+        private async void PerformGracefulShutdown()
+        {
+            try
+            {
+                // Show shutdown dialog
+                ShutdownDialog shutdownDialog = new ShutdownDialog();
+                shutdownDialog.Show();
+                shutdownDialog.UpdateStatus("Stopping services...");
+                
+                // Process UI messages to ensure dialog is visible
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+                await Task.Delay(100);
+                
+                // Stop Python services
+                await PythonServicesManager.Instance.StopOwnedServicesAsync();
+                
+                // Close shutdown dialog
+                shutdownDialog.Close();
+                
+                // Now shut down the application
+                System.Windows.Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during graceful shutdown: {ex.Message}");
                 System.Windows.Application.Current.Shutdown();
             }
         }
@@ -834,10 +879,15 @@ namespace UGTLive
             
             if (runningOwnedServices.Count > 0)
             {
-                  //todo, apply visibility to window of the service in question
-                  statusMessage.Visibility = Visibility.Collapsed;
-                  progressBar.Visibility = Visibility.Collapsed;
-             
+                // Apply visibility changes to all running owned services
+                foreach (var service in runningOwnedServices)
+                {
+                    // Give the window-finding logic time to locate the console window
+                    await Task.Delay(300);
+                    service.SetWindowVisibility(showWindow);
+                }
+                
+                Console.WriteLine($"Applied window visibility ({(showWindow ? "SHOW" : "HIDE")}) to {runningOwnedServices.Count} running service(s)");
             }
         }
         
