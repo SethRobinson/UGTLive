@@ -69,6 +69,8 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_WIDTH = "manga_ocr_min_region_width";
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
+        public const string MANGA_OCR_YOLO_CONFIDENCE = "manga_ocr_yolo_confidence";
+        public const string OCR_PROCESSING_MODE = "ocr_processing_mode";
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
 
@@ -2020,6 +2022,56 @@ Here is the input JSON:";
             else
             {
                 Console.WriteLine($"Invalid Manga OCR overlap allowed percent: {percent}. Must be between 0 and 100.");
+            }
+        }
+
+        // Get/Set: Manga OCR YOLO confidence threshold
+        public double GetMangaOcrYoloConfidence()
+        {
+            string value = GetValue(MANGA_OCR_YOLO_CONFIDENCE, "0.60");
+            if (double.TryParse(value, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
+            {
+                return confidence;
+            }
+            return 0.60; // Default: 0.60 (raised from 0.25 to reduce false positives like tree bark)
+        }
+
+        public void SetMangaOcrYoloConfidence(double confidence)
+        {
+            if (confidence >= 0.0 && confidence <= 1.0)
+            {
+                _configValues[MANGA_OCR_YOLO_CONFIDENCE] = confidence.ToString("F2");
+                SaveConfig();
+                Console.WriteLine($"Manga OCR YOLO confidence threshold set to: {confidence:F2}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid YOLO confidence threshold: {confidence}. Must be between 0.0 and 1.0.");
+            }
+        }
+
+        // Get/Set: OCR processing mode (Character or Line)
+        public string GetOcrProcessingMode()
+        {
+            string value = GetValue(OCR_PROCESSING_MODE, "Line");
+            if (value == "Character" || value == "Line")
+            {
+                return value;
+            }
+            return "Line"; // Default: Line
+        }
+
+        public void SetOcrProcessingMode(string mode)
+        {
+            if (mode == "Character" || mode == "Line")
+            {
+                _configValues[OCR_PROCESSING_MODE] = mode;
+                SaveConfig();
+                Console.WriteLine($"OCR processing mode set to: {mode}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid OCR processing mode: {mode}. Must be 'Character' or 'Line'.");
             }
         }
 

@@ -127,14 +127,14 @@ def estimate_character_positions(text: str, x: int, y: int, width: int, height: 
     return chars
 
 
-def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.5) -> str:
+def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.2) -> str:
     """
     Detect text orientation based on bounding box dimensions.
     
     Args:
         width: Width of the text bounding box
         height: Height of the text bounding box
-        aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
+        aspect_ratio_threshold: Threshold for determining orientation (default: 1.2)
     
     Returns:
         "vertical" if height > width * threshold, "horizontal" otherwise
@@ -142,13 +142,34 @@ def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: flo
     if width == 0:
         return "vertical"
     
+    if height == 0:
+        return "horizontal"
+    
     aspect_ratio = height / width
     
+    # For very small regions, use a more lenient threshold
+    # Short vertical text might not meet the standard threshold
+    area = width * height
+    if area < 2000:  # Small regions (roughly < 45x45 pixels)
+        # Use a lower threshold for small regions to catch short vertical phrases
+        if aspect_ratio > 1.1:
+            return "vertical"
+        elif aspect_ratio < 0.9:
+            return "horizontal"
+        # For ambiguous small regions (0.9-1.1), prefer vertical for Japanese manga
+        return "vertical"
+    
+    # Standard detection for larger regions
     # If height is significantly greater than width, it's likely vertical text
     if aspect_ratio > aspect_ratio_threshold:
         return "vertical"
-    else:
+    elif aspect_ratio < (1.0 / aspect_ratio_threshold):
+        # If width is significantly greater than height, it's horizontal
         return "horizontal"
+    else:
+        # Ambiguous case: slightly prefer vertical for Japanese manga context
+        # Most manga text is vertical, so default to vertical when uncertain
+        return "vertical"
 
 
 def process_manga_ocr(
@@ -156,7 +177,8 @@ def process_manga_ocr(
     min_region_width: int = 10,
     min_region_height: int = 10,
     overlap_allowed_percent: float = 50.0,
-    char_level: bool = True
+    char_level: bool = True,
+    yolo_confidence: float = 0.60
 ) -> List[Dict]:
     """Process image using YOLO detection + Manga OCR."""
     
@@ -194,7 +216,7 @@ def process_manga_ocr(
         try:
             detection_result = detect_regions_from_path(
                 yolo_image_path,
-                conf_threshold=0.25,
+                conf_threshold=yolo_confidence,
                 iou_threshold=0.45
             )
         finally:
@@ -364,6 +386,7 @@ async def process_image(request: Request):
     - min_region_width: Minimum region width in pixels (default: 10)
     - min_region_height: Minimum region height in pixels (default: 10)
     - overlap_allowed_percent: Maximum overlap percentage allowed (default: 50.0)
+    - yolo_confidence: YOLO confidence threshold for text detection (default: 0.60)
     """
     try:
         start_time = time.time()
@@ -374,6 +397,7 @@ async def process_image(request: Request):
         min_region_width = int(request.query_params.get('min_region_width', '10'))
         min_region_height = int(request.query_params.get('min_region_height', '10'))
         overlap_allowed_percent = float(request.query_params.get('overlap_allowed_percent', '50.0'))
+        yolo_confidence = float(request.query_params.get('yolo_confidence', '0.60'))
         
         # Read binary image data
         image_bytes = await request.body()
@@ -389,7 +413,8 @@ async def process_image(request: Request):
             min_region_width=min_region_width,
             min_region_height=min_region_height,
             overlap_allowed_percent=overlap_allowed_percent,
-            char_level=char_level
+            char_level=char_level,
+            yolo_confidence=yolo_confidence
         )
         
         # Calculate processing time

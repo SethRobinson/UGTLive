@@ -291,7 +291,7 @@ class _GPUColorExtractor:
                 {
                     "rgb": rgb_list,
                     "hex": hex_value,
-                    "percentage": float(percentages[idx]),
+                    "percentage": round(float(percentages[idx]), 1),
                 }
             )
 
@@ -391,7 +391,7 @@ class _GPUColorExtractor:
                 {
                     "rgb": rgb_list,
                     "hex": hex_value,
-                    "percentage": float(percentages_np[idx]),
+                    "percentage": round(float(percentages_np[idx]), 1),
                 }
             )
 

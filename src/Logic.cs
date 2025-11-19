@@ -1582,7 +1582,11 @@ namespace UGTLive
                 
                 // Build query parameters
                 string langParam = MapLanguageForService(language);
-                string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level=true";
+                // Get OCR processing mode from config (Character = char_level=true, Line = char_level=false)
+                string ocrProcessingMode = ConfigManager.Instance.GetOcrProcessingMode();
+                bool charLevel = ocrProcessingMode == "Character";
+                
+                string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level={charLevel.ToString().ToLower()}";
                 
                 // Add MangaOCR-specific parameters
                 if (serviceName == "MangaOCR")
@@ -1590,7 +1594,8 @@ namespace UGTLive
                     int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
                     int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
                     double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
-                    url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
+                    double yoloConfidence = ConfigManager.Instance.GetMangaOcrYoloConfidence();
+                    url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}&yolo_confidence={yoloConfidence}";
                 }
                 
                 // Send HTTP request with keep-alive

@@ -217,91 +217,111 @@
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <ComboBox x:Name="ocrMethodComboBox" Grid.Row="0" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="OcrMethodComboBox_SelectionChanged"/>
+                                
+                                <!-- OCR Processing Mode -->
+                                <TextBlock Text="OCR Processing Mode:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Character: Process text character-by-character. Line: Process text as complete lines/blocks."/>
+                                <ComboBox x:Name="ocrProcessingModeComboBox" Grid.Row="1" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="OcrProcessingModeComboBox_SelectionChanged"
+                                         ToolTip="Character: Process text character-by-character. Line: Process text as complete lines/blocks.">
+                                    <ComboBoxItem Content="Character" Tag="Character"/>
+                                    <ComboBoxItem Content="Line" Tag="Line"/>
+                                </ComboBox>
                                          
                                 <!-- Pause OCR While Translating -->
-                                <TextBlock Text="Pause OCR while translating:" Grid.Row="1" Grid.Column="0"
+                                <TextBlock Text="Pause OCR while translating:" Grid.Row="2" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
-                                <CheckBox x:Name="pauseOcrWhileTranslatingCheckBox" Grid.Row="1" Grid.Column="1"
+                                <CheckBox x:Name="pauseOcrWhileTranslatingCheckBox" Grid.Row="2" Grid.Column="1"
                                          Margin="0,5" IsChecked="False" 
                                          Checked="PauseOcrWhileTranslatingCheckBox_CheckedChanged" 
                                          Unchecked="PauseOcrWhileTranslatingCheckBox_CheckedChanged"
                                          ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
                                          
                                 <!-- Minimum Text Fragment Size -->
-                                <TextBlock Text="Smallest text fragment:" Grid.Row="2" Grid.Column="0" 
+                                <TextBlock Text="Smallest text fragment:" Grid.Row="3" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
-                                <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="2" Grid.Column="1" 
+                                <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="3" Grid.Column="1" 
                                         Margin="0,5" Text="2" LostFocus="MinTextFragmentSizeTextBox_LostFocus"
                                         ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
                                 
                                 <!-- Minimum Letter Confidence -->
-                                <TextBlock Text="Min letter confidence:" Grid.Row="3" Grid.Column="0" 
+                                <TextBlock Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
-                                <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="3" Grid.Column="1" 
+                                <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
                                         Margin="0,5" Text="0.1" LostFocus="MinLetterConfidenceTextBox_LostFocus"
                                         ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
                                 
                                 <!-- Minimum Line Confidence -->
-                                <TextBlock Text="Min line confidence:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
-                                <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
+                                <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="5" Grid.Column="1" 
                                         Margin="0,5" Text="0.2" LostFocus="MinLineConfidenceTextBox_LostFocus"
                                         ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
                                 
                                 <!-- Leave Translation Onscreen -->
-                                <TextBlock Grid.Row="5" Grid.Column="0" 
+                                <TextBlock Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made">
                                     <Run Text="Leave translation onscreen:"/>
                                     <LineBreak/>
                                     <Run Text="(this option is broken)"/>
                                 </TextBlock>
-                                <CheckBox x:Name="leaveTranslationOnscreenCheckBox" Grid.Row="5" Grid.Column="1" 
+                                <CheckBox x:Name="leaveTranslationOnscreenCheckBox" Grid.Row="6" Grid.Column="1" 
                                          Margin="0,5" IsChecked="False" 
                                          Checked="LeaveTranslationOnscreenCheckBox_CheckedChanged" 
                                          Unchecked="LeaveTranslationOnscreenCheckBox_CheckedChanged"
                                          ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
                                 
                                 <!-- Glue docTR lines into paragraphs -->
-                                <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="7" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
-                                <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="6" Grid.Column="1" 
+                                <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="7" Grid.Column="1" 
                                          Margin="0,5" IsChecked="True"
                                          Checked="GlueDoctrLinesCheckBox_CheckedChanged"
                                          Unchecked="GlueDoctrLinesCheckBox_CheckedChanged"
                                          ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
                                 
                                 <!-- Manga OCR Minimum Region Width - Only visible when Manga OCR is selected -->
-                                <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="7" Grid.Column="0" 
+                                <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="8" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
                                           ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                                <TextBox x:Name="mangaOcrMinWidthTextBox" Grid.Row="7" Grid.Column="1" 
+                                <TextBox x:Name="mangaOcrMinWidthTextBox" Grid.Row="8" Grid.Column="1" 
                                         Margin="0,5" Text="10" Visibility="Collapsed"
                                         LostFocus="MangaOcrMinWidthTextBox_LostFocus"
                                         ToolTip="Minimum width in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
                                 
                                 <!-- Manga OCR Minimum Region Height - Only visible when Manga OCR is selected -->
-                                <TextBlock x:Name="mangaOcrMinHeightLabel" Text="Min Text Region Height (px):" Grid.Row="8" Grid.Column="0" 
+                                <TextBlock x:Name="mangaOcrMinHeightLabel" Text="Min Text Region Height (px):" Grid.Row="9" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
                                           ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
-                                <TextBox x:Name="mangaOcrMinHeightTextBox" Grid.Row="8" Grid.Column="1" 
+                                <TextBox x:Name="mangaOcrMinHeightTextBox" Grid.Row="9" Grid.Column="1" 
                                         Margin="0,5" Text="10" Visibility="Collapsed"
                                         LostFocus="MangaOcrMinHeightTextBox_LostFocus"
                                         ToolTip="Minimum height in pixels for YOLO-detected text regions. Smaller regions (like furigana) will be filtered out before OCR."/>
                                 
                                 <!-- Manga OCR Overlap Allowed - Only visible when Manga OCR is selected -->
-                                <TextBlock x:Name="mangaOcrOverlapLabel" Text="Overlap Allowed (%):" Grid.Row="9" Grid.Column="0" 
+                                <TextBlock x:Name="mangaOcrOverlapLabel" Text="Overlap Allowed (%):" Grid.Row="10" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
                                           ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
-                                <TextBox x:Name="mangaOcrOverlapTextBox" Grid.Row="9" Grid.Column="1" 
+                                <TextBox x:Name="mangaOcrOverlapTextBox" Grid.Row="10" Grid.Column="1" 
                                         Margin="0,5" Text="90" Visibility="Collapsed"
                                         LostFocus="MangaOcrOverlapTextBox_LostFocus"
                                         ToolTip="Maximum overlap percentage allowed between regions. If two regions overlap more than this, the smaller one will be removed (helps filter furigana)."/>
+                                
+                                <!-- Manga OCR YOLO Confidence - Only visible when Manga OCR is selected -->
+                                <TextBlock x:Name="mangaOcrYoloConfidenceLabel" Text="Text Detection Confidence:" Grid.Row="11" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
+                                          ToolTip="YOLO confidence threshold for detecting text regions (0.0-1.0). Higher values reduce false positives like textures being detected as text. Default: 0.60"/>
+                                <TextBox x:Name="mangaOcrYoloConfidenceTextBox" Grid.Row="11" Grid.Column="1" 
+                                        Margin="0,5" Text="0.60" Visibility="Collapsed"
+                                        LostFocus="MangaOcrYoloConfidenceTextBox_LostFocus"
+                                        ToolTip="YOLO confidence threshold for detecting text regions (0.0-1.0). Higher values reduce false positives like textures being detected as text. Default: 0.60"/>
                                 
                                 <!-- Google Vision API Key - Only visible when Google Vision is selected -->
                                 <TextBlock x:Name="googleVisionApiKeyLabel" Text="Google Cloud Vision API Key:" Grid.Row="10" Grid.Column="0" 

@@ -455,6 +455,20 @@ namespace UGTLive
             // Set glue docTR lines setting
             glueDoctrLinesCheckBox.IsChecked = ConfigManager.Instance.GetGlueDocTRLinesEnabled();
             
+            // Load OCR processing mode setting
+            string savedOcrProcessingMode = ConfigManager.Instance.GetOcrProcessingMode();
+            ocrProcessingModeComboBox.SelectionChanged -= OcrProcessingModeComboBox_SelectionChanged;
+            foreach (ComboBoxItem item in ocrProcessingModeComboBox.Items)
+            {
+                string itemTag = item.Tag?.ToString() ?? "";
+                if (string.Equals(itemTag, savedOcrProcessingMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    ocrProcessingModeComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+            ocrProcessingModeComboBox.SelectionChanged += OcrProcessingModeComboBox_SelectionChanged;
+            
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
@@ -906,6 +920,36 @@ namespace UGTLive
             }
         }
         
+        // OCR Processing Mode ComboBox Selection Changed
+        private void OcrProcessingModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Skip event if we're initializing
+            if (_isInitializing)
+            {
+                return;
+            }
+            
+            if (sender is ComboBox comboBox)
+            {
+                // Get mode from Tag property
+                string? processingMode = (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+                
+                if (!string.IsNullOrEmpty(processingMode) && (processingMode == "Character" || processingMode == "Line"))
+                {
+                    Console.WriteLine($"OCR processing mode changed to: '{processingMode}'");
+                    
+                    // Save to config
+                    ConfigManager.Instance.SetOcrProcessingMode(processingMode);
+                    
+                    // Reset the OCR hash to force a fresh comparison after changing processing mode
+                    Logic.Instance.ResetHash();
+                    Logic.Instance.ClearAllTextObjects();
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+            }
+        }
+        
         private void AutoTranslateCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Skip if initializing to prevent overriding values from config
@@ -1065,6 +1109,37 @@ namespace UGTLive
             }
         }
         
+        private void MangaOcrYoloConfidenceTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (double.TryParse(mangaOcrYoloConfidenceTextBox.Text, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
+                {
+                    ConfigManager.Instance.SetMangaOcrYoloConfidence(confidence);
+                    Console.WriteLine($"Manga OCR YOLO confidence threshold set to: {confidence:F2}");
+                    
+                    // Force refresh to apply immediately
+                    Logic.Instance.ResetHash();
+                    Logic.Instance.ClearAllTextObjects();
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+                else
+                {
+                    // Reset to current config value if invalid
+                    mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting Manga OCR YOLO confidence: {ex.Message}");
+            }
+        }
+        
         // Update OCR-specific settings visibility
         private void UpdateOcrSpecificSettings(string selectedOcr)
         {
@@ -1093,6 +1168,10 @@ namespace UGTLive
                     mangaOcrOverlapLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (mangaOcrOverlapTextBox != null)
                     mangaOcrOverlapTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrYoloConfidenceLabel != null)
+                    mangaOcrYoloConfidenceLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (mangaOcrYoloConfidenceTextBox != null)
+                    mangaOcrYoloConfidenceTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
 
                 // Show/hide Google Vision-specific settings
                 if (googleVisionApiKeyLabel != null)
@@ -1156,6 +1235,11 @@ namespace UGTLive
                     if (mangaOcrOverlapTextBox != null)
                     {
                         mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1");
+                    }
+                    
+                    if (mangaOcrYoloConfidenceTextBox != null)
+                    {
+                        mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2");
                     }
                 }
             }
