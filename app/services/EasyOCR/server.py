@@ -90,6 +90,30 @@ def initialize_ocr_engine(lang: str = 'japan'):
     return OCR_ENGINE
 
 
+def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.5) -> str:
+    """
+    Detect text orientation based on bounding box dimensions.
+    
+    Args:
+        width: Width of the text bounding box
+        height: Height of the text bounding box
+        aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
+    
+    Returns:
+        "vertical" if height > width * threshold, "horizontal" otherwise
+    """
+    if width == 0:
+        return "vertical"
+    
+    aspect_ratio = height / width
+    
+    # If height is significantly greater than width, it's likely vertical text
+    if aspect_ratio > aspect_ratio_threshold:
+        return "vertical"
+    else:
+        return "horizontal"
+
+
 def process_ocr_results(image: Image.Image, results: list, char_level: bool = True) -> List[Dict]:
     """Process EasyOCR results into standardized format."""
     text_objects = []
@@ -123,6 +147,9 @@ def process_ocr_results(image: Image.Image, results: list, char_level: bool = Tr
         except Exception as e:
             print(f"Color extraction failed: {e}")
         
+        # Detect text orientation
+        text_orientation = detect_text_orientation(width, height)
+        
         # Build text object
         text_obj = {
             "text": text,
@@ -131,7 +158,8 @@ def process_ocr_results(image: Image.Image, results: list, char_level: bool = Tr
             "width": width,
             "height": height,
             "vertices": vertices,
-            "confidence": confidence
+            "confidence": confidence,
+            "text_orientation": text_orientation
         }
         
         # Attach color information if available

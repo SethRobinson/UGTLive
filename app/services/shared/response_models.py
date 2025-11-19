@@ -30,6 +30,7 @@ class TextObject(BaseModel):
     background_color: Optional[ColorInfo] = None
     foreground_color: Optional[ColorInfo] = None
     color_source: Optional[str] = None
+    text_orientation: Optional[str] = None
 
 
 class OCRResponse(BaseModel):

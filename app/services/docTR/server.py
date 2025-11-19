@@ -124,6 +124,30 @@ def estimate_character_positions(text: str, x: int, y: int, width: int, height: 
     return chars
 
 
+def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.5) -> str:
+    """
+    Detect text orientation based on bounding box dimensions.
+    
+    Args:
+        width: Width of the text bounding box
+        height: Height of the text bounding box
+        aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
+    
+    Returns:
+        "vertical" if height > width * threshold, "horizontal" otherwise
+    """
+    if width == 0:
+        return "vertical"
+    
+    aspect_ratio = height / width
+    
+    # If height is significantly greater than width, it's likely vertical text
+    if aspect_ratio > aspect_ratio_threshold:
+        return "vertical"
+    else:
+        return "horizontal"
+
+
 def process_doctr_results(image: Image.Image, result, char_level: bool = True) -> List[Dict]:
     """Process docTR results into standardized format."""
     text_objects = []
@@ -171,12 +195,17 @@ def process_doctr_results(image: Image.Image, result, char_level: bool = True) -
                     except Exception as e:
                         print(f"Color extraction failed: {e}")
                     
+                    # Detect text orientation
+                    text_orientation = detect_text_orientation(width, height)
+                    
                     if char_level:
                         # Split into characters
                         chars = estimate_character_positions(text, x, y, width, height)
                         for char_obj in chars:
                             if color_info:
                                 attach_color_info(char_obj, color_info)
+                            # Add text orientation to each character
+                            char_obj["text_orientation"] = text_orientation
                             text_objects.append(char_obj)
                     else:
                         # Return as single word
@@ -187,7 +216,8 @@ def process_doctr_results(image: Image.Image, result, char_level: bool = True) -
                             "width": width,
                             "height": height,
                             "vertices": polygon,
-                            "confidence": confidence
+                            "confidence": confidence,
+                            "text_orientation": text_orientation
                         }
                         if color_info:
                             attach_color_info(text_obj, color_info)
