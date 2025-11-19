@@ -144,28 +144,30 @@ namespace UGTLive
                 return;
             }
             
-            // Phase 1: Check all services in parallel to see if they're already running
-            statusCallback?.Invoke($"Checking status of {autoStartServices.Count} service(s)...");
+            // Filter to only services that need starting (not running)
+            var servicesToStart = autoStartServices.Where(s => !s.IsRunning).ToList();
+            var alreadyRunningCount = autoStartServices.Count - servicesToStart.Count;
             
-            var checkTasks = autoStartServices.Select(async service =>
+            if (servicesToStart.Count == 0)
             {
-                if (!service.IsRunning)
-                {
-                    await service.CheckIsRunningAsync();
-                }
+                // All auto-start services are already running
+                statusCallback?.Invoke("All services already running");
+                return;
+            }
+            
+            // Phase 1: Check status of services we think are not running (double check)
+            statusCallback?.Invoke($"Checking status of {servicesToStart.Count} service(s)...");
+            
+            var checkTasks = servicesToStart.Select(async service =>
+            {
+                await service.CheckIsRunningAsync();
                 return service;
             });
             
             await Task.WhenAll(checkTasks);
             
-            // Filter to only services that need starting
-            var servicesToStart = autoStartServices.Where(s => !s.IsRunning).ToList();
-            var alreadyRunningCount = autoStartServices.Count - servicesToStart.Count;
-            
-            if (alreadyRunningCount > 0)
-            {
-                statusCallback?.Invoke($"{alreadyRunningCount} service(s) already running - skipping");
-            }
+            // Re-evaluate what needs starting after the check
+            servicesToStart = autoStartServices.Where(s => !s.IsRunning).ToList();
             
             if (servicesToStart.Count == 0)
             {
@@ -173,7 +175,7 @@ namespace UGTLive
                 return;
             }
             
-            // Phase 2: Start all services with staggered launches
+            // Phase 2: Start services that are still not running
             statusCallback?.Invoke($"Starting {servicesToStart.Count} service(s)...");
             
             var startTasks = servicesToStart.Select(async (service, index) =>

@@ -279,6 +279,7 @@ namespace UGTLive
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
                         FileName = batchFile,
+                        Arguments = "nopause", // Tell batch file not to pause on error
                         WorkingDirectory = ServiceDirectory,
                         UseShellExecute = showWindow,
                         CreateNoWindow = !showWindow
@@ -296,11 +297,15 @@ namespace UGTLive
                         // Check if process has already exited (happens with UseShellExecute sometimes)
                         try
                         {
-                            if (_process.HasExited)
+                            // Give it a moment to fail if it's going to
+                            if (_process.WaitForExit(1000))
                             {
-                                Console.WriteLine($"WARNING: Process {_process.Id} for {ServiceName} has already exited!");
-                                Console.WriteLine($"  Exit code: {_process.ExitCode}");
-                                Console.WriteLine($"  This is normal for UseShellExecute - keeping IsOwnedByApp=TRUE anyway");
+                                if (_process.ExitCode != 0)
+                                {
+                                    Console.WriteLine($"ERROR: {ServiceName} failed to start (Exit Code: {_process.ExitCode})");
+                                    _ownedByApp = false;
+                                    return false;
+                                }
                             }
                         }
                         catch (Exception ex)

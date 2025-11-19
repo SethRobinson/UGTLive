@@ -29,7 +29,7 @@ if exist "%CONFIG_FILE%" (
 
 if "!ENV_NAME!"=="" (
     echo ERROR: Could not find venv_name in service_config.txt
-    pause
+    if not "%1"=="nopause" pause
     exit /b 1
 )
 
@@ -50,7 +50,7 @@ if not exist "%VENV_DIR%\Scripts\activate.bat" (
     echo.
     echo Please run Install.bat first to create the environment.
     echo.
-    pause
+    if not "%1"=="nopause" pause
     exit /b 1
 )
 
@@ -69,7 +69,7 @@ if errorlevel 1 (
     echo ERROR: Server crashed or failed to start
     echo Please check the error message above
     echo.
-    pause
+    if not "%1"=="nopause" pause
     exit /b 1
 )
 

@@ -175,6 +175,9 @@ namespace UGTLive
                 // Discover and load services
                 await DiscoverAndLoadServicesAsync();
                 
+                // Auto-start services if needed
+                await CheckAndStartAutoStartServicesAsync();
+                
                 statusMessage.Text = "Diagnostics complete";
                 
                 // Update status label based on autostart services state
@@ -199,12 +202,40 @@ namespace UGTLive
             }
         }
         
+        private async Task CheckAndStartAutoStartServicesAsync()
+        {
+            var services = PythonServicesManager.Instance.GetAllServices();
+            var autoStartServices = services.Where(s => s.AutoStart && !s.IsRunning && s.IsInstalled).ToList();
+            
+            if (autoStartServices.Count > 0)
+            {
+                statusMessage.Text = "Starting services...";
+                bool showWindow = showServerWindowCheckBox.IsChecked ?? false;
+                
+                await PythonServicesManager.Instance.StartAutoStartServicesAsync(showWindow, (msg) => 
+                {
+                    Dispatcher.Invoke(() => statusMessage.Text = msg);
+                });
+                
+                // Refresh status for all services
+                await RefreshAllServicesStatusAsync();
+            }
+        }
+        
         private void UpdateStatusLabel()
         {
             try
             {
                 var services = PythonServicesManager.Instance.GetAllServices();
                 var autoStartServices = services.Where(s => s.AutoStart).ToList();
+                var runningServices = services.Where(s => s.IsRunning).ToList();
+                
+                if (runningServices.Count > 0)
+                {
+                    statusLabel.Text = "Services ready. Click Continue.";
+                    statusLabel.Foreground = new SolidColorBrush(Colors.Green);
+                    return;
+                }
                 
                 if (autoStartServices.Count == 0)
                 {
@@ -213,18 +244,9 @@ namespace UGTLive
                     return;
                 }
                 
-                var allRunning = autoStartServices.All(s => s.IsRunning);
-                
-                if (allRunning)
-                {
-                    statusLabel.Text = "Everything looks good, click Continue.";
-                    statusLabel.Foreground = new SolidColorBrush(Colors.Green);
-                }
-                else
-                {
-                    statusLabel.Text = "Making sure everything is ready...";
-                    statusLabel.Foreground = new SolidColorBrush(Colors.Black);
-                }
+                // If we are here, we have auto-start services but none are running yet
+                statusLabel.Text = "Waiting for services to start...";
+                statusLabel.Foreground = new SolidColorBrush(Colors.Black);
             }
             catch (Exception ex)
             {
@@ -402,6 +424,7 @@ namespace UGTLive
                         StatusText = "Checking...",
                         StatusColor = "Gray",
                         StartStopButtonText = "Start",
+                        InstallButtonText = "Install",
                         StartStopEnabled = false,
                         InstallEnabled = false,
                         UninstallEnabled = false,
@@ -455,8 +478,9 @@ namespace UGTLive
                     viewModel.StatusColor = "Green";
                     viewModel.StartStopButtonText = "Stop";
                     viewModel.StartStopEnabled = true;
+                    viewModel.InstallButtonText = "Install/Reinstall";
                     viewModel.InstallEnabled = false;
-                    viewModel.UninstallEnabled = true;
+                    viewModel.UninstallEnabled = false; // Cannot uninstall while running
                 }
                 else
                 {
@@ -471,7 +495,8 @@ namespace UGTLive
                         viewModel.StatusColor = "Orange";
                         viewModel.StartStopButtonText = "Start";
                         viewModel.StartStopEnabled = true;
-                        viewModel.InstallEnabled = false;
+                        viewModel.InstallButtonText = "Install/Reinstall";
+                        viewModel.InstallEnabled = true; // Allow reinstall
                         viewModel.UninstallEnabled = true;
                     }
                     else
@@ -482,6 +507,7 @@ namespace UGTLive
                         viewModel.StatusColor = "Red";
                         viewModel.StartStopButtonText = "Start";
                         viewModel.StartStopEnabled = false;
+                        viewModel.InstallButtonText = "Install";
                         viewModel.InstallEnabled = true;
                         viewModel.UninstallEnabled = false;
                     }
@@ -577,8 +603,38 @@ namespace UGTLive
                     return;
                 }
                 
+                // Disable button immediately via ViewModel to prevent multiple clicks
+                viewModel.InstallEnabled = false;
+                viewModel.StatusText = "Preparing installation...";
+                viewModel.StatusIcon = "⏳";
+                
                 try
                 {
+                    // Check if already installed (Reinstall case)
+                    bool isInstalled = await service.CheckIsInstalledAsync();
+                    
+                    if (isInstalled)
+                    {
+                        var result = MessageBox.Show(
+                            $"This will reinstall {serviceName}. Continue?",
+                            "Confirm Reinstall",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+                            
+                        if (result != MessageBoxResult.Yes)
+                        {
+                            // User cancelled, refresh status to restore proper button state
+                            await UpdateServiceStatusAsync(service);
+                            return;
+                        }
+                        
+                        // Note: Install.bat handles removing the existing venv, so we don't need to uninstall explicitly
+                        service.InvalidateVenvCache();
+                        service.MarkAsNotRunning();
+                    }
+                
+                    viewModel.StatusText = "Installing...";
+                    
                     var installDialog = new ServiceInstallDialog();
                     installDialog.Owner = this;
                     
@@ -597,7 +653,7 @@ namespace UGTLive
                     viewModel.StatusIcon = "⏳";
                     viewModel.StatusColor = "Gray";
                     
-                    // Refresh service status
+                    // Refresh service status (this will re-enable buttons appropriately)
                     await UpdateServiceStatusAsync(service);
                 }
                 catch (Exception ex)
@@ -605,6 +661,9 @@ namespace UGTLive
                     Console.WriteLine($"Error installing service: {ex.Message}");
                     MessageBox.Show($"Error installing service: {ex.Message}", "Installation Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
+                    
+                    // Refresh status to restore proper button state
+                    await UpdateServiceStatusAsync(service);
                 }
             }
         }
@@ -635,6 +694,11 @@ namespace UGTLive
                         return;
                     }
                     
+                    // Disable button immediately to prevent multiple clicks
+                    viewModel.UninstallEnabled = false;
+                    viewModel.StatusText = "Preparing uninstall...";
+                    viewModel.StatusIcon = "⏳";
+                    
                     var uninstallDialog = new ServiceInstallDialog();
                     uninstallDialog.Owner = this;
                     
@@ -647,6 +711,7 @@ namespace UGTLive
                     
                     // Invalidate venv cache so it will be re-checked
                     service.InvalidateVenvCache();
+                    service.MarkAsNotRunning(); // Ensure it's marked as not running
                     
                     // Show checking status immediately
                     viewModel.StatusText = "Checking status...";
@@ -661,6 +726,9 @@ namespace UGTLive
                     Console.WriteLine($"Error uninstalling service: {ex.Message}");
                     MessageBox.Show($"Error uninstalling service: {ex.Message}", "Uninstallation Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
+                    
+                    // Re-enable button on error
+                    await UpdateServiceStatusAsync(service);
                 }
             }
         }
@@ -694,7 +762,7 @@ namespace UGTLive
             }
         }
         
-        private void ServiceAutoStart_Changed(object sender, RoutedEventArgs e)
+        private async void ServiceAutoStart_Changed(object sender, RoutedEventArgs e)
         {
             if (sender is CheckBox checkBox && checkBox.DataContext is ServiceItemViewModel viewModel)
             {
@@ -704,6 +772,53 @@ namespace UGTLive
                 {
                     service.AutoStart = viewModel.AutoStart;
                     PythonServicesManager.Instance.SaveAutoStartPreferences();
+                    
+                    // If checked and not running, start it
+                    if (service.AutoStart && !service.IsRunning)
+                    {
+                        // Check if installed first
+                        bool isInstalled = await service.CheckIsInstalledAsync();
+                        if (isInstalled)
+                        {
+                            viewModel.StatusText = "Starting...";
+                            viewModel.StatusIcon = "⏳";
+                            viewModel.StartStopEnabled = false;
+                            
+                            bool showWindow = showServerWindowCheckBox.IsChecked ?? false;
+                            bool started = await service.StartAsync(showWindow);
+                            
+                            // Wait for service to initialize
+                            await Task.Delay(500);
+                            await UpdateServiceStatusAsync(service);
+                        }
+                        else
+                        {
+                            // Not installed - ask user if they want to install
+                            var result = MessageBox.Show(
+                                $"{service.ServiceName} is not installed. Do you want to install it now?",
+                                "Install Service",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Question);
+                                
+                            if (result == MessageBoxResult.Yes)
+                            {
+                                // Trigger install logic
+                                // We can reuse the ServiceInstall_Click logic by simulating a click or extracting the method
+                                // For simplicity, let's just call the button click handler with a dummy button
+                                var dummyButton = new Button { Tag = service.ServiceName };
+                                ServiceInstall_Click(dummyButton, new RoutedEventArgs());
+                            }
+                            else
+                            {
+                                // User said no, uncheck autostart
+                                viewModel.AutoStart = false;
+                                service.AutoStart = false;
+                                PythonServicesManager.Instance.SaveAutoStartPreferences();
+                            }
+                        }
+                    }
+                    
+                    UpdateStatusLabel();
                 }
             }
         }
@@ -783,6 +898,11 @@ namespace UGTLive
         
         private async void ContinueButton_Click(object sender, RoutedEventArgs e)
         {
+            if (sender is Button continueBtn)
+            {
+                continueBtn.IsEnabled = false;
+            }
+            
             try
             {
                 // Save all autostart preferences
@@ -827,6 +947,11 @@ namespace UGTLive
                 Console.WriteLine($"Error in continue button: {ex.Message}");
                 MessageBox.Show($"Error: {ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                if (sender is Button btn)
+                {
+                    btn.IsEnabled = true;
+                }
             }
         }
     }

@@ -13,6 +13,7 @@ namespace UGTLive
         private string _statusColor = "Gray";
         private bool _autoStart;
         private string _startStopButtonText = "Start";
+        private string _installButtonText = "Install";
         private bool _startStopEnabled;
         private bool _installEnabled;
         private bool _uninstallEnabled;
@@ -64,6 +65,12 @@ namespace UGTLive
         {
             get => _startStopButtonText;
             set { _startStopButtonText = value; OnPropertyChanged(); }
+        }
+        
+        public string InstallButtonText
+        {
+            get => _installButtonText;
+            set { _installButtonText = value; OnPropertyChanged(); }
         }
         
         public bool StartStopEnabled
