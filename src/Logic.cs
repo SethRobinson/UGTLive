@@ -2590,15 +2590,19 @@ namespace UGTLive
         {
             string ocrMethod = ConfigManager.Instance.GetOcrMethod();
             
+            // Try to get the actual service name from the manager if it's a managed service
+            var service = PythonServicesManager.Instance.GetServiceByName(ocrMethod);
+            if (service != null && !string.IsNullOrEmpty(service.ServiceName))
+            {
+                return service.ServiceName;
+            }
+            
             // Map to display names
             return ocrMethod switch
             {
-                "EasyOCR" => "Easy",
-                "MangaOCR" => "Manga",
-                "DocTR" => "docTR",
                 "Google Cloud Vision" => "Google",
                 "Windows OCR" => "Windows",
-                _ => "OCR"
+                _ => ocrMethod
             };
         }
         
