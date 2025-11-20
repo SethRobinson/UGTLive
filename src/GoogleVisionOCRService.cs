@@ -108,7 +108,11 @@ namespace UGTLive
                             },
                             imageContext = new
                             {
-                                languageHints = GetLanguageHints(sourceLanguage)
+                                languageHints = GetLanguageHints(sourceLanguage),
+                                textDetectionParams = new 
+                                {
+                                    enableTextDetectionConfidenceScore = true
+                                }
                             }
                         }
                     }
@@ -252,7 +256,13 @@ namespace UGTLive
                                         string text = wordText.ToString();
                                         if (!string.IsNullOrWhiteSpace(text))
                                         {
-                                            var textObj = CreateTextObject(text, wordBounds.Value);
+                                            double confidence = 1.0;
+                                            if (word.TryGetProperty("confidence", out JsonElement confElement))
+                                            {
+                                                confidence = confElement.GetDouble();
+                                            }
+
+                                            var textObj = CreateTextObject(text, wordBounds.Value, confidence);
                                             textObjects.Add(textObj);
                                         }
                                     }
@@ -462,9 +472,9 @@ namespace UGTLive
         }
 
         // Create a TextObject from text and bounds
-        private TextObject CreateTextObject(string text, (double x, double y, double width, double height) bounds)
+        private TextObject CreateTextObject(string text, (double x, double y, double width, double height) bounds, double confidence = 1.0)
         {
-            return new TextObject(
+            var textObj = new TextObject(
                 text: text,
                 x: bounds.x,
                 y: bounds.y,
@@ -475,6 +485,8 @@ namespace UGTLive
                 captureX: bounds.x,
                 captureY: bounds.y
             );
+            textObj.Confidence = confidence;
+            return textObj;
         }
 
         // Test the API key
@@ -530,7 +542,7 @@ namespace UGTLive
                 var results = textObjects.Select(obj => new
                 {
                     text = obj.Text,
-                    confidence = 0.95, // Google Vision doesn't provide confidence per text block
+                    confidence = obj.Confidence,
                     rect = new[] {
                         new[] { obj.X, obj.Y },
                         new[] { obj.X + obj.Width, obj.Y },

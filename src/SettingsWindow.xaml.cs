@@ -1087,10 +1087,11 @@ namespace UGTLive
                 bool isEasyOcrSelected = string.Equals(selectedOcr, "EasyOCR", StringComparison.OrdinalIgnoreCase);
                 bool isDocTrSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
 
-                // Confidence settings are only useful for EasyOCR and docTR
-                bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected;
+                // Confidence settings are only useful for EasyOCR, docTR, and Google Vision
+                bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected || isGoogleVisionSelected;
                 
                 // EasyOCR and docTR don't use character-level confidence (or at least we don't use it), so hide that specific setting
+                // Google Vision DOES support character-level confidence
                 bool showLetterConfidence = showConfidenceSettings && !isEasyOcrSelected && !isDocTrSelected;
 
                 if (minLetterConfidenceLabel != null)

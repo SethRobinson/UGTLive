@@ -7,6 +7,7 @@ namespace UGTLive
     {
         // Properties
         public string Text { get; set; }
+        public double Confidence { get; set; } = 1.0;
         public string ID { get; set; } = Guid.NewGuid().ToString();
         public string TextTranslated { get; set; } = string.Empty;
         public string TextOrientation { get; set; } = "horizontal";
