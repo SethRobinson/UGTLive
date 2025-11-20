@@ -2664,9 +2664,27 @@ namespace UGTLive
                             textToShow = textObj.Text;
                         }
                         
-                        // Get colors
-                        Color bgColor = textObj.BackgroundColor?.Color ?? Colors.Black;
-                        Color textColor = textObj.TextColor?.Color ?? Colors.White;
+                        // Get colors with override logic
+                        Color bgColor;
+                        Color textColor;
+                        
+                        if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                        {
+                            bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                        }
+                        else
+                        {
+                            bgColor = textObj.BackgroundColor?.Color ?? Colors.Black;
+                        }
+                        
+                        if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                        {
+                            textColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                        }
+                        else
+                        {
+                            textColor = textObj.TextColor?.Color ?? Colors.White;
+                        }
                         
                         // Get font settings
                         string fontFamily = isTranslated

@@ -2186,9 +2186,30 @@ namespace UGTLive
                         ? textObj.Height * currentZoom 
                         : 100 * currentZoom; // Default fallback height
                     
-                    // Get colors
-                    string bgColor = ColorToHex(textObj.BackgroundColor?.Color ?? Colors.Black);
-                    string textColor = ColorToHex(textObj.TextColor?.Color ?? Colors.White);
+                    // Get colors with override logic
+                    Color bgC;
+                    Color textC;
+                    
+                    if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                    {
+                        bgC = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                    }
+                    else
+                    {
+                        bgC = textObj.BackgroundColor?.Color ?? Colors.Black;
+                    }
+                    
+                    if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                    {
+                        textC = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                    }
+                    else
+                    {
+                        textC = textObj.TextColor?.Color ?? Colors.White;
+                    }
+                    
+                    string bgColor = ColorToHex(bgC);
+                    string textColor = ColorToHex(textC);
                     
                     // Determine font settings based on translation state
                     bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
