@@ -1333,14 +1333,26 @@ Here is the input JSON:";
             string keySuffix = provider.ToLower().Replace(" ", "_");
             string key = MIN_LETTER_CONFIDENCE_PREFIX + keySuffix;
             
-            // For other providers, default value depends on legacy global setting
-            string globalValue = GetValue(MIN_LETTER_CONFIDENCE, "0.1");
-            string value = GetValue(key, globalValue);
+            // Determine default value based on provider
+            string defaultValue;
+            if (keySuffix == "google_vision")
+            {
+                defaultValue = "0.7";
+            }
+            else
+            {
+                // For other providers, default value depends on legacy global setting
+                defaultValue = GetValue(MIN_LETTER_CONFIDENCE, "0.1");
+            }
+            
+            string value = GetValue(key, defaultValue);
             
             if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
+            
+            if (keySuffix == "google_vision") return 0.7;
             return 0.1;
         }
 
@@ -1392,14 +1404,26 @@ Here is the input JSON:";
             string keySuffix = provider.ToLower().Replace(" ", "_");
             string key = MIN_LINE_CONFIDENCE_PREFIX + keySuffix;
             
-            // Default to global setting for others
-            string globalValue = GetValue(MIN_LINE_CONFIDENCE, "0.2");
-            string value = GetValue(key, globalValue);
+            // Determine default value based on provider
+            string defaultValue;
+            if (keySuffix == "google_vision")
+            {
+                defaultValue = "0.7";
+            }
+            else
+            {
+                // Default to global setting for others
+                defaultValue = GetValue(MIN_LINE_CONFIDENCE, "0.2");
+            }
+            
+            string value = GetValue(key, defaultValue);
             
             if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
+            
+            if (keySuffix == "google_vision") return 0.7;
             return 0.2;
         }
         
