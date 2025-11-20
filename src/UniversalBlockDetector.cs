@@ -26,8 +26,8 @@ namespace UGTLive
             }
         }
         
-        // Block detection power is obtained from BlockDetectionManager
-        private double GetBlockPower() => BlockDetectionManager.Instance.GetBlockDetectionScale();
+        // Block detection power is obtained from BlockDetectionManager - REMOVED
+        // private double GetBlockPower() => BlockDetectionManager.Instance.GetBlockDetectionScale();
         
         // Configuration values
         private readonly Config _config = new Config();
@@ -54,8 +54,8 @@ namespace UGTLive
             public double BaseIndentation = 20.0;             // Indentation that suggests a new paragraph
             public double BaseParagraphBreakThreshold = 20.0; // Vertical gap suggesting paragraph break
             
-            // Get scaled values with current block power
-            public double GetScaledValue(double baseValue, double blockPower) => baseValue * blockPower;
+            // Get scaled values with current block power - REMOVED
+            // public double GetScaledValue(double baseValue, double blockPower) => baseValue * blockPower;
         }
         
         // Public methods to adjust configuration
@@ -86,6 +86,16 @@ namespace UGTLive
             }
             _config.BaseLineVerticalGap = value;
         }
+
+        public void SetBaseWordHorizontalGap(double value)
+        {
+            if (value < 0)
+            {
+                Console.WriteLine("Word horizontal gap must be positive");
+                return;
+            }
+            _config.BaseWordHorizontalGap = value;
+        }
         
         #endregion
         
@@ -102,8 +112,17 @@ namespace UGTLive
                 
             try
             {
-                // Get current block power for scaling thresholds
-                double blockPower = GetBlockPower();
+                // Sync configuration from ConfigManager
+                // We map the "Google Vision" glue settings to our internal thresholds
+                // This allows the user to control the glue behavior for all OCR methods
+                double horizontalGlue = ConfigManager.Instance.GetGoogleVisionHorizontalGlue();
+                double verticalGlue = ConfigManager.Instance.GetGoogleVisionVerticalGlue();
+                
+                // Update internal config
+                SetBaseWordHorizontalGap(horizontalGlue);
+                SetBaseLineVerticalGap(verticalGlue);
+
+                bool keepLinefeeds = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
                 
                 // PHASE 1: Extract all text elements (Chars, Words, Lines)
                 var allElements = ExtractTextElements(resultsElement);
@@ -119,26 +138,28 @@ namespace UGTLive
                 var segments = allElements.Where(c => !c.IsCharacter || c.IsProcessed).ToList();
                 
                 // PHASE 2: Group characters into words
+                // NOTE: BlockPower was removed, so we'll use a default scale factor of 1.0
+                // Or just pass 1.0 if the method still expects it, until we refactor that method too.
+                // Actually, we need to refactor GroupCharactersIntoWords as well to remove BlockPower dependency.
+                // For now, let's check if we can just remove blockPower argument.
                 if (characters.Count > 0)
                 {
-                    var formedWords = GroupCharactersIntoWords(characters, blockPower);
+                    var formedWords = GroupCharactersIntoWords(characters);
                     segments.AddRange(formedWords);
                 }
                 
                 // PHASE 3: Group words/segments into lines (Horizontal Glue)
                 // This handles both "Words" -> "Lines" and preserves existing "Lines"
-                var lines = GroupSegmentsIntoLines(segments, blockPower);
+                var lines = GroupSegmentsIntoLines(segments);
                 
                 // Filter out low confidence lines
                 double minLineConfidence = ConfigManager.Instance.GetMinLineConfidence();
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 
                 // PHASE 4: Group lines into paragraphs (Vertical Glue)
-                var paragraphs = GroupLinesIntoParagraphs(lines, blockPower);
+                var paragraphs = GroupLinesIntoParagraphs(lines, keepLinefeeds);
                 
-                // Create JSON output (segments are passed as 'nonCharacters' just to preserve original objects if needed, 
-                // but we really just want the paragraphs now. The CreateJsonOutput signature expects raw items to append.
-                // We don't want to append raw segments effectively duplicating them, so we pass empty list.)
+                // Create JSON output
                 return CreateJsonOutput(paragraphs, new List<TextElement>());
             }
             catch (Exception ex)
@@ -254,13 +275,25 @@ namespace UGTLive
         
         #region Character to Word Grouping
         
-        private List<TextElement> GroupCharactersIntoWords(List<TextElement> characters, double blockPower)
+        private List<TextElement> GroupCharactersIntoWords(List<TextElement> characters)
         {
             if (characters.Count == 0)
                 return new List<TextElement>();
                 
-            double horizontalGapThreshold = _config.GetScaledValue(_config.BaseCharacterHorizontalGap, blockPower);
-            double verticalGapThreshold = _config.GetScaledValue(_config.BaseCharacterVerticalGap, blockPower);
+            // Estimate gap threshold based on average character height (proxy for size)
+            // If BlockPower was used to scale this, we now just trust the BaseCharacterHorizontalGap logic.
+            // Assuming BaseCharacterHorizontalGap was around 2.0 pixels scaled by block power (~9) -> ~18 pixels.
+            // If we use height scaling, 0.5 * Height is reasonable for char gap.
+            
+            double avgHeight = characters.Average(c => c.Bounds.Height);
+            
+            // Use a factor relative to height. 
+            // Old logic: BaseCharacterHorizontalGap (2.0) * BlockPower (~9) = 18.
+            // Avg height is likely 20-30 pixels.
+            // So factor is ~0.6 to 0.9 of height.
+            
+            double horizontalGapThreshold = avgHeight * 0.8; 
+            double verticalGapThreshold = avgHeight * 0.5;
             
             string sourceLangForChars = ConfigManager.Instance.GetSourceLanguage();
             bool isEastAsianLangForChars = sourceLangForChars == "ja" || 
@@ -270,6 +303,10 @@ namespace UGTLive
                                       
             if (!isEastAsianLangForChars)
             {
+                // Western languages have tighter letter spacing within words, but we want to group them.
+                // Actually if we are grouping chars into words, we need to be careful not to merge words.
+                // But chars are usually very close.
+                // Let's keep the threshold somewhat generous for chars within a word.
                 horizontalGapThreshold = Math.Max(5, horizontalGapThreshold * 0.5);
             }
             
@@ -355,21 +392,30 @@ namespace UGTLive
         /// Group segments (words/blocks) into lines based on vertical proximity and horizontal overlap.
         /// Replaces "Word to Line" and "Line Index" logic with a raw geometric approach.
         /// </summary>
-        private List<TextElement> GroupSegmentsIntoLines(List<TextElement> segments, double blockPower)
+        private List<TextElement> GroupSegmentsIntoLines(List<TextElement> segments)
         {
             if (segments.Count == 0)
                 return new List<TextElement>();
 
-            // Use thresholds
-            double verticalGapThreshold = _config.GetScaledValue(_config.BaseWordVerticalGap, blockPower);
-            double horizontalGapThreshold = _config.GetScaledValue(_config.BaseWordHorizontalGap, blockPower);
+            // Use configured threshold directly
+            double horizontalGapFactor = _config.BaseWordHorizontalGap;
             
             // For Western languages, use larger word gaps
             string sourceLang = ConfigManager.Instance.GetSourceLanguage();
             bool isEastAsian = sourceLang == "ja" || sourceLang == "ch_sim" || sourceLang == "ch_tra" || sourceLang == "ko";
+            
+            // If user specifies 1.0 char widths, that means approx 1.0 * height.
+            // But previously we had some scaling.
+            // Let's trust the user value if they set it. 
+            // If East Asian, char width is roughly height.
+            // If Western, char width is roughly height/2.
+            // If user sets "1.0", they probably mean "1 standard char".
+            // Let's use 1.0 * height as a safe baseline for "1 unit".
+            // If not East Asian, maybe slightly increase tolerance?
+            
             if (!isEastAsian)
             {
-                 horizontalGapThreshold = Math.Max(15, horizontalGapThreshold * 1.2);
+                 horizontalGapFactor = Math.Max(horizontalGapFactor, horizontalGapFactor * 1.2);
             }
 
             // Sort by Y center
@@ -430,13 +476,14 @@ namespace UGTLive
                     }
                     else
                     {
+                        // Calculate dynamic threshold based on segment height
+                        double avgHeight = (prev.Bounds.Height + seg.Bounds.Height) / 2.0;
+                        double horizontalGapThreshold = avgHeight * horizontalGapFactor;
+
                         // Check horizontal gap
                         double gap = seg.Bounds.X - (prev.Bounds.X + prev.Bounds.Width);
                         
                         // If gap is small, add to line. If large, start new line.
-                        // Note: EasyOCR lines will appear as single segments.
-                        // docTR words will be small segments.
-                        
                         if (gap <= horizontalGapThreshold)
                         {
                             currentLineSegs.Add(seg);
@@ -500,16 +547,17 @@ namespace UGTLive
         /// <summary>
         /// Group lines into paragraphs based on spacing, indentation, and font size
         /// </summary>
-        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, double blockPower)
+        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds)
         {
             if (lines.Count == 0)
                 return new List<TextElement>();
                 
-            // Get threshold values with scaling applied
-            double lineVerticalGapThreshold = _config.GetScaledValue(_config.BaseLineVerticalGap, blockPower);
-            double fontSizeTolerance = _config.GetScaledValue(_config.BaseLineFontSizeTolerance, blockPower);
-            double indentationThreshold = _config.GetScaledValue(_config.BaseIndentation, blockPower);
-            double paragraphBreakThreshold = _config.GetScaledValue(_config.BaseParagraphBreakThreshold, blockPower);
+            // Get config values
+            // The values from ConfigManager are "factors" (e.g., 1.5 line heights)
+            // We will multiply them by the actual line height during processing
+            double lineVerticalGapFactor = _config.BaseLineVerticalGap;
+            double fontSizeTolerance = 5.0; // Can be fixed or configurable
+            double indentationThreshold = 20.0; // Can be fixed or configurable
             
             // Sort lines by Y position
             var sortedLines = lines.OrderBy(l => l.Bounds.Y).ToList();
@@ -548,18 +596,40 @@ namespace UGTLive
                     double horizontalOverlapRatio = overlapWidth / minWidth;
                     
                     // Require a minimum horizontal overlap so we don't glue distant columns/bubbles
-                    double minHorizontalOverlapRequired = 0.35; // 35% of the narrower width must overlap
+                    // If vertical glue is very high (user wants to force merge), we can relax this check
+                    // But for now, let's keep it reasonable to avoid merging unrelated columns
+                    double minHorizontalOverlapRequired = 0.20; // Reduced from 0.35 to allow more aggressive gluing if aligned slightly off
                     
-                    // Calculate vertical distance between line centers instead of using bounding boxes
+                    // Calculate vertical distance between line centers
                     double lastLineCenterY = lastLine.Bounds.Y + (lastLine.Bounds.Height * 0.5);
                     double currentLineCenterY = line.Bounds.Y + (line.Bounds.Height * 0.5);
                     double centerDistance = currentLineCenterY - lastLineCenterY;
                     
-                    // Calculate expected line height
+                    // Calculate expected line height (average of the two lines)
                     double averageHeight = (lastLine.Bounds.Height + line.Bounds.Height) * 0.5;
-                    double normalLineSpacing = averageHeight * 0.63;
                     
-                    double verticalGap = centerDistance - normalLineSpacing;
+                    // Calculate normal spacing (approximate distance from center to center for standard text)
+                    // Typically line spacing is ~1.2x font size (height)
+                    // So center distance for single spaced text is roughly 1.0 to 1.2 * height
+                    // We subtract a "standard" amount to get the "excess" gap
+                    double standardCenterDistance = averageHeight * 1.0; 
+                    
+                    // The "gap" is how much EXTRA space there is beyond standard closely packed lines
+                    // But simply: User setting "300.0" means "Glue lines if they are within 300 line heights"
+                    // So we should check if centerDistance <= (averageHeight * lineVerticalGapFactor)
+                    // However, lineVerticalGapFactor is likely "gap between bottom of one and top of other" or "center to center"?
+                    // The tooltip says "Vertical glue distance (in line heights)".
+                    // Let's interpret it as "Max allowed center-to-center distance in line heights".
+                    // If lines are tightly packed, center distance is ~1.0 line height.
+                    // If factor is 0.5, it might be too small if we use center distance.
+                    // Let's assume the user means "gap between lines".
+                    // Gap = (Line2.Top - Line1.Bottom).
+                    // But Rects might overlap or be tight.
+                    // Let's use the geometric gap:
+                    double geometricGap = Math.Max(0, line.Bounds.Y - (lastLine.Bounds.Y + lastLine.Bounds.Height));
+                    
+                    // Threshold in pixels
+                    double maxAllowedGapPixels = averageHeight * lineVerticalGapFactor;
                     
                     // Check horizontal overlap
                     if (horizontalOverlapRatio < minHorizontalOverlapRequired)
@@ -567,34 +637,40 @@ namespace UGTLive
                         startNewParagraph = true;
                     }
                     
-                    // Large center distance indicates paragraph break
-                    double spacingMultiplierForBreak = 1.2 + Math.Min(0.8, Math.Max(0.0, (blockPower - 1.0) * 0.1));
-                    
-                    if (centerDistance > (averageHeight * spacingMultiplierForBreak) + paragraphBreakThreshold)
+                    // Check vertical gap
+                    // If the actual gap is larger than the allowed threshold, break.
+                    if (geometricGap > maxAllowedGapPixels)
                     {
                         startNewParagraph = true;
                     }
-                    else
+                    
+                    // Removed the secondary "centerDistance" check that was forcing breaks based on hardcoded multipliers.
+                    // Now we strictly obey the configured Vertical Glue.
+                    
+                    // Check indentation (only if we haven't already decided to break)
+                    // If indentation is massive, maybe break? But user wants glue.
+                    // Let's keep indentation check but maybe scale it or allow it to be skipped if glue is huge?
+                    // For now, standard indentation check:
+                    double indentation = line.Bounds.X - lastLine.Bounds.X;
+                    if (!startNewParagraph && Math.Abs(indentation) > indentationThreshold)
                     {
-                        double spacingMultiplierForLine = 1.1 + Math.Min(0.6, Math.Max(0.0, (blockPower - 1.0) * 0.08));
-                        if (verticalGap > lineVerticalGapThreshold || centerDistance > (averageHeight * spacingMultiplierForLine))
+                        // If the user set a huge vertical glue, they probably don't care about indentation splitting blocks.
+                        // Let's disable indentation check if vertical glue is "aggressive" (> 3.0 lines)
+                        if (lineVerticalGapFactor < 3.0)
                         {
                             startNewParagraph = true;
                         }
                     }
                     
-                    // Check indentation
-                    double indentation = line.Bounds.X - lastLine.Bounds.X;
-                    if (Math.Abs(indentation) > indentationThreshold)
-                    {
-                        startNewParagraph = true;
-                    }
-                    
                     // Check font size consistency
                     double fontSizeDiff = Math.Abs(line.Bounds.Height - lastLine.Bounds.Height);
-                    if (fontSizeDiff > fontSizeTolerance)
+                    if (!startNewParagraph && fontSizeDiff > fontSizeTolerance)
                     {
-                        startNewParagraph = true;
+                        // Similarly, if aggressively gluing, ignore font size differences
+                        if (lineVerticalGapFactor < 3.0)
+                        {
+                            startNewParagraph = true;
+                        }
                     }
                     
                     if (startNewParagraph)
@@ -615,7 +691,10 @@ namespace UGTLive
                     {
                         currentParagraph.Children.Add(line);
 
-                        currentParagraph.Text += "\n";
+                        if (keepLinefeeds)
+                        {
+                            currentParagraph.Text += "\n";
+                        }
 
                         string sourceLangForParagraphs = ConfigManager.Instance.GetSourceLanguage();
                         bool isEastAsianLangForParagraphs = sourceLangForParagraphs == "ja" || 
@@ -623,7 +702,7 @@ namespace UGTLive
                                                           sourceLangForParagraphs == "ch_tra" || 
                                                           sourceLangForParagraphs == "ko";
                                                   
-                        if (!isEastAsianLangForParagraphs && 
+                        if (!keepLinefeeds && !isEastAsianLangForParagraphs && 
                             !currentParagraph.Text.EndsWith(" ") && 
                             !currentParagraph.Text.EndsWith("\n"))
                         {
@@ -839,123 +918,5 @@ namespace UGTLive
         }
         
         #endregion
-    }
-    
-    public class BlockDetectionManager
-    {
-        private static BlockDetectionManager? _instance;
-
-        public static BlockDetectionManager Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    _instance = new BlockDetectionManager();
-                }
-                return _instance;
-            }
-        }
-
-        private double _scaleModToApplyToAllBlockDetectionParameters;
-        
-        private BlockDetectionManager()
-        {
-            _scaleModToApplyToAllBlockDetectionParameters = ConfigManager.Instance.GetBlockDetectionScale();
-        }
-        
-        private readonly double _baseVerticalProximityThreshold = 6.0;
-        private readonly double _baseHorizontalAlignmentThreshold = 13.0;
-        private readonly double _baseParagraphBreakThreshold = 7.0;
-        private readonly double _baseIndentationThreshold = 15.0;
-        private readonly double _baseIsolatedTextThreshold = 30.0;
-        private readonly double _baseHorizontalGapThreshold = 30.0;
-        private double _baseHorizontalXPositionThreshold = 10.0;
-      
-        public void SetHorizontalXPositionThreshold(double threshold)
-        {
-            if (threshold < 0) return;
-            _baseHorizontalXPositionThreshold = threshold;
-        }
-        
-        public void SetBlockDetectionScale(double scale)
-        {
-            if (scale <= 0)
-            {
-                _scaleModToApplyToAllBlockDetectionParameters = 0.1f;
-                ConfigManager.Instance.SetBlockDetectionScale(0.1f);
-            }
-            else
-            {
-                _scaleModToApplyToAllBlockDetectionParameters = scale;
-                ConfigManager.Instance.SetBlockDetectionScale(scale);
-            }
-        }
-        
-        public double GetBlockDetectionScale()
-        {
-            return _scaleModToApplyToAllBlockDetectionParameters;
-        }
-        
-        public void AutoAdjustBlockDetectionScale(JsonElement resultsElement)
-        {
-            // Implementation preserved
-            try
-            {
-                if (resultsElement.ValueKind != JsonValueKind.Array || resultsElement.GetArrayLength() == 0)
-                    return;
-                
-                double avgHeight = 0;
-                int textBlockCount = 0;
-                
-                for (int i = 0; i < resultsElement.GetArrayLength(); i++)
-                {
-                    JsonElement item = resultsElement[i];
-                    if (item.TryGetProperty("rect", out JsonElement boxElement) && boxElement.ValueKind == JsonValueKind.Array)
-                    {
-                        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
-                        for (int p = 0; p < boxElement.GetArrayLength(); p++)
-                        {
-                            if (boxElement[p].ValueKind == JsonValueKind.Array && boxElement[p].GetArrayLength() >= 2)
-                            {
-                                double y = boxElement[p][1].GetDouble();
-                                minY = Math.Min(minY, y);
-                                maxY = Math.Max(maxY, y);
-                            }
-                        }
-                        if (maxY > minY)
-                        {
-                            avgHeight += (maxY - minY);
-                            textBlockCount++;
-                        }
-                    }
-                }
-                
-                if (textBlockCount > 0)
-                {
-                    avgHeight /= textBlockCount;
-                    double baseHeight = 20.0;
-                    double scaleFactor = Math.Max(0.1, Math.Min(20.0, avgHeight / baseHeight));
-                    
-                    if (Math.Abs(scaleFactor - _scaleModToApplyToAllBlockDetectionParameters) > 0.25)
-                    {
-                        _scaleModToApplyToAllBlockDetectionParameters = scaleFactor;
-                    }
-                }
-            }
-            catch { }
-        }
-        
-        public JsonElement ApplyBlockDetectionToJson(JsonElement resultsElement)
-        {
-            // Dummy implementation or keep existing logic if needed by other parts
-            // But likely deprecated by UniversalBlockDetector
-            return resultsElement;
-        }
-        
-        public class TextBlockInfo
-        {
-            // ...
-        }
     }
 }

@@ -500,15 +500,17 @@ namespace UGTLive
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
             overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
             
-           
-            blockDetectionPowerTextBox.Text = BlockDetectionManager.Instance.GetBlockDetectionScale().ToString("F2");
+            
+            // Block detection power is deprecated/removed, hiding or setting to default
+            blockDetectionPowerTextBox.Visibility = Visibility.Collapsed; 
+            if (blockDetectionPowerLabel != null) blockDetectionPowerLabel.Visibility = Visibility.Collapsed;
+            
             settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
             maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
             
             if (ConfigManager.Instance.GetLogExtraDebugStuff())
             {
-                Console.WriteLine($"SettingsWindow: Loaded block detection power: {blockDetectionPowerTextBox.Text}");
                 Console.WriteLine($"SettingsWindow: Loaded settle time: {settleTimeTextBox.Text}");
                 Console.WriteLine($"SettingsWindow: Loaded overlay clear delay: {overlayClearDelayTextBox.Text}");
             }
@@ -1081,9 +1083,12 @@ namespace UGTLive
             try
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
-            bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
+                bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
 
-            // Show/hide Manga OCR-specific settings
+                // Glue settings are available for all OCRs EXCEPT MangaOCR (which has its own logic/model)
+                bool shouldShowGlueSettings = !isMangaOcrSelected;
+
+                // Show/hide Manga OCR-specific settings
                 if (mangaOcrMinWidthLabel != null)
                     mangaOcrMinWidthLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (mangaOcrMinWidthTextBox != null)
@@ -1107,30 +1112,27 @@ namespace UGTLive
                 if (googleVisionApiKeyGrid != null)
                     googleVisionApiKeyGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
                 
-                // Show/hide Google Vision grouping settings
-                if (googleVisionGroupingLabel != null)
-                    googleVisionGroupingLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionHorizontalGlueLabel != null)
-                    googleVisionHorizontalGlueLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionHorizontalGlueGrid != null)
-                    googleVisionHorizontalGlueGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionVerticalGlueLabel != null)
-                    googleVisionVerticalGlueLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionVerticalGlueGrid != null)
-                    googleVisionVerticalGlueGrid.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionKeepLinefeedsLabel != null)
-                    googleVisionKeepLinefeedsLabel.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (googleVisionKeepLinefeedsCheckBox != null)
-                    googleVisionKeepLinefeedsCheckBox.Visibility = isGoogleVisionSelected ? Visibility.Visible : Visibility.Collapsed;
+                // Show/hide Text Grouping settings (Universal)
+                Visibility glueVisibility = shouldShowGlueSettings ? Visibility.Visible : Visibility.Collapsed;
 
-                // Load Google Vision settings if it's being shown
-                if (isGoogleVisionSelected)
+                if (googleVisionGroupingLabel != null)
+                    googleVisionGroupingLabel.Visibility = glueVisibility;
+                if (googleVisionHorizontalGlueLabel != null)
+                    googleVisionHorizontalGlueLabel.Visibility = glueVisibility;
+                if (googleVisionHorizontalGlueGrid != null)
+                    googleVisionHorizontalGlueGrid.Visibility = glueVisibility;
+                if (googleVisionVerticalGlueLabel != null)
+                    googleVisionVerticalGlueLabel.Visibility = glueVisibility;
+                if (googleVisionVerticalGlueGrid != null)
+                    googleVisionVerticalGlueGrid.Visibility = glueVisibility;
+                if (googleVisionKeepLinefeedsLabel != null)
+                    googleVisionKeepLinefeedsLabel.Visibility = glueVisibility;
+                if (googleVisionKeepLinefeedsCheckBox != null)
+                    googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
+
+                // Load Text Grouping settings if shown
+                if (shouldShowGlueSettings)
                 {
-                    if (googleVisionApiKeyPasswordBox != null)
-                    {
-                        googleVisionApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleVisionApiKey();
-                    }
-                    
                     if (googleVisionHorizontalGlueTextBox != null)
                     {
                         googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionHorizontalGlue().ToString("F1");
@@ -1144,6 +1146,15 @@ namespace UGTLive
                     if (googleVisionKeepLinefeedsCheckBox != null)
                     {
                         googleVisionKeepLinefeedsCheckBox.IsChecked = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
+                    }
+                }
+
+                // Load Google Vision API Key only if GV
+                if (isGoogleVisionSelected)
+                {
+                    if (googleVisionApiKeyPasswordBox != null)
+                    {
+                        googleVisionApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleVisionApiKey();
                     }
                 }
 
@@ -1548,21 +1559,19 @@ namespace UGTLive
             // Update block detection power in MonitorWindow
             if (MonitorWindow.Instance.blockDetectionPowerTextBox != null)
             {
-                MonitorWindow.Instance.blockDetectionPowerTextBox.Text = blockDetectionPowerTextBox.Text;
+                // MonitorWindow.Instance.blockDetectionPowerTextBox.Text = blockDetectionPowerTextBox.Text;
+                MonitorWindow.Instance.blockDetectionPowerTextBox.Visibility = Visibility.Collapsed;
             }
             
-            // Update BlockDetectionManager if applicable
-            if (float.TryParse(blockDetectionPowerTextBox.Text, out float power))
+            // BlockDetectionManager has been removed. 
+            // This setting is now obsolete as we use Horizontal/Vertical glue.
+            // We'll just keep the UI field for now but it does nothing.
+            // Or better, we should probably hide it or repurpose it, but user asked to remove the functionality.
+            
+            if (double.TryParse(blockDetectionPowerTextBox.Text, out double power))
             {
-                // Note: SetBlockDetectionScale will save to config
-                BlockDetectionManager.Instance.SetBlockDetectionScale(power);
-                // Reset hash to force recalculation of text blocks
-                Logic.Instance.ResetHash();
-            }
-            else
-            {
-                // If text is invalid, reset to the current value from BlockDetectionManager
-                blockDetectionPowerTextBox.Text = BlockDetectionManager.Instance.GetBlockDetectionScale().ToString("F2");
+                // Just update the config if it still exists there, but logic ignores it.
+                 ConfigManager.Instance.SetBlockDetectionScale(power);
             }
         }
         

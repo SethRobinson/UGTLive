@@ -572,10 +572,10 @@ namespace UGTLive
                                
                                 // Looks like new stuff
                                 _lastOcrHash = contentHash;
-                                double scale = BlockDetectionManager.Instance.GetBlockDetectionScale();
+                                
                                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                 {
-                                    Console.WriteLine($"Character-level processing (scale={scale:F2}): {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
+                                    Console.WriteLine($"Character-level processing: {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
                                 }
                                 
                                 // Create a new JsonDocument with the modified results
@@ -881,7 +881,7 @@ namespace UGTLive
                     // Clear existing text objects before adding new ones
                     ClearAllTextObjects();
                     
-                    // Process text blocks that have already been grouped by CharacterBlockDetectionManager
+                    // Process text blocks that have already been grouped by UniversalBlockDetector
                     int resultCount = resultsElement.GetArrayLength();
                     
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())

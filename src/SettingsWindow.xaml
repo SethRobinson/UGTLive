@@ -405,7 +405,7 @@
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Block Power -->
-                                <TextBlock Text="Block Power:" Grid.Row="0" Grid.Column="0" 
+                                <TextBlock x:Name="blockDetectionPowerLabel" Text="Block Power:" Grid.Row="0" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="If higher, text is more likely to be glued together to make a large paragraph. Lower does the opposite, good for say, tiny buttons or menu options. Also affects character-level grouping."/>
                                 <TextBox x:Name="blockDetectionPowerTextBox" Grid.Row="0" Grid.Column="1" 

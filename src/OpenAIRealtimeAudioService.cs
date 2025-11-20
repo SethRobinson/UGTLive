@@ -25,8 +25,6 @@ namespace UGTLive
         private string _currentTranslationText = string.Empty;
         // Holds the specific transcript for which an OpenAI translation is currently being processed
         private string _activeTranscriptForTurn = string.Empty; 
-        // Flag to track whether we are waiting for a translation to finish
-        private bool _translationInProgress = false;
         // Track the last few transcript/translation pairs for context
         private Queue<(string Transcript, string Translation)> _recentUtterances = new Queue<(string, string)>();
         private const int MAX_RECENT_UTTERANCES = 5;
@@ -213,7 +211,6 @@ namespace UGTLive
             _currentRawTranscriptText = string.Empty;
             _currentTranslationText = string.Empty;
             _activeTranscriptForTurn = string.Empty;
-            _translationInProgress = false;
             _recentUtterances.Clear(); // Clear history
             _fullSessionContent.Clear(); // Clear session content
             
@@ -669,7 +666,6 @@ namespace UGTLive
                                         // Reset state (less critical now, but good practice)
                                         _activeTranscriptForTurn = string.Empty; 
                                         _currentTranslationText = string.Empty;
-                                        _translationInProgress = false; 
                                     }
                                     else if (_currentAudioMode == "openai") // OpenAI Realtime Translation Path
                                     {
@@ -688,9 +684,6 @@ namespace UGTLive
                                         // Display the transcript immediately using the first callback
                                         // We don't get an ID back here, as the translation update comes via delta/done
                                         _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, string.Empty);
-                                        
-                                        // Mark that we're waiting for a translation from OpenAI
-                                        _translationInProgress = true;
                                     }
                                     else // Mode is "none" (Transcription only)
                                     {
@@ -710,7 +703,6 @@ namespace UGTLive
                                         // Reset state variables
                                         _activeTranscriptForTurn = string.Empty;
                                         _currentTranslationText = string.Empty;
-                                        _translationInProgress = false;
                                     }
                                 }
                                 break;
@@ -745,7 +737,6 @@ namespace UGTLive
                                         if (!string.IsNullOrEmpty(delta))
                                         {
                                             _currentTranslationText += delta;
-                                            _translationInProgress = true; // A translation is actively being received
                                             Log($"Accumulating OpenAI text delta: \'{delta}\'");
                                             
                                             // Use the UPDATE callback to show intermediate results
@@ -949,7 +940,6 @@ namespace UGTLive
                                         // Reset for the next turn
                                         _activeTranscriptForTurn = string.Empty;
                                         _currentTranslationText = string.Empty;
-                                        _translationInProgress = false;
                                     }
                                 } 
                                 else // External Translation Mode or None Mode
@@ -958,7 +948,6 @@ namespace UGTLive
                                      // Reset state variables just in case
                                      _activeTranscriptForTurn = string.Empty;
                                      _currentTranslationText = string.Empty;
-                                     _translationInProgress = false;
                                 }
                                 break;
                                 
