@@ -156,7 +156,10 @@
                                               FontSize="12"
                                               FontWeight="SemiBold"
                                               Text="Status" 
-                                              VerticalAlignment="Center"/>
+                                              VerticalAlignment="Center"
+                                              Width="280"
+                                              TextAlignment="Center"
+                                              TextTrimming="CharacterEllipsis"/>
                                 </Border>
                             </WrapPanel>
                             
