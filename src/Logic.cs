@@ -193,8 +193,10 @@ namespace UGTLive
 
         public void ResetHash()
         {
-            _lastOcrHash = "";
+            // Force mismatch on next comparison by using a unique string
+            _lastOcrHash = "RESET_" + Guid.NewGuid().ToString();
             _lastChangeTime = DateTime.Now;
+            _settlingStartTime = DateTime.MinValue; // Ensure settling restarts clean
         }
         
 
@@ -476,7 +478,11 @@ namespace UGTLive
                                         _settlingStartTime = DateTime.MinValue; // Reset settling timer
                                         bForceRender = true;
                                     }
-                                    else if (contentHash == _lastOcrHash)
+                                    // Check if content hash matches and we're NOT forcing a render
+                                    // BUT: If _lastOcrHash starts with "RESET_", we should treat it as a mismatch even if contentHash matches it (unlikely but safe)
+                                    bool isResetHash = _lastOcrHash.StartsWith("RESET_");
+                                    
+                                    if (contentHash == _lastOcrHash && bForceRender == false && !isResetHash)
                                     {
                                         // Content is stable
                                         if (_lastChangeTime == DateTime.MinValue) // Already settled and rendered

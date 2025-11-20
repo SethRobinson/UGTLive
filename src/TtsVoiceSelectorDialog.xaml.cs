@@ -177,20 +177,22 @@ namespace UGTLive
         
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
+            // Always save custom voice ID if entered, so it persists when switching services
+            if (customVoiceIdTextBox != null && !string.IsNullOrWhiteSpace(customVoiceIdTextBox.Text))
+            {
+                CustomVoiceId = customVoiceIdTextBox.Text.Trim();
+            }
+
             // Validate selection
             if (SelectedService == "ElevenLabs" && UseCustomVoiceId)
             {
-                if (customVoiceIdTextBox != null && !string.IsNullOrWhiteSpace(customVoiceIdTextBox.Text))
-                {
-                    CustomVoiceId = customVoiceIdTextBox.Text.Trim();
-                    SelectedVoice = CustomVoiceId; // Use custom voice ID as the selected voice
-                }
-                else
+                if (string.IsNullOrEmpty(CustomVoiceId))
                 {
                     MessageBox.Show("Please enter a custom voice ID.", "Selection Required", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
+                SelectedVoice = CustomVoiceId; // Use custom voice ID as the selected voice
             }
             else
             {
@@ -205,7 +207,7 @@ namespace UGTLive
                 {
                     SelectedVoice = selectedItem.Tag.ToString() ?? "";
                 }
-                CustomVoiceId = null;
+                // Don't clear CustomVoiceId so it's remembered if we switch back
             }
             
             DialogResult = true;

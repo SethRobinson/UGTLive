@@ -2792,6 +2792,7 @@ namespace UGTLive
                 AudioPreloadService.Instance.CancelAllPreloads();
                 Logic.Instance.ResetHash();
                 Logic.Instance.ClearAllTextObjects();
+                MainWindow.Instance.SetOCRCheckIsWanted(true); // Force OCR check immediately
                 Console.WriteLine("OCR retriggered due to TTS preload enabled change");
             }
             catch (Exception ex)

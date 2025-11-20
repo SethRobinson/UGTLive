@@ -939,6 +939,7 @@ namespace UGTLive
             else
             {
                 // Clear old text objects when starting again
+                Logic.Instance.ResetHash(); // Force new OCR analysis
                 Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.RefreshOverlays();
                 
