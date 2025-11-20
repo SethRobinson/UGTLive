@@ -380,6 +380,8 @@ namespace UGTLive
                     {
                         System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                         {
+                            // Reset the re-enable time so the check in SetOCRCheckIsWanted passes
+                            _ocrReenableTime = DateTime.MinValue;
                             SetOCRCheckIsWanted(true);
                             Console.WriteLine("OCR re-enabled after delay");
                         }), DispatcherPriority.Normal);
