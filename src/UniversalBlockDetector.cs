@@ -109,6 +109,12 @@ namespace UGTLive
             // Early validation
             if (resultsElement.ValueKind != JsonValueKind.Array || resultsElement.GetArrayLength() == 0)
                 return resultsElement;
+
+            // Bypass for MangaOCR which provides its own blocking logic and shouldn't use the glue math
+            if (ocrProvider == "MangaOCR")
+            {
+                return resultsElement;
+            }
                 
             try
             {

@@ -916,14 +916,24 @@ namespace UGTLive
                             // as it's now done earlier in ProcessReceivedTextJsonData before hash generation
 
 
-                            double confidence = confElement.GetDouble();
+                            double confidence = 1.0;
+                            if (confElement.ValueKind != JsonValueKind.Null)
+                            {
+                                confidence = confElement.GetDouble();
+                            }
                             
                             // Extract bounding box coordinates if available
                             double x = 0, y = 0, width = 0, height = 0;
                             
-                            // Check for "rect" property (polygon points format)
-                            if (item.TryGetProperty("rect", out JsonElement boxElement) && 
-                                boxElement.ValueKind == JsonValueKind.Array)
+                            // Check for "rect" or "vertices" property (polygon points format)
+                            JsonElement boxElement;
+                            bool hasBox = item.TryGetProperty("rect", out boxElement);
+                            if (!hasBox)
+                            {
+                                hasBox = item.TryGetProperty("vertices", out boxElement);
+                            }
+
+                            if (hasBox && boxElement.ValueKind == JsonValueKind.Array)
                             {
                                 try
                                 {
