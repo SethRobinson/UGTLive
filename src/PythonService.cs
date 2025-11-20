@@ -64,6 +64,7 @@ namespace UGTLive
         private Process? _process;
         private bool _ownedByApp;
         private IntPtr _consoleWindowHandle = IntPtr.Zero;
+        private Task<bool>? _startingTask;
         
         public bool IsOwnedByApp => _ownedByApp;
         
@@ -278,6 +279,20 @@ namespace UGTLive
         /// Starts the service using RunServer.bat
         /// </summary>
         public async Task<bool> StartAsync(bool showWindow)
+        {
+            // If a start operation is already in progress, wait for it and return its result
+            if (_startingTask != null && !_startingTask.IsCompleted)
+            {
+                Console.WriteLine($"StartAsync called for {ServiceName} but start is already in progress. Waiting for existing task...");
+                return await _startingTask;
+            }
+
+            // Start a new task
+            _startingTask = StartAsyncInternal(showWindow);
+            return await _startingTask;
+        }
+
+        private async Task<bool> StartAsyncInternal(bool showWindow)
         {
             // First check if service is already running
             // This handles cases where the service was left running from a previous session
@@ -686,5 +701,3 @@ namespace UGTLive
         }
     }
 }
-
-
