@@ -1989,12 +1989,12 @@ Here is the input JSON:";
         // Get Overlay Clear Delay
         public double GetOverlayClearDelaySeconds()
         {
-            string value = GetValue(OVERLAY_CLEAR_DELAY_SECONDS, "0.5");
+            string value = GetValue(OVERLAY_CLEAR_DELAY_SECONDS, "0.3");
             if (double.TryParse(value, out double delay) && delay >= 0)
             {
                 return delay;
             }
-            return 0.5; // Default
+            return 0.3; // Default
         }
         
         // Set Overlay Clear Delay
