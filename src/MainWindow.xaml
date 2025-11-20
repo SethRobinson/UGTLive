@@ -13,6 +13,7 @@
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
+        KeyboardNavigation.TabNavigation="None"
         Icon="/media/Icon1.ico">
     <WindowChrome.WindowChrome>
         <WindowChrome ResizeBorderThickness="15" CaptionHeight="10" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
