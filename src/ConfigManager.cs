@@ -64,6 +64,11 @@ namespace UGTLive
         public const string LEAVE_TRANSLATION_ONSCREEN = "leave_translation_onscreen";
         public const string MIN_LETTER_CONFIDENCE = "min_letter_confidence";
         public const string MIN_LINE_CONFIDENCE = "min_line_confidence";
+        
+        // Per-OCR Confidence Keys prefix
+        public const string MIN_LETTER_CONFIDENCE_PREFIX = "min_letter_confidence_";
+        public const string MIN_LINE_CONFIDENCE_PREFIX = "min_line_confidence_";
+
         public const string AUTO_TRANSLATE_ENABLED = "auto_translate_enabled";
         public const string IGNORE_PHRASES = "ignore_phrases";
         public const string MANGA_OCR_MIN_REGION_WIDTH = "manga_ocr_min_region_width";
@@ -1308,7 +1313,7 @@ Here is the input JSON:";
             }
         }
         
-        // Get/Set minimum letter confidence
+        // Get/Set minimum letter confidence (Global - Legacy/Default)
         public double GetMinLetterConfidence()
         {
             string value = GetValue(MIN_LETTER_CONFIDENCE, "0.1"); // Default: 0.1 (10%)
@@ -1319,6 +1324,26 @@ Here is the input JSON:";
             return 0.1; // Default: 0.1 (10%)
         }
         
+        // Get minimum letter confidence for specific provider
+        public double GetMinLetterConfidence(string provider)
+        {
+            if (string.IsNullOrEmpty(provider)) return GetMinLetterConfidence();
+
+            // Clean provider name for key (e.g. "EasyOCR" -> "easyocr", "Windows OCR" -> "windows_ocr")
+            string keySuffix = provider.ToLower().Replace(" ", "_");
+            string key = MIN_LETTER_CONFIDENCE_PREFIX + keySuffix;
+            
+            // Default value depends on legacy global setting if not set specific yet, or a sensible default
+            string globalValue = GetValue(MIN_LETTER_CONFIDENCE, "0.1");
+            string value = GetValue(key, globalValue);
+            
+            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            {
+                return minConfidence;
+            }
+            return 0.1;
+        }
+
         public void SetMinLetterConfidence(double value)
         {
             if (value >= 0 && value <= 1)
@@ -1333,7 +1358,22 @@ Here is the input JSON:";
             }
         }
         
-        // Get/Set minimum line confidence
+        public void SetMinLetterConfidence(string provider, double value)
+        {
+            if (string.IsNullOrEmpty(provider)) return;
+            
+            if (value >= 0 && value <= 1)
+            {
+                string keySuffix = provider.ToLower().Replace(" ", "_");
+                string key = MIN_LETTER_CONFIDENCE_PREFIX + keySuffix;
+                
+                _configValues[key] = value.ToString();
+                SaveConfig();
+                Console.WriteLine($"Minimum letter confidence for {provider} set to: {value}");
+            }
+        }
+        
+        // Get/Set minimum line confidence (Global - Legacy/Default)
         public double GetMinLineConfidence()
         {
             string value = GetValue(MIN_LINE_CONFIDENCE, "0.2"); // Default: 0.2 (20%)
@@ -1342,6 +1382,25 @@ Here is the input JSON:";
                 return minConfidence;
             }
             return 0.2; // Default: 0.2 (20%)
+        }
+
+        // Get minimum line confidence for specific provider
+        public double GetMinLineConfidence(string provider)
+        {
+            if (string.IsNullOrEmpty(provider)) return GetMinLineConfidence();
+
+            string keySuffix = provider.ToLower().Replace(" ", "_");
+            string key = MIN_LINE_CONFIDENCE_PREFIX + keySuffix;
+            
+            // Default to global setting
+            string globalValue = GetValue(MIN_LINE_CONFIDENCE, "0.2");
+            string value = GetValue(key, globalValue);
+            
+            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            {
+                return minConfidence;
+            }
+            return 0.2;
         }
         
         public void SetMinLineConfidence(double value)
@@ -1355,6 +1414,21 @@ Here is the input JSON:";
             else
             {
                 Console.WriteLine($"Invalid minimum line confidence: {value}. Must be between 0 and 1.");
+            }
+        }
+
+        public void SetMinLineConfidence(string provider, double value)
+        {
+            if (string.IsNullOrEmpty(provider)) return;
+
+            if (value >= 0 && value <= 1)
+            {
+                string keySuffix = provider.ToLower().Replace(" ", "_");
+                string key = MIN_LINE_CONFIDENCE_PREFIX + keySuffix;
+
+                _configValues[key] = value.ToString();
+                SaveConfig();
+                Console.WriteLine($"Minimum line confidence for {provider} set to: {value}");
             }
         }
         

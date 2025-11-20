@@ -106,18 +106,10 @@ def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: flo
         aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
     
     Returns:
-        "vertical" if height > width * threshold, "horizontal" otherwise
+        "horizontal" - docTR is primarily for horizontal text (does not support Japanese/vertical text well).
+        Vertical text detection via aspect ratio is unreliable.
     """
-    if width == 0:
-        return "vertical"
-    
-    aspect_ratio = height / width
-    
-    # If height is significantly greater than width, it's likely vertical text
-    if aspect_ratio > aspect_ratio_threshold:
-        return "vertical"
-    else:
-        return "horizontal"
+    return "horizontal"
 
 
 def process_doctr_results(image: Image.Image, result) -> List[Dict]:

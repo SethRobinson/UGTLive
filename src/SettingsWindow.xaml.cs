@@ -1084,6 +1084,33 @@ namespace UGTLive
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
                 bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
+                bool isEasyOcrSelected = string.Equals(selectedOcr, "EasyOCR", StringComparison.OrdinalIgnoreCase);
+                bool isDocTrSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
+
+                // Confidence settings are only useful for EasyOCR and docTR
+                bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected;
+
+                if (minLetterConfidenceLabel != null)
+                    minLetterConfidenceLabel.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                if (minLetterConfidenceTextBox != null)
+                {
+                    minLetterConfidenceTextBox.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                    if (showConfidenceSettings)
+                    {
+                        minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence(selectedOcr).ToString();
+                    }
+                }
+
+                if (minLineConfidenceLabel != null)
+                    minLineConfidenceLabel.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                if (minLineConfidenceTextBox != null)
+                {
+                    minLineConfidenceTextBox.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                    if (showConfidenceSettings)
+                    {
+                        minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence(selectedOcr).ToString();
+                    }
+                }
 
                 // Glue settings are available for all OCRs EXCEPT MangaOCR (which has its own logic/model)
                 bool shouldShowGlueSettings = !isMangaOcrSelected;
@@ -3257,8 +3284,12 @@ namespace UGTLive
                     
                 if (double.TryParse(minLetterConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
                 {
-                    ConfigManager.Instance.SetMinLetterConfidence(confidence);
-                    Console.WriteLine($"Minimum letter confidence set to: {confidence}");
+                    string currentOcr = ConfigManager.Instance.GetOcrMethod();
+                    ConfigManager.Instance.SetMinLetterConfidence(currentOcr, confidence);
+                    // Also update legacy/global for backward compatibility if needed, but we are moving away from it
+                    // ConfigManager.Instance.SetMinLetterConfidence(confidence); 
+                    
+                    Console.WriteLine($"Minimum letter confidence for {currentOcr} set to: {confidence}");
                     
                     // Reset the hash to force new OCR processing
                     Logic.Instance.ResetHash();
@@ -3266,7 +3297,8 @@ namespace UGTLive
                 else
                 {
                     // Reset to current value from config if invalid
-                    minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence().ToString();
+                    string currentOcr = ConfigManager.Instance.GetOcrMethod();
+                    minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence(currentOcr).ToString();
                 }
             }
             catch (Exception ex)
@@ -3285,8 +3317,10 @@ namespace UGTLive
                     
                 if (double.TryParse(minLineConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
                 {
-                    ConfigManager.Instance.SetMinLineConfidence(confidence);
-                    Console.WriteLine($"Minimum line confidence set to: {confidence}");
+                    string currentOcr = ConfigManager.Instance.GetOcrMethod();
+                    ConfigManager.Instance.SetMinLineConfidence(currentOcr, confidence);
+                    
+                    Console.WriteLine($"Minimum line confidence for {currentOcr} set to: {confidence}");
                     
                     // Reset the hash to force new OCR processing
                     Logic.Instance.ResetHash();
@@ -3294,7 +3328,8 @@ namespace UGTLive
                 else
                 {
                     // Reset to current value from config if invalid
-                    minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence().ToString();
+                    string currentOcr = ConfigManager.Instance.GetOcrMethod();
+                    minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence(currentOcr).ToString();
                 }
             }
             catch (Exception ex)

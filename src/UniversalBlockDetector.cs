@@ -104,7 +104,7 @@ namespace UGTLive
         /// <summary>
         /// Process OCR results to identify and group text into natural reading blocks
         /// </summary>
-        public JsonElement ProcessResults(JsonElement resultsElement)
+        public JsonElement ProcessResults(JsonElement resultsElement, string ocrProvider)
         {
             // Early validation
             if (resultsElement.ValueKind != JsonValueKind.Array || resultsElement.GetArrayLength() == 0)
@@ -127,8 +127,8 @@ namespace UGTLive
                 // PHASE 1: Extract all text elements (Chars, Words, Lines)
                 var allElements = ExtractTextElements(resultsElement);
                 
-                // Get minimum confidence thresholds
-                double minLetterConfidence = ConfigManager.Instance.GetMinLetterConfidence();
+                // Get minimum confidence thresholds using provider-specific settings
+                double minLetterConfidence = ConfigManager.Instance.GetMinLetterConfidence(ocrProvider);
                 
                 // Remove low confidence elements
                 allElements.RemoveAll(c => c.Confidence < minLetterConfidence);
@@ -152,8 +152,8 @@ namespace UGTLive
                 // This handles both "Words" -> "Lines" and preserves existing "Lines"
                 var lines = GroupSegmentsIntoLines(segments);
                 
-                // Filter out low confidence lines
-                double minLineConfidence = ConfigManager.Instance.GetMinLineConfidence();
+                // Filter out low confidence lines using provider-specific settings
+                double minLineConfidence = ConfigManager.Instance.GetMinLineConfidence(ocrProvider);
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 
                 // PHASE 4: Group lines into paragraphs (Vertical Glue)

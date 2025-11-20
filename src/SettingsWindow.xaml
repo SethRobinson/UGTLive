@@ -238,7 +238,7 @@
                                         ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
                                 
                                 <!-- Minimum Letter Confidence -->
-                                <TextBlock Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock x:Name="minLetterConfidenceLabel" Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
                                 <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
@@ -246,7 +246,7 @@
                                         ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
                                 
                                 <!-- Minimum Line Confidence -->
-                                <TextBlock Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
+                                <TextBlock x:Name="minLineConfidenceLabel" Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
                                 <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="5" Grid.Column="1" 

@@ -418,7 +418,8 @@ namespace UGTLive
                                 {
                                     // Process OCR data using UniversalBlockDetector
                                     // Use the filtered results for consistency
-                                    modifiedResults = UniversalBlockDetector.Instance.ProcessResults(filteredResults);
+                                    // Pass the current OCR method to use method-specific confidence settings
+                                    modifiedResults = UniversalBlockDetector.Instance.ProcessResults(filteredResults, ConfigManager.Instance.GetOcrMethod());
                                     
                                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                     {

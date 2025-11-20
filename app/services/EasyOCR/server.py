@@ -100,18 +100,11 @@ def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: flo
         aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
     
     Returns:
-        "vertical" if height > width * threshold, "horizontal" otherwise
+        "horizontal" - EasyOCR is generally used for horizontal text in this context.
+        Vertical text detection via aspect ratio is unreliable and often incorrect
+        for single characters or short blocks.
     """
-    if width == 0:
-        return "vertical"
-    
-    aspect_ratio = height / width
-    
-    # If height is significantly greater than width, it's likely vertical text
-    if aspect_ratio > aspect_ratio_threshold:
-        return "vertical"
-    else:
-        return "horizontal"
+    return "horizontal"
 
 
 def process_ocr_results(image: Image.Image, results: list) -> List[Dict]:
