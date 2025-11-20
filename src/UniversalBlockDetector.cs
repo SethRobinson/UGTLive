@@ -545,7 +545,8 @@ namespace UGTLive
         #region Line to Paragraph Grouping
         
         /// <summary>
-        /// Group lines into paragraphs based on spacing, indentation, and font size
+        /// Group lines into paragraphs based on spacing, indentation, and font size.
+        /// Enhanced to support multi-column layouts by tracking active paragraphs.
         /// </summary>
         private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds)
         {
@@ -561,15 +562,134 @@ namespace UGTLive
             
             // Sort lines by Y position
             var sortedLines = lines.OrderBy(l => l.Bounds.Y).ToList();
-            var paragraphs = new List<TextElement>();
-            TextElement? currentParagraph = null;
+            
+            // Use a list of active paragraphs to handle multi-column layouts
+            // (e.g. left and right speech bubbles that are vertically interleaved)
+            var activeParagraphs = new List<TextElement>();
+            var completedParagraphs = new List<TextElement>();
             
             foreach (var line in sortedLines)
             {
-                if (currentParagraph == null)
+                TextElement? bestParagraph = null;
+                double bestFitScore = double.MaxValue; // Lower is better
+                
+                // Try to find a matching paragraph among active ones
+                // We iterate backwards to prefer more recent paragraphs (though sorting by Y makes them all recent)
+                for (int i = activeParagraphs.Count - 1; i >= 0; i--)
                 {
-                    // Start a new paragraph with this line
-                    currentParagraph = new TextElement
+                    var paragraph = activeParagraphs[i];
+                    var lastLine = paragraph.Children.Last();
+                    
+                    // 1. Calculate Geometric Gap (Vertical Distance)
+                    double averageHeight = (lastLine.Bounds.Height + line.Bounds.Height) * 0.5;
+                    double geometricGap = Math.Max(0, line.Bounds.Y - (lastLine.Bounds.Y + lastLine.Bounds.Height));
+                    double maxAllowedGapPixels = averageHeight * lineVerticalGapFactor;
+                    
+                    // If gap is too large, this paragraph is done (for this line, and likely for all future lines)
+                    // But we don't close it yet, as a future line might be closer (if lines are not perfectly sorted by bottom)
+                    // Actually, sorted by Top Y means gap strictly increases.
+                    // However, for multi-column, one column might be "lower" than another.
+                    // Let's just check the threshold.
+                    if (geometricGap > maxAllowedGapPixels)
+                    {
+                        continue;
+                    }
+
+                    // 2. Check Horizontal Overlap (Column Alignment)
+                    double lastLeft = lastLine.Bounds.X;
+                    double lastRight = lastLine.Bounds.X + lastLine.Bounds.Width;
+                    double currLeft = line.Bounds.X;
+                    double currRight = line.Bounds.X + line.Bounds.Width;
+                    
+                    double overlapWidth = Math.Max(0, Math.Min(lastRight, currRight) - Math.Max(lastLeft, currLeft));
+                    double minWidth = Math.Max(1.0, Math.Min(lastLine.Bounds.Width, line.Bounds.Width));
+                    double horizontalOverlapRatio = overlapWidth / minWidth;
+                    
+                    double minHorizontalOverlapRequired = 0.20; // 20% overlap required by default
+                    
+                    // Relax overlap check if aggressive glue is set
+                    if (lineVerticalGapFactor >= 3.0)
+                    {
+                        minHorizontalOverlapRequired = 0.01;
+                    }
+                    
+                    if (horizontalOverlapRatio < minHorizontalOverlapRequired)
+                    {
+                        continue; // Not aligned column-wise
+                    }
+
+                    // 3. Check Font Size
+                    double fontSizeDiff = Math.Abs(line.Bounds.Height - lastLine.Bounds.Height);
+                    if (fontSizeDiff > fontSizeTolerance && lineVerticalGapFactor < 3.0)
+                    {
+                        continue;
+                    }
+
+                    // 4. Check Indentation (only if NOT aggressive glue)
+                    if (lineVerticalGapFactor < 3.0)
+                    {
+                        double indentation = Math.Abs(line.Bounds.X - lastLine.Bounds.X);
+                        if (indentation > indentationThreshold)
+                        {
+                            // For centered text, indentation check can be false positive.
+                            // If overlap is good (high), ignore indentation.
+                            if (horizontalOverlapRatio < 0.8) // If strong overlap, ignore indentation
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    // If we got here, it's a match!
+                    // Calculate a "score" to pick the best one if multiple match (rare)
+                    // Score = Gap + Indentation (weighted)
+                    double score = geometricGap + Math.Abs(line.Bounds.X - lastLine.Bounds.X);
+                    
+                    if (score < bestFitScore)
+                    {
+                        bestFitScore = score;
+                        bestParagraph = paragraph;
+                    }
+                }
+                
+                if (bestParagraph != null)
+                {
+                    // Add to existing paragraph
+                    bestParagraph.Children.Add(line);
+                    
+                    // Update Paragraph Text and Bounds immediately (optional but good for debugging)
+                    // We'll do a full update at the end or just append text here
+                    if (keepLinefeeds)
+                    {
+                        bestParagraph.Text += "\n";
+                    }
+                    else
+                    {
+                        string sourceLang = ConfigManager.Instance.GetSourceLanguage();
+                        bool isEastAsian = sourceLang == "ja" || sourceLang == "ch_sim" || sourceLang == "ch_tra" || sourceLang == "ko";
+                        if (!isEastAsian && !bestParagraph.Text.EndsWith(" ") && !bestParagraph.Text.EndsWith("\n"))
+                        {
+                            bestParagraph.Text += " ";
+                        }
+                    }
+                    bestParagraph.Text += line.Text;
+                    
+                    // Update bounds
+                    double right = Math.Max(bestParagraph.Bounds.X + bestParagraph.Bounds.Width, 
+                                      line.Bounds.X + line.Bounds.Width);
+                    double bottom = Math.Max(bestParagraph.Bounds.Y + bestParagraph.Bounds.Height, 
+                                      line.Bounds.Y + line.Bounds.Height);
+                    
+                    bestParagraph.Bounds.Width = right - bestParagraph.Bounds.X;
+                    bestParagraph.Bounds.Height = bottom - bestParagraph.Bounds.Y;
+                    
+                    // Update average confidence?
+                    // bestParagraph.Confidence = (bestParagraph.Confidence * (bestParagraph.Children.Count - 1) + line.Confidence) / bestParagraph.Children.Count;
+                }
+                else
+                {
+                    // Start new paragraph
+                    var newParagraph = new TextElement
                     {
                         ElementType = ElementType.Paragraph,
                         Bounds = line.Bounds.Clone(),
@@ -578,156 +698,38 @@ namespace UGTLive
                         Confidence = line.Confidence,
                         TextOrientation = line.TextOrientation
                     };
+                    
+                    activeParagraphs.Add(newParagraph);
                 }
-                else
+                
+                // Clean up "closed" paragraphs from active list to keep it small
+                // A paragraph is closed if the current line is WAY below it.
+                // Since lines are sorted by Y, if current line Y is > paragraph.Bottom + MaxGap * 2, 
+                // then likely no future line will match it (unless lines are very out of order).
+                // Let's use a safe threshold.
+                
+                for (int i = activeParagraphs.Count - 1; i >= 0; i--)
                 {
-                    bool startNewParagraph = false;
+                    var p = activeParagraphs[i];
+                    // If current line Top is significantly below the paragraph Bottom, close it.
+                    // Threshold: 500 pixels or 10 lines? 
+                    // Let's say if gap is > MaxPossibleGap * 2.
+                    // MaxPossibleGap depends on user setting.
+                    double threshold = Math.Max(200, p.Children.Last().Bounds.Height * lineVerticalGapFactor * 5.0);
                     
-                    // Get the last line in the paragraph to properly calculate gaps
-                    var lastLine = currentParagraph.Children.Last();
-                    
-                    // Calculate horizontal overlap ratio to ensure lines belong to the same column/bubble
-                    double lastLeft = lastLine.Bounds.X;
-                    double lastRight = lastLine.Bounds.X + lastLine.Bounds.Width;
-                    double currLeft = line.Bounds.X;
-                    double currRight = line.Bounds.X + line.Bounds.Width;
-                    double overlapWidth = Math.Max(0, Math.Min(lastRight, currRight) - Math.Max(lastLeft, currLeft));
-                    double minWidth = Math.Max(1.0, Math.Min(lastLine.Bounds.Width, line.Bounds.Width));
-                    double horizontalOverlapRatio = overlapWidth / minWidth;
-                    
-                    // Require a minimum horizontal overlap so we don't glue distant columns/bubbles
-                    // If vertical glue is very high (user wants to force merge), we can relax this check
-                    // But for now, let's keep it reasonable to avoid merging unrelated columns
-                    double minHorizontalOverlapRequired = 0.20; // Reduced from 0.35 to allow more aggressive gluing if aligned slightly off
-                    
-                    // Calculate vertical distance between line centers
-                    double lastLineCenterY = lastLine.Bounds.Y + (lastLine.Bounds.Height * 0.5);
-                    double currentLineCenterY = line.Bounds.Y + (line.Bounds.Height * 0.5);
-                    double centerDistance = currentLineCenterY - lastLineCenterY;
-                    
-                    // Calculate expected line height (average of the two lines)
-                    double averageHeight = (lastLine.Bounds.Height + line.Bounds.Height) * 0.5;
-                    
-                    // Calculate normal spacing (approximate distance from center to center for standard text)
-                    // Typically line spacing is ~1.2x font size (height)
-                    // So center distance for single spaced text is roughly 1.0 to 1.2 * height
-                    // We subtract a "standard" amount to get the "excess" gap
-                    double standardCenterDistance = averageHeight * 1.0; 
-                    
-                    // The "gap" is how much EXTRA space there is beyond standard closely packed lines
-                    // But simply: User setting "300.0" means "Glue lines if they are within 300 line heights"
-                    // So we should check if centerDistance <= (averageHeight * lineVerticalGapFactor)
-                    // However, lineVerticalGapFactor is likely "gap between bottom of one and top of other" or "center to center"?
-                    // The tooltip says "Vertical glue distance (in line heights)".
-                    // Let's interpret it as "Max allowed center-to-center distance in line heights".
-                    // If lines are tightly packed, center distance is ~1.0 line height.
-                    // If factor is 0.5, it might be too small if we use center distance.
-                    // Let's assume the user means "gap between lines".
-                    // Gap = (Line2.Top - Line1.Bottom).
-                    // But Rects might overlap or be tight.
-                    // Let's use the geometric gap:
-                    double geometricGap = Math.Max(0, line.Bounds.Y - (lastLine.Bounds.Y + lastLine.Bounds.Height));
-                    
-                    // Threshold in pixels
-                    double maxAllowedGapPixels = averageHeight * lineVerticalGapFactor;
-                    
-                    // Check horizontal overlap
-                    if (horizontalOverlapRatio < minHorizontalOverlapRequired)
+                    if (line.Bounds.Y > (p.Bounds.Y + p.Bounds.Height + threshold))
                     {
-                        startNewParagraph = true;
-                    }
-                    
-                    // Check vertical gap
-                    // If the actual gap is larger than the allowed threshold, break.
-                    if (geometricGap > maxAllowedGapPixels)
-                    {
-                        startNewParagraph = true;
-                    }
-                    
-                    // Removed the secondary "centerDistance" check that was forcing breaks based on hardcoded multipliers.
-                    // Now we strictly obey the configured Vertical Glue.
-                    
-                    // Check indentation (only if we haven't already decided to break)
-                    // If indentation is massive, maybe break? But user wants glue.
-                    // Let's keep indentation check but maybe scale it or allow it to be skipped if glue is huge?
-                    // For now, standard indentation check:
-                    double indentation = line.Bounds.X - lastLine.Bounds.X;
-                    if (!startNewParagraph && Math.Abs(indentation) > indentationThreshold)
-                    {
-                        // If the user set a huge vertical glue, they probably don't care about indentation splitting blocks.
-                        // Let's disable indentation check if vertical glue is "aggressive" (> 3.0 lines)
-                        if (lineVerticalGapFactor < 3.0)
-                        {
-                            startNewParagraph = true;
-                        }
-                    }
-                    
-                    // Check font size consistency
-                    double fontSizeDiff = Math.Abs(line.Bounds.Height - lastLine.Bounds.Height);
-                    if (!startNewParagraph && fontSizeDiff > fontSizeTolerance)
-                    {
-                        // Similarly, if aggressively gluing, ignore font size differences
-                        if (lineVerticalGapFactor < 3.0)
-                        {
-                            startNewParagraph = true;
-                        }
-                    }
-                    
-                    if (startNewParagraph)
-                    {
-                        paragraphs.Add(currentParagraph);
-                        
-                        currentParagraph = new TextElement
-                        {
-                            ElementType = ElementType.Paragraph,
-                            Bounds = line.Bounds.Clone(),
-                            Children = new List<TextElement> { line },
-                            Text = line.Text,
-                            Confidence = line.Confidence,
-                            TextOrientation = line.TextOrientation
-                        };
-                    }
-                    else
-                    {
-                        currentParagraph.Children.Add(line);
-
-                        if (keepLinefeeds)
-                        {
-                            currentParagraph.Text += "\n";
-                        }
-
-                        string sourceLangForParagraphs = ConfigManager.Instance.GetSourceLanguage();
-                        bool isEastAsianLangForParagraphs = sourceLangForParagraphs == "ja" || 
-                                                          sourceLangForParagraphs == "ch_sim" || 
-                                                          sourceLangForParagraphs == "ch_tra" || 
-                                                          sourceLangForParagraphs == "ko";
-                                                  
-                        if (!keepLinefeeds && !isEastAsianLangForParagraphs && 
-                            !currentParagraph.Text.EndsWith(" ") && 
-                            !currentParagraph.Text.EndsWith("\n"))
-                        {
-                            currentParagraph.Text += " ";
-                        }
-                        
-                        currentParagraph.Text += line.Text;
-
-                        double right = Math.Max(currentParagraph.Bounds.X + currentParagraph.Bounds.Width, 
-                                          line.Bounds.X + line.Bounds.Width);
-                        double bottom = Math.Max(currentParagraph.Bounds.Y + currentParagraph.Bounds.Height, 
-                                          line.Bounds.Y + line.Bounds.Height);
-                                          
-                        currentParagraph.Bounds.Width = right - currentParagraph.Bounds.X;
-                        currentParagraph.Bounds.Height = bottom - currentParagraph.Bounds.Y;
+                        completedParagraphs.Add(p);
+                        activeParagraphs.RemoveAt(i);
                     }
                 }
             }
             
-            if (currentParagraph != null)
-            {
-                paragraphs.Add(currentParagraph);
-            }
+            // Add remaining active paragraphs
+            completedParagraphs.AddRange(activeParagraphs);
             
-            return paragraphs;
+            // Sort paragraphs by Y for clean output
+            return completedParagraphs.OrderBy(p => p.Bounds.Y).ThenBy(p => p.Bounds.X).ToList();
         }
         
         #endregion
