@@ -190,8 +190,16 @@ async def process_image(request: Request):
         # Initialize OCR engine
         reader = initialize_ocr_engine(lang)
         
-        # Perform OCR
-        results = reader.readtext(np.array(image))
+        # Perform OCR with stricter parameters to reduce merging
+        # height_ths: Maximum difference in box height. Low value (0.1) prevents merging lines of different sizes.
+        # ycenter_ths: Maximum shift in y-direction. Low value (0.1) prevents merging lines at different vertical positions.
+        # paragraph: False disables paragraph grouping, keeping lines separate.
+        results = reader.readtext(
+            np.array(image),
+            paragraph=False,
+            height_ths=0.1,
+            ycenter_ths=0.1
+        )
         
         # Process results
         text_objects = process_ocr_results(image, results)

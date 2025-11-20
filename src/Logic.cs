@@ -393,7 +393,9 @@ namespace UGTLive
                             if (status == "success" && hasResults)
                             {
                                 // Pre-filter low-confidence characters before block detection
-                                JsonElement filteredResults = FilterLowConfidenceCharacters(resultsElement);
+                                // Pass the current OCR method to use method-specific confidence settings
+                                string ocrMethod = ConfigManager.Instance.GetOcrMethod();
+                                JsonElement filteredResults = FilterLowConfidenceCharacters(resultsElement, ocrMethod);
                                 
                                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                 {
@@ -1304,7 +1306,7 @@ namespace UGTLive
         /// <summary>
         /// Filters out low-confidence characters from the OCR results
         /// </summary>
-        private JsonElement FilterLowConfidenceCharacters(JsonElement resultsElement)
+        private JsonElement FilterLowConfidenceCharacters(JsonElement resultsElement, string ocrProvider = "")
         {
             if (resultsElement.ValueKind != JsonValueKind.Array)
                 return resultsElement;
@@ -1312,7 +1314,7 @@ namespace UGTLive
             try
             {
                 // Get minimum confidence threshold from config
-                double minLetterConfidence = ConfigManager.Instance.GetMinLetterConfidence();
+                double minLetterConfidence = ConfigManager.Instance.GetMinLetterConfidence(ocrProvider);
                 
                 // Create output array for high-confidence results only
                 using (var ms = new MemoryStream())
@@ -1344,6 +1346,12 @@ namespace UGTLive
                             
                             // Get confidence value
                             double confidence = confElement.GetDouble();
+                            
+                            // Normalize 0-100 range to 0-1
+                            if (confidence > 1.0)
+                            {
+                                confidence /= 100.0;
+                            }
                             
                             // Only include elements with confidence above threshold
                             if (confidence >= minLetterConfidence)

@@ -1089,13 +1089,16 @@ namespace UGTLive
 
                 // Confidence settings are only useful for EasyOCR and docTR
                 bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected;
+                
+                // EasyOCR and docTR don't use character-level confidence (or at least we don't use it), so hide that specific setting
+                bool showLetterConfidence = showConfidenceSettings && !isEasyOcrSelected && !isDocTrSelected;
 
                 if (minLetterConfidenceLabel != null)
-                    minLetterConfidenceLabel.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                    minLetterConfidenceLabel.Visibility = showLetterConfidence ? Visibility.Visible : Visibility.Collapsed;
                 if (minLetterConfidenceTextBox != null)
                 {
-                    minLetterConfidenceTextBox.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
-                    if (showConfidenceSettings)
+                    minLetterConfidenceTextBox.Visibility = showLetterConfidence ? Visibility.Visible : Visibility.Collapsed;
+                    if (showLetterConfidence)
                     {
                         minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence(selectedOcr).ToString();
                     }

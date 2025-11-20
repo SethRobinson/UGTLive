@@ -216,6 +216,12 @@ namespace UGTLive
                 if (confElement.ValueKind != JsonValueKind.Null)
                 {
                     confidence = confElement.GetDouble();
+                    
+                    // Normalize 0-100 range to 0-1
+                    if (confidence > 1.0)
+                    {
+                        confidence /= 100.0;
+                    }
                 }
 
                 bool isCharacter = false; // Default to false (Word/Line)

@@ -1333,7 +1333,7 @@ Here is the input JSON:";
             string keySuffix = provider.ToLower().Replace(" ", "_");
             string key = MIN_LETTER_CONFIDENCE_PREFIX + keySuffix;
             
-            // Default value depends on legacy global setting if not set specific yet, or a sensible default
+            // For other providers, default value depends on legacy global setting
             string globalValue = GetValue(MIN_LETTER_CONFIDENCE, "0.1");
             string value = GetValue(key, globalValue);
             
@@ -1392,7 +1392,7 @@ Here is the input JSON:";
             string keySuffix = provider.ToLower().Replace(" ", "_");
             string key = MIN_LINE_CONFIDENCE_PREFIX + keySuffix;
             
-            // Default to global setting
+            // Default to global setting for others
             string globalValue = GetValue(MIN_LINE_CONFIDENCE, "0.2");
             string value = GetValue(key, globalValue);
             
