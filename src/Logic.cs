@@ -31,6 +31,9 @@ namespace UGTLive
         
         private string _lastOcrHash = string.Empty;
         
+        // Session ID to track validity of OCR requests
+        private long _overlaySessionId = 0;
+
         // Track the current capture position
         private int _currentCaptureX;
         private int _currentCaptureY;
@@ -1434,8 +1437,17 @@ namespace UGTLive
                 try
                 {
                     // Get the text lines from Windows OCR directly from the bitmap
+                    long currentSessionId = _overlaySessionId;
                     var textLines = await WindowsOCRManager.Instance.GetOcrLinesFromBitmapAsync(bitmap, sourceLanguage);
-                   // Console.WriteLine($"Windows OCR found {textLines.Count} text lines");
+                    
+                    // Check if session is still valid
+                    if (currentSessionId != _overlaySessionId)
+                    {
+                        Console.WriteLine($"Ignoring stale Windows OCR result (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
+                        return;
+                    }
+
+                    // Console.WriteLine($"Windows OCR found {textLines.Count} text lines");
                     
                     // Process the OCR results with language code
                     await WindowsOCRManager.Instance.ProcessWindowsOcrResults(textLines, sourceLanguage);
@@ -1497,7 +1509,16 @@ namespace UGTLive
                 try
                 {
                     // Get the text objects from Google Vision API
+                    long currentSessionId = _overlaySessionId;
                     var textObjects = await GoogleVisionOCRService.Instance.ProcessImageAsync(bitmap, sourceLanguage);
+                    
+                    // Check if session is still valid
+                    if (currentSessionId != _overlaySessionId)
+                    {
+                        Console.WriteLine($"Ignoring stale Google Vision OCR result (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
+                        return;
+                    }
+
                     Console.WriteLine($"Google Vision OCR found {textObjects.Count} text objects");
                     
                     // Process the OCR results
@@ -1759,8 +1780,19 @@ namespace UGTLive
                     }
                     
                     // Process with HTTP service - returns JSON directly
+                    long currentSessionId = _overlaySessionId;
                     var jsonResponse = await ProcessImageWithHttpServiceAsync(imageBytes, ocrMethod, sourceLanguage);
                     
+                    // Check if session is still valid
+                    if (currentSessionId != _overlaySessionId)
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Ignoring stale OCR result from {ocrMethod} (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
+                        }
+                        return;
+                    }
+
                     if (jsonResponse != null)
                     {
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -1897,6 +1929,9 @@ namespace UGTLive
         {
             try
             {
+                // Increment session ID to invalidate any pending OCR requests
+                _overlaySessionId++;
+
                 // Cancel any in-progress audio preloading
                 AudioPreloadService.Instance.CancelAllPreloads();
                 
