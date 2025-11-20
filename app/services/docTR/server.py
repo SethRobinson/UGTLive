@@ -96,34 +96,6 @@ def initialize_doctr():
     return DOCTR_PREDICTOR
 
 
-def estimate_character_positions(text: str, x: int, y: int, width: int, height: int) -> List[Dict]:
-    """Estimate individual character positions within a region."""
-    if not text:
-        return []
-    
-    chars = []
-    char_width = width // len(text) if len(text) > 0 else width
-    
-    for i, char in enumerate(text):
-        char_x = x + (i * char_width)
-        chars.append({
-            "text": char,
-            "x": char_x,
-            "y": y,
-            "width": char_width,
-            "height": height,
-            "vertices": [
-                [char_x, y],
-                [char_x + char_width, y],
-                [char_x + char_width, y + height],
-                [char_x, y + height]
-            ],
-            "confidence": None
-        })
-    
-    return chars
-
-
 def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.5) -> str:
     """
     Detect text orientation based on bounding box dimensions.
@@ -148,7 +120,7 @@ def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: flo
         return "horizontal"
 
 
-def process_doctr_results(image: Image.Image, result, char_level: bool = True) -> List[Dict]:
+def process_doctr_results(image: Image.Image, result) -> List[Dict]:
     """Process docTR results into standardized format."""
     text_objects = []
     
@@ -198,30 +170,20 @@ def process_doctr_results(image: Image.Image, result, char_level: bool = True) -
                     # Detect text orientation
                     text_orientation = detect_text_orientation(width, height)
                     
-                    if char_level:
-                        # Split into characters
-                        chars = estimate_character_positions(text, x, y, width, height)
-                        for char_obj in chars:
-                            if color_info:
-                                attach_color_info(char_obj, color_info)
-                            # Add text orientation to each character
-                            char_obj["text_orientation"] = text_orientation
-                            text_objects.append(char_obj)
-                    else:
-                        # Return as single word
-                        text_obj = {
-                            "text": text,
-                            "x": x,
-                            "y": y,
-                            "width": width,
-                            "height": height,
-                            "vertices": polygon,
-                            "confidence": confidence,
-                            "text_orientation": text_orientation
-                        }
-                        if color_info:
-                            attach_color_info(text_obj, color_info)
-                        text_objects.append(text_obj)
+                    # Return as single word
+                    text_obj = {
+                        "text": text,
+                        "x": x,
+                        "y": y,
+                        "width": width,
+                        "height": height,
+                        "vertices": polygon,
+                        "confidence": confidence,
+                        "text_orientation": text_orientation
+                    }
+                    if color_info:
+                        attach_color_info(text_obj, color_info)
+                    text_objects.append(text_obj)
     
     return text_objects
 
@@ -235,14 +197,12 @@ async def process_image(request: Request):
     
     Query parameters:
     - lang: Language code (default: 'english', docTR primarily supports Latin-based languages)
-    - char_level: Whether to split text into characters (default: true)
     """
     try:
         start_time = time.time()
         
         # Get query parameters
         lang = request.query_params.get('lang', 'english')
-        char_level = request.query_params.get('char_level', 'true').lower() == 'true'
         
         # Read binary image data
         image_bytes = await request.body()
@@ -262,7 +222,7 @@ async def process_image(request: Request):
         result = predictor([image_array])
         
         # Process results
-        text_objects = process_doctr_results(image, result, char_level)
+        text_objects = process_doctr_results(image, result)
         
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -276,7 +236,7 @@ async def process_image(request: Request):
             "texts": text_objects,
             "processing_time": processing_time,
             "language": lang,
-            "char_level": char_level,
+            "char_level": False,
             "backend": backend
         }
         

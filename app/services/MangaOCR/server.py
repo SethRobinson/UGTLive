@@ -99,34 +99,6 @@ def calculate_overlap_percent(bbox1: Dict, bbox2: Dict) -> float:
     return overlap_percent
 
 
-def estimate_character_positions(text: str, x: int, y: int, width: int, height: int) -> List[Dict]:
-    """Estimate individual character positions within a region."""
-    if not text:
-        return []
-    
-    chars = []
-    char_width = width // len(text) if len(text) > 0 else width
-    
-    for i, char in enumerate(text):
-        char_x = x + (i * char_width)
-        chars.append({
-            "text": char,
-            "x": char_x,
-            "y": y,
-            "width": char_width,
-            "height": height,
-            "vertices": [
-                [char_x, y],
-                [char_x + char_width, y],
-                [char_x + char_width, y + height],
-                [char_x, y + height]
-            ],
-            "confidence": None
-        })
-    
-    return chars
-
-
 def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.2) -> str:
     """
     Detect text orientation based on bounding box dimensions.
@@ -177,7 +149,6 @@ def process_manga_ocr(
     min_region_width: int = 10,
     min_region_height: int = 10,
     overlap_allowed_percent: float = 50.0,
-    char_level: bool = True,
     yolo_confidence: float = 0.60
 ) -> List[Dict]:
     """Process image using YOLO detection + Manga OCR."""
@@ -336,30 +307,20 @@ def process_manga_ocr(
                     # Detect text orientation
                     text_orientation = detect_text_orientation(x_max - x_min, y_max - y_min)
                     
-                    if char_level:
-                        # Split into characters
-                        chars = estimate_character_positions(text, x_min, y_min, x_max - x_min, y_max - y_min)
-                        for char_obj in chars:
-                            if color_info:
-                                attach_color_info(char_obj, color_info)
-                            # Add text orientation to each character
-                            char_obj["text_orientation"] = text_orientation
-                            text_objects.append(char_obj)
-                    else:
-                        # Return as single block
-                        text_obj = {
-                            "text": text,
-                            "x": x_min,
-                            "y": y_min,
-                            "width": x_max - x_min,
-                            "height": y_max - y_min,
-                            "vertices": polygon,
-                            "confidence": None,
-                            "text_orientation": text_orientation
-                        }
-                        if color_info:
-                            attach_color_info(text_obj, color_info)
-                        text_objects.append(text_obj)
+                    # Return as single block
+                    text_obj = {
+                        "text": text,
+                        "x": x_min,
+                        "y": y_min,
+                        "width": x_max - x_min,
+                        "height": y_max - y_min,
+                        "vertices": polygon,
+                        "confidence": None,
+                        "text_orientation": text_orientation
+                    }
+                    if color_info:
+                        attach_color_info(text_obj, color_info)
+                    text_objects.append(text_obj)
                         
             except Exception as e:
                 print(f"OCR failed for region: {e}")
@@ -382,7 +343,6 @@ async def process_image(request: Request):
     
     Query parameters:
     - lang: Language code (default: 'japan', MangaOCR only supports Japanese)
-    - char_level: Whether to split text into characters (default: true)
     - min_region_width: Minimum region width in pixels (default: 10)
     - min_region_height: Minimum region height in pixels (default: 10)
     - overlap_allowed_percent: Maximum overlap percentage allowed (default: 50.0)
@@ -393,7 +353,6 @@ async def process_image(request: Request):
         
         # Get query parameters
         lang = request.query_params.get('lang', 'japan')
-        char_level = request.query_params.get('char_level', 'true').lower() == 'true'
         min_region_width = int(request.query_params.get('min_region_width', '10'))
         min_region_height = int(request.query_params.get('min_region_height', '10'))
         overlap_allowed_percent = float(request.query_params.get('overlap_allowed_percent', '50.0'))
@@ -413,7 +372,6 @@ async def process_image(request: Request):
             min_region_width=min_region_width,
             min_region_height=min_region_height,
             overlap_allowed_percent=overlap_allowed_percent,
-            char_level=char_level,
             yolo_confidence=yolo_confidence
         )
         
@@ -429,7 +387,7 @@ async def process_image(request: Request):
             "texts": text_objects,
             "processing_time": processing_time,
             "language": lang,
-            "char_level": char_level,
+            "char_level": False,
             "backend": backend
         }
         

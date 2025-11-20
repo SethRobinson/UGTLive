@@ -218,20 +218,11 @@ namespace UGTLive
                     return textObjects;
                 }
 
-                // Get grouping settings
-                double horizontalGlue = ConfigManager.Instance.GetGoogleVisionHorizontalGlue();
-                double verticalGlue = ConfigManager.Instance.GetGoogleVisionVerticalGlue();
-                
-                Console.WriteLine($"Google Vision using glue settings: horizontal={horizontalGlue}, vertical={verticalGlue}");
-
                 foreach (var page in pages.EnumerateArray())
                 {
                     if (!page.TryGetProperty("blocks", out JsonElement blocks))
                         continue;
 
-                    // Collect all words from the page with their bounds
-                    var allWords = new List<(string text, double x, double y, double width, double height)>();
-                    
                     foreach (var block in blocks.EnumerateArray())
                     {
                         if (block.TryGetProperty("paragraphs", out JsonElement paragraphs))
@@ -261,28 +252,13 @@ namespace UGTLive
                                         string text = wordText.ToString();
                                         if (!string.IsNullOrWhiteSpace(text))
                                         {
-                                            allWords.Add((text, wordBounds.Value.x, wordBounds.Value.y, 
-                                                         wordBounds.Value.width, wordBounds.Value.height));
+                                            var textObj = CreateTextObject(text, wordBounds.Value);
+                                            textObjects.Add(textObj);
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    
-                    // Now group words based on proximity
-                    var groupedWords = GroupWordsByProximity(allWords, horizontalGlue, verticalGlue);
-                    
-                    // Debug: Log the grouping results
-                    Console.WriteLine($"Google Vision: {allWords.Count} words grouped into {groupedWords.Count} text objects");
-                    
-                    // Create text objects from grouped words
-                    foreach (var group in groupedWords)
-                    {
-                        var textObj = CreateTextObject(group.text, 
-                            (group.x, group.y, group.width, group.height));
-                        textObjects.Add(textObj);
-                        Console.WriteLine($"Google Vision grouped text: '{group.text}' at ({group.x:F0}, {group.y:F0}) size ({group.width:F0}x{group.height:F0})");
                     }
                 }
             }
@@ -570,7 +546,7 @@ namespace UGTLive
                     results = results,
                     processing_time_seconds = 0.1,
                     char_level = false,
-                    skip_block_detection = true // Google Vision results are already properly grouped
+                    skip_block_detection = false // Let universal detector handle it
                 };
 
                 // Convert to JSON
@@ -595,167 +571,5 @@ namespace UGTLive
             await Task.CompletedTask;
         }
         
-        // Group words by proximity using configurable glue distances
-        private List<(string text, double x, double y, double width, double height)> GroupWordsByProximity(
-            List<(string text, double x, double y, double width, double height)> words,
-            double horizontalGlue, double verticalGlue)
-        {
-            if (words.Count == 0)
-                return new List<(string, double, double, double, double)>();
-                
-            // Create a list to track which words have been grouped
-            var used = new bool[words.Count];
-            var groups = new List<List<(string text, double x, double y, double width, double height)>>();
-            
-            // Process each word
-            for (int i = 0; i < words.Count; i++)
-            {
-                if (used[i]) continue;
-                
-                // Start a new group with this word
-                var group = new List<(string text, double x, double y, double width, double height)> { words[i] };
-                used[i] = true;
-                
-                // Keep looking for words that can be added to this group
-                bool foundNewWord = true;
-                while (foundNewWord)
-                {
-                    foundNewWord = false;
-                    
-                    for (int j = 0; j < words.Count; j++)
-                    {
-                        if (used[j]) continue;
-                        
-                        // Check if this word is close enough to ANY word in the current group
-                        foreach (var groupWord in group)
-                        {
-                            // Calculate distances
-                            double avgCharWidth = Math.Max(1, (groupWord.width / Math.Max(1, groupWord.text.Length) + 
-                                                              words[j].width / Math.Max(1, words[j].text.Length)) / 2);
-                            double avgLineHeight = (groupWord.height + words[j].height) / 2;
-                            
-                            // Check both horizontal and vertical proximity
-                            double horizontalDistance = 0;
-                            double verticalDistance = Math.Abs(words[j].y - groupWord.y);
-                            
-                            // Calculate horizontal distance (considering if words overlap or are adjacent)
-                            if (words[j].x >= groupWord.x + groupWord.width)
-                            {
-                                // Word j is to the right of groupWord
-                                horizontalDistance = words[j].x - (groupWord.x + groupWord.width);
-                            }
-                            else if (groupWord.x >= words[j].x + words[j].width)
-                            {
-                                // Word j is to the left of groupWord
-                                horizontalDistance = groupWord.x - (words[j].x + words[j].width);
-                            }
-                            else
-                            {
-                                // Words overlap horizontally
-                                horizontalDistance = 0;
-                            }
-                            
-                            // For vertical grouping, distinguish between "same line" and "different line"
-                            // Words on the same line should stay together even with vertical glue = 0
-                            bool onSameLine = verticalDistance <= avgLineHeight * 0.5; // Within half a line height
-                            
-                            bool shouldGroup = false;
-                            
-                            if (onSameLine)
-                            {
-                                // Words on same line - only check horizontal glue
-                                shouldGroup = horizontalDistance <= avgCharWidth * horizontalGlue;
-                                
-                                // Special case: if horizontal glue is 0, still group if very close
-                                if (horizontalGlue == 0 && horizontalDistance < 2)
-                                {
-                                    shouldGroup = true;
-                                }
-                            }
-                            else
-                            {
-                                // Words on different lines - check both horizontal and vertical glue
-                                bool horizontallyClose = horizontalDistance <= avgCharWidth * horizontalGlue;
-                                bool verticallyClose = verticalDistance <= avgLineHeight * (1.0 + verticalGlue); // Add 1.0 as base for line spacing
-                                
-                                shouldGroup = horizontallyClose && verticallyClose;
-                            }
-                            
-                            if (shouldGroup)
-                            {
-                                group.Add(words[j]);
-                                used[j] = true;
-                                foundNewWord = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                groups.Add(group);
-            }
-            
-            // Get the keep linefeeds setting
-            bool keepLinefeeds = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
-            
-            // Convert groups to single text objects
-            var result = new List<(string text, double x, double y, double width, double height)>();
-            foreach (var group in groups)
-            {
-                // Sort words in reading order (top to bottom, left to right)
-                var sortedGroup = group.OrderBy(w => w.y).ThenBy(w => w.x).ToList();
-                
-                // Combine text with spaces or linefeeds
-                string combinedText;
-                if (keepLinefeeds && sortedGroup.Count > 1)
-                {
-                    // Build text with linefeeds when words are on different lines
-                    var textParts = new List<string>();
-                    double? lastY = null;
-                    double avgLineHeight = sortedGroup.Average(w => w.height);
-                    
-                    foreach (var word in sortedGroup)
-                    {
-                        if (lastY.HasValue)
-                        {
-                            // Check if this word is on a different line
-                            double verticalDistance = Math.Abs(word.y - lastY.Value);
-                            bool onDifferentLine = verticalDistance > avgLineHeight * 0.5;
-                            
-                            if (onDifferentLine)
-                            {
-                                // Add linefeed before this word
-                                textParts.Add("\r\n");
-                            }
-                            else
-                            {
-                                // Add space for words on the same line
-                                textParts.Add(" ");
-                            }
-                        }
-                        
-                        textParts.Add(word.text);
-                        lastY = word.y;
-                    }
-                    
-                    combinedText = string.Join("", textParts);
-                }
-                else
-                {
-                    // Original behavior: combine with spaces
-                    combinedText = string.Join(" ", sortedGroup.Select(w => w.text));
-                }
-                
-                // Calculate bounding box for the group
-                double minX = group.Min(w => w.x);
-                double minY = group.Min(w => w.y);
-                double maxX = group.Max(w => w.x + w.width);
-                double maxY = group.Max(w => w.y + w.height);
-                
-                result.Add((combinedText, minX, minY, maxX - minX, maxY - minY));
-            }
-            
-            return result;
-        }
     }
 }

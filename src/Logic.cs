@@ -416,13 +416,13 @@ namespace UGTLive
                                 }
                                 else
                                 {
-                                    // Process character-level OCR data using CharacterBlockDetectionManager
+                                    // Process OCR data using UniversalBlockDetector
                                     // Use the filtered results for consistency
-                                    modifiedResults = CharacterBlockDetectionManager.Instance.ProcessCharacterResults(filteredResults);
+                                    modifiedResults = UniversalBlockDetector.Instance.ProcessResults(filteredResults);
                                     
                                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                     {
-                                        Console.WriteLine($"After CharacterBlockDetectionManager: {modifiedResults.GetArrayLength()} blocks");
+                                        Console.WriteLine($"After UniversalBlockDetector: {modifiedResults.GetArrayLength()} blocks");
                                     }
                                 }
                                 
@@ -1582,11 +1582,10 @@ namespace UGTLive
                 
                 // Build query parameters
                 string langParam = MapLanguageForService(language);
-                // Get OCR processing mode from config (Character = char_level=true, Line = char_level=false)
-                string ocrProcessingMode = ConfigManager.Instance.GetOcrProcessingMode();
-                bool charLevel = ocrProcessingMode == "Character";
+                // Note: OCR Processing Mode (char_level) removed; all services now default to natural units (Lines/Words).
+                // UniversalBlockDetector handles the rest.
                 
-                string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}&char_level={charLevel.ToString().ToLower()}";
+                string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}";
                 
                 // Add MangaOCR-specific parameters
                 if (serviceName == "MangaOCR")

@@ -190,11 +190,8 @@ namespace UGTLive
         {
             try
             {
-                // Create a JSON response similar to what EasyOCR would return, but at character level
+                // Create a JSON response similar to what EasyOCR would return
                 var results = new List<object>();
-                
-                // Set to true to enable character-level processing for both OCR engines
-                bool useCharacterLevel = true;
                 
                 foreach (var line in textLines)
                 {
@@ -204,175 +201,33 @@ namespace UGTLive
                         continue;
                     }
 
-                    //Console.WriteLine($"Processing line: \"{line.Text}\" with {line.Words.Count} words");
-                    
-                    if (useCharacterLevel)
+                    foreach (var word in line.Words)
                     {
-                        // Process at character level by splitting words into characters
-                        foreach (var word in line.Words)
-                        {
-                            var wordRect = word.BoundingRect;
-                            string wordText = word.Text;
-                            
-                            // Skip empty words
-                            if (string.IsNullOrWhiteSpace(wordText))
-                                continue;
-                            
-                            // For English text, add a special space marker *after* the word to help with spacing
-                            // (unless it's the last word in the line)
-                            bool addSpaceMarker = false;
-                            
-                            // Check if we should add a space marker after this word
-                            // For Western languages like English, spaces between words are important
-                            if (languageCode == "en" && word != line.Words.Last())
-                            {
-                                addSpaceMarker = true;
-                            }
-                                
-                            // Calculate the width of each character in the word
-                            double totalWidth = wordRect.Width;
-                            double charWidth = totalWidth / wordText.Length;
-                            
-                    
-                            double charPadding = charWidth * 0.15; //15% of character width
-                            double effectiveCharWidth = charWidth - charPadding;
-
-                            // Process each character in the word
-                            for (int i = 0; i < wordText.Length; i++)
-                            {
-                                string charText = wordText[i].ToString();
-                                
-                                // Calculate the X-coordinate of the character
-                                double charX = wordRect.X + (i * charWidth) + (charPadding / 2);
-                                
-                                // Create bounding rectangle for this character
-                                var charRect = new Windows.Foundation.Rect(
-                                    charX, 
-                                    wordRect.Y, 
-                                    effectiveCharWidth,
-                                    wordRect.Height
-                                );
-                                
-                                // Calculate box coordinates (polygon points) for the character
-                                var charBox = new[] {
-                                    new[] { (double)charRect.X, (double)charRect.Y },
-                                    new[] { (double)(charRect.X + charRect.Width), (double)charRect.Y },
-                                    new[] { (double)(charRect.X + charRect.Width), (double)(charRect.Y + charRect.Height) },
-                                    new[] { (double)charRect.X, (double)(charRect.Y + charRect.Height) }
-                                };
-                                
-                                // Add the character to the results
-                                results.Add(new
-                                {
-                                    text = charText,
-                                    confidence = 0.9, // Windows OCR doesn't provide confidence
-                                    rect = charBox,
-                                    is_character = true
-                                });
-                            }
-                                
-                            
-                            // Add space marker after word if needed (for English/Western languages)
-                            if (addSpaceMarker)
-                            {
-                                // Create space character after the word
-                                // Position it just to the right of the last character
-                                double spaceWidth = charWidth * 0.6; 
-                                double spaceX = wordRect.X + wordRect.Width + (charWidth * 0.1);
-                                
-                                var spaceRect = new Windows.Foundation.Rect(
-                                    spaceX,
-                                    wordRect.Y,
-                                    spaceWidth,
-                                    wordRect.Height
-                                );
-                                
-                                // Calculate box coordinates for the space character
-                                var spaceBox = new[] {
-                                    new[] { (double)spaceRect.X, (double)spaceRect.Y },
-                                    new[] { (double)(spaceRect.X + spaceRect.Width), (double)spaceRect.Y },
-                                    new[] { (double)(spaceRect.X + spaceRect.Width), (double)(spaceRect.Y + spaceRect.Height) },
-                                    new[] { (double)spaceRect.X, (double)(spaceRect.Y + spaceRect.Height) }
-                                };
-                                
-                                // Add the space character to results
-                                results.Add(new
-                                {
-                                    text = " ", // Actual space character
-                                    confidence = 0.95, // High confidence for this artificially added space
-                                    rect = spaceBox,
-                                    is_character = true
-                                });
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Original line-based processing (as a fallback)
+                        string wordText = word.Text;
                         
-                        // Get bounding box coordinates - use the words to build a bounding rectangle
-                        var rectBox = line.Words[0].BoundingRect; // Start with first word
-    
-                        // Find the complete bounding box for the line (all words)
-                        foreach (var word in line.Words)
-                        {
-                            var wordRect = word.BoundingRect;
-                            // Expand the rectangle to include this word
-                            rectBox.X = Math.Min(rectBox.X, wordRect.X);
-                            rectBox.Y = Math.Min(rectBox.Y, wordRect.Y);
-                            rectBox.Width = Math.Max(rectBox.Width, wordRect.X + wordRect.Width - rectBox.X);
-                            rectBox.Height = Math.Max(rectBox.Height, wordRect.Y + wordRect.Height - rectBox.Y);
-                        }
-    
+                        // Skip empty words
+                        if (string.IsNullOrWhiteSpace(wordText))
+                            continue;
+                        
+                        var wordRect = word.BoundingRect;
+                        
                         // Calculate box coordinates (polygon points)
                         var box = new[] {
-                            new[] { (double)rectBox.X, (double)rectBox.Y },
-                            new[] { (double)(rectBox.X + rectBox.Width), (double)rectBox.Y },
-                            new[] { (double)(rectBox.X + rectBox.Width), (double)(rectBox.Y + rectBox.Height) },
-                            new[] { (double)rectBox.X, (double)(rectBox.Y + rectBox.Height) }
+                            new[] { (double)wordRect.X, (double)wordRect.Y },
+                            new[] { (double)(wordRect.X + wordRect.Width), (double)wordRect.Y },
+                            new[] { (double)(wordRect.X + wordRect.Width), (double)(wordRect.Y + wordRect.Height) },
+                            new[] { (double)wordRect.X, (double)(wordRect.Y + wordRect.Height) }
                         };
-    
-                        // Process text for Japanese characters (remove extra spaces)
-                        string processedText = line.Text;
                         
-                        
-                        /*
-                        // If using Japanese language, remove spaces between Japanese characters
-                        if (languageCode == "ja")
-                        {
-                            // Remove spaces between Japanese characters
-                            // Apply the regex multiple times to catch all instances
-                            for (int i = 0; i < 10; i++)  // Apply multiple passes to catch all instances
-                            {
-                                string before = processedText;
-                                // Remove spaces between Japanese characters with improved regex
-                                processedText = System.Text.RegularExpressions.Regex.Replace(
-                                    processedText, 
-                                    @"([\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}])\s+([\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}])", 
-                                    "$1$2");
-                                
-                                // If no more changes, break the loop
-                                if (before == processedText)
-                                    break;
-                            }
-                        }
-
-                        */
-                        
-                        // Add the text line to results
+                        // Add the word to results
                         results.Add(new
                         {
-                            text = processedText,
+                            text = wordText,
                             confidence = 0.9, // Windows OCR doesn't provide confidence
-                            rect = box
+                            rect = box,
+                            is_character = false
                         });
                     }
-                }
-
-                // If no text blocks were found, try line-by-line approach with simple layout
-                if (results.Count == 0)
-                {
-                    //Console.WriteLine("No lines found with Windows OCR, creating a simple layout");
                 }
 
                 // Create a JSON response
@@ -381,7 +236,7 @@ namespace UGTLive
                     status = "success",
                     results = results,
                     processing_time_seconds = 0.1,
-                    char_level = useCharacterLevel // Indicate this is character-level data
+                    char_level = false // Indicate this is NOT character-level data
                 };
 
                 // Convert to JSON
@@ -391,8 +246,6 @@ namespace UGTLive
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 };
                 string jsonResponse = JsonSerializer.Serialize(response, jsonOptions);
-
-                //Console.WriteLine($"Generated Windows OCR JSON response with {results.Count} results");
 
                 // Process the JSON response on the UI thread to handle STA requirements
                 Application.Current.Dispatcher.Invoke((Action)(() => {

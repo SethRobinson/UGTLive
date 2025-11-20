@@ -219,17 +219,6 @@
                                 <ComboBox x:Name="ocrMethodComboBox" Grid.Row="0" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="OcrMethodComboBox_SelectionChanged"/>
                                 
-                                <!-- OCR Processing Mode -->
-                                <TextBlock Text="OCR Processing Mode:" Grid.Row="1" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Character: Process text character-by-character. Line: Process text as complete lines/blocks."/>
-                                <ComboBox x:Name="ocrProcessingModeComboBox" Grid.Row="1" Grid.Column="1" 
-                                         Margin="0,5" SelectionChanged="OcrProcessingModeComboBox_SelectionChanged"
-                                         ToolTip="Character: Process text character-by-character. Line: Process text as complete lines/blocks.">
-                                    <ComboBoxItem Content="Character" Tag="Character"/>
-                                    <ComboBoxItem Content="Line" Tag="Line"/>
-                                </ComboBox>
-                                         
                                 <!-- Pause OCR While Translating -->
                                 <TextBlock Text="Pause OCR while translating:" Grid.Row="2" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,0,10,0"
@@ -277,16 +266,6 @@
                                          Checked="LeaveTranslationOnscreenCheckBox_CheckedChanged" 
                                          Unchecked="LeaveTranslationOnscreenCheckBox_CheckedChanged"
                                          ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
-                                
-                                <!-- Glue docTR lines into paragraphs -->
-                                <TextBlock x:Name="glueDoctrLinesLabel" Text="Glue docTR lines into paragraphs:" Grid.Row="7" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
-                                <CheckBox x:Name="glueDoctrLinesCheckBox" Grid.Row="7" Grid.Column="1" 
-                                         Margin="0,5" IsChecked="True"
-                                         Checked="GlueDoctrLinesCheckBox_CheckedChanged"
-                                         Unchecked="GlueDoctrLinesCheckBox_CheckedChanged"
-                                         ToolTip="When enabled, docTR line-level results will be glued into paragraphs on the app side."/>
                                 
                                 <!-- Manga OCR Minimum Region Width - Only visible when Manga OCR is selected -->
                                 <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="8" Grid.Column="0" 

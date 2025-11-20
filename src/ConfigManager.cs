@@ -70,7 +70,7 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
         public const string MANGA_OCR_YOLO_CONFIDENCE = "manga_ocr_yolo_confidence";
-        public const string OCR_PROCESSING_MODE = "ocr_processing_mode";
+        // OCR Processing Mode removed - replaced by Universal Block Detector
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
 
@@ -454,9 +454,6 @@ namespace UGTLive
             // Text Area Size Expansion defaults
             _configValues[MONITOR_TEXT_AREA_EXPANSION_WIDTH] = "6";
             _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = "2";
-            
-            // Glue docTR lines into paragraphs by default
-            _configValues[GLUE_DOCTR_LINES] = "true";
             
             // Manga OCR minimum region size defaults
             _configValues[MANGA_OCR_MIN_REGION_WIDTH] = "10";
@@ -1938,18 +1935,6 @@ Here is the input JSON:";
         }
         
         // Get/Set: Glue docTR lines into paragraphs
-        public bool GetGlueDocTRLinesEnabled()
-        {
-            return GetBoolValue(GLUE_DOCTR_LINES, true);
-        }
-        
-        public void SetGlueDocTRLinesEnabled(bool enabled)
-        {
-            _configValues[GLUE_DOCTR_LINES] = enabled.ToString().ToLower();
-            SaveConfig();
-            Console.WriteLine($"Glue docTR lines into paragraphs: {enabled}");
-        }
-
         // Get/Set: Manga OCR minimum region width
         public int GetMangaOcrMinRegionWidth()
         {
@@ -2050,31 +2035,9 @@ Here is the input JSON:";
             }
         }
 
-        // Get/Set: OCR processing mode (Character or Line)
-        public string GetOcrProcessingMode()
-        {
-            string value = GetValue(OCR_PROCESSING_MODE, "Line");
-            if (value == "Character" || value == "Line")
-            {
-                return value;
-            }
-            return "Line"; // Default: Line
-        }
-
-        public void SetOcrProcessingMode(string mode)
-        {
-            if (mode == "Character" || mode == "Line")
-            {
-                _configValues[OCR_PROCESSING_MODE] = mode;
-                SaveConfig();
-                Console.WriteLine($"OCR processing mode set to: {mode}");
-            }
-            else
-            {
-                Console.WriteLine($"Invalid OCR processing mode: {mode}. Must be 'Character' or 'Line'.");
-            }
-        }
-
+        // Get/Set: OCR processing mode (Deprecated/Removed)
+        // Logic now handled automatically by UniversalBlockDetector
+        
         // Get all ignore phrases as a list of tuples (phrase, exactMatch)
 
         //OPTIMIZE:  Why is the AI doing all this work over and over?  Should be caching the results

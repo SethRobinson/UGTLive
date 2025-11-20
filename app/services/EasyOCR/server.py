@@ -114,7 +114,7 @@ def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: flo
         return "horizontal"
 
 
-def process_ocr_results(image: Image.Image, results: list, char_level: bool = True) -> List[Dict]:
+def process_ocr_results(image: Image.Image, results: list) -> List[Dict]:
     """Process EasyOCR results into standardized format."""
     text_objects = []
     
@@ -179,14 +179,12 @@ async def process_image(request: Request):
     Expects binary image data in the request body.
     Query parameters:
     - lang: Language code (default: 'japan')
-    - char_level: Whether to use character-level detection (default: true)
     """
     try:
         start_time = time.time()
         
         # Get query parameters
         lang = request.query_params.get('lang', 'japan')
-        char_level = request.query_params.get('char_level', 'true').lower() == 'true'
         
         # Read binary image data
         image_bytes = await request.body()
@@ -203,7 +201,7 @@ async def process_image(request: Request):
         results = reader.readtext(np.array(image))
         
         # Process results
-        text_objects = process_ocr_results(image, results, char_level)
+        text_objects = process_ocr_results(image, results)
         
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -217,7 +215,7 @@ async def process_image(request: Request):
             "texts": text_objects,
             "processing_time": processing_time,
             "language": lang,
-            "char_level": char_level,
+            "char_level": False,
             "backend": backend
         }
         

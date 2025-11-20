@@ -452,23 +452,6 @@ namespace UGTLive
             // Set leave translation onscreen setting
             leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
             
-            // Set glue docTR lines setting
-            glueDoctrLinesCheckBox.IsChecked = ConfigManager.Instance.GetGlueDocTRLinesEnabled();
-            
-            // Load OCR processing mode setting
-            string savedOcrProcessingMode = ConfigManager.Instance.GetOcrProcessingMode();
-            ocrProcessingModeComboBox.SelectionChanged -= OcrProcessingModeComboBox_SelectionChanged;
-            foreach (ComboBoxItem item in ocrProcessingModeComboBox.Items)
-            {
-                string itemTag = item.Tag?.ToString() ?? "";
-                if (string.Equals(itemTag, savedOcrProcessingMode, StringComparison.OrdinalIgnoreCase))
-                {
-                    ocrProcessingModeComboBox.SelectedItem = item;
-                    break;
-                }
-            }
-            ocrProcessingModeComboBox.SelectionChanged += OcrProcessingModeComboBox_SelectionChanged;
-            
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
             overrideFontColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideFontColorEnabled();
@@ -920,36 +903,6 @@ namespace UGTLive
             }
         }
         
-        // OCR Processing Mode ComboBox Selection Changed
-        private void OcrProcessingModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Skip event if we're initializing
-            if (_isInitializing)
-            {
-                return;
-            }
-            
-            if (sender is ComboBox comboBox)
-            {
-                // Get mode from Tag property
-                string? processingMode = (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-                
-                if (!string.IsNullOrEmpty(processingMode) && (processingMode == "Character" || processingMode == "Line"))
-                {
-                    Console.WriteLine($"OCR processing mode changed to: '{processingMode}'");
-                    
-                    // Save to config
-                    ConfigManager.Instance.SetOcrProcessingMode(processingMode);
-                    
-                    // Reset the OCR hash to force a fresh comparison after changing processing mode
-                    Logic.Instance.ResetHash();
-                    Logic.Instance.ClearAllTextObjects();
-                    MainWindow.Instance.SetOCRCheckIsWanted(true);
-                    MonitorWindow.Instance.RefreshOverlays();
-                }
-            }
-        }
-        
         private void AutoTranslateCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Skip if initializing to prevent overriding values from config
@@ -996,24 +949,6 @@ namespace UGTLive
             bool isEnabled = leaveTranslationOnscreenCheckBox.IsChecked ?? false;
             ConfigManager.Instance.SetLeaveTranslationOnscreenEnabled(isEnabled);
             Console.WriteLine($"Leave translation onscreen enabled: {isEnabled}");
-        }
-        
-        // Glue docTR lines checkbox changed
-        private void GlueDoctrLinesCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            // Skip if initializing
-            if (_isInitializing)
-                return;
-                
-            bool enabled = glueDoctrLinesCheckBox.IsChecked ?? true;
-            ConfigManager.Instance.SetGlueDocTRLinesEnabled(enabled);
-            Console.WriteLine($"Glue docTR lines enabled: {enabled}");
-            
-            // Force refresh to apply immediately
-            Logic.Instance.ResetHash();
-            Logic.Instance.ClearAllTextObjects();
-            MainWindow.Instance.SetOCRCheckIsWanted(true);
-            MonitorWindow.Instance.RefreshOverlays();
         }
         
         private void MangaOcrMinWidthTextBox_LostFocus(object sender, RoutedEventArgs e)
@@ -1146,16 +1081,9 @@ namespace UGTLive
             try
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
-                bool isDocTRSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
-                bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
+            bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
 
-                // Show/hide docTR-specific settings
-                if (glueDoctrLinesLabel != null)
-                    glueDoctrLinesLabel.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (glueDoctrLinesCheckBox != null)
-                    glueDoctrLinesCheckBox.Visibility = isDocTRSelected ? Visibility.Visible : Visibility.Collapsed;
-
-                // Show/hide Manga OCR-specific settings
+            // Show/hide Manga OCR-specific settings
                 if (mangaOcrMinWidthLabel != null)
                     mangaOcrMinWidthLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (mangaOcrMinWidthTextBox != null)
