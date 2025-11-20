@@ -921,6 +921,32 @@ namespace UGTLive
             html.AppendLine("  }");
             html.AppendLine("}");
             html.AppendLine("");
+            html.AppendLine("function setAudioState(textObjectId, isReady, isSourceForClick, audioPath, isSourceUpdate, iconReady, iconNotReady) {");
+            html.AppendLine("  const overlay = document.getElementById('overlay-' + textObjectId);");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update the audio path attribute");
+            html.AppendLine("  if (isSourceUpdate) {");
+            html.AppendLine("    overlay.setAttribute('data-source-audio', audioPath || '');");
+            html.AppendLine("    overlay.setAttribute('data-source-ready', 'true');");
+            html.AppendLine("  } else {");
+            html.AppendLine("    overlay.setAttribute('data-target-audio', audioPath || '');");
+            html.AppendLine("    overlay.setAttribute('data-target-ready', 'true');");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  const icon = overlay.querySelector('.audio-icon');");
+            html.AppendLine("  if (!icon) return;");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update visual state");
+            html.AppendLine("  icon.setAttribute('data-is-ready', isReady);");
+            html.AppendLine("  icon.textContent = isReady ? iconReady : iconNotReady;");
+            html.AppendLine("  if (!isReady) icon.classList.add('loading');");
+            html.AppendLine("  else icon.classList.remove('loading');");
+            html.AppendLine("  ");
+            html.AppendLine("  // Update click handler");
+            html.AppendLine("  icon.setAttribute('onclick', 'handleAudioIconClick(\"' + textObjectId + '\", ' + isSourceForClick + ')');");
+            html.AppendLine("}");
+            html.AppendLine("");
             html.AppendLine("document.addEventListener('contextmenu', function(event) {");
             html.AppendLine("  try {");
             html.AppendLine("    // Find which text overlay was clicked");
@@ -1180,6 +1206,69 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating audio icon in WebView: {ex.Message}");
+            }
+        }
+
+        public void UpdateAudioReadyState(string textObjectId, bool isSourceUpdate, string audioPath)
+        {
+            try
+            {
+                // Ensure UI thread
+                if (!Dispatcher.CheckAccess())
+                {
+                    Dispatcher.Invoke(() => UpdateAudioReadyState(textObjectId, isSourceUpdate, audioPath));
+                    return;
+                }
+
+                if (textOverlayWebView?.CoreWebView2 != null)
+                {
+                     // Find the text object
+                     var textObjects = Logic.Instance?.GetTextObjects();
+                     var textObj = textObjects?.FirstOrDefault(t => t.ID == textObjectId);
+                     
+                     if (textObj == null) return;
+                     
+                     // Determine display state
+                     bool isTranslated = _currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated);
+                     
+                     bool audioIsReady = false;
+                     bool isSourceForClick = true;
+                     
+                     if (isTranslated)
+                     {
+                         // In translated mode, only show speaker if target audio is ready
+                         if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                         {
+                             audioIsReady = true;
+                             isSourceForClick = false;
+                         }
+                         else
+                         {
+                             // Show hourglass but set isSource for fallback playback if user clicks
+                             isSourceForClick = textObj.SourceAudioReady ? true : false;
+                         }
+                     }
+                     else
+                     {
+                         // In source mode, only show speaker if source audio is ready
+                         if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                         {
+                             audioIsReady = true;
+                             isSourceForClick = true;
+                         }
+                     }
+                     
+                     string iconReady = ConfigManager.ICON_SPEAKER_READY;
+                     string iconNotReady = ConfigManager.ICON_SPEAKER_NOT_READY;
+                     
+                     string script = $"setAudioState('{textObjectId}', {audioIsReady.ToString().ToLower()}, {isSourceForClick.ToString().ToLower()}, '{audioPath.Replace("'", "\\'")}', {isSourceUpdate.ToString().ToLower()}, '{iconReady}', '{iconNotReady}');";
+                     
+                     textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating audio ready state: {ex.Message}");
             }
         }
         

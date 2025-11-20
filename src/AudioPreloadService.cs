@@ -401,8 +401,9 @@ namespace UGTLive
                         }
                         
                         // Refresh overlays
-                        MainWindow.Instance?.RefreshMainWindowOverlays();
-                        MonitorWindow.Instance?.RefreshOverlays();
+                        MainWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
+                        // Use targeted update for MonitorWindow to avoid flickering
+                        MonitorWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
                     });
                     return;
                 }
@@ -586,8 +587,9 @@ namespace UGTLive
                             }
                             
                             // Refresh overlays
-                            MainWindow.Instance?.RefreshMainWindowOverlays();
-                            MonitorWindow.Instance?.RefreshOverlays();
+                            MainWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, audioFilePath);
+                            // Use targeted update for MonitorWindow to avoid flickering
+                            MonitorWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, audioFilePath);
                         });
                         
                         // Check if all preloading is done and trigger auto-play if enabled
