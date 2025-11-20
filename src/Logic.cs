@@ -51,6 +51,9 @@ namespace UGTLive
         public event EventHandler<TranslationEventArgs>? TranslationCompleted;
      
         bool _waitingForTranslationToFinish = false;
+        
+        // Flag to indicate we're keeping old translation visible while waiting for new translation
+        private bool _keepingTranslationVisible = false;
 
         public bool GetWaitingForTranslationToFinish()
         {
@@ -169,6 +172,19 @@ namespace UGTLive
         {
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
+            
+            // If we were keeping translation visible but translation failed/cancelled,
+            // clear the old overlays now and reset the flag
+            if (_keepingTranslationVisible)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine("Leave translation onscreen: Clearing flag in OnFinishedThings");
+                }
+                MonitorWindow.Instance?.ClearOverlays();
+                _keepingTranslationVisible = false;
+            }
+            
             MonitorWindow.Instance.RefreshOverlays();
             MainWindow.Instance.RefreshMainWindowOverlays();
 
@@ -210,6 +226,28 @@ namespace UGTLive
                     Console.WriteLine("Processing Google Translate JSON response");
                 }
                 
+                // If we were keeping translation visible, now clear the old overlays and reset flag
+                if (_keepingTranslationVisible)
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Leave translation onscreen: Clearing old overlays now that new translation is ready");
+                    }
+                    
+                    // Clear the visual overlays (text objects were already cleared earlier)
+                    MonitorWindow.Instance?.ClearOverlays();
+                    MainWindow.Instance?.Dispatcher.Invoke(() =>
+                    {
+                        // Clear HTML cache to force refresh
+                        var mainWindow = MainWindow.Instance;
+                        if (mainWindow != null)
+                        {
+                            // This will be handled by RefreshOverlays later
+                        }
+                    });
+                    
+                    _keepingTranslationVisible = false;
+                }
                 
                 if (translatedRoot.TryGetProperty("translations", out JsonElement translationsElement) &&
                     translationsElement.ValueKind == JsonValueKind.Array)
@@ -890,6 +928,26 @@ namespace UGTLive
                     // Get minimum text fragment size from config
                     int minTextFragmentSize = ConfigManager.Instance.GetMinTextFragmentSize();
                     
+                    // Check if we should keep old translation visible
+                    bool leaveTranslationOnscreen = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
+                    bool autoTranslateEnabled = MainWindow.Instance.GetTranslateEnabled();
+                    bool hasExistingTranslations = _textObjects.Any(t => !string.IsNullOrEmpty(t.TextTranslated));
+                    
+                    if (leaveTranslationOnscreen && autoTranslateEnabled && hasExistingTranslations)
+                    {
+                        // Set flag to keep overlay frozen while we wait for new translation
+                        _keepingTranslationVisible = true;
+                        
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Leave translation onscreen: Freezing overlay display until new translation arrives");
+                        }
+                    }
+                    else
+                    {
+                        _keepingTranslationVisible = false;
+                    }
+                    
                     // Clear existing text objects before adding new ones
                     ClearAllTextObjects();
                     
@@ -1042,8 +1100,19 @@ namespace UGTLive
                     }
                     
                     // Refresh monitor window overlays to ensure they're displayed
-                    MonitorWindow.Instance.RefreshOverlays();
-                    MainWindow.Instance.RefreshMainWindowOverlays();
+                    // Skip refresh if we're keeping old translation visible
+                    if (!_keepingTranslationVisible)
+                    {
+                        MonitorWindow.Instance.RefreshOverlays();
+                        MainWindow.Instance.RefreshMainWindowOverlays();
+                    }
+                    else
+                    {
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine("Leave translation onscreen: Skipping overlay refresh to keep old translation visible");
+                        }
+                    }
                     
                     // Trigger source audio preloading right after OCR results are displayed
                     TriggerSourceAudioPreloading();
@@ -1955,23 +2024,43 @@ namespace UGTLive
                     return;
                 }
                 
-                // Skip profiler for instant clearing
-                foreach (TextObject textObject in _textObjects)
+                // If keeping translation visible, only clear the internal list but NOT the visual overlays
+                if (_keepingTranslationVisible)
                 {
-                    MonitorWindow.Instance?.RemoveOverlay(textObject);
-                    textObject.Dispose();
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Leave translation onscreen: Clearing text objects but keeping overlays visible");
+                    }
+                    
+                    // Dispose text objects but don't remove their visual overlays
+                    foreach (TextObject textObject in _textObjects)
+                    {
+                        textObject.Dispose();
+                    }
+                    
+                    // Clear the collection
+                    _textObjects.Clear();
+                    _textIDCounter = 0;
                 }
-
-                MonitorWindow.Instance?.ClearOverlays();
-
-                // Clear the collection
-                _textObjects.Clear();
-                _textIDCounter = 0;
-                // No need to remove from the main window UI anymore
-                
-                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                else
                 {
-                    Console.WriteLine("All text objects cleared");
+                    // Normal clearing - remove both text objects and visual overlays
+                    foreach (TextObject textObject in _textObjects)
+                    {
+                        MonitorWindow.Instance?.RemoveOverlay(textObject);
+                        textObject.Dispose();
+                    }
+
+                    MonitorWindow.Instance?.ClearOverlays();
+
+                    // Clear the collection
+                    _textObjects.Clear();
+                    _textIDCounter = 0;
+                    
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("All text objects cleared");
+                    }
                 }
             }
             catch (Exception ex)
@@ -2108,6 +2197,30 @@ namespace UGTLive
                 {
                     Console.WriteLine("Processing structured JSON translation");
                 }
+                
+                // If we were keeping translation visible, now clear the old overlays and reset flag
+                if (_keepingTranslationVisible)
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine("Leave translation onscreen: Clearing old overlays now that new translation is ready");
+                    }
+                    
+                    // Clear the visual overlays (text objects were already cleared earlier)
+                    MonitorWindow.Instance?.ClearOverlays();
+                    MainWindow.Instance?.Dispatcher.Invoke(() =>
+                    {
+                        // Clear HTML cache to force refresh
+                        var mainWindow = MainWindow.Instance;
+                        if (mainWindow != null)
+                        {
+                            // This will be handled by RefreshOverlays later
+                        }
+                    });
+                    
+                    _keepingTranslationVisible = false;
+                }
+                
                 // Check if we have text_blocks array in the translated JSON
                 if (translatedRoot.TryGetProperty("text_blocks", out JsonElement textBlocksElement) &&
                     textBlocksElement.ValueKind == JsonValueKind.Array)
