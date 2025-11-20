@@ -357,9 +357,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="googleVisionHorizontalGlueTextBox" Grid.Column="0"
-                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="1.5"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="2.0"
                                              LostFocus="GoogleVisionHorizontalGlueTextBox_LostFocus"
-                                             ToolTip="Default: 1.5 (1.5 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
+                                             ToolTip="Default: 2.0 (2.0 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
                                     <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 
@@ -372,9 +372,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="googleVisionVerticalGlueTextBox" Grid.Column="0"
-                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="0.5"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="2.0"
                                              LostFocus="GoogleVisionVerticalGlueTextBox_LostFocus"
-                                             ToolTip="Default: 0.5 (half a line height). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
+                                             ToolTip="Default: 2.0 (2.0 line heights). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
                                     <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 

@@ -928,8 +928,9 @@ namespace UGTLive
                     // Get minimum text fragment size from config
                     int minTextFragmentSize = ConfigManager.Instance.GetMinTextFragmentSize();
                     
-                    // Check if we should keep old translation visible
-                    bool leaveTranslationOnscreen = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
+                    // Check if we should keep old translation visible (per-OCR setting)
+                    string currentOcrMethod = MainWindow.Instance.GetSelectedOcrMethod();
+                    bool leaveTranslationOnscreen = ConfigManager.Instance.GetLeaveTranslationOnscreen(currentOcrMethod);
                     bool autoTranslateEnabled = MainWindow.Instance.GetTranslateEnabled();
                     bool hasExistingTranslations = _textObjects.Any(t => !string.IsNullOrEmpty(t.TextTranslated));
                     

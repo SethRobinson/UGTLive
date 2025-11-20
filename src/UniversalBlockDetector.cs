@@ -118,17 +118,16 @@ namespace UGTLive
                 
             try
             {
-                // Sync configuration from ConfigManager
-                // We map the "Google Vision" glue settings to our internal thresholds
-                // This allows the user to control the glue behavior for all OCR methods
-                double horizontalGlue = ConfigManager.Instance.GetGoogleVisionHorizontalGlue();
-                double verticalGlue = ConfigManager.Instance.GetGoogleVisionVerticalGlue();
+                // Sync configuration from ConfigManager using per-OCR settings
+                // This allows the user to control the glue behavior individually for each OCR method
+                double horizontalGlue = ConfigManager.Instance.GetHorizontalGlue(ocrProvider);
+                double verticalGlue = ConfigManager.Instance.GetVerticalGlue(ocrProvider);
                 
                 // Update internal config
                 SetBaseWordHorizontalGap(horizontalGlue);
                 SetBaseLineVerticalGap(verticalGlue);
 
-                bool keepLinefeeds = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
+                bool keepLinefeeds = ConfigManager.Instance.GetKeepLinefeeds(ocrProvider);
                 
                 // PHASE 1: Extract all text elements (Chars, Words, Lines)
                 var allElements = ExtractTextElements(resultsElement);

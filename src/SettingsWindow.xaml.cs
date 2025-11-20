@@ -947,10 +947,13 @@ namespace UGTLive
             // Skip if initializing
             if (_isInitializing)
                 return;
-                
+            
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
             bool isEnabled = leaveTranslationOnscreenCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetLeaveTranslationOnscreenEnabled(isEnabled);
-            Console.WriteLine($"Leave translation onscreen enabled: {isEnabled}");
+            ConfigManager.Instance.SetLeaveTranslationOnscreen(currentOcr, isEnabled);
+            Console.WriteLine($"{currentOcr} leave translation onscreen enabled: {isEnabled}");
         }
         
         private void MangaOcrMinWidthTextBox_LostFocus(object sender, RoutedEventArgs e)
@@ -1166,19 +1169,22 @@ namespace UGTLive
                 {
                     if (googleVisionHorizontalGlueTextBox != null)
                     {
-                        googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionHorizontalGlue().ToString("F1");
+                        googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(selectedOcr).ToString("F2");
                     }
                     
                     if (googleVisionVerticalGlueTextBox != null)
                     {
-                        googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
+                        googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(selectedOcr).ToString("F2");
                     }
                     
                     if (googleVisionKeepLinefeedsCheckBox != null)
                     {
-                        googleVisionKeepLinefeedsCheckBox.IsChecked = ConfigManager.Instance.GetGoogleVisionKeepLinefeeds();
+                        googleVisionKeepLinefeedsCheckBox.IsChecked = ConfigManager.Instance.GetKeepLinefeeds(selectedOcr);
                     }
                 }
+                
+                // Load leave translation onscreen setting for this OCR method
+                leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.GetLeaveTranslationOnscreen(selectedOcr);
 
                 // Load Google Vision API Key only if GV
                 if (isGoogleVisionSelected)
@@ -1320,14 +1326,17 @@ namespace UGTLive
             if (_isInitializing)
                 return;
 
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
             if (double.TryParse(googleVisionHorizontalGlueTextBox.Text, out double value))
             {
                 // Clamp to range (0 to 2000)
                 value = Math.Max(0, Math.Min(2000.0, value));
-                googleVisionHorizontalGlueTextBox.Text = value.ToString("F1");
+                googleVisionHorizontalGlueTextBox.Text = value.ToString("F2");
                 
-                ConfigManager.Instance.SetGoogleVisionHorizontalGlue(value);
-                Console.WriteLine($"Google Vision horizontal glue set to {value}");
+                ConfigManager.Instance.SetHorizontalGlue(currentOcr, value);
+                Console.WriteLine($"{currentOcr} horizontal glue set to {value}");
                 
                 // Force refresh
                 Logic.Instance.ResetHash();
@@ -1336,7 +1345,7 @@ namespace UGTLive
             else
             {
                 // Reset to current value if invalid
-                googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionHorizontalGlue().ToString("F1");
+                googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(currentOcr).ToString("F2");
             }
         }
 
@@ -1346,14 +1355,17 @@ namespace UGTLive
             if (_isInitializing)
                 return;
 
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
             if (double.TryParse(googleVisionVerticalGlueTextBox.Text, out double value))
             {
                 // Clamp to range (0 to 2000)
                 value = Math.Max(0, Math.Min(2000.0, value));
-                googleVisionVerticalGlueTextBox.Text = value.ToString("F1");
+                googleVisionVerticalGlueTextBox.Text = value.ToString("F2");
                 
-                ConfigManager.Instance.SetGoogleVisionVerticalGlue(value);
-                Console.WriteLine($"Google Vision vertical glue set to {value}");
+                ConfigManager.Instance.SetVerticalGlue(currentOcr, value);
+                Console.WriteLine($"{currentOcr} vertical glue set to {value}");
                 
                 // Force refresh
                 Logic.Instance.ResetHash();
@@ -1362,7 +1374,7 @@ namespace UGTLive
             else
             {
                 // Reset to current value if invalid
-                googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetGoogleVisionVerticalGlue().ToString("F1");
+                googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(currentOcr).ToString("F2");
             }
         }
 
@@ -1371,9 +1383,12 @@ namespace UGTLive
             if (_isInitializing)
                 return;
 
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
             bool isChecked = googleVisionKeepLinefeedsCheckBox.IsChecked ?? true;
-            ConfigManager.Instance.SetGoogleVisionKeepLinefeeds(isChecked);
-            Console.WriteLine($"Google Vision keep linefeeds set to {isChecked}");
+            ConfigManager.Instance.SetKeepLinefeeds(currentOcr, isChecked);
+            Console.WriteLine($"{currentOcr} keep linefeeds set to {isChecked}");
             
             // Force refresh
             Logic.Instance.ResetHash();

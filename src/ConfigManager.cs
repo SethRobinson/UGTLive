@@ -50,6 +50,13 @@ namespace UGTLive
         public const string GOOGLE_VISION_VERTICAL_GLUE = "google_vision_vertical_glue";
         public const string GOOGLE_VISION_KEEP_LINEFEEDS = "google_vision_keep_linefeeds";
         
+        // Per-OCR glue settings (for EasyOCR, MangaOCR, docTR, Windows OCR, Google Vision)
+        // Format: horizontal_glue_<ocrmethod>, vertical_glue_<ocrmethod>, keep_linefeeds_<ocrmethod>, leave_translation_onscreen_<ocrmethod>
+        public const string HORIZONTAL_GLUE_PREFIX = "horizontal_glue_";
+        public const string VERTICAL_GLUE_PREFIX = "vertical_glue_";
+        public const string KEEP_LINEFEEDS_PREFIX = "keep_linefeeds_";
+        public const string LEAVE_TRANSLATION_ONSCREEN_PREFIX = "leave_translation_onscreen_";
+        
         // Translation context keys
         public const string MAX_CONTEXT_PIECES = "max_context_pieces";
         public const string MIN_CONTEXT_SIZE = "min_context_size";
@@ -95,7 +102,7 @@ namespace UGTLive
             { "EasyOCR", "EasyOCR (Decent at most languages)" },
             { "MangaOCR", "MangaOCR (Vertical Japanese manga)" },
             { "docTR", "docTR (Great at non-asian languages)" },
-            { "Windows OCR", "Windows OCR (Decent at English?)" },
+            { "Windows OCR", "Windows OCR (mid at most languages)" },
             { "Google Vision", "Google Cloud Vision (non-local, costs $)" }
         };
 
@@ -2319,6 +2326,98 @@ Here is the input JSON:";
             SaveConfig();
             Console.WriteLine($"Google Vision keep linefeeds set to: {value}");
         }
+
+        // Per-OCR settings methods
+        // These allow storing horizontal glue, vertical glue, keep linefeeds, and leave translation onscreen settings per OCR method
+        
+        // Helper method to normalize OCR method names for config keys
+        private string NormalizeOcrMethodName(string ocrMethod)
+        {
+            return ocrMethod.Replace(" ", "_").ToLower();
+        }
+        
+        // Horizontal Glue (per-OCR)
+        public double GetHorizontalGlue(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = HORIZONTAL_GLUE_PREFIX + normalizedMethod;
+            string value = GetValue(key, "2.0"); // Default: 2.0 character widths
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 2.0;
+        }
+        
+        public void SetHorizontalGlue(string ocrMethod, double value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = HORIZONTAL_GLUE_PREFIX + normalizedMethod;
+            _configValues[key] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} horizontal glue updated to {value}");
+        }
+        
+        // Vertical Glue (per-OCR)
+        public double GetVerticalGlue(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = VERTICAL_GLUE_PREFIX + normalizedMethod;
+            string value = GetValue(key, "2.0"); // Default: 2.0 line heights
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 2.0;
+        }
+        
+        public void SetVerticalGlue(string ocrMethod, double value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = VERTICAL_GLUE_PREFIX + normalizedMethod;
+            _configValues[key] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} vertical glue updated to {value}");
+        }
+        
+        // Keep Linefeeds (per-OCR)
+        public bool GetKeepLinefeeds(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = KEEP_LINEFEEDS_PREFIX + normalizedMethod;
+            return GetBoolValue(key, true); // Default to true
+        }
+        
+        public void SetKeepLinefeeds(string ocrMethod, bool value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = KEEP_LINEFEEDS_PREFIX + normalizedMethod;
+            SetBoolValue(key, value);
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} keep linefeeds set to: {value}");
+        }
+        
+        // Leave Translation Onscreen (per-OCR)
+        public bool GetLeaveTranslationOnscreen(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = LEAVE_TRANSLATION_ONSCREEN_PREFIX + normalizedMethod;
+            
+            // Default is true for all OCR methods except MangaOCR
+            bool defaultValue = !ocrMethod.Equals("MangaOCR", StringComparison.OrdinalIgnoreCase);
+            
+            return GetBoolValue(key, defaultValue);
+        }
+        
+        public void SetLeaveTranslationOnscreen(string ocrMethod, bool value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = LEAVE_TRANSLATION_ONSCREEN_PREFIX + normalizedMethod;
+            SetBoolValue(key, value);
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} leave translation onscreen set to: {value}");
+        }
+
 
         public string GetAudioProcessingProvider()
         {
