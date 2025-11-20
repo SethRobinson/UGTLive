@@ -1424,6 +1424,9 @@ namespace UGTLive
             
             // Refresh overlays to apply changes immediately
             MonitorWindow.Instance.RefreshOverlays();
+            
+            // Trigger OCR refresh
+            Logic.Instance.ResetHash();
         }
 
         private void OverrideFontColorCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -1438,6 +1441,9 @@ namespace UGTLive
             
             // Refresh overlays to apply changes immediately
             MonitorWindow.Instance.RefreshOverlays();
+            
+            // Trigger OCR refresh
+            Logic.Instance.ResetHash();
         }
         
         private void WindowsVisibleInScreenshotsCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
@@ -1507,6 +1513,9 @@ namespace UGTLive
                 {
                     MonitorWindow.Instance.RefreshOverlays();
                 }
+                
+                // Trigger OCR refresh
+                Logic.Instance.ResetHash();
             }
         }
 
@@ -1547,6 +1556,9 @@ namespace UGTLive
                 {
                     MonitorWindow.Instance.RefreshOverlays();
                 }
+                
+                // Trigger OCR refresh
+                Logic.Instance.ResetHash();
             }
         }
 
@@ -3366,6 +3378,9 @@ namespace UGTLive
                 {
                     ConfigManager.Instance.SetMonitorTextAreaExpansionWidth(width);
                     Console.WriteLine($"Text area expansion width set to: {width}");
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
                 else
                 {
@@ -3391,6 +3406,9 @@ namespace UGTLive
                 {
                     ConfigManager.Instance.SetMonitorTextAreaExpansionHeight(height);
                     Console.WriteLine($"Text area expansion height set to: {height}");
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
                 else
                 {
@@ -3917,6 +3935,9 @@ namespace UGTLive
                     
                     // Refresh text objects to apply new font
                     RefreshTextObjectsWithNewFont();
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
                 else if (!string.IsNullOrWhiteSpace(sourceLanguageFontFamilyComboBox.Text))
                 {
@@ -3926,6 +3947,9 @@ namespace UGTLive
                     
                     // Refresh text objects to apply new font
                     RefreshTextObjectsWithNewFont();
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
             }
             catch (Exception ex)
@@ -3948,6 +3972,9 @@ namespace UGTLive
                 
                 // Refresh text objects to apply new font
                 RefreshTextObjectsWithNewFont();
+                
+                // Trigger OCR refresh
+                Logic.Instance.ResetHash();
             }
             catch (Exception ex)
             {
@@ -3974,6 +4001,9 @@ namespace UGTLive
                     {
                         ChatBoxWindow.Instance.UpdateChatHistory();
                     }
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
                 else if (!string.IsNullOrWhiteSpace(targetLanguageFontFamilyComboBox.Text))
                 {
@@ -3987,6 +4017,9 @@ namespace UGTLive
                     {
                         ChatBoxWindow.Instance.UpdateChatHistory();
                     }
+                    
+                    // Trigger OCR refresh
+                    Logic.Instance.ResetHash();
                 }
             }
             catch (Exception ex)
@@ -4013,6 +4046,9 @@ namespace UGTLive
                 {
                     ChatBoxWindow.Instance.UpdateChatHistory();
                 }
+                
+                // Trigger OCR refresh
+                Logic.Instance.ResetHash();
             }
             catch (Exception ex)
             {
