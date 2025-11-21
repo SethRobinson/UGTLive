@@ -402,17 +402,13 @@ namespace UGTLive
             // Sort text objects based on play order
             var sortedObjects = SortTextObjectsByPlayOrder(textObjects, playOrder);
             
-            // Filter objects that have audio ready
+            // Filter objects that have audio ready (prefer preferred type, but include fallback)
+            // Include objects that have either source or target audio, matching speaker icon behavior
             var objectsWithAudio = sortedObjects.Where(obj =>
             {
-                if (useSourceAudio)
-                {
-                    return obj.SourceAudioReady && !string.IsNullOrEmpty(obj.SourceAudioFilePath);
-                }
-                else
-                {
-                    return obj.TargetAudioReady && !string.IsNullOrEmpty(obj.TargetAudioFilePath);
-                }
+                bool hasSourceAudio = obj.SourceAudioReady && !string.IsNullOrEmpty(obj.SourceAudioFilePath);
+                bool hasTargetAudio = obj.TargetAudioReady && !string.IsNullOrEmpty(obj.TargetAudioFilePath);
+                return hasSourceAudio || hasTargetAudio;
             }).ToList();
             
             if (objectsWithAudio.Count == 0)
@@ -451,7 +447,27 @@ namespace UGTLive
                         break;
                     }
                     
-                    string? audioPath = useSourceAudio ? textObj.SourceAudioFilePath : textObj.TargetAudioFilePath;
+                    // Try preferred audio type first, then fall back to the other type (matching speaker icon behavior)
+                    string? audioPath = null;
+                    if (useSourceAudio)
+                    {
+                        // Prefer source audio, fall back to target if source not available
+                        audioPath = textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath) 
+                            ? textObj.SourceAudioFilePath 
+                            : (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath) 
+                                ? textObj.TargetAudioFilePath 
+                                : null);
+                    }
+                    else
+                    {
+                        // Prefer target audio, fall back to source if target not available
+                        audioPath = textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath) 
+                            ? textObj.TargetAudioFilePath 
+                            : (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath) 
+                                ? textObj.SourceAudioFilePath 
+                                : null);
+                    }
+                    
                     if (string.IsNullOrEmpty(audioPath) || !System.IO.File.Exists(audioPath))
                     {
                         continue;

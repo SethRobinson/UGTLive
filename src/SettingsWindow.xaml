@@ -129,7 +129,7 @@
                                          Margin="0,5" IsChecked="False" 
                                          Checked="LogExtraDebugStuffCheckBox_CheckedChanged" 
                                          Unchecked="LogExtraDebugStuffCheckBox_CheckedChanged"
-                                         Content="Log extra debug stuff"
+                                         Content="Log extra debug stuff, including image_sent_to_ocr.png"
                                          ToolTip="If checked, verbose debug messages will be logged. Uncheck (default) to only log errors and important messages."/>
                                 
                                 <!-- Windows Visible in Screenshots Checkbox -->

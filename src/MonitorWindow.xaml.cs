@@ -683,7 +683,6 @@ namespace UGTLive
                 // Only update if HTML changed
                 if (html == _lastOverlayHtml)
                 {
-                    Console.WriteLine("[WEBVIEW2] HTML unchanged, skipping update");
                     return;
                 }
                 
@@ -1023,7 +1022,6 @@ namespace UGTLive
                         double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
                         byte alphaValue = (byte)(bgOpacity * 255);
                         bgColor = Color.FromArgb(alphaValue, bgColor.R, bgColor.G, bgColor.B);
-                        Console.WriteLine($"[MONITOR] Applying opacity {bgOpacity:F2} (alpha={alphaValue}) - Final color: R:{bgColor.R} G:{bgColor.G} B:{bgColor.B} A:{bgColor.A}");
                         
                         if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
                         {
@@ -1062,7 +1060,6 @@ namespace UGTLive
                         // Build the inline style string with box-shadow for semi-transparent background
                         // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
                         string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
-                        Console.WriteLine($"[MONITOR] Box-shadow CSS: inset 0 0 0 1000px {rgbaString}");
                         string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
                             $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
                             $"background-color: transparent; " +

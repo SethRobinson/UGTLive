@@ -1434,6 +1434,21 @@ namespace UGTLive
                     
                     // OCR timing is now tracked in Logic.cs via NotifyOCRCompleted()
 
+                    // Save image for debugging if enabled
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        try
+                        {
+                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                            string imagePath = Path.Combine(appDirectory, "image_sent_to_ocr.png");
+                            bitmap.Save(imagePath, ImageFormat.Png);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error saving debug image: {ex.Message}");
+                        }
+                    }
+
                     // Check if we're using Windows OCR or Google Vision - if so, process in memory without saving
                     string ocrMethod = GetSelectedOcrMethod();
                     if (ocrMethod == "Windows OCR")
@@ -2181,13 +2196,11 @@ namespace UGTLive
                 
                 // CRITICAL: Set WebView2 background to transparent BEFORE initializing
                 textOverlayWebView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-                Console.WriteLine($"[MAINWINDOW WEBVIEW2] Set DefaultBackgroundColor to Transparent");
                 
                 await textOverlayWebView.EnsureCoreWebView2Async(environment);
                 
                 if (textOverlayWebView.CoreWebView2 != null)
                 {
-                    Console.WriteLine($"[MAINWINDOW WEBVIEW2] CoreWebView2 initialized, DefaultBackgroundColor: {textOverlayWebView.DefaultBackgroundColor}");
                     
                     textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     
@@ -2806,7 +2819,6 @@ namespace UGTLive
                         double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
                         byte alphaValue = (byte)(bgOpacity * 255);
                         bgColor = Color.FromArgb(alphaValue, bgColor.R, bgColor.G, bgColor.B);
-                        Console.WriteLine($"[MAINWINDOW] Applying opacity {bgOpacity:F2} (alpha={alphaValue}) - Final color: R:{bgColor.R} G:{bgColor.G} B:{bgColor.B} A:{bgColor.A}");
                         
                         // Get font settings
                         string fontFamily = isTranslated
@@ -2835,7 +2847,6 @@ namespace UGTLive
                         // Build the div for this text object with box-shadow for semi-transparent background
                         // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
                         string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
-                        Console.WriteLine($"[MAINWINDOW] Box-shadow CSS: inset 0 0 0 1000px {rgbaString}");
                         string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
                             $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
                             $"background-color: transparent; " +
