@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
         Title="Update Available"
-        Height="400"
+        Height="800"
         Width="550"
         WindowStyle="SingleBorderWindow"
         ResizeMode="NoResize"

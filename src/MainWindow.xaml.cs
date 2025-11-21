@@ -2983,13 +2983,16 @@ namespace UGTLive
                     _translationStatusTimer.Stop();
                 }
                 
-                // Don't hide the border if OCR is active - it will seamlessly transition to OCR status
-                // This prevents flickering when transitioning from settling/translation to OCR status
-                if (!GetIsStarted())
+                // Update status to "Stopped" instead of hiding the border
+                // This maintains title bar height
+                if (translationStatusLabel != null)
                 {
-                    if (translationStatusBorder != null)
-                        translationStatusBorder.Visibility = Visibility.Collapsed;
+                    translationStatusLabel.Text = "Stopped";
                 }
+                
+                // Keep the border visible to maintain title bar height
+                if (translationStatusBorder != null)
+                    translationStatusBorder.Visibility = Visibility.Visible;
             });
         }
         
@@ -3035,10 +3038,17 @@ namespace UGTLive
                 return;
             }
             
-            // Only hide if no translation status is showing
-            if (_translationStatusTimer?.IsEnabled != true && translationStatusBorder != null)
+            // Update status to "Stopped" instead of hiding
+            // This maintains title bar height
+            if (translationStatusLabel != null)
             {
-                translationStatusBorder.Visibility = Visibility.Collapsed;
+                translationStatusLabel.Text = "Stopped";
+            }
+            
+            // Keep border visible to maintain title bar height
+            if (translationStatusBorder != null)
+            {
+                translationStatusBorder.Visibility = Visibility.Visible;
             }
         }
         
