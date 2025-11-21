@@ -41,6 +41,7 @@ namespace UGTLive
         public event EventHandler? OverlayModeToggleRequested;
         public event EventHandler? ListenToggleRequested;
         public event EventHandler? ViewInBrowserRequested;
+        public event EventHandler? PlayAllAudioRequested;
         
         private HotkeyManager()
         {
@@ -253,6 +254,9 @@ namespace UGTLive
                     break;
                 case "view_in_browser":
                     ViewInBrowserRequested?.Invoke(this, EventArgs.Empty);
+                    break;
+                case "play_all_audio":
+                    PlayAllAudioRequested?.Invoke(this, EventArgs.Empty);
                     break;
             }
         }

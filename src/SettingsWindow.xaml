@@ -879,7 +879,7 @@
                                 <DockPanel Grid.Row="2" Grid.Column="1" Margin="0,5">
                                     <Slider x:Name="bgOpacitySlider" 
                                             Minimum="0" Maximum="1" 
-                                            Value="0.7" 
+                                            Value="1.0" 
                                             Width="150" 
                                             TickPlacement="BottomRight"
                                             TickFrequency="0.01"
@@ -888,7 +888,7 @@
                                             HorizontalAlignment="Left"
                                             Margin="0,0,10,0"/>
                                     <TextBlock x:Name="bgOpacityText" 
-                                               Text="70%" 
+                                               Text="100%" 
                                                VerticalAlignment="Center" 
                                                Width="40"/>
                                 </DockPanel>

@@ -456,7 +456,7 @@ namespace UGTLive
             // Monitor Window Override Color defaults
             _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_BG_COLOR] = "#FF000000"; // Black
-            _configValues[MONITOR_BG_OPACITY] = "0.7"; // Default opacity 70%
+            _configValues[MONITOR_BG_OPACITY] = "1.0"; // Default opacity 100% (fully opaque)
             _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = "#FFFFFFFF"; // White
             
@@ -2699,12 +2699,12 @@ Here is the input JSON:";
         // Get/Set Monitor Background Opacity
         public double GetMonitorBgOpacity()
         {
-            string value = GetValue(MONITOR_BG_OPACITY, "0.7");
+            string value = GetValue(MONITOR_BG_OPACITY, "1.0");
             if (double.TryParse(value, out double opacity) && opacity >= 0.0 && opacity <= 1.0)
             {
                 return opacity;
             }
-            return 0.7; // Default: 70% opacity
+            return 1.0; // Default: 100% opacity (fully opaque)
         }
 
         public void SetMonitorBgOpacity(double opacity)

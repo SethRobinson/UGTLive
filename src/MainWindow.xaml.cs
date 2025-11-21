@@ -334,6 +334,7 @@ namespace UGTLive
             HotkeyManager.Instance.ListenToggleRequested += (s, e) => ListenButton_Click(listenButton, new RoutedEventArgs());
             HotkeyManager.Instance.ViewInBrowserRequested += (s, e) => ExportButton_Click(exportButton, new RoutedEventArgs());
             HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
+            HotkeyManager.Instance.PlayAllAudioRequested += (s, e) => PlayAllAudioButton_Click(playAllAudioButton, new RoutedEventArgs());
             HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
                 // Cancel any in-progress translation
                 Logic.Instance.CancelTranslation();
