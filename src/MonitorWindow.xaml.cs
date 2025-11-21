@@ -92,9 +92,6 @@ namespace UGTLive
             
             // Subscribe to TextObject events from Logic
             //Logic.Instance.TextObjectAdded += CreateMonitorOverlayFromTextObject;
-            
-            // Set initial status
-            UpdateStatus("Ready");
              
             // Add event handlers
             this.SourceInitialized += MonitorWindow_SourceInitialized;
@@ -154,13 +151,6 @@ namespace UGTLive
         // Flag to prevent saving during initialization
         private static bool _isInitializing = true;
         
-        // Timer for updating translation status
-        private DispatcherTimer? _translationStatusTimer;
-        private DateTime _translationStartTime;
-        
-        // OCR status display (no tracking - handled by Logic.cs)
-        private bool _isShowingSettling = false; // Track if settling message is showing
-        
         // OCR Method Selection Changed
         public void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -185,21 +175,6 @@ namespace UGTLive
             
             // Clear any existing text objects
             Logic.Instance.ClearAllTextObjects();
-            
-            // Update status based on OCR method
-            if (ocrMethod == "Windows OCR")
-            {
-                UpdateStatus("Using Windows OCR (built-in)");
-            }
-            else if (ocrMethod == "Google Vision")
-            {
-                UpdateStatus("Using Google Cloud Vision (non-local, costs $)");
-            }
-            else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "docTR")
-            {
-                // HTTP services are used - connection status is checked per-request
-                UpdateStatus($"Using {ocrMethod} (HTTP service)");
-            }
             
             // Sync the OCR method selection with MainWindow
             if (MainWindow.Instance != null)
@@ -1433,7 +1408,6 @@ namespace UGTLive
                         : textObj.Text);
                 
                 System.Windows.Forms.Clipboard.SetText(textToCopy);
-                UpdateStatus("Text copied to clipboard");
             }
         }
         
@@ -1443,7 +1417,6 @@ namespace UGTLive
             if (textObj != null && !string.IsNullOrEmpty(textObj.TextTranslated))
             {
                 System.Windows.Forms.Clipboard.SetText(textObj.TextTranslated);
-                UpdateStatus("Translated text copied to clipboard");
             }
         }
         
@@ -1703,7 +1676,6 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating screenshot from bitmap: {ex.Message}");
-                UpdateStatus($"Error: {ex.Message}");
             }
         }
         
@@ -1716,7 +1688,6 @@ namespace UGTLive
         {
             if (!File.Exists(imagePath)) 
             {
-                UpdateStatus($"File not found: {imagePath}");
                 return;
             }
             
@@ -1784,7 +1755,6 @@ namespace UGTLive
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error loading image: {ex.Message}");
-                    UpdateStatus($"Error loading image: {ex.Message}");
                 }
                 
                 // Clear existing overlay elements
@@ -1823,7 +1793,6 @@ namespace UGTLive
             }
             catch (Exception ex)
             {
-                UpdateStatus($"Error: {ex.Message}");
                 Console.WriteLine($"Error updating monitor: {ex.Message}");
             }
         }
@@ -1875,13 +1844,11 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error adding text to monitor: {ex.Message}");
-                UpdateStatus($"Error adding text overlay: {ex.Message}");
             }
         }
         
         private void TextObject_TextCopied(object? sender, EventArgs e)
         {
-            UpdateStatus("Text copied to clipboard");
         }
 
         // Zoom controls
@@ -1907,7 +1874,6 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error exporting to browser: {ex.Message}");
-                UpdateStatus($"Export failed: {ex.Message}");
             }
         }
         
@@ -2052,7 +2018,6 @@ namespace UGTLive
             // Check if we have an image to export
             if (captureImage.Source == null || !(captureImage.Source is BitmapSource bitmapSource))
             {
-                UpdateStatus("No image to export");
                 return;
             }
             
@@ -2084,8 +2049,6 @@ namespace UGTLive
                 FileName = htmlPath,
                 UseShellExecute = true
             });
-            
-            UpdateStatus($"Exported to browser: {Path.GetFileName(htmlPath)}");
         }
         
         private void SaveImageWithZoom(BitmapSource source, string path)
@@ -2799,7 +2762,6 @@ namespace UGTLive
             
             // Update zoom textbox
             zoomTextBox.Text = ((int)(currentZoom * 100)).ToString();
-            UpdateStatus($"Zoom: {(int)(currentZoom * 100)}%");
             Console.WriteLine($"Zoom level changed to {(int)(currentZoom * 100)}%");
             
             // Refresh overlays to apply new zoom factor
@@ -2867,155 +2829,6 @@ namespace UGTLive
             
             // Trigger WebView update immediately
             UpdateOverlayWebView();
-        }
-
-        // Update status message
-        private void UpdateStatus(string message)
-        {
-            // Check if we need to invoke on the UI thread
-            if (!Dispatcher.CheckAccess())
-            {
-                // We're on a background thread, marshal the call to the UI thread
-                Dispatcher.Invoke(() => UpdateStatus(message));
-                return;
-            }
-            
-            // Now we're on the UI thread, safe to update
-            if (statusText != null)
-                statusText.Text = message;
-        }
-        
-        // Initialize the translation status timer
-        private void InitializeTranslationStatusTimer()
-        {
-            _translationStatusTimer = new DispatcherTimer();
-            _translationStatusTimer.Interval = TimeSpan.FromSeconds(1);
-            _translationStatusTimer.Tick += TranslationStatusTimer_Tick;
-        }
-        
-        // Update the translation status timer
-        private void TranslationStatusTimer_Tick(object sender, EventArgs e)
-        {
-            TimeSpan elapsed = DateTime.Now - _translationStartTime;
-            string service = ConfigManager.Instance.GetCurrentTranslationService();
-            
-            Dispatcher.Invoke(() =>
-            {
-                translationStatusLabel.Text = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
-            });
-        }
-        
-        // Show the translation status
-        public void ShowTranslationStatus(bool bSettling)
-        {
-
-            if (bSettling)
-            {
-                _isShowingSettling = true;
-                Dispatcher.Invoke(() =>
-                {
-                    translationStatusLabel.Text = $"Settling...";
-                    
-                    
-                    translationStatusBorder.Visibility = Visibility.Visible;
-                });
-
-                    return;
-            }
-            
-            _isShowingSettling = false;
-
-
-            _translationStartTime = DateTime.Now;
-            string service = ConfigManager.Instance.GetCurrentTranslationService();
-            
-            Dispatcher.Invoke(() =>
-            {
-                translationStatusLabel.Text = $"Waiting for {service}... 0:00";
-                
-                
-                translationStatusBorder.Visibility = Visibility.Visible;
-                
-                // Start the timer if not already running
-                if (_translationStatusTimer == null)
-                {
-                    InitializeTranslationStatusTimer();
-                }
-                
-                if (!_translationStatusTimer!.IsEnabled)
-                {
-                    _translationStatusTimer.Start();
-                }
-            });
-        }
-        
-        // Hide the translation status
-        public void HideTranslationStatus()
-        {
-            _isShowingSettling = false;
-            
-            Dispatcher.Invoke(() =>
-            {
-                // Stop the timer
-                if (_translationStatusTimer != null && _translationStatusTimer.IsEnabled)
-                {
-                    _translationStatusTimer.Stop();
-                }
-                
-                // Don't hide the border if OCR is active - it will seamlessly transition to OCR status
-                // This prevents flickering when transitioning from settling/translation to OCR status
-                bool isOCRActive = MainWindow.Instance?.GetIsStarted() ?? false;
-                if (!isOCRActive)
-                {
-                    translationStatusBorder.Visibility = Visibility.Collapsed;
-                }
-            });
-        }
-        
-        // OCR Status Display Methods (called by Logic.cs)
-        
-        // Update OCR status display with computed values from Logic
-        public void UpdateOCRStatusDisplay(string ocrMethod, double fps)
-        {
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.Invoke(() => UpdateOCRStatusDisplay(ocrMethod, fps));
-                return;
-            }
-            
-            // Don't show if translation or settling is in progress
-            if (_translationStatusTimer?.IsEnabled == true || _isShowingSettling)
-            {
-                return;
-            }
-            
-            // Only update text if it has changed to avoid flickering
-            string newText = $"{ocrMethod} active (fps: {fps:F1})";
-            if (translationStatusLabel.Text != newText)
-            {
-                translationStatusLabel.Text = newText;
-            }
-            
-            if (translationStatusBorder.Visibility != Visibility.Visible)
-            {
-                translationStatusBorder.Visibility = Visibility.Visible;
-            }
-        }
-        
-        // Hide OCR status display
-        public void HideOCRStatusDisplay()
-        {
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.Invoke(() => HideOCRStatusDisplay());
-                return;
-            }
-            
-            // Only hide if we're showing OCR status (not translation status)
-            if (translationStatusLabel.Text.Contains("fps"))
-            {
-                translationStatusBorder.Visibility = Visibility.Collapsed;
-            }
         }
         
         // Override closing to hide instead
@@ -3292,7 +3105,6 @@ namespace UGTLive
                 UpdateScrollViewerSettings();
                 
                 // Update status
-                UpdateStatus($"Zoom: {value}%");
                 Console.WriteLine($"Zoom level changed to {value}%");
             }
             else
@@ -3305,9 +3117,6 @@ namespace UGTLive
                 currentZoom = 1.0;
                 ScaleTransform scaleTransform = new ScaleTransform(currentZoom, currentZoom);
                 imageContainer.LayoutTransform = scaleTransform;
-                
-                // Update status
-                UpdateStatus("Zoom reset to default (100%)");
             }
         }
         

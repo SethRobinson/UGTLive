@@ -636,7 +636,8 @@ namespace UGTLive
         {
             if (socketStatusText != null)
             {
-                socketStatusText!.Text = text;
+                // Never allow empty text - use "Ready" as default to maintain title bar height
+                socketStatusText!.Text = string.IsNullOrWhiteSpace(text) ? "Ready" : text;
             }
         }
 
@@ -645,11 +646,12 @@ namespace UGTLive
             // Create socket status text
             socketStatusText = new TextBlock
             {
-                Text = "Connecting to Python backend...",
-                Foreground = new SolidColorBrush(Colors.Red),
+                Text = "Ready",
+                Foreground = new SolidColorBrush(Colors.White),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(10, 0, 10, 0)
+                Margin = new Thickness(10, 0, 10, 0),
+                MinHeight = 16 // Ensure minimum height to prevent title bar collapse
             };
         }
         
@@ -925,7 +927,6 @@ namespace UGTLive
                 btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
                 // Don't clear text objects when stopping - keep them for overlay switching
                 // Logic.Instance.ClearAllTextObjects();
-                MonitorWindow.Instance.HideTranslationStatus();
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
                 
@@ -1075,7 +1076,6 @@ namespace UGTLive
                     
                     Logic.Instance.ResetHash();
                     isStarted = false;
-                    MonitorWindow.Instance.HideTranslationStatus();
                     ChatBoxWindow.Instance?.HideTranslationStatus();
                     Logic.Instance.HideOCRStatus();
                     HideTranslationStatus();

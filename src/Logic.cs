@@ -191,7 +191,6 @@ namespace UGTLive
             // Hide translation status
             if (bResetTranslationStatus)
             {
-                MonitorWindow.Instance.HideTranslationStatus();
                 MainWindow.Instance.HideTranslationStatus();
                 ChatBoxWindow.Instance?.HideTranslationStatus();
             }
@@ -548,7 +547,6 @@ namespace UGTLive
                                                 // Still within normal settle time, content is stable but waiting
                                                 double remainingSettleTime = settleTime - (DateTime.Now - _lastChangeTime).TotalSeconds;
                                                 Console.WriteLine($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more...");
-                                                MonitorWindow.Instance.ShowTranslationStatus(true); // Keep showing "Settling..."
                                                 ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                                 MainWindow.Instance.ShowTranslationStatus(true);
                                                 return; 
@@ -568,7 +566,6 @@ namespace UGTLive
 
                                         if (MainWindow.Instance.GetIsStarted())
                                         {
-                                            MonitorWindow.Instance.ShowTranslationStatus(true); // Show "Settling..."
                                             ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                             MainWindow.Instance.ShowTranslationStatus(true);
                                         }
@@ -2514,7 +2511,6 @@ namespace UGTLive
             try
             {
                 // Show translation status at the beginning
-                MonitorWindow.Instance.ShowTranslationStatus(false);
                 MainWindow.Instance.ShowTranslationStatus(false);
                 
                 // Also show translation status in ChatBoxWindow if it's open
@@ -2833,7 +2829,6 @@ namespace UGTLive
             // Update both windows with the same data
             Application.Current?.Dispatcher.Invoke(() =>
             {
-                MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
                 MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
             });
             
@@ -2868,7 +2863,6 @@ namespace UGTLive
                 
                 Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    MonitorWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
                     MainWindow.Instance.UpdateOCRStatusDisplay(ocrMethod, fps);
                 });
             }
@@ -2890,7 +2884,6 @@ namespace UGTLive
             
             Application.Current?.Dispatcher.Invoke(() =>
             {
-                MonitorWindow.Instance.HideOCRStatusDisplay();
                 MainWindow.Instance.HideOCRStatusDisplay();
             });
         }

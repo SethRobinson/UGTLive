@@ -142,25 +142,25 @@
                                 <Rectangle Width="1" Fill="#60FFFFFF" Margin="5,2" VerticalAlignment="Stretch" Height="20"/>
                                 
                                 <!-- Status Display in Header -->
-                                <Border x:Name="translationStatusBorder" 
-                                        Background="#DD404040" 
-                                        Padding="8,3" 
+								<Border x:Name="translationStatusBorder"
+                                        Background="#DD404040"
+                                        Padding="8,3"
                                         CornerRadius="3"
                                         BorderThickness="1"
                                         BorderBrush="#666666"
-                                        Visibility="Collapsed"
+                                        Visibility="Visible"
                                         VerticalAlignment="Center"
                                         Margin="5,0">
-                                    <TextBlock x:Name="translationStatusLabel" 
-                                              Foreground="#FFDDDDDD" 
+									<TextBlock x:Name="translationStatusLabel"
+                                              Foreground="#FFDDDDDD"
                                               FontSize="12"
                                               FontWeight="SemiBold"
-                                              Text="Status" 
+                                              Text="Stopped"
                                               VerticalAlignment="Center"
                                               Width="280"
                                               TextAlignment="Center"
                                               TextTrimming="CharacterEllipsis"/>
-                                </Border>
+								</Border>
                             </WrapPanel>
                             
                             <!-- Hidden Language ComboBoxes (for settings synchronization) -->
