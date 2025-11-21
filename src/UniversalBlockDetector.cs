@@ -571,7 +571,8 @@ namespace UGTLive
             double lineVerticalGapFactor = _config.BaseLineVerticalGap;
             
             // Sort lines by Y position
-            var sortedLines = lines.OrderBy(l => l.Bounds.Y).ToList();
+            // OrderBy Y, then X for a stable and logical sort
+            var sortedLines = lines.OrderBy(l => l.Bounds.Y).ThenBy(l => l.Bounds.X).ToList();
             
             // Use a list of active paragraphs to handle multi-column layouts
             // (e.g. left and right speech bubbles that are vertically interleaved)

@@ -225,25 +225,15 @@ namespace UGTLive
                     Console.WriteLine("Processing Google Translate JSON response");
                 }
                 
-                // If we were keeping translation visible, now clear the old overlays and reset flag
+                // If we were keeping translation visible, we don't need to explicitly clear old overlays
+                // because RefreshOverlays will replace them with the new translation shortly.
+                // This prevents a "blank frame" blink.
                 if (_keepingTranslationVisible)
                 {
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
-                        Console.WriteLine("Leave translation onscreen: Clearing old overlays now that new translation is ready");
+                        Console.WriteLine("Leave translation onscreen: Resetting flag, new translation ready");
                     }
-                    
-                    // Clear the visual overlays (text objects were already cleared earlier)
-                    MonitorWindow.Instance?.ClearOverlays();
-                    MainWindow.Instance?.Dispatcher.Invoke(() =>
-                    {
-                        // Clear HTML cache to force refresh
-                        var mainWindow = MainWindow.Instance;
-                        if (mainWindow != null)
-                        {
-                            // This will be handled by RefreshOverlays later
-                        }
-                    });
                     
                     _keepingTranslationVisible = false;
                 }
@@ -648,6 +638,8 @@ namespace UGTLive
                                         {
                                             Console.WriteLine("Hash matches but OCR found no text while text objects exist - clearing display");
                                         }
+                                        // Ensure we clear the display even if we were keeping translation visible
+                                        _keepingTranslationVisible = false;
                                         ClearAllTextObjects();
                                         MonitorWindow.Instance.RefreshOverlays();
                                         MainWindow.Instance.RefreshMainWindowOverlays();
@@ -1136,20 +1128,30 @@ namespace UGTLive
                         }
                     }
                     
-                    // Refresh monitor window overlays to ensure they're displayed
-                    // Skip refresh if we're keeping old translation visible
-                    if (!_keepingTranslationVisible)
-                    {
-                        MonitorWindow.Instance.RefreshOverlays();
-                        MainWindow.Instance.RefreshMainWindowOverlays();
-                    }
-                    else
-                    {
-                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                        {
-                            Console.WriteLine("Leave translation onscreen: Skipping overlay refresh to keep old translation visible");
-                        }
-                    }
+            // Refresh overlay displays
+            // Determine which windows to refresh based on keeping translation visible
+            bool refreshMonitor = !_keepingTranslationVisible;
+            bool refreshMain = !_keepingTranslationVisible;
+            
+            // If Main Window is in Source mode, it should ALWAYS refresh because it doesn't care about old translations
+            if (MainWindow.Instance.GetOverlayMode() == OverlayMode.Source)
+            {
+                refreshMain = true;
+            }
+            
+            // Use BeginInvoke to trigger simultaneous updates without blocking
+            Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => 
+            {
+                if (refreshMonitor)
+                {
+                    MonitorWindow.Instance.RefreshOverlays();
+                }
+                
+                if (refreshMain)
+                {
+                    MainWindow.Instance.RefreshMainWindowOverlays();
+                }
+            }));
                     
                     // Trigger source audio preloading right after OCR results are displayed
                     TriggerSourceAudioPreloading();
@@ -2236,25 +2238,15 @@ namespace UGTLive
                     Console.WriteLine("Processing structured JSON translation");
                 }
                 
-                // If we were keeping translation visible, now clear the old overlays and reset flag
+                // If we were keeping translation visible, we don't need to explicitly clear old overlays
+                // because RefreshOverlays will replace them with the new translation shortly.
+                // This prevents a "blank frame" blink.
                 if (_keepingTranslationVisible)
                 {
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
-                        Console.WriteLine("Leave translation onscreen: Clearing old overlays now that new translation is ready");
+                        Console.WriteLine("Leave translation onscreen: Resetting flag, new translation ready");
                     }
-                    
-                    // Clear the visual overlays (text objects were already cleared earlier)
-                    MonitorWindow.Instance?.ClearOverlays();
-                    MainWindow.Instance?.Dispatcher.Invoke(() =>
-                    {
-                        // Clear HTML cache to force refresh
-                        var mainWindow = MainWindow.Instance;
-                        if (mainWindow != null)
-                        {
-                            // This will be handled by RefreshOverlays later
-                        }
-                    });
                     
                     _keepingTranslationVisible = false;
                 }

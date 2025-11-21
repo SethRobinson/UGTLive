@@ -1591,6 +1591,13 @@ namespace UGTLive
         
         // Track overlay mode for MainWindow
         private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
+        
+        // Public getter for overlay mode
+        public OverlayMode GetOverlayMode()
+        {
+            return _currentOverlayMode;
+        }
+
         private bool _overlayWebViewInitialized = false;
         private string _lastOverlayHtml = string.Empty;
         private string? _currentMainWindowContextMenuTextObjectId;
@@ -2876,7 +2883,8 @@ namespace UGTLive
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => RefreshMainWindowOverlays());
+                // Use Send priority to match MonitorWindow and ensure simultaneous updates
+                Dispatcher.Invoke(() => RefreshMainWindowOverlays(), DispatcherPriority.Send);
                 return;
             }
             
