@@ -1144,10 +1144,13 @@ namespace UGTLive
                 var textObjects = Logic.Instance?.GetTextObjects();
                 if (textObjects == null || textObjects.Count == 0)
                 {
-                    // Show custom info dialog explaining why there's nothing to play
-                    var dialog = new NoTextInfoDialog();
-                    dialog.Owner = this;
-                    dialog.ShowDialog();
+                    // Play no_audio.wav when there's no audio to play
+                    string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string noAudioPath = System.IO.Path.Combine(appDirectory, "audio", "no_audio.wav");
+                    if (System.IO.File.Exists(noAudioPath))
+                    {
+                        _ = AudioPlaybackManager.Instance.PlayAudioFileAsync(noAudioPath);
+                    }
                     return;
                 }
                 

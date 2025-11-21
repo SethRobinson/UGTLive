@@ -1918,19 +1918,13 @@ namespace UGTLive
                 var textObjects = Logic.Instance?.GetTextObjects();
                 if (textObjects == null || textObjects.Count == 0)
                 {
-                    // Show info message explaining why there's nothing to play
-                    System.Windows.MessageBox.Show(
-                        "There is no text detected on the current screen to play.\n\n" +
-                        "To enable page reading features:\n" +
-                        "1. Open Settings and go to 'Page Reading' tab\n" +
-                        "2. Enable 'Preload audio' and configure preload options\n" +
-                        "3. Enable 'Auto play all after preloading' if desired\n" +
-                        "4. Resize and position the capture area over text you want to read\n" +
-                        "5. Click the 'Start' button in the main window to begin OCR capture\n\n" +
-                        "Once running, audio will automatically preload and play when text is detected.",
-                        "No Text to Play",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Information);
+                    // Play no_audio.wav when there's no audio to play
+                    string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string noAudioPath = System.IO.Path.Combine(appDirectory, "audio", "no_audio.wav");
+                    if (System.IO.File.Exists(noAudioPath))
+                    {
+                        _ = AudioPlaybackManager.Instance.PlayAudioFileAsync(noAudioPath);
+                    }
                     return;
                 }
                 
