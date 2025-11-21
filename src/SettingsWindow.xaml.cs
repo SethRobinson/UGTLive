@@ -1339,8 +1339,8 @@ namespace UGTLive
             
             if (double.TryParse(googleVisionHorizontalGlueTextBox.Text, out double value))
             {
-                // Clamp to range (0 to 2000)
-                value = Math.Max(0, Math.Min(2000.0, value));
+                // Clamp to range (-2000 to 2000)
+                value = Math.Max(-2000.0, Math.Min(2000.0, value));
                 googleVisionHorizontalGlueTextBox.Text = value.ToString("F2");
                 
                 ConfigManager.Instance.SetHorizontalGlue(currentOcr, value);
@@ -1368,8 +1368,8 @@ namespace UGTLive
             
             if (double.TryParse(googleVisionVerticalGlueTextBox.Text, out double value))
             {
-                // Clamp to range (0 to 2000)
-                value = Math.Max(0, Math.Min(2000.0, value));
+                // Clamp to range (-2000 to 2000)
+                value = Math.Max(-2000.0, Math.Min(2000.0, value));
                 googleVisionVerticalGlueTextBox.Text = value.ToString("F2");
                 
                 ConfigManager.Instance.SetVerticalGlue(currentOcr, value);

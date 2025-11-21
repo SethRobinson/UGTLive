@@ -360,7 +360,7 @@
                                     <TextBox x:Name="googleVisionHorizontalGlueTextBox" Grid.Column="0"
                                              VerticalAlignment="Top" Margin="0,0,5,0" Text="2.0"
                                              LostFocus="GoogleVisionHorizontalGlueTextBox_LostFocus"
-                                             ToolTip="Default: 2.0 (2.0 character widths). Range: 0-2000. Use 0 to separate all words, higher values to group more text together."/>
+                                             ToolTip="Default: 2.0 (2.0 character widths). Range: -2000 to 2000. Use 0 to separate all words, higher values to group more text together, negative values to add space between text."/>
                                     <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 
@@ -375,7 +375,7 @@
                                     <TextBox x:Name="googleVisionVerticalGlueTextBox" Grid.Column="0"
                                              VerticalAlignment="Top" Margin="0,0,5,0" Text="2.0"
                                              LostFocus="GoogleVisionVerticalGlueTextBox_LostFocus"
-                                             ToolTip="Default: 2.0 (2.0 line heights). Range: 0-2000. Use 0 to separate all lines, higher values to group vertically aligned text."/>
+                                             ToolTip="Default: 2.0 (2.0 line heights). Range: -2000 to 2000. Use 0 to separate all lines, higher values to group vertically aligned text, negative values to add space between lines."/>
                                     <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 
