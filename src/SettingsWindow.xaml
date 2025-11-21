@@ -211,6 +211,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- OCR Method -->
@@ -378,11 +379,27 @@
                                     <TextBlock Grid.Column="1" Text="line heights" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 
+                                <!-- Vertical Glue Overlap (Min Horizontal Overlap) -->
+                                <TextBlock x:Name="googleVisionVerticalGlueOverlapLabel" Text="Min horizontal overlap:" Grid.Row="14" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Percentage of horizontal overlap required to vertically glue lines together. Lower values allow more staggered text."/>
+                                <Grid Grid.Row="14" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueOverlapGrid" Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="googleVisionVerticalGlueOverlapTextBox" Grid.Column="0"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="20.0"
+                                             LostFocus="GoogleVisionVerticalGlueOverlapTextBox_LostFocus"
+                                             ToolTip="Default: 20.0%. Range: 0-100. Percentage of width that must overlap to consider lines part of the same column."/>
+                                    <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                                </Grid>
+                                
                                 <!-- Try to keep original text linefeeds -->
-                                <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="14" Grid.Column="0" 
+                                <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="15" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
-                                <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="14" Grid.Column="1" 
+                                <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="15" Grid.Column="1" 
                                          Margin="0,5" IsChecked="True" Visibility="Collapsed"
                                          Checked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged" 
                                          Unchecked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged"

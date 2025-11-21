@@ -1159,6 +1159,10 @@ namespace UGTLive
                     googleVisionVerticalGlueLabel.Visibility = glueVisibility;
                 if (googleVisionVerticalGlueGrid != null)
                     googleVisionVerticalGlueGrid.Visibility = glueVisibility;
+                if (googleVisionVerticalGlueOverlapLabel != null)
+                    googleVisionVerticalGlueOverlapLabel.Visibility = glueVisibility;
+                if (googleVisionVerticalGlueOverlapGrid != null)
+                    googleVisionVerticalGlueOverlapGrid.Visibility = glueVisibility;
                 if (googleVisionKeepLinefeedsLabel != null)
                     googleVisionKeepLinefeedsLabel.Visibility = glueVisibility;
                 if (googleVisionKeepLinefeedsCheckBox != null)
@@ -1175,6 +1179,11 @@ namespace UGTLive
                     if (googleVisionVerticalGlueTextBox != null)
                     {
                         googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(selectedOcr).ToString("F2");
+                    }
+                    
+                    if (googleVisionVerticalGlueOverlapTextBox != null)
+                    {
+                        googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(selectedOcr).ToString("F1");
                     }
                     
                     if (googleVisionKeepLinefeedsCheckBox != null)
@@ -1375,6 +1384,35 @@ namespace UGTLive
             {
                 // Reset to current value if invalid
                 googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(currentOcr).ToString("F2");
+            }
+        }
+
+        // Google Vision Vertical Glue Overlap text changed
+        private void GoogleVisionVerticalGlueOverlapTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
+            if (double.TryParse(googleVisionVerticalGlueOverlapTextBox.Text, out double value))
+            {
+                // Clamp to range (0 to 100)
+                value = Math.Max(0, Math.Min(100.0, value));
+                googleVisionVerticalGlueOverlapTextBox.Text = value.ToString("F1");
+                
+                ConfigManager.Instance.SetVerticalGlueOverlap(currentOcr, value);
+                Console.WriteLine($"{currentOcr} vertical glue overlap set to {value}");
+                
+                // Force refresh
+                Logic.Instance.ResetHash();
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                // Reset to current value if invalid
+                googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(currentOcr).ToString("F1");
             }
         }
 

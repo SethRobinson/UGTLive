@@ -925,8 +925,8 @@ namespace UGTLive
                 isStarted = false;
                 btn.Content = "Start";
                 btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
-                // Don't clear text objects when stopping - keep them for overlay switching
-                // Logic.Instance.ClearAllTextObjects();
+                // Clear text objects when stopping to prevent stale overlays
+                Logic.Instance.ClearAllTextObjects();
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
                 

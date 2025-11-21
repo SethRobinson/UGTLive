@@ -122,6 +122,7 @@ namespace UGTLive
                 // This allows the user to control the glue behavior individually for each OCR method
                 double horizontalGlue = ConfigManager.Instance.GetHorizontalGlue(ocrProvider);
                 double verticalGlue = ConfigManager.Instance.GetVerticalGlue(ocrProvider);
+                double verticalGlueOverlap = ConfigManager.Instance.GetVerticalGlueOverlap(ocrProvider);
                 
                 // Update internal config
                 SetBaseWordHorizontalGap(horizontalGlue);
@@ -162,7 +163,7 @@ namespace UGTLive
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 
                 // PHASE 4: Group lines into paragraphs (Vertical Glue)
-                var paragraphs = GroupLinesIntoParagraphs(lines, keepLinefeeds);
+                var paragraphs = GroupLinesIntoParagraphs(lines, keepLinefeeds, verticalGlueOverlap);
                 
                 // Create JSON output
                 return CreateJsonOutput(paragraphs, new List<TextElement>());
@@ -556,10 +557,10 @@ namespace UGTLive
         #region Line to Paragraph Grouping
         
         /// <summary>
-        /// Group lines into paragraphs based on spacing, indentation, and font size.
+        /// Group lines into paragraphs based on spacing and horizontal overlap.
         /// Enhanced to support multi-column layouts by tracking active paragraphs.
         /// </summary>
-        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds)
+        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds, double minOverlapPercent)
         {
             if (lines.Count == 0)
                 return new List<TextElement>();
@@ -568,8 +569,6 @@ namespace UGTLive
             // The values from ConfigManager are "factors" (e.g., 1.5 line heights)
             // We will multiply them by the actual line height during processing
             double lineVerticalGapFactor = _config.BaseLineVerticalGap;
-            double fontSizeTolerance = 5.0; // Can be fixed or configurable
-            double indentationThreshold = 20.0; // Can be fixed or configurable
             
             // Sort lines by Y position
             var sortedLines = lines.OrderBy(l => l.Bounds.Y).ToList();
@@ -597,10 +596,6 @@ namespace UGTLive
                     double maxAllowedGapPixels = averageHeight * lineVerticalGapFactor;
                     
                     // If gap is too large, this paragraph is done (for this line, and likely for all future lines)
-                    // But we don't close it yet, as a future line might be closer (if lines are not perfectly sorted by bottom)
-                    // Actually, sorted by Top Y means gap strictly increases.
-                    // However, for multi-column, one column might be "lower" than another.
-                    // Let's just check the threshold.
                     if (geometricGap > maxAllowedGapPixels)
                     {
                         continue;
@@ -616,41 +611,13 @@ namespace UGTLive
                     double minWidth = Math.Max(1.0, Math.Min(lastLine.Bounds.Width, line.Bounds.Width));
                     double horizontalOverlapRatio = overlapWidth / minWidth;
                     
-                    double minHorizontalOverlapRequired = 0.20; // 20% overlap required by default
-                    
-                    // Relax overlap check if aggressive glue is set
-                    if (lineVerticalGapFactor >= 3.0)
-                    {
-                        minHorizontalOverlapRequired = 0.01;
-                    }
+                    double minHorizontalOverlapRequired = minOverlapPercent / 100.0;
                     
                     if (horizontalOverlapRatio < minHorizontalOverlapRequired)
                     {
                         continue; // Not aligned column-wise
                     }
 
-                    // 3. Check Font Size
-                    double fontSizeDiff = Math.Abs(line.Bounds.Height - lastLine.Bounds.Height);
-                    if (fontSizeDiff > fontSizeTolerance && lineVerticalGapFactor < 3.0)
-                    {
-                        continue;
-                    }
-
-                    // 4. Check Indentation (only if NOT aggressive glue)
-                    if (lineVerticalGapFactor < 3.0)
-                    {
-                        double indentation = Math.Abs(line.Bounds.X - lastLine.Bounds.X);
-                        if (indentation > indentationThreshold)
-                        {
-                            // For centered text, indentation check can be false positive.
-                            // If overlap is good (high), ignore indentation.
-                            if (horizontalOverlapRatio < 0.8) // If strong overlap, ignore indentation
-                            {
-                                continue;
-                            }
-                        }
-                    }
-                    
                     // If we got here, it's a match!
                     // Calculate a "score" to pick the best one if multiple match (rare)
                     // Score = Gap + Indentation (weighted)
@@ -693,9 +660,6 @@ namespace UGTLive
                     
                     bestParagraph.Bounds.Width = right - bestParagraph.Bounds.X;
                     bestParagraph.Bounds.Height = bottom - bestParagraph.Bounds.Y;
-                    
-                    // Update average confidence?
-                    // bestParagraph.Confidence = (bestParagraph.Confidence * (bestParagraph.Children.Count - 1) + line.Confidence) / bestParagraph.Children.Count;
                 }
                 else
                 {

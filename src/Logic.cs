@@ -2089,6 +2089,7 @@ namespace UGTLive
                     }
 
                     MonitorWindow.Instance?.ClearOverlays();
+                    MainWindow.Instance?.RefreshMainWindowOverlays();
 
                     // Clear the collection
                     _textObjects.Clear();

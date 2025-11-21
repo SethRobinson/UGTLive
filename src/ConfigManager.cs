@@ -54,6 +54,7 @@ namespace UGTLive
         // Format: horizontal_glue_<ocrmethod>, vertical_glue_<ocrmethod>, keep_linefeeds_<ocrmethod>, leave_translation_onscreen_<ocrmethod>
         public const string HORIZONTAL_GLUE_PREFIX = "horizontal_glue_";
         public const string VERTICAL_GLUE_PREFIX = "vertical_glue_";
+        public const string VERTICAL_GLUE_OVERLAP_PREFIX = "vertical_glue_overlap_";
         public const string KEEP_LINEFEEDS_PREFIX = "keep_linefeeds_";
         public const string LEAVE_TRANSLATION_ONSCREEN_PREFIX = "leave_translation_onscreen_";
         
@@ -2378,6 +2379,28 @@ Here is the input JSON:";
             _configValues[key] = value.ToString();
             SaveConfig();
             Console.WriteLine($"{ocrMethod} vertical glue updated to {value}");
+        }
+        
+        // Vertical Glue Overlap (per-OCR)
+        public double GetVerticalGlueOverlap(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = VERTICAL_GLUE_OVERLAP_PREFIX + normalizedMethod;
+            string value = GetValue(key, "20.0"); // Default: 20%
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 20.0;
+        }
+        
+        public void SetVerticalGlueOverlap(string ocrMethod, double value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = VERTICAL_GLUE_OVERLAP_PREFIX + normalizedMethod;
+            _configValues[key] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} vertical glue overlap updated to {value}");
         }
         
         // Keep Linefeeds (per-OCR)
