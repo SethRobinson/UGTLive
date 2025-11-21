@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Management;
 
 namespace UGTLive
 {
@@ -29,11 +30,28 @@ namespace UGTLive
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
         
+        // Windows API for process priority management
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+        
+        [DllImport("kernel32.dll")]
+        private static extern bool CloseHandle(IntPtr hObject);
+        
+        [DllImport("kernel32.dll")]
+        private static extern bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
+        
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
         
         private const int SW_HIDE = 0;
         private const int SW_SHOW = 5;
         private const int SW_RESTORE = 9;
+        
+        // Process access rights
+        private const uint PROCESS_SET_INFORMATION = 0x0200;
+        
+        // Priority classes
+        private const uint HIGH_PRIORITY_CLASS = 0x00000080;
+        private const uint ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000;
         
         private static readonly HttpClient _httpClient = new HttpClient()
         {
@@ -391,6 +409,9 @@ namespace UGTLive
                             Console.WriteLine($"Could not find console window for {ServiceName} yet (will retry later if needed)");
                         }
                         
+                        // Set high priority for the cmd.exe process to prevent throttling when minimized
+                        SetProcessPriority(_process.Id, HIGH_PRIORITY_CLASS);
+                        
                         return true;
                     }
                     else
@@ -420,6 +441,15 @@ namespace UGTLive
             {
                 IsRunning = true;
                 IsInstalled = true;
+                
+                // Set priority for child Python processes (they spawn after the batch file runs)
+                // Wait a bit for Python processes to start, then set their priority
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000); // Wait 2 seconds for Python processes to start
+                    SetPriorityForChildPythonProcesses();
+                });
+                
                 return true;
             }
             else
@@ -659,6 +689,204 @@ namespace UGTLive
             }, IntPtr.Zero);
             
             return foundWindow;
+        }
+        
+        /// <summary>
+        /// Sets the priority class for a process by process ID
+        /// </summary>
+        private void SetProcessPriority(int processId, uint priorityClass)
+        {
+            try
+            {
+                IntPtr hProcess = OpenProcess(PROCESS_SET_INFORMATION, false, processId);
+                if (hProcess != IntPtr.Zero)
+                {
+                    bool success = SetPriorityClass(hProcess, priorityClass);
+                    CloseHandle(hProcess);
+                    
+                    if (success)
+                    {
+                        string priorityName = priorityClass == HIGH_PRIORITY_CLASS ? "High" : 
+                                             priorityClass == ABOVE_NORMAL_PRIORITY_CLASS ? "Above Normal" : "Unknown";
+                        Console.WriteLine($"Set process priority to {priorityName} for PID {processId} ({ServiceName})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to set process priority for PID {processId} ({ServiceName})");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Could not open process handle for PID {processId} ({ServiceName}) - may require admin rights");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting process priority for PID {processId} ({ServiceName}): {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Finds and sets priority for child Python processes spawned by this service
+        /// Uses WMI to find processes with our cmd.exe as parent
+        /// </summary>
+        private void SetPriorityForChildPythonProcesses()
+        {
+            if (_process == null || _process.HasExited)
+            {
+                return;
+            }
+            
+            try
+            {
+                int parentProcessId = _process.Id;
+                int childCount = 0;
+                
+                // Use WMI to find child processes
+                string query = $"SELECT ProcessId FROM Win32_Process WHERE ParentProcessId = {parentProcessId}";
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(query))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        try
+                        {
+                            int childProcessId = Convert.ToInt32(obj["ProcessId"]);
+                            Process? childProcess = null;
+                            
+                            try
+                            {
+                                childProcess = Process.GetProcessById(childProcessId);
+                            }
+                            catch
+                            {
+                                // Process may have exited, skip
+                                continue;
+                            }
+                            
+                            // Check if it's a Python process
+                            string processName = childProcess.ProcessName.ToLower();
+                            if (processName == "python" || processName == "pythonw" || processName.StartsWith("python"))
+                            {
+                                SetProcessPriority(childProcessId, HIGH_PRIORITY_CLASS);
+                                childCount++;
+                                
+                                // Also find grandchildren (Python processes spawned by batch scripts)
+                                FindAndSetPriorityForGrandchildren(childProcessId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error processing child process: {ex.Message}");
+                        }
+                    }
+                }
+                
+                if (childCount > 0)
+                {
+                    Console.WriteLine($"Set priority for {childCount} child Python process(es) for {ServiceName}");
+                }
+                else
+                {
+                    // Fallback: Try to find Python processes by checking command line or working directory
+                    // This is less accurate but may catch processes if WMI fails
+                    FallbackSetPythonPriority();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error finding child Python processes for {ServiceName}: {ex.Message}");
+                // Fallback to less accurate method
+                FallbackSetPythonPriority();
+            }
+        }
+        
+        /// <summary>
+        /// Fallback method to set priority for Python processes that might be related to this service
+        /// This is less accurate but may help if WMI fails or processes aren't direct children
+        /// </summary>
+        private void FallbackSetPythonPriority()
+        {
+            try
+            {
+                Process[] pythonProcesses = Process.GetProcessesByName("python");
+                
+                foreach (Process pythonProc in pythonProcesses)
+                {
+                    try
+                    {
+                        // Try to check if the process's command line contains our service directory
+                        // This requires checking MainModule which may fail without admin rights
+                        if (pythonProc.MainModule != null)
+                        {
+                            string fileName = pythonProc.MainModule.FileName;
+                            // If the Python executable is in our service directory's venv, it's likely ours
+                            if (fileName.Contains(ServiceDirectory.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase) ||
+                                fileName.Contains(ServiceDirectory.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
+                            {
+                                SetProcessPriority(pythonProc.Id, HIGH_PRIORITY_CLASS);
+                                Console.WriteLine($"Set priority for Python process {pythonProc.Id} (matched by path)");
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // May not have access to MainModule, skip this process
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fallback priority setting failed: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Recursively finds and sets priority for grandchild processes (e.g., Python processes spawned by batch scripts)
+        /// </summary>
+        private void FindAndSetPriorityForGrandchildren(int parentProcessId)
+        {
+            try
+            {
+                string query = $"SELECT ProcessId FROM Win32_Process WHERE ParentProcessId = {parentProcessId}";
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(query))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        try
+                        {
+                            int grandchildProcessId = Convert.ToInt32(obj["ProcessId"]);
+                            Process? grandchildProcess = null;
+                            
+                            try
+                            {
+                                grandchildProcess = Process.GetProcessById(grandchildProcessId);
+                            }
+                            catch
+                            {
+                                continue;
+                            }
+                            
+                            string processName = grandchildProcess.ProcessName.ToLower();
+                            if (processName == "python" || processName == "pythonw" || processName.StartsWith("python"))
+                            {
+                                SetProcessPriority(grandchildProcessId, HIGH_PRIORITY_CLASS);
+                                Console.WriteLine($"Set priority for grandchild Python process {grandchildProcessId}");
+                                
+                                // Recursively check for deeper descendants
+                                FindAndSetPriorityForGrandchildren(grandchildProcessId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error processing grandchild process: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error finding grandchildren: {ex.Message}");
+            }
         }
         
         /// <summary>
