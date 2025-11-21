@@ -17,6 +17,10 @@ namespace UGTLive
         private bool _globalHotkeysEnabled = true;
         private bool _isEnabled = true;
         
+        // Debouncing for actions to prevent double-triggers
+        private Dictionary<string, DateTime> _lastActionTime = new Dictionary<string, DateTime>();
+        private const int DEBOUNCE_MS = 50; // 50ms debounce window (prevents double-triggers while staying responsive)
+        
         public static HotkeyManager Instance
         {
             get
@@ -218,6 +222,21 @@ namespace UGTLive
         // Trigger an action by ID
         private void TriggerAction(string actionId)
         {
+            // Check debounce - prevent triggering the same action too quickly
+            if (_lastActionTime.TryGetValue(actionId, out DateTime lastTime))
+            {
+                double msSinceLastTrigger = (DateTime.Now - lastTime).TotalMilliseconds;
+                if (msSinceLastTrigger < DEBOUNCE_MS)
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Hotkey {actionId} debounced ({msSinceLastTrigger:F0}ms since last trigger)");
+                    }
+                    return;
+                }
+            }
+            
+            _lastActionTime[actionId] = DateTime.Now;
             Console.WriteLine($"Hotkey triggered: {actionId}");
             
             switch (actionId)

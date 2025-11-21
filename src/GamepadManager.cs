@@ -113,8 +113,11 @@ namespace UGTLive
                 {
                     ushort buttons = gamepadState.Gamepad.wButtons;
                     
-                    // Check if button state changed (new button pressed)
-                    if (buttons != _lastButtonState && buttons != 0)
+                    // Detect newly pressed buttons (buttons that are now pressed but weren't before)
+                    // This prevents triggering on button release
+                    ushort newlyPressed = (ushort)(buttons & ~_lastButtonState);
+                    
+                    if (newlyPressed != 0)
                     {
                         List<string> pressedButtons = GetPressedButtons(buttons);
                         if (pressedButtons.Count > 0)

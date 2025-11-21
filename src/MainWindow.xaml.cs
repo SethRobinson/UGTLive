@@ -517,23 +517,43 @@ namespace UGTLive
         // Toggle overlay mode between Hide, Source, and Translated
         private void ToggleOverlayMode()
         {
-            if (_currentOverlayMode == OverlayMode.Hide)
-            {
-                _currentOverlayMode = OverlayMode.Source;
-                overlaySourceRadio.IsChecked = true;
-            }
-            else if (_currentOverlayMode == OverlayMode.Source)
-            {
-                _currentOverlayMode = OverlayMode.Translated;
-                overlayTranslatedRadio.IsChecked = true;
-            }
-            else
-            {
-                _currentOverlayMode = OverlayMode.Hide;
-                overlayHideRadio.IsChecked = true;
-            }
+            _updatingOverlayMode = true;
             
-            Console.WriteLine($"Overlay mode toggled to: {_currentOverlayMode}");
+            try
+            {
+                if (_currentOverlayMode == OverlayMode.Hide)
+                {
+                    _currentOverlayMode = OverlayMode.Source;
+                    overlaySourceRadio.IsChecked = true;
+                }
+                else if (_currentOverlayMode == OverlayMode.Source)
+                {
+                    _currentOverlayMode = OverlayMode.Translated;
+                    overlayTranslatedRadio.IsChecked = true;
+                }
+                else
+                {
+                    _currentOverlayMode = OverlayMode.Hide;
+                    overlayHideRadio.IsChecked = true;
+                }
+                
+                // Save to config and update display
+                string mode = _currentOverlayMode switch
+                {
+                    OverlayMode.Hide => "Hide",
+                    OverlayMode.Source => "Source",
+                    OverlayMode.Translated => "Translated",
+                    _ => "Translated"
+                };
+                ConfigManager.Instance.SetMainWindowOverlayMode(mode);
+                RefreshMainWindowOverlays();
+                
+                Console.WriteLine($"Overlay mode toggled to: {_currentOverlayMode}");
+            }
+            finally
+            {
+                _updatingOverlayMode = false;
+            }
         }
         
         // Update tooltips with current hotkey bindings
@@ -1610,6 +1630,7 @@ namespace UGTLive
         
         // Track overlay mode for MainWindow
         private OverlayMode _currentOverlayMode = OverlayMode.Translated; // Default to Translated
+        private bool _updatingOverlayMode = false; // Flag to prevent event recursion
         
         // Public getter for overlay mode
         public OverlayMode GetOverlayMode()
@@ -3129,6 +3150,10 @@ namespace UGTLive
         // Overlay radio button handler
         private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
         {
+            // Skip if we're updating programmatically from ToggleOverlayMode
+            if (_updatingOverlayMode)
+                return;
+                
             if (sender is System.Windows.Controls.RadioButton radioButton && radioButton.Tag != null)
             {
                 string mode = radioButton.Tag.ToString() ?? "Translated";
