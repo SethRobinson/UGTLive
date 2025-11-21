@@ -1338,16 +1338,18 @@ namespace UGTLive
         // Show/hide the settings window
         private void ToggleSettingsWindow()
         {
-            // Check if settings window is visible
-            if (SettingsWindow.Instance.IsVisible)
+            var settingsWindow = SettingsWindow.Instance;
+            
+            // Check if settings window is visible and not minimized
+            if (settingsWindow.IsVisible && settingsWindow.WindowState != WindowState.Minimized)
             {
                 // Store current position before hiding
-                settingsWindowLeft = SettingsWindow.Instance.Left;
-                settingsWindowTop = SettingsWindow.Instance.Top;
+                settingsWindowLeft = settingsWindow.Left;
+                settingsWindowTop = settingsWindow.Top;
                 
                 Console.WriteLine($"Saving settings position: {settingsWindowLeft}, {settingsWindowTop}");
                 
-                SettingsWindow.Instance.Hide();
+                settingsWindow.Hide();
                 // Re-enable hotkeys now that the Settings window is hidden
                 HotkeyManager.Instance.SetEnabled(true);
                 Console.WriteLine("Settings window hidden");
@@ -1359,8 +1361,8 @@ namespace UGTLive
                 if (settingsWindowLeft != -1 || settingsWindowTop != -1)
                 {
                     // Restore previous position
-                    SettingsWindow.Instance.Left = settingsWindowLeft;
-                    SettingsWindow.Instance.Top = settingsWindowTop;
+                    settingsWindow.Left = settingsWindowLeft;
+                    settingsWindow.Top = settingsWindowTop;
                     Console.WriteLine($"Restoring settings position to: {settingsWindowLeft}, {settingsWindowTop}");
                 }
                 else
@@ -1369,22 +1371,35 @@ namespace UGTLive
                     double mainRight = this.Left + this.ActualWidth;
                     double mainTop = this.Top;
                     
-                    SettingsWindow.Instance.Left = mainRight + 10; // 10px gap
-                    SettingsWindow.Instance.Top = mainTop;
+                    settingsWindow.Left = mainRight + 10; // 10px gap
+                    settingsWindow.Top = mainTop;
                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
                         Console.WriteLine("No saved position, positioning settings window to the right");
                     }
                 }
                 
+                // Ensure window is not minimized
+                if (settingsWindow.WindowState == WindowState.Minimized)
+                {
+                    settingsWindow.WindowState = WindowState.Normal;
+                }
+                
                 // Set MainWindow as owner to ensure Settings window appears above it
-                SettingsWindow.Instance.Owner = this;
-                SettingsWindow.Instance.Show();
+                settingsWindow.Owner = this;
+                settingsWindow.Show();
+                
+                // Ensure window is visible, on top, and activated
+                settingsWindow.Visibility = Visibility.Visible;
+                settingsWindow.Activate();
+                settingsWindow.Focus();
+                settingsWindow.BringIntoView();
+                
                 // Disable hotkeys while the Settings window is active so we can type normally
                 HotkeyManager.Instance.SetEnabled(false);
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
-                    Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
+                    Console.WriteLine($"Settings window shown at position {settingsWindow.Left}, {settingsWindow.Top}");
                 }
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(69, 125, 176)); // Blue-ish
             }
