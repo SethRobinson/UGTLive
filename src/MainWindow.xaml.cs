@@ -2730,7 +2730,11 @@ namespace UGTLive
             // Add all text overlays if mode is not Hide
             if (_currentOverlayMode != OverlayMode.Hide && Logic.Instance != null)
             {
-                var textObjects = Logic.Instance.GetTextObjects();
+                // If keeping translation visible, use old text objects instead of current (empty) ones
+                // But only if Main window is NOT in Source mode (Source mode should always show current)
+                var textObjects = (Logic.Instance.GetKeepingTranslationVisible() && _currentOverlayMode != OverlayMode.Source)
+                    ? Logic.Instance.GetTextObjectsOld() 
+                    : Logic.Instance.GetTextObjects();
                 if (textObjects != null)
                 {
                     foreach (var textObj in textObjects)

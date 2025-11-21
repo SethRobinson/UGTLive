@@ -118,6 +118,11 @@ namespace UGTLive
         {
             return _textObjectsOld.AsReadOnly();
         }
+        
+        public bool GetKeepingTranslationVisible()
+        {
+            return _keepingTranslationVisible;
+        }
 
         // Called when the application starts
         public async void Init()
@@ -181,7 +186,14 @@ namespace UGTLive
                 {
                     Console.WriteLine("Leave translation onscreen: Clearing flag in OnFinishedThings");
                 }
+                // Dispose old text objects that were kept visible
+                foreach (TextObject textObject in _textObjectsOld)
+                {
+                    textObject.Dispose();
+                }
+                _textObjectsOld.Clear();
                 MonitorWindow.Instance?.ClearOverlays();
+                MainWindow.Instance?.RefreshMainWindowOverlays();
                 _keepingTranslationVisible = false;
             }
             
@@ -235,6 +247,12 @@ namespace UGTLive
                         Console.WriteLine("Leave translation onscreen: Resetting flag, new translation ready");
                     }
                     
+                    // Dispose old text objects that were kept visible
+                    foreach (TextObject textObject in _textObjectsOld)
+                    {
+                        textObject.Dispose();
+                    }
+                    _textObjectsOld.Clear();
                     _keepingTranslationVisible = false;
                 }
                 
@@ -1129,28 +1147,15 @@ namespace UGTLive
                     }
                     
             // Refresh overlay displays
-            // Determine which windows to refresh based on keeping translation visible
-            bool refreshMonitor = !_keepingTranslationVisible;
-            bool refreshMain = !_keepingTranslationVisible;
-            
-            // If Main Window is in Source mode, it should ALWAYS refresh because it doesn't care about old translations
-            if (MainWindow.Instance.GetOverlayMode() == OverlayMode.Source)
-            {
-                refreshMain = true;
-            }
-            
-            // Use BeginInvoke to trigger simultaneous updates without blocking
+            // Always refresh both windows - they will use old objects if keeping translation visible
+            // The overlay refresh methods will check GetKeepingTranslationVisible() and use appropriate objects
             Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => 
             {
-                if (refreshMonitor)
-                {
-                    MonitorWindow.Instance.RefreshOverlays();
-                }
+                MonitorWindow.Instance.RefreshOverlays();
                 
-                if (refreshMain)
-                {
-                    MainWindow.Instance.RefreshMainWindowOverlays();
-                }
+                // Main window always refreshes - it will use old objects if keeping translation visible
+                // unless in Source mode (Source mode always shows current objects)
+                MainWindow.Instance.RefreshMainWindowOverlays();
             }));
                     
                     // Trigger source audio preloading right after OCR results are displayed
@@ -2071,13 +2076,16 @@ namespace UGTLive
                         Console.WriteLine("Leave translation onscreen: Clearing text objects but keeping overlays visible");
                     }
                     
-                    // Dispose text objects but don't remove their visual overlays
+                    // Save a copy of current text objects to display while waiting for new translation
+                    _textObjectsOld.Clear();
                     foreach (TextObject textObject in _textObjects)
                     {
-                        textObject.Dispose();
+                        // Create a shallow copy - we'll keep the original objects alive for display
+                        // Don't dispose them yet - they'll be disposed when new translation arrives
+                        _textObjectsOld.Add(textObject);
                     }
                     
-                    // Clear the collection
+                    // Clear the collection (but old objects are still in _textObjectsOld for display)
                     _textObjects.Clear();
                     _textIDCounter = 0;
                 }
@@ -2248,6 +2256,12 @@ namespace UGTLive
                         Console.WriteLine("Leave translation onscreen: Resetting flag, new translation ready");
                     }
                     
+                    // Dispose old text objects that were kept visible
+                    foreach (TextObject textObject in _textObjectsOld)
+                    {
+                        textObject.Dispose();
+                    }
+                    _textObjectsOld.Clear();
                     _keepingTranslationVisible = false;
                 }
                 

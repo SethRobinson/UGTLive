@@ -449,8 +449,7 @@ namespace UGTLive
                 Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
             }
             
-            // Set leave translation onscreen setting
-            leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
+            // Note: Leave translation onscreen setting is loaded per-OCR in UpdateOcrSpecificSettings()
             
             // Load Monitor Window Override Color settings
             overrideBgColorCheckBox.IsChecked = ConfigManager.Instance.IsMonitorOverrideBgColorEnabled();
