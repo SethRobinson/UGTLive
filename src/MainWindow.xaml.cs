@@ -2930,7 +2930,7 @@ namespace UGTLive
         }
         
         // Show the translation status
-        public void ShowTranslationStatus(bool bSettling)
+        public void ShowTranslationStatus(bool bSettling, double elapsedSettleTime = 0, double maxSettleTime = 0)
         {
             if (bSettling)
             {
@@ -2938,7 +2938,16 @@ namespace UGTLive
                 Dispatcher.Invoke(() =>
                 {
                     if (translationStatusLabel != null)
-                        translationStatusLabel.Text = "Settling...";
+                    {
+                        if (maxSettleTime > 0)
+                        {
+                            translationStatusLabel.Text = $"Settling... {elapsedSettleTime:F1}s / {maxSettleTime:F1}s";
+                        }
+                        else
+                        {
+                            translationStatusLabel.Text = "Settling...";
+                        }
+                    }
                     
                     if (translationStatusBorder != null)
                         translationStatusBorder.Visibility = Visibility.Visible;

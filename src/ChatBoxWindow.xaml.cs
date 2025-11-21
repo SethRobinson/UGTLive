@@ -730,11 +730,11 @@ namespace UGTLive
         }
         
         // Show translation status indicator with animation
-        public void ShowTranslationStatus(bool bSettling)
+        public void ShowTranslationStatus(bool bSettling, double elapsedSettleTime = 0, double maxSettleTime = 0)
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => ShowTranslationStatus(bSettling));
+                Dispatcher.Invoke(() => ShowTranslationStatus(bSettling, elapsedSettleTime, maxSettleTime));
                 return;
             }
             
@@ -743,7 +743,21 @@ namespace UGTLive
                 translationStatusPanel.Visibility = Visibility.Visible;
                 if (translationStatusText != null)
                 {
-                    translationStatusText.Text = bSettling ? "Settling..." : "Waiting for translation...";
+                    if (bSettling)
+                    {
+                        if (maxSettleTime > 0)
+                        {
+                            translationStatusText.Text = $"Settling... {elapsedSettleTime:F1}s / {maxSettleTime:F1}s";
+                        }
+                        else
+                        {
+                            translationStatusText.Text = "Settling...";
+                        }
+                    }
+                    else
+                    {
+                        translationStatusText.Text = "Waiting for translation...";
+                    }
                 }
                 
                 // Start the animation timer
