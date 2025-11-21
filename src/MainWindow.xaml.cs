@@ -1572,7 +1572,20 @@ namespace UGTLive
             }
             
             // Reset the OCR hash to force a fresh comparison after changing source language
+            Logic.Instance.ResetHash();
+            
+            // Clear translation history/context buffer to avoid influencing new translations
+            ClearTranslationHistory();
+            
+            // Clear any existing text objects to refresh the display
             Logic.Instance.ClearAllTextObjects();
+            
+            // Force OCR/translation to run again if active
+            if (GetIsStarted())
+            {
+                SetOCRCheckIsWanted(true);
+                Console.WriteLine("Triggered OCR/translation refresh after source language change");
+            }
         }
 
         private void TargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1593,7 +1606,20 @@ namespace UGTLive
             }
             
             // Reset the OCR hash to force a fresh comparison after changing target language
+            Logic.Instance.ResetHash();
+            
+            // Clear translation history/context buffer to avoid influencing new translations
+            ClearTranslationHistory();
+            
+            // Clear any existing text objects to refresh the display
             Logic.Instance.ClearAllTextObjects();
+            
+            // Force OCR/translation to run again if active
+            if (GetIsStarted())
+            {
+                SetOCRCheckIsWanted(true);
+                Console.WriteLine("Triggered OCR/translation refresh after target language change");
+            }
         }
 
         private void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

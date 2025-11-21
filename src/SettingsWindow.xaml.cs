@@ -244,11 +244,21 @@ namespace UGTLive
                     {
                         Console.WriteLine("Google Translate service type changed. Triggering retranslation...");
                         
+                        // Clear translation history/context buffer to avoid influencing new translations
+                        MainWindow.Instance.ClearTranslationHistory();
+                        
                         // Reset the hash to force a retranslation
                         Logic.Instance.ResetHash();
                         
                         // Clear any existing text objects to refresh the display
                         Logic.Instance.ClearAllTextObjects();
+                        
+                        // Force OCR/translation to run again if active
+                        if (MainWindow.Instance.GetIsStarted())
+                        {
+                            MainWindow.Instance.SetOCRCheckIsWanted(true);
+                            Console.WriteLine("Triggered OCR/translation refresh after Google Translate service type change");
+                        }
                     }
                 }
             }
@@ -801,7 +811,20 @@ namespace UGTLive
                 }
                 
                 // Reset the OCR hash to force a fresh comparison after changing source language
+                Logic.Instance.ResetHash();
+                
+                // Clear translation history/context buffer to avoid influencing new translations
+                MainWindow.Instance.ClearTranslationHistory();
+                
+                // Clear any existing text objects to refresh the display
                 Logic.Instance.ClearAllTextObjects();
+                
+                // Force OCR/translation to run again if active
+                if (MainWindow.Instance.GetIsStarted())
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    Console.WriteLine("Triggered OCR/translation refresh after source language change");
+                }
             }
         }
         
@@ -841,7 +864,20 @@ namespace UGTLive
                 }
                 
                 // Reset the OCR hash to force a fresh comparison after changing target language
+                Logic.Instance.ResetHash();
+                
+                // Clear translation history/context buffer to avoid influencing new translations
+                MainWindow.Instance.ClearTranslationHistory();
+                
+                // Clear any existing text objects to refresh the display
                 Logic.Instance.ClearAllTextObjects();
+                
+                // Force OCR/translation to run again if active
+                if (MainWindow.Instance.GetIsStarted())
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    Console.WriteLine("Triggered OCR/translation refresh after target language change");
+                }
             }
         }
         
@@ -1754,11 +1790,21 @@ namespace UGTLive
                     {
                         Console.WriteLine("Translation service changed. Triggering retranslation...");
                         
+                        // Clear translation history/context buffer to avoid influencing new translations
+                        MainWindow.Instance.ClearTranslationHistory();
+                        
                         // Reset the hash to force a retranslation
                         Logic.Instance.ResetHash();
                         
                         // Clear any existing text objects to refresh the display
                         Logic.Instance.ClearAllTextObjects();
+                        
+                        // Force OCR/translation to run again if active
+                        if (MainWindow.Instance.GetIsStarted())
+                        {
+                            MainWindow.Instance.SetOCRCheckIsWanted(true);
+                            Console.WriteLine("Triggered OCR/translation refresh after translation service change");
+                        }
                     }
                 }
             }
@@ -2450,11 +2496,21 @@ namespace UGTLive
                     {
                         Console.WriteLine("Gemini model changed. Triggering retranslation...");
                         
+                        // Clear translation history/context buffer to avoid influencing new translations
+                        MainWindow.Instance.ClearTranslationHistory();
+                        
                         // Reset the hash to force a retranslation
                         Logic.Instance.ResetHash();
                         
                         // Clear any existing text objects to refresh the display
                         Logic.Instance.ClearAllTextObjects();
+                        
+                        // Force OCR/translation to run again if active
+                        if (MainWindow.Instance.GetIsStarted())
+                        {
+                            MainWindow.Instance.SetOCRCheckIsWanted(true);
+                            Console.WriteLine("Triggered OCR/translation refresh after Gemini model change");
+                        }
                     }
                 }
             }
@@ -2565,11 +2621,21 @@ namespace UGTLive
                     {
                         Console.WriteLine("ChatGPT model changed. Triggering retranslation...");
                         
+                        // Clear translation history/context buffer to avoid influencing new translations
+                        MainWindow.Instance.ClearTranslationHistory();
+                        
                         // Reset the hash to force a retranslation
                         Logic.Instance.ResetHash();
                         
                         // Clear any existing text objects to refresh the display
                         Logic.Instance.ClearAllTextObjects();
+                        
+                        // Force OCR/translation to run again if active
+                        if (MainWindow.Instance.GetIsStarted())
+                        {
+                            MainWindow.Instance.SetOCRCheckIsWanted(true);
+                            Console.WriteLine("Triggered OCR/translation refresh after ChatGPT model change");
+                        }
                     }
                 }
             }
