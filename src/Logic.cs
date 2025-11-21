@@ -520,13 +520,6 @@ namespace UGTLive
                                         Log($"Settling - Elapsed: {settlingElapsed:F2}s, MaxSettleTime: {maxSettleTime}s, LastChange: {lastChangeElapsed:F2}s, SettleTime: {settleTime}s");
                                     }
 
-                                    // Initialize settling start time if it hasn't been set yet and settling is enabled
-                                    if (_settlingStartTime == DateTime.MinValue)
-                                    {
-                                        _settlingStartTime = DateTime.Now;
-                                        Log($"Settling started, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}..., SettleTime: {settleTime}s, MaxSettleTime: {maxSettleTime}s");
-                                    }
-
                                     // Check for max settle time first, regardless of hash match
                                     bool maxSettleTimeExceeded = maxSettleTime > 0 && 
                                                                 _settlingStartTime != DateTime.MinValue &&
@@ -592,6 +585,13 @@ namespace UGTLive
                                         
                                         _lastChangeTime = DateTime.Now;
                                         _lastOcrHash = contentHash;
+
+                                        // Initialize settling start time when hash changes (only start settling when content actually changes)
+                                        if (_settlingStartTime == DateTime.MinValue)
+                                        {
+                                            _settlingStartTime = DateTime.Now;
+                                            Log($"Settling started, Hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}..., SettleTime: {settleTime}s, MaxSettleTime: {maxSettleTime}s");
+                                        }
 
                                         // Calculate elapsed settle time for status display
                                         double elapsedSettlingTimeOnChange = _settlingStartTime != DateTime.MinValue ? 
