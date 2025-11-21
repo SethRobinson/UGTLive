@@ -194,6 +194,7 @@ namespace UGTLive
         // Monitor Window Override Color Settings
         public const string MONITOR_OVERRIDE_BG_COLOR_ENABLED = "monitor_override_bg_color_enabled";
         public const string MONITOR_OVERRIDE_BG_COLOR = "monitor_override_bg_color";
+        public const string MONITOR_BG_OPACITY = "monitor_bg_opacity";
         public const string MONITOR_OVERRIDE_FONT_COLOR_ENABLED = "monitor_override_font_color_enabled";
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
         public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
@@ -455,6 +456,7 @@ namespace UGTLive
             // Monitor Window Override Color defaults
             _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_BG_COLOR] = "#FF000000"; // Black
+            _configValues[MONITOR_BG_OPACITY] = "0.7"; // Default opacity 70%
             _configValues[MONITOR_OVERRIDE_FONT_COLOR_ENABLED] = "false";
             _configValues[MONITOR_OVERRIDE_FONT_COLOR] = "#FFFFFFFF"; // White
             
@@ -2692,6 +2694,31 @@ Here is the input JSON:";
             _configValues[MONITOR_OVERRIDE_BG_COLOR] = hexColor;
             SaveConfig();
             Console.WriteLine($"Monitor override BG color set to: {hexColor}");
+        }
+
+        // Get/Set Monitor Background Opacity
+        public double GetMonitorBgOpacity()
+        {
+            string value = GetValue(MONITOR_BG_OPACITY, "0.7");
+            if (double.TryParse(value, out double opacity) && opacity >= 0.0 && opacity <= 1.0)
+            {
+                return opacity;
+            }
+            return 0.7; // Default: 70% opacity
+        }
+
+        public void SetMonitorBgOpacity(double opacity)
+        {
+            if (opacity >= 0.0 && opacity <= 1.0)
+            {
+                _configValues[MONITOR_BG_OPACITY] = opacity.ToString("F2");
+                SaveConfig();
+                Console.WriteLine($"Monitor background opacity set to: {opacity:F2}");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid opacity value: {opacity}. Must be between 0.0 and 1.0.");
+            }
         }
 
         // Get/Set Monitor Override Font Color Enabled

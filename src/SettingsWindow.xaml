@@ -848,6 +848,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Override BG Color Checkbox -->
@@ -871,8 +872,29 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 
+                                <!-- Background Opacity Slider -->
+                                <TextBlock Text="Background Opacity:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="20,5,10,5"
+                                          ToolTip="Opacity of background (0 = transparent, 1 = solid)"/>
+                                <DockPanel Grid.Row="2" Grid.Column="1" Margin="0,5">
+                                    <Slider x:Name="bgOpacitySlider" 
+                                            Minimum="0" Maximum="1" 
+                                            Value="0.7" 
+                                            Width="150" 
+                                            TickPlacement="BottomRight"
+                                            TickFrequency="0.01"
+                                            IsSnapToTickEnabled="True"
+                                            ValueChanged="BgOpacitySlider_ValueChanged"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,0,10,0"/>
+                                    <TextBlock x:Name="bgOpacityText" 
+                                               Text="70%" 
+                                               VerticalAlignment="Center" 
+                                               Width="40"/>
+                                </DockPanel>
+                                
                                 <!-- Override Font Color Checkbox -->
-                                <CheckBox x:Name="overrideFontColorCheckBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                <CheckBox x:Name="overrideFontColorCheckBox" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                                          Margin="0,5" IsChecked="False" 
                                          Checked="OverrideFontColorCheckBox_CheckedChanged" 
                                          Unchecked="OverrideFontColorCheckBox_CheckedChanged"
@@ -880,9 +902,9 @@
                                          ToolTip="Override the font color for text overlays in the Monitor window"/>
                                 
                                 <!-- Font Color Picker -->
-                                <TextBlock Text="Font Color:" Grid.Row="3" Grid.Column="0" 
+                                <TextBlock Text="Font Color:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="20,5,10,5"/>
-                                <DockPanel Grid.Row="3" Grid.Column="1" Margin="0,5">
+                                <DockPanel Grid.Row="4" Grid.Column="1" Margin="0,5">
                                     <Button x:Name="overrideFontColorButton" 
                                             Width="30" Height="20" 
                                             Margin="0,0,5,0"
@@ -893,54 +915,54 @@
                                 </DockPanel>
                                 
                                 <!-- Font Settings Header -->
-                                <TextBlock Text="Font Settings" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                <TextBlock Text="Font Settings" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                                           FontWeight="Bold" Margin="0,10,0,5"/>
                                 
                                 <!-- Source Language Font Family -->
-                                <TextBlock Text="Source Language Font:" Grid.Row="5" Grid.Column="0" 
+                                <TextBlock Text="Source Language Font:" Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <ComboBox x:Name="sourceLanguageFontFamilyComboBox" Grid.Row="5" Grid.Column="1" 
+                                <ComboBox x:Name="sourceLanguageFontFamilyComboBox" Grid.Row="6" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="SourceLanguageFontFamilyComboBox_SelectionChanged"/>
                                 
                                 <!-- Source Language Font Bold -->
-                                <TextBlock Text="Source Language Bold:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock Text="Source Language Bold:" Grid.Row="7" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <CheckBox x:Name="sourceLanguageFontBoldCheckBox" Grid.Row="6" Grid.Column="1" 
+                                <CheckBox x:Name="sourceLanguageFontBoldCheckBox" Grid.Row="7" Grid.Column="1" 
                                          Margin="0,5" VerticalAlignment="Center"
                                          Checked="SourceLanguageFontBoldCheckBox_CheckedChanged" 
                                          Unchecked="SourceLanguageFontBoldCheckBox_CheckedChanged"/>
                                 
                                 <!-- Target Language Font Family -->
-                                <TextBlock Text="Target Language Font:" Grid.Row="7" Grid.Column="0" 
+                                <TextBlock Text="Target Language Font:" Grid.Row="8" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <ComboBox x:Name="targetLanguageFontFamilyComboBox" Grid.Row="7" Grid.Column="1" 
+                                <ComboBox x:Name="targetLanguageFontFamilyComboBox" Grid.Row="8" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="TargetLanguageFontFamilyComboBox_SelectionChanged"/>
                                 
                                 <!-- Target Language Font Bold -->
-                                <TextBlock Text="Target Language Bold:" Grid.Row="8" Grid.Column="0" 
+                                <TextBlock Text="Target Language Bold:" Grid.Row="9" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <CheckBox x:Name="targetLanguageFontBoldCheckBox" Grid.Row="8" Grid.Column="1" 
+                                <CheckBox x:Name="targetLanguageFontBoldCheckBox" Grid.Row="9" Grid.Column="1" 
                                          Margin="0,5" VerticalAlignment="Center"
                                          Checked="TargetLanguageFontBoldCheckBox_CheckedChanged" 
                                          Unchecked="TargetLanguageFontBoldCheckBox_CheckedChanged"/>
                                 
                                 <!-- Text Area Size Expansion Header -->
-                                <TextBlock Text="Text Area Size Expansion" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+                                <TextBlock Text="Text Area Size Expansion" Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
                                           FontWeight="Bold" Margin="0,10,0,5"/>
                                 
                                 <!-- Text Area Expansion Width -->
-                                <TextBlock Text="Width (pixels):" Grid.Row="10" Grid.Column="0" 
+                                <TextBlock Text="Width (pixels):" Grid.Row="11" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
-                                <TextBox x:Name="textAreaExpansionWidthTextBox" Grid.Row="10" Grid.Column="1" 
+                                <TextBox x:Name="textAreaExpansionWidthTextBox" Grid.Row="11" Grid.Column="1" 
                                         Margin="0,5" Text="6" LostFocus="TextAreaExpansionWidthTextBox_LostFocus"
                                         ToolTip="Expansion width in pixels. This value is divided by 2 and added to each side (left and right)."/>
                                 
                                 <!-- Text Area Expansion Height -->
-                                <TextBlock Text="Height (pixels):" Grid.Row="11" Grid.Column="0" 
+                                <TextBlock Text="Height (pixels):" Grid.Row="12" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
-                                <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="11" Grid.Column="1" 
+                                <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="12" Grid.Column="1" 
                                         Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
                                         ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
                             </Grid>

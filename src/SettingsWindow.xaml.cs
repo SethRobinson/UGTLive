@@ -469,6 +469,13 @@ namespace UGTLive
             overrideFontColorButton.Background = new SolidColorBrush(fontColor);
             overrideFontColorText.Text = ColorToHexString(fontColor);
             
+            // Load background opacity and update UI
+            double opacity = ConfigManager.Instance.GetMonitorBgOpacity();
+            bgOpacitySlider.ValueChanged -= BgOpacitySlider_ValueChanged;
+            bgOpacitySlider.Value = opacity;
+            bgOpacitySlider.ValueChanged += BgOpacitySlider_ValueChanged;
+            bgOpacityText.Text = $"{(int)(opacity * 100)}%";
+            
             // Load Text Area Size Expansion settings
             textAreaExpansionWidthTextBox.LostFocus -= TextAreaExpansionWidthTextBox_LostFocus;
             textAreaExpansionHeightTextBox.LostFocus -= TextAreaExpansionHeightTextBox_LostFocus;
@@ -1582,6 +1589,29 @@ namespace UGTLive
                 // Trigger OCR refresh
                 Logic.Instance.ResetHash();
             }
+        }
+
+        private void BgOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+            
+            double opacity = bgOpacitySlider.Value;
+            ConfigManager.Instance.SetMonitorBgOpacity(opacity);
+            bgOpacityText.Text = $"{(int)(opacity * 100)}%";
+            Console.WriteLine($"Monitor background opacity set to: {opacity:F2}");
+            
+            // Force clear HTML cache so overlays regenerate with new opacity
+            MonitorWindow.Instance.ClearOverlayCache();
+            MainWindow.Instance.ClearMainWindowOverlayCache();
+            
+            // Refresh overlays to apply changes immediately
+            MonitorWindow.Instance.RefreshOverlays();
+            MainWindow.Instance.RefreshMainWindowOverlays();
+            
+            // Trigger OCR refresh
+            Logic.Instance.ResetHash();
         }
 
         private string ColorToHexString(Color color)

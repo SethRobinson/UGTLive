@@ -1602,6 +1602,13 @@ namespace UGTLive
         private string _lastOverlayHtml = string.Empty;
         private string? _currentMainWindowContextMenuTextObjectId;
         private string? _currentMainWindowContextMenuSelection;
+
+        // Method to force clear the HTML cache (for when settings change)
+        public void ClearMainWindowOverlayCache()
+        {
+            Console.WriteLine("[MAINWINDOW] ClearMainWindowOverlayCache called - forcing HTML regeneration");
+            _lastOverlayHtml = string.Empty;
+        }
         
         // Win32 API for WDA_EXCLUDEFROMCAPTURE
         [DllImport("user32.dll")]
@@ -2170,10 +2177,17 @@ namespace UGTLive
             try
             {
                 var environment = await WebViewEnvironmentManager.GetEnvironmentAsync();
+                
+                // CRITICAL: Set WebView2 background to transparent BEFORE initializing
+                textOverlayWebView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
+                Console.WriteLine($"[MAINWINDOW WEBVIEW2] Set DefaultBackgroundColor to Transparent");
+                
                 await textOverlayWebView.EnsureCoreWebView2Async(environment);
                 
                 if (textOverlayWebView.CoreWebView2 != null)
                 {
+                    Console.WriteLine($"[MAINWINDOW WEBVIEW2] CoreWebView2 initialized, DefaultBackgroundColor: {textOverlayWebView.DefaultBackgroundColor}");
+                    
                     textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     
                     textOverlayWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
@@ -2532,11 +2546,10 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
-            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
+            html.AppendLine("  0%, 100% { filter: drop-shadow(0 0 28px rgba(120, 220, 255, 0.9)) drop-shadow(0 0 12px rgba(100, 200, 255, 0.7)); }");
+            html.AppendLine("  50% { filter: drop-shadow(0 0 50px rgba(140, 230, 255, 1.0)) drop-shadow(0 0 25px rgba(120, 220, 255, 0.9)); }");
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
@@ -2788,6 +2801,12 @@ namespace UGTLive
                             textColor = textObj.TextColor?.Color ?? Colors.White;
                         }
                         
+                        // Apply opacity setting to background color
+                        double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
+                        byte alphaValue = (byte)(bgOpacity * 255);
+                        bgColor = Color.FromArgb(alphaValue, bgColor.R, bgColor.G, bgColor.B);
+                        Console.WriteLine($"[MAINWINDOW] Applying opacity {bgOpacity:F2} (alpha={alphaValue}) - Final color: R:{bgColor.R} G:{bgColor.G} B:{bgColor.B} A:{bgColor.A}");
+                        
                         // Get font settings
                         string fontFamily = isTranslated
                             ? ConfigManager.Instance.GetTargetLanguageFontFamily()
@@ -2812,9 +2831,13 @@ namespace UGTLive
                         // Use 70% of height as a starting point, ensuring it's reasonable
                         double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
                         
-                        // Build the div for this text object
+                        // Build the div for this text object with box-shadow for semi-transparent background
+                        // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
+                        string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
+                        Console.WriteLine($"[MAINWINDOW] Box-shadow CSS: inset 0 0 0 1000px {rgbaString}");
                         string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
-                            $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
+                            $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
+                            $"background-color: transparent; " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
                             $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +

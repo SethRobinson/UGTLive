@@ -614,10 +614,19 @@ namespace UGTLive
             try
             {
                 var environment = await WebViewEnvironmentManager.GetEnvironmentAsync();
+                
+                // CRITICAL: Set WebView2 background to transparent BEFORE initializing
+                // This enables CSS rgba() transparency to work properly
+                textOverlayWebView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
+                Console.WriteLine($"[WEBVIEW2] Set DefaultBackgroundColor to Transparent");
+                
                 await textOverlayWebView.EnsureCoreWebView2Async(environment);
                 
                 if (textOverlayWebView.CoreWebView2 != null)
                 {
+                    Console.WriteLine($"[WEBVIEW2] CoreWebView2 initialized successfully");
+                    Console.WriteLine($"[WEBVIEW2] DefaultBackgroundColor is: {textOverlayWebView.DefaultBackgroundColor}");
+                    
                     textOverlayWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     textOverlayWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     textOverlayWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
@@ -653,6 +662,13 @@ namespace UGTLive
         
         private string _lastOverlayHtml = string.Empty;
         
+        // Method to force clear the HTML cache (for when settings change)
+        public void ClearOverlayCache()
+        {
+            Console.WriteLine("[MONITOR] ClearOverlayCache called - forcing HTML regeneration");
+            _lastOverlayHtml = string.Empty;
+        }
+        
         private void UpdateOverlayWebView()
         {
             if (!_overlayWebViewInitialized || textOverlayWebView?.CoreWebView2 == null)
@@ -667,9 +683,11 @@ namespace UGTLive
                 // Only update if HTML changed
                 if (html == _lastOverlayHtml)
                 {
+                    Console.WriteLine("[WEBVIEW2] HTML unchanged, skipping update");
                     return;
                 }
                 
+                Console.WriteLine($"[WEBVIEW2] Updating overlay HTML ({html.Length} chars)");
                 _lastOverlayHtml = html;
                 textOverlayWebView.CoreWebView2.NavigateToString(html);
             }
@@ -762,11 +780,10 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
-            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
+            html.AppendLine("  0%, 100% { filter: drop-shadow(0 0 28px rgba(120, 220, 255, 0.9)) drop-shadow(0 0 12px rgba(100, 200, 255, 0.7)); }");
+            html.AppendLine("  50% { filter: drop-shadow(0 0 50px rgba(140, 230, 255, 1.0)) drop-shadow(0 0 25px rgba(120, 220, 255, 0.9)); }");
             html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
@@ -1002,6 +1019,12 @@ namespace UGTLive
                             bgColor = textObj.BackgroundColor?.Color ?? Colors.Black;
                         }
                         
+                        // Apply opacity setting to background color
+                        double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
+                        byte alphaValue = (byte)(bgOpacity * 255);
+                        bgColor = Color.FromArgb(alphaValue, bgColor.R, bgColor.G, bgColor.B);
+                        Console.WriteLine($"[MONITOR] Applying opacity {bgOpacity:F2} (alpha={alphaValue}) - Final color: R:{bgColor.R} G:{bgColor.G} B:{bgColor.B} A:{bgColor.A}");
+                        
                         if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
                         {
                             textColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
@@ -1036,9 +1059,13 @@ namespace UGTLive
                         // Use 70% of height as a starting point, ensuring it's reasonable
                         double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
                         
-                        // Build the div for this text object (all on one line to avoid newline issues)
+                        // Build the inline style string with box-shadow for semi-transparent background
+                        // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
+                        string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
+                        Console.WriteLine($"[MONITOR] Box-shadow CSS: inset 0 0 0 1000px {rgbaString}");
                         string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
-                            $"background-color: rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3}); " +
+                            $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
+                            $"background-color: transparent; " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
                             $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
@@ -2187,11 +2214,10 @@ namespace UGTLive
             html.AppendLine("}");
             html.AppendLine(".text-overlay.playing {");
             html.AppendLine("  animation: playingPulse 1.2s ease-in-out infinite;");
-            html.AppendLine("  box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7);");
             html.AppendLine("}");
             html.AppendLine("@keyframes playingPulse {");
-            html.AppendLine("  0%, 100% { box-shadow: 0 0 28px rgba(120, 220, 255, 0.9), 0 0 12px rgba(100, 200, 255, 0.7); }");
-            html.AppendLine("  50% { box-shadow: 0 0 50px rgba(140, 230, 255, 1.0), 0 0 25px rgba(120, 220, 255, 0.9); }");
+            html.AppendLine("  0%, 100% { filter: drop-shadow(0 0 28px rgba(120, 220, 255, 0.9)) drop-shadow(0 0 12px rgba(100, 200, 255, 0.7)); }");
+            html.AppendLine("  50% { filter: drop-shadow(0 0 50px rgba(140, 230, 255, 1.0)) drop-shadow(0 0 25px rgba(120, 220, 255, 0.9)); }");
             html.AppendLine("}");
             
             // Add font imports if needed
@@ -2254,6 +2280,12 @@ namespace UGTLive
                         bgC = textObj.BackgroundColor?.Color ?? Colors.Black;
                     }
                     
+                    // Apply opacity to background color
+                    double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
+                    byte alphaValue = (byte)(bgOpacity * 255);
+                    bgC = Color.FromArgb(alphaValue, bgC.R, bgC.G, bgC.B);
+                    Console.WriteLine($"Applying BG opacity: {bgOpacity:F2} (alpha: {alphaValue}) to color R:{bgC.R} G:{bgC.G} B:{bgC.B} A:{bgC.A}");
+                    
                     if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
                     {
                         textC = ConfigManager.Instance.GetMonitorOverrideFontColor();
@@ -2265,6 +2297,8 @@ namespace UGTLive
                     
                     string bgColor = ColorToHex(bgC);
                     string textColor = ColorToHex(textC);
+                    
+                    Console.WriteLine($"[OVERLAY] BG Color CSS: {bgColor}, Text Color CSS: {textColor}");
                     
                     // Determine font settings based on translation state
                     bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
@@ -2324,7 +2358,12 @@ namespace UGTLive
                 html.AppendLine($"  top: {top}px;");
                 html.AppendLine($"  width: {width}px;");
                 html.AppendLine($"  height: {height}px;");
-                html.AppendLine($"  background-color: {bgColor};");
+                
+                // Use inset box-shadow for semi-transparent background (WebView2 workaround)
+                // WebView2 doesn't support rgba() on background-color, but DOES support it on box-shadow
+                html.AppendLine($"  box-shadow: inset 0 0 0 1000px {bgColor};");
+                html.AppendLine($"  background-color: transparent;");
+                
                 html.AppendLine($"  color: {textColor};");
                 html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
                 html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
@@ -2706,7 +2745,12 @@ namespace UGTLive
         
         private string ColorToHex(Color color)
         {
-            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+            // Use rgba() format to support transparency
+            // Convert alpha from 0-255 to 0.0-1.0 for CSS
+            double alpha = color.A / 255.0;
+            string result = $"rgba({color.R}, {color.G}, {color.B}, {alpha:F3})";
+            Console.WriteLine($"ColorToHex: R:{color.R} G:{color.G} B:{color.B} A:{color.A} -> {result}");
+            return result;
         }
         
         // Check if a language supports vertical text
