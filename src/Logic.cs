@@ -1492,7 +1492,7 @@ namespace UGTLive
         }
 
         static readonly HashSet<char> g_charsToStripFromHash =
-             new(" \n\r,.-:;ー・…。、~』!^へ");
+             new(" \n\r,.-:;ー・…。、~』!^へ·･");
 
 
         private string GenerateContentHash(JsonElement resultsElement)
