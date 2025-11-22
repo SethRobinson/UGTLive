@@ -2557,6 +2557,13 @@ namespace UGTLive
             html.AppendLine("  white-space: normal;");
             html.AppendLine("  word-wrap: break-word;");
             html.AppendLine("  padding: 2px;"); // Minimal padding for visual spacing
+            html.AppendLine("  margin: 0;");
+            html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
+            html.AppendLine("  display: flex;");
+            html.AppendLine("  align-items: center;");
+            html.AppendLine("  justify-content: flex-start;");
+            int borderRadius = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius();
+            html.AppendLine($"  border-radius: {borderRadius}px;"); // Rounded corners to better fit speech bubbles
             
             if (canInteract)
             {
@@ -2568,11 +2575,6 @@ namespace UGTLive
                 html.AppendLine("  pointer-events: none;");
                 html.AppendLine("  user-select: none;");
             }
-            html.AppendLine("  margin: 0;");
-            html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
-            html.AppendLine("  display: flex;");
-            html.AppendLine("  align-items: center;");
-            html.AppendLine("  justify-content: flex-start;");
             html.AppendLine("}");
             html.AppendLine(".vertical-text {");
             html.AppendLine("  writing-mode: vertical-rl;");
@@ -2970,7 +2972,7 @@ namespace UGTLive
                             html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
                         
-                        // Wrap text in span to isolate it from audio icon in flex layout
+                        // Wrap text in span
                         html.Append($"<span class='text-content'>{encodedText}</span>");
                         html.AppendLine("</div>");
                     }

@@ -358,13 +358,19 @@ namespace UGTLive
                         {
                             currentWord.Text += character.Text;
                             
-                            double right = Math.Max(currentWord.Bounds.X + currentWord.Bounds.Width, 
+                            // Expand bounding box to include the new character in all directions
+                            double minX = Math.Min(currentWord.Bounds.X, character.Bounds.X);
+                            double minY = Math.Min(currentWord.Bounds.Y, character.Bounds.Y);
+                            double maxX = Math.Max(currentWord.Bounds.X + currentWord.Bounds.Width, 
                                                character.Bounds.X + character.Bounds.Width);
-                            double bottom = Math.Max(currentWord.Bounds.Y + currentWord.Bounds.Height, 
+                            double maxY = Math.Max(currentWord.Bounds.Y + currentWord.Bounds.Height, 
                                                character.Bounds.Y + character.Bounds.Height);
                                                
-                            currentWord.Bounds.Width = right - currentWord.Bounds.X;
-                            currentWord.Bounds.Height = bottom - currentWord.Bounds.Y;
+                            // Update position and size to properly expand bounding box
+                            currentWord.Bounds.X = minX;
+                            currentWord.Bounds.Y = minY;
+                            currentWord.Bounds.Width = maxX - minX;
+                            currentWord.Bounds.Height = maxY - minY;
                             
                             currentWord.Children.Add(character);
                         }
@@ -653,14 +659,19 @@ namespace UGTLive
                     }
                     bestParagraph.Text += line.Text;
                     
-                    // Update bounds
-                    double right = Math.Max(bestParagraph.Bounds.X + bestParagraph.Bounds.Width, 
+                    // Update bounds - expand in all directions to include the new line
+                    double minX = Math.Min(bestParagraph.Bounds.X, line.Bounds.X);
+                    double minY = Math.Min(bestParagraph.Bounds.Y, line.Bounds.Y);
+                    double maxX = Math.Max(bestParagraph.Bounds.X + bestParagraph.Bounds.Width, 
                                       line.Bounds.X + line.Bounds.Width);
-                    double bottom = Math.Max(bestParagraph.Bounds.Y + bestParagraph.Bounds.Height, 
+                    double maxY = Math.Max(bestParagraph.Bounds.Y + bestParagraph.Bounds.Height, 
                                       line.Bounds.Y + line.Bounds.Height);
                     
-                    bestParagraph.Bounds.Width = right - bestParagraph.Bounds.X;
-                    bestParagraph.Bounds.Height = bottom - bestParagraph.Bounds.Y;
+                    // Update position and size to properly expand bounding box
+                    bestParagraph.Bounds.X = minX;
+                    bestParagraph.Bounds.Y = minY;
+                    bestParagraph.Bounds.Width = maxX - minX;
+                    bestParagraph.Bounds.Height = maxY - minY;
                 }
                 else
                 {

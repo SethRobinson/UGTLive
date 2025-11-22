@@ -200,6 +200,7 @@ namespace UGTLive
         public const string MONITOR_OVERRIDE_FONT_COLOR = "monitor_override_font_color";
         public const string MONITOR_TEXT_AREA_EXPANSION_WIDTH = "monitor_text_area_expansion_width";
         public const string MONITOR_TEXT_AREA_EXPANSION_HEIGHT = "monitor_text_area_expansion_height";
+        public const string MONITOR_TEXT_OVERLAY_BORDER_RADIUS = "monitor_text_overlay_border_radius";
         public const string MONITOR_OVERLAY_MODE = "monitor_overlay_mode";
         public const string MAIN_WINDOW_OVERLAY_MODE = "main_window_overlay_mode";
         public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
@@ -470,6 +471,7 @@ namespace UGTLive
             // Text Area Size Expansion defaults
             _configValues[MONITOR_TEXT_AREA_EXPANSION_WIDTH] = "6";
             _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = "2";
+            _configValues[MONITOR_TEXT_OVERLAY_BORDER_RADIUS] = "8";
             
             // Manga OCR minimum region size defaults
             _configValues[MANGA_OCR_MIN_REGION_WIDTH] = "10";
@@ -2825,6 +2827,24 @@ Here is the input JSON:";
             _configValues[MONITOR_TEXT_AREA_EXPANSION_HEIGHT] = height.ToString();
             SaveConfig();
             Console.WriteLine($"Monitor text area expansion height set to: {height}");
+        }
+
+        // Get/Set Monitor Text Overlay Border Radius
+        public int GetMonitorTextOverlayBorderRadius()
+        {
+            string value = GetValue(MONITOR_TEXT_OVERLAY_BORDER_RADIUS, "8");
+            if (int.TryParse(value, out int radius) && radius >= 0)
+            {
+                return radius;
+            }
+            return 8; // Default: 8 pixels
+        }
+
+        public void SetMonitorTextOverlayBorderRadius(int radius)
+        {
+            _configValues[MONITOR_TEXT_OVERLAY_BORDER_RADIUS] = radius.ToString();
+            SaveConfig();
+            Console.WriteLine($"Monitor text overlay border radius set to: {radius}");
         }
 
         // Get/Set Monitor Overlay Mode

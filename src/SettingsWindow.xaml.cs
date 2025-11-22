@@ -496,12 +496,15 @@ namespace UGTLive
             // Load Text Area Size Expansion settings
             textAreaExpansionWidthTextBox.LostFocus -= TextAreaExpansionWidthTextBox_LostFocus;
             textAreaExpansionHeightTextBox.LostFocus -= TextAreaExpansionHeightTextBox_LostFocus;
+            textOverlayBorderRadiusTextBox.LostFocus -= TextOverlayBorderRadiusTextBox_LostFocus;
             
             textAreaExpansionWidthTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionWidth().ToString();
             textAreaExpansionHeightTextBox.Text = ConfigManager.Instance.GetMonitorTextAreaExpansionHeight().ToString();
+            textOverlayBorderRadiusTextBox.Text = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius().ToString();
             
             textAreaExpansionWidthTextBox.LostFocus += TextAreaExpansionWidthTextBox_LostFocus;
             textAreaExpansionHeightTextBox.LostFocus += TextAreaExpansionHeightTextBox_LostFocus;
+            textOverlayBorderRadiusTextBox.LostFocus += TextOverlayBorderRadiusTextBox_LostFocus;
             
             // Load Font Settings
             LoadFontSettings();
@@ -3623,6 +3626,35 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating text area expansion height: {ex.Message}");
+            }
+        }
+        
+        private void TextOverlayBorderRadiusTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Skip if initializing
+                if (_isInitializing)
+                    return;
+                    
+                if (int.TryParse(textOverlayBorderRadiusTextBox.Text, out int radius) && radius >= 0)
+                {
+                    ConfigManager.Instance.SetMonitorTextOverlayBorderRadius(radius);
+                    Console.WriteLine($"Text overlay border radius set to: {radius}");
+                    
+                    // Refresh overlays to apply the new border radius
+                    MonitorWindow.Instance.RefreshOverlays();
+                    MainWindow.Instance.RefreshMainWindowOverlays();
+                }
+                else
+                {
+                    // Reset to current value from config if invalid
+                    textOverlayBorderRadiusTextBox.Text = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating text overlay border radius: {ex.Message}");
             }
         }
         

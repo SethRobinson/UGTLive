@@ -985,6 +985,14 @@
                                 <TextBox x:Name="textAreaExpansionHeightTextBox" Grid.Row="12" Grid.Column="1" 
                                         Margin="0,5" Text="2" LostFocus="TextAreaExpansionHeightTextBox_LostFocus"
                                         ToolTip="Expansion height in pixels. This value is divided by 2 and added to top and bottom."/>
+                                
+                                <!-- Text Overlay Border Radius -->
+                                <TextBlock Text="Border Radius (pixels):" Grid.Row="13" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Border radius for text overlay backgrounds. Higher values create more rounded corners, better for speech bubbles."/>
+                                <TextBox x:Name="textOverlayBorderRadiusTextBox" Grid.Row="13" Grid.Column="1" 
+                                        Margin="0,5" Text="8" LostFocus="TextOverlayBorderRadiusTextBox_LostFocus"
+                                        ToolTip="Border radius for text overlay backgrounds. Higher values create more rounded corners, better for speech bubbles."/>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

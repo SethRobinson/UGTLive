@@ -719,14 +719,16 @@ namespace UGTLive
             html.AppendLine("  overflow: visible;"); // Allow audio icon to show outside box
             html.AppendLine("  white-space: normal;");
             html.AppendLine("  word-wrap: break-word;");
-            html.AppendLine("  pointer-events: auto;");
-            html.AppendLine("  user-select: text;");
             html.AppendLine("  padding: 2px;"); // Minimal padding for visual spacing
             html.AppendLine("  margin: 0;");
             html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
             html.AppendLine("  display: flex;");
             html.AppendLine("  align-items: center;");
             html.AppendLine("  justify-content: flex-start;");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("  user-select: text;");
+            int borderRadius = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius();
+            html.AppendLine($"  border-radius: {borderRadius}px;"); // Rounded corners to better fit speech bubbles
             html.AppendLine("}");
             html.AppendLine(".vertical-text {");
             html.AppendLine("  writing-mode: vertical-rl;");
@@ -745,7 +747,7 @@ namespace UGTLive
             html.AppendLine(".audio-icon {");
             html.AppendLine("  position: absolute;");
             html.AppendLine("  top: 0px;"); // Align with top of text box
-            html.AppendLine("  left: -24px;"); // Position outside to the left
+            html.AppendLine("  left: -24px;"); // Position outside to the left of the overlay
             html.AppendLine("  width: 20px;");
             html.AppendLine("  height: 20px;");
             html.AppendLine("  cursor: pointer;");
@@ -758,6 +760,8 @@ namespace UGTLive
             html.AppendLine("  justify-content: center;");
             html.AppendLine("  pointer-events: auto;");
             html.AppendLine("  user-select: none;");
+            html.AppendLine("  flex: 0 0 auto;"); // Explicitly remove from flex flow
+            html.AppendLine("  margin: 0;"); // Ensure no margin affects positioning
             html.AppendLine("}");
             html.AppendLine(".audio-icon:hover {");
             html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
@@ -2159,7 +2163,8 @@ namespace UGTLive
             html.AppendLine(".content-wrapper { display: flex; flex-direction: column; align-items: center; padding-top: 60px; }");
             html.AppendLine(".container { position: relative; display: inline-block; transform: translateZ(0); will-change: auto; }");
             html.AppendLine(".monitor-image { display: block; transform: translateZ(0); will-change: auto; }");
-            html.AppendLine(".text-overlay { position: absolute; box-sizing: border-box; overflow: visible; display: flex; align-items: center; justify-content: flex-start; padding: 2px; }");
+            int borderRadiusInline = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius();
+            html.AppendLine($".text-overlay {{ position: absolute; box-sizing: border-box; overflow: visible; display: flex; align-items: center; justify-content: flex-start; padding: 2px; border-radius: {borderRadiusInline}px; }}");
             html.AppendLine(".text-content { flex: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
             html.AppendLine(".controls-container { position: fixed; top: 10px; left: 0; right: 0; z-index: 1000; display: flex; justify-content: center; }");
             html.AppendLine(".controls { background-color: #202020; padding: 10px 20px; border-radius: 5px; display: inline-block; }");
@@ -2172,7 +2177,7 @@ namespace UGTLive
             html.AppendLine(".audio-icon {");
             html.AppendLine("  position: absolute;");
             html.AppendLine("  top: 0px;"); // Align with top of text box
-            html.AppendLine("  left: -24px;"); // Position outside to the left
+            html.AppendLine("  left: -24px;"); // Position outside to the left of the overlay
             html.AppendLine("  width: 20px;");
             html.AppendLine("  height: 20px;");
             html.AppendLine("  cursor: pointer;");
@@ -2184,6 +2189,8 @@ namespace UGTLive
             html.AppendLine("  align-items: center;");
             html.AppendLine("  justify-content: center;");
             html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("  flex: 0 0 auto;"); // Explicitly remove from flex flow
+            html.AppendLine("  margin: 0;"); // Ensure no margin affects positioning
             html.AppendLine("}");
             html.AppendLine(".audio-icon:hover {");
             html.AppendLine("  background: rgba(0, 0, 0, 0.7);");
