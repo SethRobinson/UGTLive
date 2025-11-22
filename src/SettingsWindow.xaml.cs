@@ -459,6 +459,12 @@ namespace UGTLive
                 Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
             }
             
+            // Load Cloud OCR Color Correction
+            if (cloudOcrColorCorrectionCheckBox != null)
+            {
+                cloudOcrColorCorrectionCheckBox.IsChecked = ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled();
+            }
+
             // Note: Leave translation onscreen setting is loaded per-OCR in UpdateOcrSpecificSettings()
             
             // Load Monitor Window Override Color settings
@@ -984,6 +990,31 @@ namespace UGTLive
             ConfigManager.Instance.SetPauseOcrWhileTranslatingEnabled(isEnabled);
         }
         
+        private void CloudOcrColorCorrectionCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+             // Skip if initializing to prevent overriding values from config
+            if (_isInitializing)
+            {
+                return;
+            }
+            
+            bool isEnabled = cloudOcrColorCorrectionCheckBox.IsChecked ?? false;
+            // Save to config
+            ConfigManager.Instance.SetCloudOcrColorCorrectionEnabled(isEnabled);
+            
+            // Reset OCR hash to force refresh with new color detection setting
+            Logic.Instance.ResetHash();
+            
+            // Clear existing text objects to trigger fresh OCR with colors
+            Logic.Instance.ClearAllTextObjects();
+            
+            // Trigger OCR if currently active
+            if (MainWindow.Instance.GetIsStarted())
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+        }
+        
         private void LeaveTranslationOnscreenCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Skip if initializing
@@ -1163,6 +1194,15 @@ namespace UGTLive
 
                 // Glue settings are available for all OCRs EXCEPT MangaOCR (which has its own logic/model)
                 bool shouldShowGlueSettings = !isMangaOcrSelected;
+                
+                // Color Correction is only for Windows OCR and Google Cloud Vision
+                bool isWindowsOcrSelected = string.Equals(selectedOcr, "Windows OCR", StringComparison.OrdinalIgnoreCase);
+                bool showColorCorrection = isGoogleVisionSelected || isWindowsOcrSelected;
+                
+                if (cloudOcrColorCorrectionLabel != null)
+                    cloudOcrColorCorrectionLabel.Visibility = showColorCorrection ? Visibility.Visible : Visibility.Collapsed;
+                if (cloudOcrColorCorrectionCheckBox != null)
+                    cloudOcrColorCorrectionCheckBox.Visibility = showColorCorrection ? Visibility.Visible : Visibility.Collapsed;
 
                 // Show/hide Manga OCR-specific settings
                 if (mangaOcrMinWidthLabel != null)

@@ -127,7 +127,13 @@ namespace UGTLive
                 if (response.IsSuccessStatusCode)
                 {
                     string responseJson = await response.Content.ReadAsStringAsync();
-                    return ParseGoogleVisionResponse(responseJson);
+                    var textObjects = ParseGoogleVisionResponse(responseJson);
+
+                    // Color analysis is now performed later in Logic.DisplayOcrResults
+                    // after hash check and block detection, on the merged blocks only
+                    // This is much more efficient than analyzing every individual text element
+
+                    return textObjects;
                 }
                 else
                 {
@@ -534,22 +540,70 @@ namespace UGTLive
         }
 
         // Process OCR results and send to the main logic
-        public async Task ProcessGoogleVisionResults(List<TextObject> textObjects)
+        public async Task ProcessGoogleVisionResults(List<TextObject> textObjects, System.Drawing.Bitmap? bitmap = null)
         {
             try
             {
-                // Convert TextObjects to the JSON format expected by ProcessReceivedTextJsonData
-                var results = textObjects.Select(obj => new
+                // Perform color analysis later in Logic.DisplayOcrResults (after hash check)
+                /*
+                if (ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled() && textObjects.Count > 0 && bitmap != null)
                 {
-                    text = obj.Text,
-                    confidence = obj.Confidence,
-                    rect = new[] {
-                        new[] { obj.X, obj.Y },
-                        new[] { obj.X + obj.Width, obj.Y },
-                        new[] { obj.X + obj.Width, obj.Y + obj.Height },
-                        new[] { obj.X, obj.Y + obj.Height }
-                    },
-                    is_character = false // Google Vision returns words/blocks, not characters
+                    foreach (var textObj in textObjects)
+                    {
+                        try
+                        {
+                            // Crop the text object from the original bitmap
+                            int x = Math.Max(0, (int)textObj.X);
+                            int y = Math.Max(0, (int)textObj.Y);
+                            int w = Math.Min((int)textObj.Width, bitmap.Width - x);
+                            int h = Math.Min((int)textObj.Height, bitmap.Height - y);
+
+                            if (w > 0 && h > 0)
+                            {
+                                using (var crop = bitmap.Clone(new System.Drawing.Rectangle(x, y, w, h), bitmap.PixelFormat))
+                                {
+                                    textObj.ColorAnalysisData = await Logic.Instance.GetColorAnalysisAsync(crop);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Color correction failed for text object: {ex.Message}");
+                        }
+                    }
+                }
+                */
+
+                // Convert TextObjects to the JSON format expected by ProcessReceivedTextJsonData
+                var results = textObjects.Select(obj => 
+                {
+                    object? backgroundColor = null;
+                    object? foregroundColor = null;
+                    
+                    if (obj.ColorAnalysisData.HasValue)
+                    {
+                        // We need to convert JsonElement to object/dictionary to be serialized correctly again
+                        // or just use the JsonElement directly as it serializes fine usually
+                        if (obj.ColorAnalysisData.Value.TryGetProperty("background_color", out var bg)) 
+                            backgroundColor = bg;
+                        if (obj.ColorAnalysisData.Value.TryGetProperty("foreground_color", out var fg)) 
+                            foregroundColor = fg;
+                    }
+
+                    return new
+                    {
+                        text = obj.Text,
+                        confidence = obj.Confidence,
+                        rect = new[] {
+                            new[] { obj.X, obj.Y },
+                            new[] { obj.X + obj.Width, obj.Y },
+                            new[] { obj.X + obj.Width, obj.Y + obj.Height },
+                            new[] { obj.X, obj.Y + obj.Height }
+                        },
+                        is_character = false, // Google Vision returns words/blocks, not characters
+                        background_color = backgroundColor,
+                        foreground_color = foregroundColor
+                    };
                 }).ToList();
 
                 var response = new

@@ -268,6 +268,16 @@
                                          Unchecked="LeaveTranslationOnscreenCheckBox_CheckedChanged"
                                          ToolTip="Always show the translation on the Monitor window and don't bother showing the source language, makes it easier to read translations while new ones are being made"/>
                                 
+                                <!-- Cloud OCR Color Correction -->
+                                <TextBlock x:Name="cloudOcrColorCorrectionLabel" Text="Use EasyOCR service for detecting colors:" Grid.Row="7" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="For Cloud/Windows OCR: Send text images to EasyOCR service to detect color. Requires EasyOCR service to be running."/>
+                                <CheckBox x:Name="cloudOcrColorCorrectionCheckBox" Grid.Row="7" Grid.Column="1"
+                                         Margin="0,5" IsChecked="False"
+                                         Checked="CloudOcrColorCorrectionCheckBox_CheckedChanged"
+                                         Unchecked="CloudOcrColorCorrectionCheckBox_CheckedChanged"
+                                         ToolTip="For Cloud/Windows OCR: Send text images to EasyOCR service to detect color. Requires EasyOCR service to be running."/>
+
                                 <!-- Manga OCR Minimum Region Width - Only visible when Manga OCR is selected -->
                                 <TextBlock x:Name="mangaOcrMinWidthLabel" Text="Min Text Region Width (px):" Grid.Row="8" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"

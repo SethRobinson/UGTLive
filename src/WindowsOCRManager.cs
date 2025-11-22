@@ -186,10 +186,14 @@ namespace UGTLive
         }
 
         // Process Windows OCR results
-        public Task ProcessWindowsOcrResults(List<Windows.Media.Ocr.OcrLine> textLines, string languageCode = "en")
+        public async Task ProcessWindowsOcrResults(List<Windows.Media.Ocr.OcrLine> textLines, System.Drawing.Bitmap bitmap, string languageCode = "en")
         {
             try
             {
+                // Disable immediate color correction here - moved to Logic.DisplayOcrResults
+                // Check if color correction is enabled
+                // bool colorCorrectionEnabled = ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled();
+
                 // Create a JSON response similar to what EasyOCR would return
                 var results = new List<object>();
                 
@@ -219,13 +223,53 @@ namespace UGTLive
                             new[] { (double)wordRect.X, (double)(wordRect.Y + wordRect.Height) }
                         };
                         
+                        object? backgroundColor = null;
+                        object? foregroundColor = null;
+
+                        // Perform color correction later in Logic.DisplayOcrResults
+                        /*
+                        if (colorCorrectionEnabled)
+                        {
+                            try
+                            {
+                                // Crop the word from the original bitmap
+                                // Ensure coordinates are within bounds
+                                int x = Math.Max(0, (int)wordRect.X);
+                                int y = Math.Max(0, (int)wordRect.Y);
+                                int w = Math.Min((int)wordRect.Width, bitmap.Width - x);
+                                int h = Math.Min((int)wordRect.Height, bitmap.Height - y);
+
+                                if (w > 0 && h > 0)
+                                {
+                                    using (var crop = bitmap.Clone(new System.Drawing.Rectangle(x, y, w, h), bitmap.PixelFormat))
+                                    {
+                                        var colorInfo = await Logic.Instance.GetColorAnalysisAsync(crop);
+                                        if (colorInfo.HasValue)
+                                        {
+                                            if (colorInfo.Value.TryGetProperty("background_color", out var bgProp))
+                                                backgroundColor = bgProp;
+                                            if (colorInfo.Value.TryGetProperty("foreground_color", out var fgProp))
+                                                foregroundColor = fgProp;
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Color correction failed for word '{wordText}': {ex.Message}");
+                            }
+                        }
+                        */
+                        
                         // Add the word to results
                         results.Add(new
                         {
                             text = wordText,
                             confidence = 0.9, // Windows OCR doesn't provide confidence
                             rect = box,
-                            is_character = false
+                            is_character = false,
+                            background_color = backgroundColor,
+                            foreground_color = foregroundColor
                         });
                     }
                 }
@@ -257,9 +301,6 @@ namespace UGTLive
                 Console.WriteLine($"Error processing Windows OCR results: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
-
-            // Return a completed task since this method doesn't use await
-            return Task.CompletedTask;
         }
 
     }

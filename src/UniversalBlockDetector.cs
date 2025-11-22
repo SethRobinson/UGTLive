@@ -810,10 +810,12 @@ namespace UGTLive
                         
                         void CollectColors(TextElement el)
                         {
-                            if (el.OriginalItem.ValueKind != JsonValueKind.Undefined)
+                            if (el.OriginalItem.ValueKind != JsonValueKind.Undefined && el.OriginalItem.ValueKind != JsonValueKind.Null)
                             {
-                                if (el.OriginalItem.TryGetProperty("foreground_color", out JsonElement fg)) foregroundColors.Add((fg, el.Confidence));
-                                if (el.OriginalItem.TryGetProperty("background_color", out JsonElement bg)) backgroundColors.Add((bg, el.Confidence));
+                                if (el.OriginalItem.TryGetProperty("foreground_color", out JsonElement fg) && fg.ValueKind != JsonValueKind.Null) 
+                                    foregroundColors.Add((fg, el.Confidence));
+                                if (el.OriginalItem.TryGetProperty("background_color", out JsonElement bg) && bg.ValueKind != JsonValueKind.Null) 
+                                    backgroundColors.Add((bg, el.Confidence));
                             }
                             if (el.Children != null) foreach (var child in el.Children) CollectColors(child);
                         }

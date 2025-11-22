@@ -12,6 +12,7 @@ using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 
 namespace UGTLive
 {
@@ -399,6 +400,8 @@ namespace UGTLive
                 {
                     Log("Skipping OCR results - waiting for translation to finish");
                 }
+                // Clear stored bitmap since we're not processing results
+                ClearCurrentProcessingBitmap();
                 return;
             }
 
@@ -545,6 +548,8 @@ namespace UGTLive
                                                 Log($"Settling reset (content stable, already processed). Elapsed: {(DateTime.Now - _settlingStartTime).TotalSeconds:F2}s");
                                             }
                                             _settlingStartTime = DateTime.MinValue; 
+                                            // Clear stored bitmap since we're not displaying results
+                                            ClearCurrentProcessingBitmap();
                                             OnFinishedThings(true); // Reset status, hide "settling"
                                             return;
                                         }
@@ -571,6 +576,8 @@ namespace UGTLive
                                                 Log($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more (settle: {settleTime}s, max: {maxSettleTime}s, elapsed: {elapsedSettlingTime:F2}s, remaining max: {remainingMaxSettleTime:F2}s).");
                                                 ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                                 MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
+                                                // Clear stored bitmap since we're not displaying results yet
+                                                ClearCurrentProcessingBitmap();
                                                 return; 
                                             }
                                         }
@@ -629,6 +636,8 @@ namespace UGTLive
                                                 ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                                 MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                             }
+                                            // Clear stored bitmap since we're not displaying results yet
+                                            ClearCurrentProcessingBitmap();
                                             return;
                                         }
                                     }
@@ -652,6 +661,8 @@ namespace UGTLive
                                         MonitorWindow.Instance.RefreshOverlays();
                                         MainWindow.Instance.RefreshMainWindowOverlays();
                                     }
+                                    // Clear stored bitmap since hash matches and we're not displaying new results
+                                    ClearCurrentProcessingBitmap();
                                     OnFinishedThings(true);
                                     return;
                                 }
@@ -692,10 +703,20 @@ namespace UGTLive
                                     }
                                     
                                     stream.Position = 0;
+                                    
+                                    // Clone the JsonElement before the JsonDocument is disposed
+                                    // This is necessary because DisplayOcrResults is async and may not complete
+                                    // before the using block exits
+                                    JsonElement clonedRoot;
                                     using (JsonDocument newDoc = JsonDocument.Parse(stream))
                                     {
-                                        DisplayOcrResults(newDoc.RootElement);
+                                        clonedRoot = newDoc.RootElement.Clone();
                                     }
+                                    
+                                    // Now call DisplayOcrResults with the cloned element
+                                    // Note: This is async void, so it returns immediately on first await
+                                    // Translation triggering has been moved inside DisplayOcrResults
+                                    DisplayOcrResults(clonedRoot);
 
                                     _ocrProcessingStopwatch.Stop();
                                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -703,52 +724,6 @@ namespace UGTLive
                                         Log($"OCR JSON processing took {_ocrProcessingStopwatch.ElapsedMilliseconds} ms");
                                     }
 
-                                }
-
-                                // Add the detected text to the ChatBox
-                                if (_textObjects.Count > 0)
-                                {
-                                    // Build a string with all the detected text
-                                    StringBuilder detectedText = new StringBuilder();
-                                    foreach (var textObject in _textObjects)
-                                    {
-                                        detectedText.AppendLine(textObject.Text);
-                                    }
-                                    
-                                    // Add to ChatBox with empty translation if translate is disabled
-                                    string combinedText = detectedText.ToString().Trim();
-                                    if (!string.IsNullOrEmpty(combinedText))
-                                    {
-                                        if (MainWindow.Instance.GetTranslateEnabled())
-                                        {
-                                            // If translation is enabled, translate the text
-                                            if (!GetWaitingForTranslationToFinish())
-                                            {
-                                                //Log($"Translating text: {combinedText}");
-                                                // Translate the text objects
-                                                _lastChangeTime = DateTime.MinValue;
-                                                _ = TranslateTextObjectsAsync();
-                                                return;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // Only add to chat history if translation is disabled
-                                            _lastChangeTime = DateTime.MinValue;
-                                            MainWindow.Instance.AddTranslationToHistory(combinedText, "");
-                                            
-                                            if (ChatBoxWindow.Instance != null)
-                                            {
-                                                ChatBoxWindow.Instance.OnTranslationWasAdded(combinedText, "");
-                                            }
-                                        }
-                                    }
-                                    
-                                    OnFinishedThings(true);
-                                }
-                                else
-                                {
-                                    OnFinishedThings(true);
                                 }
                             }
                             else if (status == "error" && root.TryGetProperty("message", out JsonElement messageElement))
@@ -946,7 +921,7 @@ namespace UGTLive
         }
         
         // Display OCR results from JSON - processes character-level blocks
-        private void DisplayOcrResults(JsonElement root)
+        private async void DisplayOcrResults(JsonElement root)
         {
             try
             {
@@ -995,6 +970,10 @@ namespace UGTLive
                     {
                         Log($"DisplayOcrResults: Processing {resultCount} text blocks");
                     }
+                    
+                    // Determine if we should perform color correction now (only if enabled and we have a bitmap)
+                    bool performColorCorrection = ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled();
+                    System.Drawing.Bitmap? currentBitmap = GetCurrentProcessingBitmap();
                     
                     for (int i = 0; i < resultCount; i++)
                     {
@@ -1098,41 +1077,76 @@ namespace UGTLive
                             if (item.TryGetProperty("foreground_color", out JsonElement foregroundColorElement))
                             {
                                 foregroundColor = ParseColorFromJson(foregroundColorElement, isBackground: false);
-                                
-                                // Debug: Log the RGB values we're parsing
-                                if (foregroundColorElement.TryGetProperty("rgb", out JsonElement fgRgb) && 
-                                    fgRgb.ValueKind == JsonValueKind.Array && fgRgb.GetArrayLength() >= 3)
-                                {
-                                    int r = fgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)fgRgb[0].GetDouble();
-                                    int g = fgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)fgRgb[1].GetDouble();
-                                    int b = fgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)fgRgb[2].GetDouble();
-                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                                    {
-                                        Log($"Foreground color for '{text}': RGB({r}, {g}, {b})");
-                                    }
-                                }
                             }
                             
                             if (item.TryGetProperty("background_color", out JsonElement backgroundColorElement))
                             {
                                 backgroundColor = ParseColorFromJson(backgroundColorElement, isBackground: true);
-                                
-                                // Debug: Log the RGB values we're parsing
-                                if (backgroundColorElement.TryGetProperty("rgb", out JsonElement bgRgb) && 
-                                    bgRgb.ValueKind == JsonValueKind.Array && bgRgb.GetArrayLength() >= 3)
+                            }
+                            
+                            // Perform delayed color correction for Cloud/Windows OCR if enabled and colors are missing
+                            // NOTE: x, y, width, height are already calculated above from the rect/vertices
+                            if (performColorCorrection && currentBitmap != null && (foregroundColor == null || backgroundColor == null) && hasBox)
+                            {
+                                try 
                                 {
-                                    int r = bgRgb[0].TryGetInt32(out int rInt) ? rInt : (int)bgRgb[0].GetDouble();
-                                    int g = bgRgb[1].TryGetInt32(out int gInt) ? gInt : (int)bgRgb[1].GetDouble();
-                                    int b = bgRgb[2].TryGetInt32(out int bInt) ? bInt : (int)bgRgb[2].GetDouble();
-                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    // Use integer coordinates for cropping
+                                    int cropX = Math.Max(0, (int)x);
+                                    int cropY = Math.Max(0, (int)y);
+                                    int cropW = Math.Min((int)width, currentBitmap.Width - cropX);
+                                    int cropH = Math.Min((int)height, currentBitmap.Height - cropY);
+                                    
+                                    if (cropW > 0 && cropH > 0)
                                     {
-                                        Log($"Background color for '{text}': RGB({r}, {g}, {b})");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Log($"Color detection for block {i+1}/{resultCount}: '{text.Substring(0, Math.Min(20, text.Length))}...'");
+                                        }
+                                        
+                                        using (var crop = currentBitmap.Clone(new System.Drawing.Rectangle(cropX, cropY, cropW, cropH), currentBitmap.PixelFormat))
+                                        {
+                                            // We await here - this might slow down rendering of multiple blocks
+                                            // but ensures colors are correct before creating the TextObject
+                                            // Since this method is 'async void', awaiting is allowed.
+                                            var colorInfo = await GetColorAnalysisAsync(crop);
+                                            
+                                            if (colorInfo.HasValue)
+                                            {
+                                                if (colorInfo.Value.TryGetProperty("foreground_color", out JsonElement fg)) 
+                                                    foregroundColor = ParseColorFromJson(fg, isBackground: false);
+                                                if (colorInfo.Value.TryGetProperty("background_color", out JsonElement bg)) 
+                                                    backgroundColor = ParseColorFromJson(bg, isBackground: true);
+                                            }
+                                        }
                                     }
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        Log($"Delayed color correction failed: {ex.Message}");
                                 }
                             }
                          
                             // Create text object with bounding box coordinates and colors
-                            CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor);
+                            if (hasBox)
+                            {
+                                CreateTextObjectAtPosition(text, x, y, width, height, confidence, textOrientation, foregroundColor, backgroundColor);
+                            }
+                        }
+                    }
+                    
+                    // Clean up the current bitmap clone and stored bitmap as we are done with this OCR cycle
+                    if (currentBitmap != null)
+                    {
+                        try { currentBitmap.Dispose(); } catch { }
+                    }
+                    
+                    lock (_bitmapLock)
+                    {
+                        if (_currentProcessingBitmap != null)
+                        {
+                            try { _currentProcessingBitmap.Dispose(); } catch { }
+                            _currentProcessingBitmap = null;
                         }
                     }
                     
@@ -1150,6 +1164,53 @@ namespace UGTLive
                     
                     // Trigger source audio preloading right after OCR results are displayed
                     TriggerSourceAudioPreloading();
+                    
+                    // Trigger translation if enabled - MUST be done here after all awaits complete
+                    // because this method is async void and returns immediately on first await
+                    if (_textObjects.Count > 0)
+                    {
+                        // Build a string with all the detected text
+                        StringBuilder detectedText = new StringBuilder();
+                        foreach (var textObject in _textObjects)
+                        {
+                            detectedText.AppendLine(textObject.Text);
+                        }
+                        
+                        // Add to ChatBox with empty translation if translate is disabled
+                        string combinedText = detectedText.ToString().Trim();
+                        if (!string.IsNullOrEmpty(combinedText))
+                        {
+                            if (MainWindow.Instance.GetTranslateEnabled())
+                            {
+                                // If translation is enabled, translate the text
+                                if (!GetWaitingForTranslationToFinish())
+                                {
+                                    //Log($"Translating text: {combinedText}");
+                                    // Translate the text objects
+                                    _lastChangeTime = DateTime.MinValue;
+                                    _ = TranslateTextObjectsAsync();
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                // Only add to chat history if translation is disabled
+                                _lastChangeTime = DateTime.MinValue;
+                                MainWindow.Instance.AddTranslationToHistory(combinedText, "");
+                                
+                                if (ChatBoxWindow.Instance != null)
+                                {
+                                    ChatBoxWindow.Instance.OnTranslationWasAdded(combinedText, "");
+                                }
+                            }
+                        }
+                        
+                        OnFinishedThings(true);
+                    }
+                    else
+                    {
+                        OnFinishedThings(true);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1536,58 +1597,122 @@ namespace UGTLive
             return hash;
         }
        
+        // Store the current bitmap being processed for delayed color analysis
+        private System.Drawing.Bitmap? _currentProcessingBitmap;
+        private readonly object _bitmapLock = new object();
+
+        private void SetCurrentProcessingBitmap(System.Drawing.Bitmap bitmap)
+        {
+            lock (_bitmapLock)
+            {
+                // Dispose previous if exists
+                if (_currentProcessingBitmap != null)
+                {
+                    try { _currentProcessingBitmap.Dispose(); } catch { }
+                }
+                
+                // Clone the new one
+                try 
+                {
+                    _currentProcessingBitmap = (System.Drawing.Bitmap)bitmap.Clone();
+                }
+                catch (Exception ex)
+                {
+                    Log($"Failed to clone current processing bitmap: {ex.Message}");
+                    _currentProcessingBitmap = null;
+                }
+            }
+        }
+        
+        private System.Drawing.Bitmap? GetCurrentProcessingBitmap()
+        {
+            lock (_bitmapLock)
+            {
+                if (_currentProcessingBitmap == null) return null;
+                try 
+                {
+                    return (System.Drawing.Bitmap)_currentProcessingBitmap.Clone();
+                }
+                catch 
+                {
+                    return null;
+                }
+            }
+        }
+        
+        private void ClearCurrentProcessingBitmap()
+        {
+            lock (_bitmapLock)
+            {
+                if (_currentProcessingBitmap != null)
+                {
+                    try { _currentProcessingBitmap.Dispose(); } catch { }
+                    _currentProcessingBitmap = null;
+                }
+            }
+        }
+
         // Process bitmap directly with Windows OCR (no file saving)
         public async void ProcessWithWindowsOCR(System.Drawing.Bitmap bitmap, string sourceLanguage)
         {
+            // Create a clone of the bitmap immediately to avoid race conditions with the caller disposing it
+            System.Drawing.Bitmap? bitmapClone = null;
+            
             try
             {
+                 try
+                {
+                    bitmapClone = (System.Drawing.Bitmap)bitmap.Clone();
+                    // Store bitmap for color analysis - will be cleared if hash matches and we don't display
+                    SetCurrentProcessingBitmap(bitmapClone);
+                }
+                catch (Exception ex)
+                {
+                    Log($"Failed to clone bitmap for Windows OCR: {ex.Message}");
+                    return;
+                }
+            
                 //Log("Starting Windows OCR processing directly from bitmap...");
                 
                 try
                 {
                     // Get the text lines from Windows OCR directly from the bitmap
                     long currentSessionId = _overlaySessionId;
-                    var textLines = await WindowsOCRManager.Instance.GetOcrLinesFromBitmapAsync(bitmap, sourceLanguage);
+                    var textLines = await WindowsOCRManager.Instance.GetOcrLinesFromBitmapAsync(bitmapClone, sourceLanguage);
                     
                     // Check if session is still valid
                     if (currentSessionId != _overlaySessionId)
                     {
                         Log($"Ignoring stale Windows OCR result (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
+                        // Clear stored bitmap since we're not processing this result
+                        ClearCurrentProcessingBitmap();
                         return;
                     }
 
-                    // Log($"Windows OCR found {textLines.Count} text lines");
-                    
                     // Process the OCR results with language code
-                    await WindowsOCRManager.Instance.ProcessWindowsOcrResults(textLines, sourceLanguage);
+                    await WindowsOCRManager.Instance.ProcessWindowsOcrResults(textLines, bitmapClone, sourceLanguage);
+                    // Note: bitmapClone will be disposed in DisplayOcrResults after color analysis, or cleared if hash matches
                 }
                 catch (Exception ex)
                 {
                     Log($"Windows OCR error: {ex.Message}");
                     Log($"Stack trace: {ex.StackTrace}");
+                    // Clear stored bitmap on error
+                    ClearCurrentProcessingBitmap();
                 }
             }
             catch (Exception ex)
             {
                 Log($"Error processing bitmap with Windows OCR: {ex.Message}");
                 Log($"Stack trace: {ex.StackTrace}");
+                // Clear stored bitmap on error
+                ClearCurrentProcessingBitmap();
             }
             finally
             {
-                // Make sure bitmap is properly disposed
-                try
-                {
-                    // Dispose bitmap - System.Drawing.Bitmap doesn't have a Disposed property,
-                    // so we'll just dispose it if it's not null
-                    if (bitmap != null)
-                    {
-                        bitmap.Dispose();
-                    }
-                }
-                catch
-                {
-                    // Ignore disposal errors
-                }
+                // Don't dispose bitmapClone here - it will be disposed in DisplayOcrResults after color analysis
+                // or cleared if hash matches and we don't display results
+                // The caller handles disposal of the original bitmap parameter
 
                 // Check if we should pause OCR while translating
                 bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
@@ -1611,32 +1736,57 @@ namespace UGTLive
         // Process bitmap directly with Google Vision API (no file saving)
         public async void ProcessWithGoogleVision(System.Drawing.Bitmap bitmap, string sourceLanguage)
         {
+            // Create a clone of the bitmap to use for the duration of this async method
+            // because the original bitmap might be disposed by the caller
+            System.Drawing.Bitmap? bitmapClone = null;
+            
             try
             {
+                try
+                {
+                    bitmapClone = (System.Drawing.Bitmap)bitmap.Clone();
+                    // Store bitmap for color analysis - will be cleared if hash matches and we don't display
+                    SetCurrentProcessingBitmap(bitmapClone);
+                }
+                catch (Exception ex)
+                {
+                    Log($"Failed to clone bitmap for Google Vision: {ex.Message}");
+                    return;
+                }
+            
                 Log("Starting Google Vision OCR processing...");
                 
                 try
                 {
                     // Get the text objects from Google Vision API
                     long currentSessionId = _overlaySessionId;
-                    var textObjects = await GoogleVisionOCRService.Instance.ProcessImageAsync(bitmap, sourceLanguage);
+                    
+                    // We pass the clone for OCR
+                    var textObjects = await GoogleVisionOCRService.Instance.ProcessImageAsync(bitmapClone, sourceLanguage);
                     
                     // Check if session is still valid
                     if (currentSessionId != _overlaySessionId)
                     {
                         Log($"Ignoring stale Google Vision OCR result (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
+                        // Clear stored bitmap since we're not processing this result
+                        ClearCurrentProcessingBitmap();
                         return;
                     }
 
                     Log($"Google Vision OCR found {textObjects.Count} text objects");
                     
                     // Process the OCR results
-                    await GoogleVisionOCRService.Instance.ProcessGoogleVisionResults(textObjects);
+                    // IMPORTANT: Pass the CLONE for color analysis
+                    await GoogleVisionOCRService.Instance.ProcessGoogleVisionResults(textObjects, bitmapClone);
+                    // Note: bitmapClone will be disposed in DisplayOcrResults after color analysis, or cleared if hash matches
                 }
                 catch (Exception ex)
                 {
                     Log($"Google Vision OCR error: {ex.Message}");
                     Log($"Stack trace: {ex.StackTrace}");
+                    
+                    // Clear stored bitmap on error
+                    ClearCurrentProcessingBitmap();
                     
                     // Show error to user if API key might be missing
                     if (ex.Message.Contains("API key", StringComparison.OrdinalIgnoreCase))
@@ -1650,22 +1800,15 @@ namespace UGTLive
             {
                 Log($"Error processing bitmap with Google Vision: {ex.Message}");
                 Log($"Stack trace: {ex.StackTrace}");
+                // Clear stored bitmap on error
+                ClearCurrentProcessingBitmap();
             }
             finally
             {
-                // Make sure bitmap is properly disposed
-                try
-                {
-                    if (bitmap != null)
-                    {
-                        bitmap.Dispose();
-                    }
-                }
-                catch
-                {
-                    // Ignore disposal errors
-                }
-
+                // Don't dispose bitmapClone here - it will be disposed in DisplayOcrResults after color analysis
+                // or cleared if hash matches and we don't display results
+                // The caller handles disposal of the original bitmap parameter
+                
                 // Check if we should pause OCR while translating
                 bool pauseOcrWhileTranslating = ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled();
                 bool waitingForTranslation = GetWaitingForTranslationToFinish();
@@ -1849,6 +1992,126 @@ namespace UGTLive
             };
         }
         
+        private static bool _hasWarnedAboutEasyOCRForColor = false;
+
+        /// <summary>
+        /// Get color analysis for a specific image crop using the EasyOCR service
+        /// </summary>
+        public async Task<JsonElement?> GetColorAnalysisAsync(System.Drawing.Bitmap bitmap)
+        {
+            try
+            {
+                // Skip color analysis if not enabled or hash is unstable
+                // We only want to do this expensive operation when we are about to display the text
+                // But wait, GetColorAnalysisAsync is called from the OCR managers (Windows/Google)
+                // BEFORE we know the hash of the full result set.
+                
+                // However, the user asked to optimize this:
+                // "Google cloud vision color detection works, but it seems to be detecting the colors after each OCR, 
+                // it should only do that if the hash has changed and we're going to actually put the OCR we did on the screen"
+                
+                // This is tricky because the current architecture passes the color data AS PART OF the OCR result structure.
+                // And the hash is generated FROM the result structure (which includes color data if present).
+                
+                // If we strip color data from hash generation, then we can generate hash first.
+                // But we generate hash in Logic.ProcessReceivedTextJsonData, which receives the ALREADY PROCESSED JSON.
+                // The Windows/Google managers build this JSON.
+                
+                // OPTION:
+                // 1. Windows/Google managers return raw OCR data (without color).
+                // 2. Logic.ProcessReceivedTextJsonData generates hash.
+                // 3. If hash is new/stable, Logic asks to enrich the data with color?
+                //    But we've lost the original bitmap reference by then inside the JSON flow?
+                //    No, we haven't. But Logic.ProcessReceivedTextJsonData takes a string JSON.
+                
+                // ALTERNATIVE (Simpler but less clean architecture):
+                // Since we want to update the text objects ON THE FLY or after settling.
+                // The TextObject class has the text and coordinates.
+                // We can perform color detection AFTER creating the TextObjects in DisplayOcrResults.
+                // But DisplayOcrResults is called after hash checks.
+                
+                // So, we should:
+                // 1. Disable color detection in WindowsOCRManager and GoogleVisionOCRService initial pass.
+                // 2. Let Logic.ProcessReceivedTextJsonData proceed, generate hash, check for settling.
+                // 3. Inside DisplayOcrResults (which is called when content is stable/new), we perform color detection.
+                //    BUT, DisplayOcrResults doesn't have the bitmap!
+                
+                // We need to store the latest bitmap temporarily in Logic?
+                // We have `_lastOcrBitmap`? No.
+                
+                // Let's store the bitmap in a member variable in Logic when we start processing.
+                // `ProcessWithWindowsOCR` and `ProcessWithGoogleVision` have the bitmap.
+                // We can store it in `_currentProcessingBitmap`.
+                
+                // Then in `DisplayOcrResults`, we can use `_currentProcessingBitmap` to extract colors.
+                
+                // Let's use the cloned bitmap.
+                
+                // Use EasyOCR service for color analysis
+                var service = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+                if (service == null)
+                {
+                    return null;
+                }
+
+                // Check if running, warn once if not
+                if (!service.IsRunning)
+                {
+                    if (!_hasWarnedAboutEasyOCRForColor)
+                    {
+                        _hasWarnedAboutEasyOCRForColor = true;
+                        
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            ErrorPopupManager.ShowServiceWarning(
+                                "The EasyOCR service is required for color correction but is not running.\n\nPlease start it in the Python Services Manager, or disable 'Use EasyOCR service for detecting colors' in Settings.",
+                                "Color Correction Service Missing");
+                        });
+                    }
+                    return null;
+                }
+
+                // Convert bitmap to bytes
+                byte[] imageBytes;
+                using (var ms = new MemoryStream())
+                {
+                    bitmap.Save(ms, ImageFormat.Png);
+                    imageBytes = ms.ToArray();
+                }
+
+                string url = $"{service.ServerUrl}:{service.Port}/analyze_color";
+
+                var content = new ByteArrayContent(imageBytes);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = content;
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
+                    {
+                        if (doc.RootElement.TryGetProperty("color_info", out var colorInfo) && colorInfo.ValueKind != JsonValueKind.Null)
+                        {
+                            return colorInfo.Clone();
+                        }
+                    }
+                }
+                
+                return null;
+            }
+            catch (Exception ex)
+            {
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Log($"Color analysis failed: {ex.Message}");
+                }
+                return null;
+            }
+        }
+
         // Called when a screenshot is captured (sends directly to HTTP service)
         public async void SendImageToHttpOCR(byte[] imageBytes)
         {

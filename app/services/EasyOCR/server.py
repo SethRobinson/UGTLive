@@ -234,6 +234,53 @@ async def process_image(request: Request):
         )
 
 
+@app.post("/analyze_color")
+async def analyze_color(request: Request):
+    """
+    Analyze image for foreground/background colors.
+    
+    Expects binary image data in the request body.
+    """
+    try:
+        # Read binary image data
+        image_bytes = await request.body()
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="No image data provided")
+        
+        # Load image from binary data
+        image = Image.open(BytesIO(image_bytes)).convert('RGB')
+        
+        # Use the whole image as the region
+        width, height = image.size
+        bbox = [[0, 0], [width, 0], [width, height], [0, height]]
+        
+        # Extract colors
+        color_info = extract_foreground_background_colors(image, bbox)
+        
+        if not color_info:
+             return JSONResponse(content={
+                "status": "success", 
+                "color_info": None
+            })
+            
+        return JSONResponse(content={
+            "status": "success",
+            "color_info": color_info
+        })
+        
+    except Exception as e:
+        print(f"Error analyzing color: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": str(e),
+                "error_type": type(e).__name__
+            }
+        )
+
+
+
 @app.get("/info")
 async def get_info():
     """Get service information."""

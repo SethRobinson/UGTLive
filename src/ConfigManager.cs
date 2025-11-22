@@ -86,6 +86,7 @@ namespace UGTLive
         // OCR Processing Mode removed - replaced by Universal Block Detector
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
+        public const string ENABLE_CLOUD_OCR_COLOR_CORRECTION = "enable_cloud_ocr_color_correction";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -1037,6 +1038,20 @@ Here is the input JSON:";
             _configValues[PAUSE_OCR_WHILE_TRANSLATING] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Pause OCR while translating enabled: {enabled}");
+        }
+
+        // Check if cloud OCR color correction is enabled
+        public bool IsCloudOcrColorCorrectionEnabled()
+        {
+            string value = GetValue(ENABLE_CLOUD_OCR_COLOR_CORRECTION, "false");
+            return value.ToLower() == "true";
+        }
+
+        // Set cloud OCR color correction enabled
+        public void SetCloudOcrColorCorrectionEnabled(bool enabled)
+        {
+            _configValues[ENABLE_CLOUD_OCR_COLOR_CORRECTION] = enabled.ToString().ToLower();
+            SaveConfig();
         }
         
         // Get ChatBox font family

@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Media;
+using System.Text.Json;
 
 namespace UGTLive
 {
@@ -17,6 +18,9 @@ namespace UGTLive
         public double Height { get; set; }
         public SolidColorBrush TextColor { get; set; }
         public SolidColorBrush BackgroundColor { get; set; }
+        
+        // Store raw color analysis data if available (for Cloud OCR services)
+        public JsonElement? ColorAnalysisData { get; set; }
         
         // Store the original capture position
         public double CaptureX { get; set; }
