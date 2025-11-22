@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Documents;
@@ -1665,6 +1666,44 @@ namespace UGTLive
                 // Trigger OCR refresh
                 Logic.Instance.ResetHash();
             }
+        }
+
+        private void BgOpacitySlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Handle click-to-position on slider track
+            Slider slider = sender as Slider;
+            if (slider == null || slider.ActualWidth == 0) return;
+            
+            // Get mouse position relative to the slider
+            System.Windows.Point position = e.GetPosition(slider);
+            
+            // Calculate where the thumb currently is
+            double currentPercentage = (slider.Value - slider.Minimum) / (slider.Maximum - slider.Minimum);
+            double thumbPosition = currentPercentage * slider.ActualWidth;
+            
+            // Approximate thumb width (WPF default is around 11-15 pixels)
+            double thumbWidth = 18;
+            double thumbLeft = thumbPosition - thumbWidth / 2;
+            double thumbRight = thumbPosition + thumbWidth / 2;
+            
+            // If click is on the thumb, let default behavior handle dragging
+            if (position.X >= thumbLeft && position.X <= thumbRight)
+            {
+                return; // Don't handle, allow thumb dragging
+            }
+            
+            // Click is on the track, calculate new value based on click position
+            double percentage = position.X / slider.ActualWidth;
+            double value = slider.Minimum + (percentage * (slider.Maximum - slider.Minimum));
+            
+            // Clamp to valid range
+            value = Math.Max(slider.Minimum, Math.Min(slider.Maximum, value));
+            
+            // Set the value (IsSnapToTickEnabled will snap it to nearest tick)
+            slider.Value = value;
+            
+            // Mark event as handled to prevent default toggle behavior
+            e.Handled = true;
         }
 
         private void BgOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
