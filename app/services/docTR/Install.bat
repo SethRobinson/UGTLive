@@ -360,14 +360,14 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 7/7] Installing CuPy for GPU color extraction...
-echo [Step 7/7] Installing CuPy... >> "%LOG_FILE%"
-python -m pip install cupy-cuda12x==13.6.0 >> "%LOG_FILE%" 2>&1
+echo [Step 7/7] Installing Scikit-learn (optional but useful for color analysis fallback)...
+echo [Step 7/7] Installing Scikit-learn... >> "%LOG_FILE%"
+python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo WARNING: CuPy installation failed, color extraction will use CPU
-    echo WARNING: CuPy installation failed >> "%LOG_FILE%"
+    echo WARNING: Scikit-learn installation failed, some fallbacks may be limited
+    echo WARNING: Scikit-learn installation failed >> "%LOG_FILE%"
 ) else (
-    echo CuPy installed successfully >> "%LOG_FILE%"
+    echo Scikit-learn installed successfully >> "%LOG_FILE%"
 )
 
 echo.
@@ -497,14 +497,14 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 7/7] Installing CuPy for GPU color extraction...
-echo [Step 7/7] Installing CuPy... >> "%LOG_FILE%"
-python -m pip install cupy-cuda12x >> "%LOG_FILE%" 2>&1
+echo [Step 7/7] Installing Scikit-learn (optional but useful for color analysis fallback)...
+echo [Step 7/7] Installing Scikit-learn... >> "%LOG_FILE%"
+python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo WARNING: CuPy installation failed, color extraction will use CPU
-    echo WARNING: CuPy installation failed >> "%LOG_FILE%"
+    echo WARNING: Scikit-learn installation failed, some fallbacks may be limited
+    echo WARNING: Scikit-learn installation failed >> "%LOG_FILE%"
 ) else (
-    echo CuPy installed successfully >> "%LOG_FILE%"
+    echo Scikit-learn installed successfully >> "%LOG_FILE%"
 )
 
 echo.
