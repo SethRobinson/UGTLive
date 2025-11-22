@@ -294,6 +294,12 @@ namespace UGTLive
                     
                     // Clear any existing text objects to refresh the display
                     Logic.Instance.ClearAllTextObjects();
+                    
+                    // Force OCR/translation to run again if active
+                    if (MainWindow.Instance.GetIsStarted())
+                    {
+                        MainWindow.Instance.SetOCRCheckIsWanted(true);
+                    }
                 }
             }
             catch (Exception ex)
@@ -2367,6 +2373,12 @@ namespace UGTLive
                 
                 // Clear any existing text objects to refresh the display
                 Logic.Instance.ClearAllTextObjects();
+                
+                // Force OCR/translation to run again if active
+                if (MainWindow.Instance.GetIsStarted())
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
             }
         }
         
@@ -2631,6 +2643,12 @@ namespace UGTLive
                         
                         // Clear any existing text objects to refresh the display
                         Logic.Instance.ClearAllTextObjects();
+                        
+                        // Force OCR/translation to run again if active
+                        if (MainWindow.Instance.GetIsStarted())
+                        {
+                            MainWindow.Instance.SetOCRCheckIsWanted(true);
+                        }
                     }
                 }
             }
@@ -3055,6 +3073,7 @@ namespace UGTLive
                         // Retrigger OCR to start preloading with new mode
                         Logic.Instance.ResetHash();
                         Logic.Instance.ClearAllTextObjects();
+                        MainWindow.Instance.SetOCRCheckIsWanted(true);
                         Console.WriteLine("OCR retriggered due to TTS preload mode change");
                     }
                 }
@@ -3246,6 +3265,7 @@ namespace UGTLive
                         // Retrigger OCR to regenerate audio with new voice
                         Logic.Instance.ResetHash();
                         Logic.Instance.ClearAllTextObjects();
+                        MainWindow.Instance.SetOCRCheckIsWanted(true);
                         Console.WriteLine("OCR retriggered due to source TTS voice change");
                     }
                 }
@@ -3292,6 +3312,7 @@ namespace UGTLive
                         // Retrigger OCR to regenerate audio with new voice
                         Logic.Instance.ResetHash();
                         Logic.Instance.ClearAllTextObjects();
+                        MainWindow.Instance.SetOCRCheckIsWanted(true);
                         Console.WriteLine("OCR retriggered due to target TTS voice change");
                     }
                 }
@@ -3673,6 +3694,12 @@ namespace UGTLive
                 
                 // Clear any existing text objects
                 Logic.Instance.ClearAllTextObjects();
+                
+                // Force OCR/translation to run again if active
+                if (MainWindow.Instance.GetIsStarted())
+                {
+                    MainWindow.Instance.SetOCRCheckIsWanted(true);
+                }
                 
                 // Show success message
                 MessageBox.Show("Translation context and history have been cleared.", 
