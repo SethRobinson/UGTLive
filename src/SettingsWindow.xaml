@@ -31,8 +31,8 @@
                                 <TextBlock Text="🛠️" FontSize="24" VerticalAlignment="Center" Margin="0,0,15,0"/>
                                 
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Open Python Service Manager" FontWeight="Bold" FontSize="16" Foreground="#007ACC"/>
-                                    <TextBlock Text="Install, start, stop, and troubleshoot OCR services" FontSize="12" Foreground="Gray"/>
+                                    <TextBlock Text="Open GPU Service Console" FontWeight="Bold" FontSize="16" Foreground="#007ACC"/>
+                                    <TextBlock Text="Install, start, stop, and troubleshoot our services" FontSize="12" Foreground="Gray"/>
                                 </StackPanel>
                              </StackPanel>
                         </Button>

@@ -1198,8 +1198,12 @@ namespace UGTLive
                 bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected || isGoogleVisionSelected || isPaddleOcrSelected;
                 
                 // EasyOCR, PaddleOCR and docTR don't use character-level confidence (or at least we don't use it), so hide that specific setting
-                // Google Vision DOES support character-level confidence
+                // Google Vision DOES support character-level confidence (word-level)
                 bool showLetterConfidence = showConfidenceSettings && !isEasyOcrSelected && !isDocTrSelected && !isPaddleOcrSelected;
+                
+                // Only EasyOCR and PaddleOCR use line-level confidence
+                // Google Vision uses letter/word confidence, docTR uses letter confidence
+                bool showLineConfidence = isEasyOcrSelected || isPaddleOcrSelected;
 
                 if (minLetterConfidenceLabel != null)
                     minLetterConfidenceLabel.Visibility = showLetterConfidence ? Visibility.Visible : Visibility.Collapsed;
@@ -1213,11 +1217,11 @@ namespace UGTLive
                 }
 
                 if (minLineConfidenceLabel != null)
-                    minLineConfidenceLabel.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
+                    minLineConfidenceLabel.Visibility = showLineConfidence ? Visibility.Visible : Visibility.Collapsed;
                 if (minLineConfidenceTextBox != null)
                 {
-                    minLineConfidenceTextBox.Visibility = showConfidenceSettings ? Visibility.Visible : Visibility.Collapsed;
-                    if (showConfidenceSettings)
+                    minLineConfidenceTextBox.Visibility = showLineConfidence ? Visibility.Visible : Visibility.Collapsed;
+                    if (showLineConfidence)
                     {
                         minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence(selectedOcr).ToString();
                     }
