@@ -421,6 +421,7 @@ UniversalGameTranslatorLive_Windows.zip
 
 **/.claude/settings.local.json
 setup_log.txt
+service_install_version_last_installed.txt
 
 app/services/util/Python*/
 app/services/**/venv/

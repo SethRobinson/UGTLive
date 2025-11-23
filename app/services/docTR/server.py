@@ -36,10 +36,10 @@ SERVICE_CONFIG = parse_service_config(str(config_path))
 # Get service settings
 SERVICE_NAME = get_config_value(SERVICE_CONFIG, 'service_name', 'docTR')
 SERVICE_PORT = int(get_config_value(SERVICE_CONFIG, 'port', '5002'))
-SERVICE_VERSION = get_config_value(SERVICE_CONFIG, 'version', '0.10.0')
+SERVICE_INSTALL_VERSION = get_config_value(SERVICE_CONFIG, 'service_install_version', '1')
 
 # Initialize FastAPI app
-app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
+app = FastAPI(title=SERVICE_NAME, version=SERVICE_INSTALL_VERSION)
 
 # Global OCR predictor
 DOCTR_PREDICTOR = None
@@ -248,12 +248,13 @@ async def get_info():
     info = {
         "service_name": get_config_value(SERVICE_CONFIG, 'service_name', 'docTR'),
         "description": get_config_value(SERVICE_CONFIG, 'description', ''),
-        "version": get_config_value(SERVICE_CONFIG, 'version', '0.10.0'),
-        "conda_env_name": get_config_value(SERVICE_CONFIG, 'conda_env_name', 'ugt_doctr'),
+        "service_install_version": get_config_value(SERVICE_CONFIG, 'service_install_version', '1'),
+        "venv_name": get_config_value(SERVICE_CONFIG, 'venv_name', 'ugt_doctr'),
         "port": int(get_config_value(SERVICE_CONFIG, 'port', '5002')),
+        "server_url": get_config_value(SERVICE_CONFIG, 'server_url', 'http://127.0.0.1'),
         "local_only": get_config_value(SERVICE_CONFIG, 'local_only', 'true') == 'true',
         "github_url": get_config_value(SERVICE_CONFIG, 'github_url', ''),
-        "author": get_config_value(SERVICE_CONFIG, 'author', '')
+        "service_author": get_config_value(SERVICE_CONFIG, 'service_author', '')
     }
     return JSONResponse(content=info)
 

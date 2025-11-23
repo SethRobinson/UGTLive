@@ -1,10 +1,10 @@
 description|A versatile OCR engine supporting multiple languages including Japanese, Korean, Chinese, and English|
 github_url|https://github.com/JaidedAI/EasyOCR|
-author|JaidedAI|
+service_author|Seth A. Robinson|
 service_name|EasyOCR|
 venv_name|ugt_easyocr|
 port|5000|
 server_url|http://127.0.0.1|
 local_only|true|
-version|1.7.2|
+service_install_version|1|
 

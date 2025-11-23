@@ -44,10 +44,10 @@ SERVICE_CONFIG = parse_service_config(str(config_path))
 # Get service settings
 SERVICE_NAME = get_config_value(SERVICE_CONFIG, 'service_name', 'MangaOCR')
 SERVICE_PORT = int(get_config_value(SERVICE_CONFIG, 'port', '5001'))
-SERVICE_VERSION = get_config_value(SERVICE_CONFIG, 'version', '0.1.14')
+SERVICE_INSTALL_VERSION = get_config_value(SERVICE_CONFIG, 'service_install_version', '1')
 
 # Initialize FastAPI app
-app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
+app = FastAPI(title=SERVICE_NAME, version=SERVICE_INSTALL_VERSION)
 
 # Global OCR engine
 MANGA_OCR_ENGINE = None
@@ -421,12 +421,13 @@ async def get_info():
     info = {
         "service_name": get_config_value(SERVICE_CONFIG, 'service_name', 'MangaOCR'),
         "description": get_config_value(SERVICE_CONFIG, 'description', ''),
-        "version": get_config_value(SERVICE_CONFIG, 'version', '0.1.14'),
-        "conda_env_name": get_config_value(SERVICE_CONFIG, 'conda_env_name', 'ugt_mangaocr'),
+        "service_install_version": get_config_value(SERVICE_CONFIG, 'service_install_version', '1'),
+        "venv_name": get_config_value(SERVICE_CONFIG, 'venv_name', 'ugt_mangaocr'),
         "port": int(get_config_value(SERVICE_CONFIG, 'port', '5001')),
+        "server_url": get_config_value(SERVICE_CONFIG, 'server_url', 'http://127.0.0.1'),
         "local_only": get_config_value(SERVICE_CONFIG, 'local_only', 'true') == 'true',
         "github_url": get_config_value(SERVICE_CONFIG, 'github_url', ''),
-        "author": get_config_value(SERVICE_CONFIG, 'author', '')
+        "service_author": get_config_value(SERVICE_CONFIG, 'service_author', '')
     }
     return JSONResponse(content=info)
 

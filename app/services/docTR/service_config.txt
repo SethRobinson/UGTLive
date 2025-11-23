@@ -1,10 +1,10 @@
 description|Document OCR engine with strong English text recognition capabilities (does not support Japanese)|
 github_url|https://github.com/mindee/doctr|
-author|Mindee|
+service_author|Seth A. Robinson|
 service_name|docTR|
 venv_name|ugt_doctr|
 port|5002|
 server_url|http://127.0.0.1|
 local_only|true|
-version|0.10.0|
+service_install_version|1|
 

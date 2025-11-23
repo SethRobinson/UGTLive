@@ -1,10 +1,10 @@
 description|Specialized OCR engine optimized for Japanese manga and comic text recognition|
 github_url|https://github.com/kha-white/manga-ocr|
-author|kha-white|
+service_author|Seth A. Robinson|
 service_name|MangaOCR|
 venv_name|ugt_mangaocr|
 port|5001|
 server_url|http://127.0.0.1|
 local_only|true|
-version|0.1.14|
+service_install_version|1|
 

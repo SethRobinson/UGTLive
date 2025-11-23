@@ -1,9 +1,9 @@
 description|OCR engine supporting multiple languages, optimized for Chinese and English, with angle classification.|
 github_url|https://github.com/PaddlePaddle/PaddleOCR|
-author|PaddlePaddle|
+service_author|Seth A. Robinson|
 service_name|PaddleOCR|
 venv_name|ugt_paddleocr|
 port|5003|
 server_url|http://127.0.0.1|
 local_only|true|
-version|3.2.2
+service_install_version|1|

@@ -26,6 +26,7 @@ REM       only for maximum compatibility across different locales.
 REM -----------------------------------------------------------------
 set "ENV_NAME="
 set "SERVICE_NAME="
+set "SERVICE_INSTALL_VERSION="
 
 if exist "%CONFIG_FILE%" (
     for /f "usebackq tokens=1,2 delims=| eol=#" %%a in ("%CONFIG_FILE%") do (
@@ -38,6 +39,7 @@ if exist "%CONFIG_FILE%" (
         
         if "!KEY!"=="venv_name" set "ENV_NAME=!VALUE!"
         if "!KEY!"=="service_name" set "SERVICE_NAME=!VALUE!"
+        if "!KEY!"=="service_install_version" set "SERVICE_INSTALL_VERSION=!VALUE!"
     )
 )
 
@@ -239,6 +241,12 @@ echo ============================================================= >> "%LOG_FILE
 echo SUCCESS! Setup completed successfully >> "%LOG_FILE%"
 echo End time: %date% %time% >> "%LOG_FILE%"
 echo ============================================================= >> "%LOG_FILE%"
+
+REM Write service_install_version to file to track successful installation
+if not "!SERVICE_INSTALL_VERSION!"=="" (
+    echo !SERVICE_INSTALL_VERSION!> "%SCRIPT_DIR%service_install_version_last_installed.txt"
+    echo Wrote service_install_version !SERVICE_INSTALL_VERSION! to service_install_version_last_installed.txt >> "%LOG_FILE%"
+)
 
 echo.
 echo =============================================================
