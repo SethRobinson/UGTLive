@@ -12,7 +12,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageOps
 import paddle
 from paddleocr import PaddleOCR
 
@@ -38,6 +38,9 @@ app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
 OCR_ENGINE = None
 CURRENT_LANG = None
 CURRENT_ANGLE_CLS = False
+
+# Debug settings
+DEBUG_IMAGES = True
 
 def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
     """Initialize or reinitialize the OCR engine with the specified language."""
@@ -157,7 +160,7 @@ def process_ocr_results(results: list) -> List[Dict]:
         height = int(max(ys) - min(ys))
         
         # Convert vertices to integer lists
-        vertices = [[int(p[0]), int(p[1])] for p in bbox]
+        vertices = [[int(round(p[0])), int(round(p[1]))] for p in bbox]
         
         # Determine orientation based on aspect ratio
         text_orientation = "horizontal"
@@ -208,8 +211,30 @@ async def process_image(request: Request):
         # Run OCR
         # PaddleOCR expects path or numpy array
         # We'll convert bytes to numpy array
-        image = Image.open(BytesIO(image_bytes)).convert('RGB')
+        image = Image.open(BytesIO(image_bytes))
+        
+        # Handle EXIF orientation
+        try:
+            image = ImageOps.exif_transpose(image)
+        except Exception:
+            pass
+            
+        image = image.convert('RGB')
+        
+        # DEBUG: Save received image
+        if DEBUG_IMAGES:
+            try:
+                debug_received_path = Path(__file__).parent / "debug_received_image.png"
+                image.save(debug_received_path)
+                print(f"Saved debug received image to {debug_received_path}")
+            except Exception as e:
+                print(f"Error saving debug received image: {e}")
+
         img_array = np.array(image)
+        
+        # PaddleOCR pipeline seems to handle RGB (from PIL) correctly in this version,
+        # or performs its own conversion. Previous BGR conversion degraded quality.
+        # img_array = img_array[:, :, ::-1]
         
         # Perform OCR using predict() method (ocr() is deprecated in 3.2.2)
         # Orientation classification is already set during initialization via use_textline_orientation
@@ -217,6 +242,34 @@ async def process_image(request: Request):
         
         # Process results
         text_objects = process_ocr_results(results)
+        
+        # DEBUG: Save processed image with rects
+        if DEBUG_IMAGES:
+            try:
+                debug_img = image.copy()
+                draw = ImageDraw.Draw(debug_img)
+                for obj in text_objects:
+                    # Draw using x, y, width, height - RED
+                    rect = [
+                        obj['x'], 
+                        obj['y'], 
+                        obj['x'] + obj['width'], 
+                        obj['y'] + obj['height']
+                    ]
+                    draw.rectangle(rect, outline="red", width=2)
+                    
+                    # Draw the polygon vertices - BLUE
+                    if 'vertices' in obj:
+                        verts = [(p[0], p[1]) for p in obj['vertices']]
+                        # Check if we have enough points for a polygon
+                        if len(verts) >= 3:
+                            draw.polygon(verts, outline="blue", width=2)
+                            
+                debug_processed_path = Path(__file__).parent / "debug_processed_image.png"
+                debug_img.save(debug_processed_path)
+                print(f"Saved debug processed image to {debug_processed_path}")
+            except Exception as e:
+                print(f"Error saving debug processed image: {e}")
         
         # Calculate processing time
         processing_time = time.time() - start_time
