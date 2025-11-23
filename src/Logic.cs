@@ -1857,7 +1857,7 @@ namespace UGTLive
                         
                         // Show error dialog offering to start the service (if not already showing)
                         bool openManager = ErrorPopupManager.ShowServiceWarning(
-                            $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                            $"The {serviceName} service is not running.\n\nWould you like to open the GPU Service Console to start it?",
                             "Service Not Available");
                         
                         if (openManager)
@@ -2064,7 +2064,7 @@ namespace UGTLive
                         Application.Current.Dispatcher.Invoke(() => 
                         {
                             ErrorPopupManager.ShowServiceWarning(
-                                "The EasyOCR service is required for color correction but is not running.\n\nPlease start it in the Python Services Manager, or disable 'Use EasyOCR service for detecting colors' in Settings.",
+                                "The EasyOCR service is required for color correction but is not running.\n\nPlease start it in the GPU Service Console, or disable 'Use EasyOCR service for detecting colors' in Settings.",
                                 "Color Correction Service Missing");
                         });
                     }

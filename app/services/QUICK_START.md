@@ -189,7 +189,7 @@ Now you have:
 
 The UGTLive C# application automatically discovers and manages services:
 - Services are discovered on startup via `PythonServicesManager.Instance.DiscoverServices()`
-- Services can be started/stopped via the Python Services Manager UI dialog
+- Services can be started/stopped via the GPU Service Console UI dialog
 - The app checks service status and shows warnings if services aren't running
 - See `MIGRATION_GUIDE.md` for detailed C# integration examples
 

@@ -429,7 +429,7 @@ namespace UGTLive
                                 Dispatcher.Invoke(() =>
                                 {
                                     gpuStatusIcon.Text = "⚠️";
-                                    gpuStatusText.Text = "No NVIDIA GPU detected (CPU fallback will be used)";
+                                    gpuStatusText.Text = "No NVIDIA GPU detected";
                                 });
                             }
                         }
@@ -439,7 +439,7 @@ namespace UGTLive
                         Dispatcher.Invoke(() =>
                         {
                             gpuStatusIcon.Text = "⚠️";
-                            gpuStatusText.Text = "NVIDIA drivers not found (CPU fallback will be used)";
+                            gpuStatusText.Text = "NVIDIA drivers not found";
                         });
                     }
                 });
@@ -541,9 +541,9 @@ namespace UGTLive
                     if (isInstalled)
                     {
                         // Installed but not running
-                        viewModel.StatusIcon = "⏸️";
-                        viewModel.StatusText = "Stopped (Installed)";
-                        viewModel.StatusColor = "Orange";
+                        viewModel.StatusIcon = "⏹️";
+                        viewModel.StatusText = "Stopped";
+                        viewModel.StatusColor = "Red";
                         viewModel.StartStopButtonText = "Start";
                         viewModel.StartStopEnabled = true;
                         viewModel.InstallButtonText = "Install/Reinstall";

@@ -388,7 +388,7 @@ The UGTLive C# application integrates with these services through:
 - Services are discovered on app startup via `PythonServicesManager.Instance.DiscoverServices()`
 - Each service is represented by a `PythonService` object with properties from `service_config.txt`
 - The C# app uses `venv_name` from config (not `conda_env_name`) to check if service is installed
-- Services can be started/stopped via the Python Services Manager UI dialog
+- Services can be started/stopped via the GPU Service Console UI dialog
 - Binary image transfer uses `application/octet-stream` content type
 - HTTP keep-alive is enabled for better performance
 

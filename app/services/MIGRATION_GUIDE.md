@@ -142,7 +142,7 @@ private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, 
         {
             // Show error dialog offering to start service
             bool openManager = ErrorPopupManager.ShowServiceWarning(
-                $"The {serviceName} service is not running.\n\nWould you like to open the Python Services Manager to start it?",
+                $"The {serviceName} service is not running.\n\nWould you like to open the GPU Service Console to start it?",
                 "Service Not Available");
             
             if (openManager)

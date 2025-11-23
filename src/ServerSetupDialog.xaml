@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
-        Title="Python Services Manager"
+        Title="GPU Service Console"
         Height="850"
         Width="900"
         WindowStyle="SingleBorderWindow"
@@ -102,7 +102,7 @@
                 <!-- Python Services Section -->
                 <Border BorderBrush="#3366AA" BorderThickness="2" Padding="10" Margin="0,0,0,10" Background="#F0F8FF">
                     <StackPanel>
-                        <TextBlock Text="Python Services Manager" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+                        <TextBlock Text="GPU Service Console" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
                         <TextBlock Text="You'll need at least one of these installed and active to use OCR features." 
                                    Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         
@@ -134,6 +134,7 @@
                                                 
                                                 <!-- Status Icon -->
                                                 <TextBlock Grid.Column="0" Text="{Binding StatusIcon}" FontSize="18" 
+                                                           Foreground="{Binding StatusColor}"
                                                            Margin="0,0,10,0" VerticalAlignment="Center"/>
                                                 
                                                 <!-- Service Name & Description -->
