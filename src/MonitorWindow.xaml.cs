@@ -1047,9 +1047,9 @@ namespace UGTLive
                         // Encode text for HTML (trim to remove leading/trailing whitespace)
                         // Also normalize internal whitespace
                         string encodedText = System.Web.HttpUtility.HtmlEncode(textToShow.Trim())
-                            .Replace("\r\n", " ")
-                            .Replace("\r", " ")
-                            .Replace("\n", " ");
+                            .Replace("\r\n", "<br>")
+                            .Replace("\r", "<br>")
+                            .Replace("\n", "<br>");
                         
                         // Apply zoom factor to positions and dimensions
                         double left = textObj.X * currentZoom;

@@ -2886,9 +2886,9 @@ namespace UGTLive
                         
                         // Encode text for HTML
                         string encodedText = System.Web.HttpUtility.HtmlEncode(textToShow.Trim())
-                            .Replace("\r\n", " ")
-                            .Replace("\r", " ")
-                            .Replace("\n", " ");
+                            .Replace("\r\n", "<br>")
+                            .Replace("\r", "<br>")
+                            .Replace("\n", "<br>");
                         
                         // Use text object positions directly (no zoom on main window)
                         double left = textObj.X;
