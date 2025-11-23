@@ -686,7 +686,10 @@ namespace UGTLive
                     return;
                 }
                 
-                Console.WriteLine($"[WEBVIEW2] Updating overlay HTML ({html.Length} chars)");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"[WEBVIEW2] Updating overlay HTML ({html.Length} chars)");
+                }
                 _lastOverlayHtml = html;
                 textOverlayWebView.CoreWebView2.NavigateToString(html);
             }
