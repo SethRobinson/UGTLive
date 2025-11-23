@@ -55,7 +55,7 @@ class ServiceInfo(BaseModel):
     service_name: str
     description: str
     version: str
-    conda_env_name: str
+    env_name: str
     port: int
     local_only: bool
     github_url: Optional[str] = None
