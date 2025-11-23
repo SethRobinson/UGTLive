@@ -784,16 +784,10 @@ namespace UGTLive
             // Set initial mouse passthrough state (always unchecked at startup to avoid confusion)
             bool mousePassthrough = false;
             mousePassthroughCheckBox.IsChecked = mousePassthrough;
+            // CRITICAL: Save to config BEFORE async WebView2 initialization reads it
+            ConfigManager.Instance.SetMainWindowMousePassthrough(mousePassthrough);
             updateMousePassthrough(mousePassthrough);
             Console.WriteLine($"MainWindow mouse passthrough initialized: {(mousePassthrough ? "enabled" : "disabled")}");
-            
-            // Set initial text interaction state based on passthrough (inverse relationship)
-            bool canInteract = !mousePassthrough;
-            if (textOverlayWebView != null)
-            {
-                textOverlayWebView.IsHitTestVisible = canInteract;
-                Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled")}");
-            }
         }
         
         // Handler for application-level keyboard shortcuts
@@ -2262,8 +2256,14 @@ namespace UGTLive
                     textOverlayWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
                     textOverlayWebView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
                     
-                    // Enable interaction with the WebView2 control
-                    textOverlayWebView.IsHitTestVisible = true;
+                    // Set interaction state based on current passthrough setting
+                    bool mousePassthrough = ConfigManager.Instance.GetMainWindowMousePassthrough();
+                    bool canInteract = !mousePassthrough;
+                    textOverlayWebView.IsHitTestVisible = canInteract;
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"MainWindow text interaction initialized: {(canInteract ? "enabled" : "disabled (click-through)")}");
+                    }
                     
                     // Add event handlers for context menu
                     textOverlayWebView.CoreWebView2.WebMessageReceived += MainWindowOverlayWebView_WebMessageReceived;
