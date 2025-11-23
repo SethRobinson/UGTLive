@@ -1477,7 +1477,11 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Filters out low-confidence characters from the OCR results
+        /// Filters out low-confidence text objects from the OCR results.
+        /// Different OCR providers return different granularities:
+        /// - Line-level (PaddleOCR, EasyOCR): Use line confidence threshold
+        /// - Word-level (Windows OCR, Google Vision, docTR): Use letter/word confidence threshold
+        /// - Block-level (MangaOCR): No filtering (confidence is null)
         /// </summary>
         private JsonElement FilterLowConfidenceCharacters(JsonElement resultsElement, string ocrProvider = "")
         {
@@ -1486,8 +1490,20 @@ namespace UGTLive
                 
             try
             {
-                // Get minimum confidence threshold from config
-                double minLetterConfidence = ConfigManager.Instance.GetMinLetterConfidence(ocrProvider);
+                // Get minimum confidence threshold based on OCR provider granularity
+                double minConfidence;
+                if (string.Equals(ocrProvider, "PaddleOCR", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(ocrProvider, "EasyOCR", StringComparison.OrdinalIgnoreCase))
+                {
+                    // These providers return line-level text objects
+                    minConfidence = ConfigManager.Instance.GetMinLineConfidence(ocrProvider);
+                }
+                else
+                {
+                    // Windows OCR, Google Vision, docTR return word-level text objects
+                    // Use letter confidence threshold (which is also applied to words)
+                    minConfidence = ConfigManager.Instance.GetMinLetterConfidence(ocrProvider);
+                }
                 
                 // Create output array for high-confidence results only
                 using (var ms = new MemoryStream())
@@ -1527,7 +1543,7 @@ namespace UGTLive
                             }
                             
                             // Only include elements with confidence above threshold
-                            if (confidence >= minLetterConfidence)
+                            if (confidence >= minConfidence)
                             {
                                 item.WriteTo(writer);
                             }
