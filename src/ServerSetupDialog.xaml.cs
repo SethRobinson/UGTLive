@@ -615,9 +615,11 @@ namespace UGTLive
                         bool showWindow = showServerWindowCheckBox.IsChecked ?? false;
                         bool started = await service.StartAsync(showWindow);
                         
-                        // Wait for service to initialize models (startup event)
-                        await Task.Delay(500);
-                       
+                        if (started)
+                        {
+                            // Wait for service to initialize models (startup event)
+                            await Task.Delay(500);
+                           
                             viewModel.StatusIcon = "✅";
                             viewModel.StatusText = "Running";
                             viewModel.StatusColor = "Green";
@@ -626,7 +628,13 @@ namespace UGTLive
                             viewModel.InstallEnabled = false;
                             viewModel.UninstallEnabled = true;
                             viewModel.TestEnabled = true;
-                       
+                        }
+                        else
+                        {
+                            // Service failed to start, refresh status to show correct state
+                            Console.WriteLine($"Service {service.ServiceName} failed to start");
+                            await UpdateServiceStatusAsync(service);
+                        }
                     }
                 }
                 catch (Exception ex)

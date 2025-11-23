@@ -71,7 +71,11 @@ if errorlevel 1 (
 echo   [PASS] Virtual environment activated
 echo.
 
-echo [3/4] Testing Python imports...
+echo Checking Python version...
+python --version
+echo.
+
+echo [3/4] Testing Python imports and library versions...
 echo   - Testing PaddlePaddle...
 python -c "import paddle; print('    PaddlePaddle version:', paddle.__version__); print('    CUDA available:', paddle.device.is_compiled_with_cuda())" 2>nul
 if errorlevel 1 (
@@ -86,15 +90,23 @@ if errorlevel 1 (
     goto :TestFail
 )
 
+echo   - Testing core dependencies...
+python -c "try:; import numpy; import PIL; import cv2; print('    NumPy version:', numpy.__version__); print('    Pillow version:', PIL.__version__); print('    OpenCV version:', cv2.__version__); except: pass" 2>nul
+if errorlevel 1 (
+    echo   [WARN] Some core dependencies not found or version info unavailable
+) else (
+    echo   [PASS] Core dependencies verified
+)
+
 echo   - Testing FastAPI...
-python -c "import fastapi; print('    FastAPI imported successfully')" 2>nul
+python -c "import fastapi; print('    FastAPI version:', fastapi.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] FastAPI import failed
     goto :TestFail
 )
 
 echo   - Testing Uvicorn...
-python -c "import uvicorn; print('    Uvicorn imported successfully')" 2>nul
+python -c "import uvicorn; print('    Uvicorn version:', uvicorn.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] Uvicorn import failed
     goto :TestFail

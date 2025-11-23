@@ -71,7 +71,11 @@ if errorlevel 1 (
 echo   [PASS] Virtual environment activated
 echo.
 
-echo [3/4] Testing Python imports...
+echo Checking Python version...
+python --version
+echo.
+
+echo [3/4] Testing Python imports and library versions...
 echo   - Testing PyTorch...
 python -c "import torch; print('    PyTorch version:', torch.__version__); print('    CUDA available:', torch.cuda.is_available())" 2>nul
 if errorlevel 1 (
@@ -80,21 +84,37 @@ if errorlevel 1 (
 )
 
 echo   - Testing docTR...
-python -c "from doctr.models import ocr_predictor; print('    docTR imported successfully')" 2>nul
+python -c "import doctr; from doctr.models import ocr_predictor; print('    docTR version:', doctr.__version__); print('    docTR imported successfully')" 2>nul
 if errorlevel 1 (
     echo   [FAIL] docTR import failed
     goto :TestFail
 )
 
+echo   - Testing core dependencies...
+python -c "import numpy; import PIL; import cv2; import scipy; print('    NumPy version:', numpy.__version__); print('    Pillow version:', PIL.__version__); print('    OpenCV version:', cv2.__version__); print('    SciPy version:', scipy.__version__)" 2>nul
+if errorlevel 1 (
+    echo   [WARN] Some core dependencies not found or version info unavailable
+) else (
+    echo   [PASS] Core dependencies verified
+)
+
+echo   - Testing docTR dependencies...
+python -c "import h5py; import pypdfium2; import rapidfuzz; print('    h5py version:', h5py.__version__); print('    pypdfium2 version:', pypdfium2.__version__); print('    rapidfuzz version:', rapidfuzz.__version__)" 2>nul
+if errorlevel 1 (
+    echo   [WARN] Some docTR dependencies not found or version info unavailable
+) else (
+    echo   [PASS] docTR dependencies verified
+)
+
 echo   - Testing FastAPI...
-python -c "import fastapi; print('    FastAPI imported successfully')" 2>nul
+python -c "import fastapi; import pydantic; print('    FastAPI version:', fastapi.__version__); print('    Pydantic version:', pydantic.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] FastAPI import failed
     goto :TestFail
 )
 
 echo   - Testing Uvicorn...
-python -c "import uvicorn; print('    Uvicorn imported successfully')" 2>nul
+python -c "import uvicorn; print('    Uvicorn version:', uvicorn.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] Uvicorn import failed
     goto :TestFail

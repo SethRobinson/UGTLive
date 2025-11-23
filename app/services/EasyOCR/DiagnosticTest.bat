@@ -71,7 +71,11 @@ if errorlevel 1 (
 echo   [PASS] Virtual environment activated
 echo.
 
-echo [3/4] Testing Python imports...
+echo Checking Python version...
+python --version
+echo.
+
+echo [3/4] Testing Python imports and library versions...
 echo   - Testing PyTorch...
 python -c "import torch; print('    PyTorch version:', torch.__version__); print('    CUDA available:', torch.cuda.is_available())" 2>nul
 if errorlevel 1 (
@@ -80,24 +84,40 @@ if errorlevel 1 (
 )
 
 echo   - Testing EasyOCR...
-python -c "import easyocr; print('    EasyOCR imported successfully')" 2>nul
+python -c "import easyocr; print('    EasyOCR version:', easyocr.__version__); print('    EasyOCR imported successfully')" 2>nul
 if errorlevel 1 (
     echo   [FAIL] EasyOCR import failed
     goto :TestFail
 )
 
+echo   - Testing core dependencies...
+python -c "import numpy; import PIL; import cv2; import scipy; print('    NumPy version:', numpy.__version__); print('    Pillow version:', PIL.__version__); print('    OpenCV version:', cv2.__version__); print('    SciPy version:', scipy.__version__)" 2>nul
+if errorlevel 1 (
+    echo   [WARN] Some core dependencies not found or version info unavailable
+) else (
+    echo   [PASS] Core dependencies verified
+)
+
 echo   - Testing FastAPI...
-python -c "import fastapi; print('    FastAPI imported successfully')" 2>nul
+python -c "import fastapi; import pydantic; print('    FastAPI version:', fastapi.__version__); print('    Pydantic version:', pydantic.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] FastAPI import failed
     goto :TestFail
 )
 
 echo   - Testing Uvicorn...
-python -c "import uvicorn; print('    Uvicorn imported successfully')" 2>nul
+python -c "import uvicorn; print('    Uvicorn version:', uvicorn.__version__)" 2>nul
 if errorlevel 1 (
     echo   [FAIL] Uvicorn import failed
     goto :TestFail
+)
+
+echo   - Testing Scikit-learn (optional)...
+python -c "import sklearn; print('    Scikit-learn version:', sklearn.__version__)" 2>nul
+if errorlevel 1 (
+    echo   [WARN] Scikit-learn not found (optional dependency)
+) else (
+    echo   [PASS] Scikit-learn verified
 )
 
 echo   [PASS] All imports successful
