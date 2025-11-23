@@ -426,3 +426,7 @@ app/services/util/Python*/
 app/services/**/venv/
 debug_processed_image.png
 debug_received_image.png
+debug_original.png
+raw_test_output.png
+temp_processing_image.png
+manual_debug.png

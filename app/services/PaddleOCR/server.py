@@ -94,10 +94,15 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
         # lang: language code (supports 100+ languages)
         # GPU is auto-detected, no use_gpu parameter needed
         # Logging is controlled via environment variables in 3.2.2
+        # text_det_limit_side_len: Limit side length for image resizing. 
+        # Increased from default 960 to 1600 to prevent resizing artifacts on larger screens (1080p+).
+        # CRITICAL: Disable doc preprocessor to prevent coordinate warping
         OCR_ENGINE = PaddleOCR(
             use_textline_orientation=use_angle_cls, 
             lang=paddle_lang, 
-            text_det_limit_side_len=960 # Detection limit side length for better accuracy (replaces det_limit_side_len)
+            text_det_limit_side_len=1600,
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False
         )
         
         CURRENT_LANG = paddle_lang
@@ -221,7 +226,12 @@ async def process_image(request: Request):
             
         image = image.convert('RGB')
         
-        # DEBUG: Save received image
+        # Save to temporary file to avoid potential numpy array conversion issues
+        # and ensure consistency with PaddleOCR's file-based processing
+        temp_file_path = Path(__file__).parent / "temp_processing_image.png"
+        image.save(temp_file_path)
+        
+        # DEBUG: Save received (processed) image
         if DEBUG_IMAGES:
             try:
                 debug_received_path = Path(__file__).parent / "debug_received_image.png"
@@ -230,16 +240,17 @@ async def process_image(request: Request):
             except Exception as e:
                 print(f"Error saving debug received image: {e}")
 
-        img_array = np.array(image)
-        
-        # PaddleOCR pipeline seems to handle RGB (from PIL) correctly in this version,
-        # or performs its own conversion. Previous BGR conversion degraded quality.
-        # img_array = img_array[:, :, ::-1]
-        
-        # Perform OCR using predict() method (ocr() is deprecated in 3.2.2)
+        # Perform OCR using the file path
         # Orientation classification is already set during initialization via use_textline_orientation
-        results = engine.predict(img_array)
+        results = engine.predict(str(temp_file_path))
         
+        # Clean up temp file
+        try:
+            if temp_file_path.exists():
+                os.remove(temp_file_path)
+        except Exception as e:
+            print(f"Warning: Could not remove temp file: {e}")
+
         # Process results
         text_objects = process_ocr_results(results)
         
@@ -348,4 +359,3 @@ if __name__ == "__main__":
         port=SERVICE_PORT,
         log_level="info"
     )
-
