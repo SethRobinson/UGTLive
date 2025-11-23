@@ -73,6 +73,21 @@ if exist "%VENV_DIR%" (
     echo.
 )
 
+REM -----------------------------------------------------------------
+REM Clean up version tracking file
+REM -----------------------------------------------------------------
+set "VERSION_FILE=%SCRIPT_DIR%service_install_version_last_installed.txt"
+if exist "%VERSION_FILE%" (
+    echo Removing version tracking file...
+    del /q "%VERSION_FILE%"
+    if exist "%VERSION_FILE%" (
+        echo WARNING: Failed to remove version tracking file
+    ) else (
+        echo Version tracking file removed.
+    )
+    echo.
+)
+
 echo.
 if "!NOPAUSE_MODE!"=="0" (
     echo Press any key to exit...

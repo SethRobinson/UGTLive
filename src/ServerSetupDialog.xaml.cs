@@ -662,6 +662,13 @@ namespace UGTLive
                     return;
                 }
                 
+                // Disable button IMMEDIATELY to prevent multiple clicks
+                // This must happen BEFORE any async operations
+                viewModel.InstallEnabled = false;
+                viewModel.StatusText = "Starting installation...";
+                viewModel.StatusIcon = "⏳";
+                viewModel.StatusColor = "Gray";
+                
                 // Check if service is currently running
                 bool isRunning = await service.CheckIsRunningAsync(forceCheck: true);
                 if (isRunning)
@@ -671,13 +678,11 @@ namespace UGTLive
                         "Service Running",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
+                    
+                    // Re-enable button since we're not proceeding
+                    await UpdateServiceStatusAsync(service);
                     return;
                 }
-                
-                // Disable button immediately via ViewModel to prevent multiple clicks
-                viewModel.InstallEnabled = false;
-                viewModel.StatusText = "Preparing installation...";
-                viewModel.StatusIcon = "⏳";
                 
                 try
                 {
