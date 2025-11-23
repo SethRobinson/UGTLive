@@ -59,11 +59,6 @@ curl -X POST "http://localhost:5002/process?lang=english&char_level=true" \
 curl http://localhost:5002/info
 ```
 
-### Health Check
-
-```bash
-curl http://localhost:5002/health
-```
 
 ## Setup
 

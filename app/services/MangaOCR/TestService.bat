@@ -71,8 +71,8 @@ if errorlevel 1 (
 REM -----------------------------------------------------------------
 REM Test service endpoints
 REM -----------------------------------------------------------------
-echo [1/4] Testing health endpoint...
-curl -s http://localhost:!PORT!/health
+echo [1/3] Testing info endpoint...
+curl -s http://localhost:!PORT!/info
 if errorlevel 1 (
     echo   [FAIL] Could not connect to service on port !PORT!
     echo.
@@ -82,22 +82,16 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo   [PASS] Health check successful
-echo.
-
-echo [2/4] Testing info endpoint...
-curl -s http://localhost:!PORT!/info
-echo.
 echo   [PASS] Info endpoint successful
 echo.
 
-echo [3/4] Testing OCR process endpoint...
+echo [2/3] Testing OCR process endpoint...
 curl -s -X POST http://localhost:!PORT!/process?lang=japan -H "Content-Type: application/octet-stream" --data-binary "@%TEST_IMAGE%"
 echo.
 echo   [PASS] Process endpoint successful
 echo.
 
-echo [4/4] Running performance test (5 requests)...
+echo [3/3] Running performance test (5 requests)...
 echo.
 
 for /L %%i in (1,1,5) do (

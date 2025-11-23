@@ -184,19 +184,6 @@ Get service information and configuration.
 }
 ```
 
-### GET /health
-
-Health check endpoint.
-
-**Response**:
-```json
-{
-  "status": "healthy",
-  "service": "EasyOCR",
-  "version": "1.7.2"
-}
-```
-
 ### POST /shutdown
 
 Gracefully shutdown the service.
@@ -254,9 +241,6 @@ Gracefully shutdown the service.
 ### Testing a Service with curl
 
 ```batch
-# Health check
-curl http://localhost:5000/health
-
 # Get service info
 curl http://localhost:5000/info
 
@@ -290,7 +274,7 @@ To add a new OCR service:
 3. **Create `server.py`**:
    - Import shared utilities from `../shared/`
    - Parse `service_config.txt` using `config_parser.py`
-   - Implement FastAPI endpoints: `/process`, `/info`, `/health`, `/shutdown`
+   - Implement FastAPI endpoints: `/process`, `/info`, `/shutdown`
    - Use `response_models.py` for standardized responses
    - Optionally use `color_analysis.py` for color extraction
 
@@ -381,7 +365,7 @@ The UGTLive C# application integrates with these services through:
 - **HTTP Communication**: Uses HttpClient to send binary image data to `/process` endpoint
 - **Service Discovery**: Automatically detects services via `service_config.txt` files
 - **Auto-Start**: Services can be configured to start automatically on app launch
-- **Status Monitoring**: Checks service health via `/health` and `/info` endpoints
+- **Status Monitoring**: Checks service status via `/info` endpoint
 
 ### Integration Details
 

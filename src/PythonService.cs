@@ -593,26 +593,7 @@ namespace UGTLive
             
             return "";
         }
-        
-        /// <summary>
-        /// Checks service health using /health endpoint
-        /// </summary>
-        public async Task<bool> CheckHealthAsync()
-        {
-            try
-            {
-                string url = $"{ServerUrl}:{Port}/health";
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.ConnectionClose = false;
-                var response = await _httpClient.SendAsync(request);
-                return response.IsSuccessStatusCode;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-        
+    
         /// <summary>
         /// Finds the console window handle for a given process ID
         /// </summary>

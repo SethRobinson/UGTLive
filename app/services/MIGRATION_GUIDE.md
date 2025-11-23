@@ -256,9 +256,6 @@ await service.StopAsync();
 // Check if service is running
 bool isRunning = await service.CheckIsRunningAsync();
 
-// Check service health
-bool isHealthy = await service.CheckHealthAsync();
-
 // Get all services
 List<PythonService> allServices = PythonServicesManager.Instance.GetAllServices();
 

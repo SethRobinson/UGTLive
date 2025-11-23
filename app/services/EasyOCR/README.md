@@ -46,12 +46,6 @@ curl -X POST "http://localhost:5000/process?lang=japan&char_level=true" \
 curl http://localhost:5000/info
 ```
 
-### Health Check
-
-```bash
-curl http://localhost:5000/health
-```
-
 ## Setup
 
 1. Run `SetupServerCondaEnv.bat` to create the conda environment and install dependencies

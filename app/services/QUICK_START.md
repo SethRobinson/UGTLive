@@ -100,7 +100,6 @@ TestService.bat
 ```
 
 This will:
-- Test the health endpoint
 - Test the info endpoint
 - Process a test image
 - Run performance tests
@@ -110,9 +109,6 @@ This will:
 ### Test with curl
 
 ```batch
-# Health check
-curl http://localhost:5000/health
-
 # Service info
 curl http://localhost:5000/info
 
@@ -214,12 +210,6 @@ Body: <binary image data>
 ```
 GET /info
 ```
-
-### Health Check
-```
-GET /health
-```
-
 ### Shutdown
 ```
 POST /shutdown

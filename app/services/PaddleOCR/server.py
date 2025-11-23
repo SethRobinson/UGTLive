@@ -322,15 +322,6 @@ async def get_info():
     }
     return JSONResponse(content=info)
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return JSONResponse(content={
-        "status": "healthy",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION
-    })
-
 @app.post("/shutdown")
 async def shutdown():
     """Shutdown the service."""

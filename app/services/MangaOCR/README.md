@@ -57,12 +57,6 @@ curl -X POST "http://localhost:5001/process?lang=japan&char_level=true&min_regio
 curl http://localhost:5001/info
 ```
 
-### Health Check
-
-```bash
-curl http://localhost:5001/health
-```
-
 ## Setup
 
 1. Run `SetupServerCondaEnv.bat` to:

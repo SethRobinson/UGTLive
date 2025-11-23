@@ -448,15 +448,6 @@ async def shutdown():
     })
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return JSONResponse(content={
-        "status": "healthy",
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION
-    })
-
 
 @app.on_event("startup")
 async def startup_event():

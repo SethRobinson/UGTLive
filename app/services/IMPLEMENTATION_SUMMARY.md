@@ -63,7 +63,7 @@ app/services/
 - **FastAPI**: Modern, fast, with automatic validation and documentation
 - **Binary Transfer**: Images sent as binary data (not base64/JSON)
 - **HTTP Keep-Alive**: Persistent connections for better performance
-- **Standard Endpoints**: `/process`, `/info`, `/health`, `/shutdown`
+- **Standard Endpoints**: `/process`, `/info`,  `/shutdown`
 
 ### 4. Comprehensive Tooling
 - **SetupServerCondaEnv.bat**: Automatically detects GPU, creates env, installs dependencies
@@ -121,9 +121,6 @@ Process an image and return OCR results.
 
 ### GET /info
 Get service metadata from service_config.txt.
-
-### GET /health
-Health check endpoint.
 
 ### POST /shutdown
 Gracefully shutdown the service.
@@ -291,7 +288,7 @@ var jsonResponse = await response.Content.ReadAsStringAsync();
 ✅ Created `PythonService` class for individual service lifecycle management
 ✅ Implemented service discovery via `service_config.txt` parsing
 ✅ Added `ServerSetupDialog` UI for managing services
-✅ Implemented health monitoring via `/health` and `/info` endpoints
+✅ Implemented monitoring via `/info` endpoint
 ✅ Added auto-start functionality for services
 ✅ Integrated with existing OCR workflow in `Logic.cs`
 
@@ -357,7 +354,7 @@ All batch scripts have been updated with UTF-8 encoding support:
 ✅ Modular service architecture
 ✅ Separate conda environments per service
 ✅ Dynamic configuration from service_config.txt
-✅ Standard endpoints: /process, /info, /shutdown, /health
+✅ Standard endpoints: /process, /info, /shutdown
 ✅ Service discovery capability
 ✅ Comprehensive setup and test scripts
 ✅ Complete documentation
