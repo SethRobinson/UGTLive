@@ -1220,9 +1220,9 @@ namespace UGTLive
                 // Glue settings are available for all OCRs EXCEPT MangaOCR (which has its own logic/model)
                 bool shouldShowGlueSettings = !isMangaOcrSelected;
                 
-                // Color Correction is only for Windows OCR and Google Cloud Vision
+                // Color Correction is only for Windows OCR, Google Cloud Vision, and PaddleOCR
                 bool isWindowsOcrSelected = string.Equals(selectedOcr, "Windows OCR", StringComparison.OrdinalIgnoreCase);
-                bool showColorCorrection = isGoogleVisionSelected || isWindowsOcrSelected;
+                bool showColorCorrection = isGoogleVisionSelected || isWindowsOcrSelected || isPaddleOcrSelected;
                 
                 if (cloudOcrColorCorrectionLabel != null)
                     cloudOcrColorCorrectionLabel.Visibility = showColorCorrection ? Visibility.Visible : Visibility.Collapsed;
