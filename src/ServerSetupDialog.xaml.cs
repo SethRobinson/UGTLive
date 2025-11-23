@@ -530,7 +530,7 @@ namespace UGTLive
                     viewModel.StartStopButtonText = "Stop";
                     viewModel.StartStopEnabled = true;
                     viewModel.InstallButtonText = "Install/Reinstall";
-                    viewModel.InstallEnabled = false;
+                    viewModel.InstallEnabled = true; // Allow clicking, but will prompt to stop first
                     viewModel.UninstallEnabled = false; // Cannot uninstall while running
                 }
                 else
@@ -659,6 +659,18 @@ namespace UGTLive
                 
                 if (!_serviceViewModelMap.TryGetValue(serviceName, out var viewModel))
                 {
+                    return;
+                }
+                
+                // Check if service is currently running
+                bool isRunning = await service.CheckIsRunningAsync(forceCheck: true);
+                if (isRunning)
+                {
+                    MessageBox.Show(
+                        $"Please stop the {serviceName} service first by clicking the \"Stop\" button.",
+                        "Service Running",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                     return;
                 }
                 
