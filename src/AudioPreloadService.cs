@@ -547,6 +547,7 @@ namespace UGTLive
                                 int delayMs = (int)Math.Pow(2, retryCount) * 1000;
                                 await Task.Delay(delayMs, cancellationToken);
                                 retryCount++;
+                                continue; // Continue to next retry iteration
                             }
                             else
                             {
