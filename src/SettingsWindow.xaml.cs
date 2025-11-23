@@ -1185,6 +1185,12 @@ namespace UGTLive
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
                 bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
                 bool isPaddleOcrSelected = string.Equals(selectedOcr, "PaddleOCR", StringComparison.OrdinalIgnoreCase);
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"UpdateOcrSpecificSettings: Selected='{selectedOcr}', IsPaddle={isPaddleOcrSelected}");
+                }
+                
                 bool isEasyOcrSelected = string.Equals(selectedOcr, "EasyOCR", StringComparison.OrdinalIgnoreCase);
                 bool isDocTrSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
 
@@ -1220,9 +1226,25 @@ namespace UGTLive
                 // Glue settings are available for all OCRs EXCEPT MangaOCR (which has its own logic/model)
                 bool shouldShowGlueSettings = !isMangaOcrSelected;
                 
+                // Show/hide PaddleOCR settings
+                if (paddleOcrAngleClsLabel != null)
+                    paddleOcrAngleClsLabel.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (paddleOcrAngleClsCheckBox != null)
+                    paddleOcrAngleClsCheckBox.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                
+                if (isPaddleOcrSelected && paddleOcrAngleClsCheckBox != null)
+                {
+                    paddleOcrAngleClsCheckBox.IsChecked = ConfigManager.Instance.GetPaddleOcrUseAngleCls();
+                }
+
                 // Color Correction is only for Windows OCR, Google Cloud Vision, and PaddleOCR
                 bool isWindowsOcrSelected = string.Equals(selectedOcr, "Windows OCR", StringComparison.OrdinalIgnoreCase);
                 bool showColorCorrection = isGoogleVisionSelected || isWindowsOcrSelected || isPaddleOcrSelected;
+                
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Color Correction Visibility: {showColorCorrection} (Paddle={isPaddleOcrSelected}, Windows={isWindowsOcrSelected}, Google={isGoogleVisionSelected})");
+                }
                 
                 if (cloudOcrColorCorrectionLabel != null)
                     cloudOcrColorCorrectionLabel.Visibility = showColorCorrection ? Visibility.Visible : Visibility.Collapsed;
@@ -1246,17 +1268,6 @@ namespace UGTLive
                     mangaOcrYoloConfidenceLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (mangaOcrYoloConfidenceTextBox != null)
                     mangaOcrYoloConfidenceTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
-
-                // Show/hide PaddleOCR settings
-                if (paddleOcrAngleClsLabel != null)
-                    paddleOcrAngleClsLabel.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (paddleOcrAngleClsCheckBox != null)
-                    paddleOcrAngleClsCheckBox.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
-                
-                if (isPaddleOcrSelected && paddleOcrAngleClsCheckBox != null)
-                {
-                    paddleOcrAngleClsCheckBox.IsChecked = ConfigManager.Instance.GetPaddleOcrUseAngleCls();
-                }
 
                 // Show/hide Google Vision-specific settings
                 if (googleVisionApiKeyLabel != null)

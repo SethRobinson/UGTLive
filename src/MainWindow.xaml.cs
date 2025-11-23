@@ -1501,20 +1501,9 @@ namespace UGTLive
                     }
                     else
                     {
-                        // Convert bitmap to byte array for HTTP service
-                        byte[] imageBytes;
-                        using (var ms = new System.IO.MemoryStream())
-                        {
-                            bitmap.Save(ms, ImageFormat.Png);
-                            imageBytes = ms.ToArray();
-                        }
-                        
-                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                        {
-                            Console.WriteLine($"Sending {imageBytes.Length} bytes to HTTP OCR service");
-                        }
-                        
-                        Logic.Instance.SendImageToHttpOCR(imageBytes);
+                        // Send directly to HTTP service logic
+                        // The logic will handle cloning the bitmap and converting to bytes
+                        Logic.Instance.SendImageToHttpOCR(bitmap);
                     }
 
                     stopwatch.Stop();

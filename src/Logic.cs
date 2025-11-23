@@ -2120,8 +2120,32 @@ namespace UGTLive
         }
 
         // Called when a screenshot is captured (sends directly to HTTP service)
-        public async void SendImageToHttpOCR(byte[] imageBytes)
+        public async void SendImageToHttpOCR(System.Drawing.Bitmap bitmap)
         {
+            // Clone the bitmap immediately to avoid race conditions
+            System.Drawing.Bitmap? bitmapClone = null;
+            byte[] imageBytes;
+            
+            try
+            {
+                // Clone and store for color analysis
+                bitmapClone = (System.Drawing.Bitmap)bitmap.Clone();
+                SetCurrentProcessingBitmap(bitmapClone);
+                
+                // Convert to bytes for HTTP request
+                using (var ms = new MemoryStream())
+                {
+                    bitmapClone.Save(ms, ImageFormat.Png);
+                    imageBytes = ms.ToArray();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to prepare bitmap for HTTP OCR: {ex.Message}");
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+                return;
+            }
+
             try
             {
                 // Check if we should pause OCR while translating
@@ -2169,6 +2193,7 @@ namespace UGTLive
                         {
                             Log($"Ignoring stale OCR result from {ocrMethod} (Session ID mismatch: {currentSessionId} vs {_overlaySessionId})");
                         }
+                        ClearCurrentProcessingBitmap();
                         return;
                     }
 
@@ -2192,6 +2217,7 @@ namespace UGTLive
                         {
                             Log($"No valid response received from {ocrMethod} service");
                         }
+                        ClearCurrentProcessingBitmap();
                     }
                     
                     // Re-enable OCR check
@@ -2205,6 +2231,7 @@ namespace UGTLive
                     Log($"Unknown OCR method: {ocrMethod}");
                     // Disable OCR to prevent loop
                     MainWindow.Instance.SetOCRCheckIsWanted(false);
+                    ClearCurrentProcessingBitmap();
 
                     // Show error popup
                     ErrorPopupManager.ShowError(
@@ -2217,6 +2244,7 @@ namespace UGTLive
             {
                 Log($"Error processing screenshot: {ex.Message}");
                 Log($"Stack trace: {ex.StackTrace}");
+                ClearCurrentProcessingBitmap();
                 
                 MainWindow.Instance.SetOCRCheckIsWanted(true);
             }
