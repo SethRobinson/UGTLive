@@ -83,6 +83,7 @@ namespace UGTLive
         public const string MANGA_OCR_MIN_REGION_HEIGHT = "manga_ocr_min_region_height";
         public const string MANGA_OCR_OVERLAP_ALLOWED_PERCENT = "manga_ocr_overlap_allowed_percent";
         public const string MANGA_OCR_YOLO_CONFIDENCE = "manga_ocr_yolo_confidence";
+        public const string PADDLE_OCR_USE_ANGLE_CLS = "paddle_ocr_use_angle_cls";
         // OCR Processing Mode removed - replaced by Universal Block Detector
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
@@ -93,6 +94,7 @@ namespace UGTLive
         {
             "EasyOCR",
             "MangaOCR",
+            "PaddleOCR",
             "docTR",
             "Windows OCR",
             "Google Vision"
@@ -103,6 +105,7 @@ namespace UGTLive
         {
             { "EasyOCR", "EasyOCR (Decent at most languages)" },
             { "MangaOCR", "MangaOCR (Vertical Japanese manga)" },
+            { "PaddleOCR", "PaddleOCR (GPU-accelerated, Multi-language)" },
             { "docTR", "docTR (Great at non-asian languages)" },
             { "Windows OCR", "Windows OCR (mid at most languages)" },
             { "Google Vision", "Google Cloud Vision (non-local, costs $)" }
@@ -2158,6 +2161,18 @@ Here is the input JSON:";
             {
                 Console.WriteLine($"Invalid YOLO confidence threshold: {confidence}. Must be between 0.0 and 1.0.");
             }
+        }
+
+        public bool GetPaddleOcrUseAngleCls()
+        {
+            string value = GetValue(PADDLE_OCR_USE_ANGLE_CLS, "false");
+            return bool.TryParse(value, out bool result) && result;
+        }
+
+        public void SetPaddleOcrUseAngleCls(bool enabled)
+        {
+            _configValues[PADDLE_OCR_USE_ANGLE_CLS] = enabled.ToString();
+            SaveConfig();
         }
 
         // Get/Set: OCR processing mode (Deprecated/Removed)

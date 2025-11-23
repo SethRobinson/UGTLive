@@ -1889,6 +1889,13 @@ namespace UGTLive
                     url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}&yolo_confidence={yoloConfidence}";
                 }
                 
+                // Add PaddleOCR-specific parameters
+                if (serviceName == "PaddleOCR")
+                {
+                    bool useAngleCls = ConfigManager.Instance.GetPaddleOcrUseAngleCls();
+                    url += $"&use_angle_cls={useAngleCls}";
+                }
+                
                 // Send HTTP request with keep-alive
                 var content = new ByteArrayContent(imageBytes);
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
@@ -2141,7 +2148,7 @@ namespace UGTLive
                     MainWindow.Instance.SetOCRCheckIsWanted(true);
                     return;
                 }
-                else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || string.Equals(ocrMethod, "docTR", StringComparison.OrdinalIgnoreCase))
+                else if (ocrMethod == "EasyOCR" || ocrMethod == "MangaOCR" || ocrMethod == "PaddleOCR" || string.Equals(ocrMethod, "docTR", StringComparison.OrdinalIgnoreCase))
                 {
                     // Get source language
                     string sourceLanguage = GetSourceLanguage()!;

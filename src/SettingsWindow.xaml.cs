@@ -1162,6 +1162,20 @@ namespace UGTLive
                 Console.WriteLine($"Error setting Manga OCR YOLO confidence: {ex.Message}");
             }
         }
+
+        // Paddle OCR Angle Classification
+        private void PaddleOcrAngleClsCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            bool enabled = paddleOcrAngleClsCheckBox.IsChecked == true;
+            ConfigManager.Instance.SetPaddleOcrUseAngleCls(enabled);
+            
+            // Reset OCR
+            Logic.Instance.ResetHash();
+            MainWindow.Instance.SetOCRCheckIsWanted(true);
+        }
         
         // Update OCR-specific settings visibility
         private void UpdateOcrSpecificSettings(string selectedOcr)
@@ -1170,15 +1184,16 @@ namespace UGTLive
             {
                 bool isGoogleVisionSelected = string.Equals(selectedOcr, "Google Vision", StringComparison.OrdinalIgnoreCase);
                 bool isMangaOcrSelected = string.Equals(selectedOcr, "MangaOCR", StringComparison.OrdinalIgnoreCase);
+                bool isPaddleOcrSelected = string.Equals(selectedOcr, "PaddleOCR", StringComparison.OrdinalIgnoreCase);
                 bool isEasyOcrSelected = string.Equals(selectedOcr, "EasyOCR", StringComparison.OrdinalIgnoreCase);
                 bool isDocTrSelected = string.Equals(selectedOcr, "docTR", StringComparison.OrdinalIgnoreCase);
 
                 // Confidence settings are only useful for EasyOCR, docTR, and Google Vision
-                bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected || isGoogleVisionSelected;
+                bool showConfidenceSettings = isEasyOcrSelected || isDocTrSelected || isGoogleVisionSelected || isPaddleOcrSelected;
                 
-                // EasyOCR and docTR don't use character-level confidence (or at least we don't use it), so hide that specific setting
+                // EasyOCR, PaddleOCR and docTR don't use character-level confidence (or at least we don't use it), so hide that specific setting
                 // Google Vision DOES support character-level confidence
-                bool showLetterConfidence = showConfidenceSettings && !isEasyOcrSelected && !isDocTrSelected;
+                bool showLetterConfidence = showConfidenceSettings && !isEasyOcrSelected && !isDocTrSelected && !isPaddleOcrSelected;
 
                 if (minLetterConfidenceLabel != null)
                     minLetterConfidenceLabel.Visibility = showLetterConfidence ? Visibility.Visible : Visibility.Collapsed;
@@ -1231,6 +1246,17 @@ namespace UGTLive
                     mangaOcrYoloConfidenceLabel.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (mangaOcrYoloConfidenceTextBox != null)
                     mangaOcrYoloConfidenceTextBox.Visibility = isMangaOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+
+                // Show/hide PaddleOCR settings
+                if (paddleOcrAngleClsLabel != null)
+                    paddleOcrAngleClsLabel.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (paddleOcrAngleClsCheckBox != null)
+                    paddleOcrAngleClsCheckBox.Visibility = isPaddleOcrSelected ? Visibility.Visible : Visibility.Collapsed;
+                
+                if (isPaddleOcrSelected && paddleOcrAngleClsCheckBox != null)
+                {
+                    paddleOcrAngleClsCheckBox.IsChecked = ConfigManager.Instance.GetPaddleOcrUseAngleCls();
+                }
 
                 // Show/hide Google Vision-specific settings
                 if (googleVisionApiKeyLabel != null)

@@ -314,6 +314,16 @@
                                         LostFocus="MangaOcrYoloConfidenceTextBox_LostFocus"
                                         ToolTip="YOLO confidence threshold for detecting text regions (0.0-1.0). Higher values reduce false positives like textures being detected as text. Default: 0.60"/>
                                 
+                                <!-- PaddleOCR Angle Classification - Only visible when PaddleOCR is selected -->
+                                <TextBlock x:Name="paddleOcrAngleClsLabel" Text="Angle Classification:" Grid.Row="12" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed"
+                                          ToolTip="Enable text angle classification. Useful for rotated text but may reduce speed."/>
+                                <CheckBox x:Name="paddleOcrAngleClsCheckBox" Grid.Row="12" Grid.Column="1"
+                                         Margin="0,5" IsChecked="False" Visibility="Collapsed"
+                                         Checked="PaddleOcrAngleClsCheckBox_CheckedChanged"
+                                         Unchecked="PaddleOcrAngleClsCheckBox_CheckedChanged"
+                                         ToolTip="Enable text angle classification. Useful for rotated text but may reduce speed."/>
+
                                 <!-- Google Vision API Key - Only visible when Google Vision is selected -->
                                 <TextBlock x:Name="googleVisionApiKeyLabel" Text="Google Cloud Vision API Key:" Grid.Row="10" Grid.Column="0" 
                                           VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
