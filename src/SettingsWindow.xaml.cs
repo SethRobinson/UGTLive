@@ -1284,6 +1284,10 @@ namespace UGTLive
 
                 if (googleVisionGroupingLabel != null)
                     googleVisionGroupingLabel.Visibility = glueVisibility;
+                if (googleVisionHeightSimilarityLabel != null)
+                    googleVisionHeightSimilarityLabel.Visibility = glueVisibility;
+                if (googleVisionHeightSimilarityGrid != null)
+                    googleVisionHeightSimilarityGrid.Visibility = glueVisibility;
                 if (googleVisionHorizontalGlueLabel != null)
                     googleVisionHorizontalGlueLabel.Visibility = glueVisibility;
                 if (googleVisionHorizontalGlueGrid != null)
@@ -1299,11 +1303,16 @@ namespace UGTLive
                 if (googleVisionKeepLinefeedsLabel != null)
                     googleVisionKeepLinefeedsLabel.Visibility = glueVisibility;
                 if (googleVisionKeepLinefeedsCheckBox != null)
-                    googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
+googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
 
                 // Load Text Grouping settings if shown
                 if (shouldShowGlueSettings)
                 {
+                    if (googleVisionHeightSimilarityTextBox != null)
+                    {
+                        googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(selectedOcr).ToString("F1");
+                    }
+                    
                     if (googleVisionHorizontalGlueTextBox != null)
                     {
                         googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(selectedOcr).ToString("F2");
@@ -1546,6 +1555,35 @@ namespace UGTLive
             {
                 // Reset to current value if invalid
                 googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(currentOcr).ToString("F1");
+            }
+        }
+
+        // Height Similarity text changed
+        private void GoogleVisionHeightSimilarityTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            // Get current OCR method to save settings per-OCR
+            string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
+            
+            if (double.TryParse(googleVisionHeightSimilarityTextBox.Text, out double value))
+            {
+                // Clamp to range (0 to 100)
+                value = Math.Max(0, Math.Min(100.0, value));
+                googleVisionHeightSimilarityTextBox.Text = value.ToString("F1");
+                
+                ConfigManager.Instance.SetHeightSimilarity(currentOcr, value);
+                Console.WriteLine($"{currentOcr} height similarity set to {value}");
+                
+                // Force refresh
+                Logic.Instance.ResetHash();
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+            else
+            {
+                // Reset to current value if invalid
+                googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(currentOcr).ToString("F1");
             }
         }
 

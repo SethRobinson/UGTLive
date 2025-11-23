@@ -55,6 +55,7 @@ namespace UGTLive
         public const string HORIZONTAL_GLUE_PREFIX = "horizontal_glue_";
         public const string VERTICAL_GLUE_PREFIX = "vertical_glue_";
         public const string VERTICAL_GLUE_OVERLAP_PREFIX = "vertical_glue_overlap_";
+        public const string HEIGHT_SIMILARITY_PREFIX = "height_similarity_";
         public const string KEEP_LINEFEEDS_PREFIX = "keep_linefeeds_";
         public const string LEAVE_TRANSLATION_ONSCREEN_PREFIX = "leave_translation_onscreen_";
         
@@ -2435,6 +2436,28 @@ Here is the input JSON:";
             _configValues[key] = value.ToString();
             SaveConfig();
             Console.WriteLine($"{ocrMethod} vertical glue overlap updated to {value}");
+        }
+        
+        // Height Similarity (per-OCR)
+        public double GetHeightSimilarity(string ocrMethod)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = HEIGHT_SIMILARITY_PREFIX + normalizedMethod;
+            string value = GetValue(key, "70.0"); // Default: 70%
+            if (double.TryParse(value, out double result))
+            {
+                return result;
+            }
+            return 70.0;
+        }
+        
+        public void SetHeightSimilarity(string ocrMethod, double value)
+        {
+            string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
+            string key = HEIGHT_SIMILARITY_PREFIX + normalizedMethod;
+            _configValues[key] = value.ToString();
+            SaveConfig();
+            Console.WriteLine($"{ocrMethod} height similarity updated to {value}");
         }
         
         // Keep Linefeeds (per-OCR)

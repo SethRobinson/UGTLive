@@ -212,6 +212,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- OCR Method -->
@@ -369,10 +370,26 @@
                                 <TextBlock x:Name="googleVisionGroupingLabel" Text="Text Grouping Settings:" Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
                                           VerticalAlignment="Center" Margin="0,8,10,0" Visibility="Collapsed" FontWeight="SemiBold"/>
                                 
-                                <TextBlock x:Name="googleVisionHorizontalGlueLabel" Text="Horizontal glue distance:" Grid.Row="12" Grid.Column="0" 
+                                <!-- Height Similarity for Gluing -->
+                                <TextBlock x:Name="googleVisionHeightSimilarityLabel" Text="Height similarity for gluing:" Grid.Row="12" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Minimum height similarity (%) required to merge text elements. Prevents merging text with significantly different sizes (e.g., titles with small text)."/>
+                                <Grid Grid.Row="12" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHeightSimilarityGrid" Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="googleVisionHeightSimilarityTextBox" Grid.Column="0"
+                                             VerticalAlignment="Top" Margin="0,0,5,0" Text="70.0"
+                                             LostFocus="GoogleVisionHeightSimilarityTextBox_LostFocus"
+                                             ToolTip="Default: 70%. Range: 0-100. Text elements must have heights within this percentage to be merged. Set to 0 to disable height checking."/>
+                                    <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
+                                </Grid>
+                                
+                                <TextBlock x:Name="googleVisionHorizontalGlueLabel" Text="Horizontal glue distance:" Grid.Row="13" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="Maximum horizontal distance (in character widths) to group words together. Lower values create more separate text blocks."/>
-                                <Grid Grid.Row="12" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHorizontalGlueGrid" Margin="0,5,0,0">
+                                <Grid Grid.Row="13" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHorizontalGlueGrid" Margin="0,5,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -384,10 +401,10 @@
                                     <TextBlock Grid.Column="1" Text="char widths" VerticalAlignment="Center" FontSize="11" Foreground="Gray"/>
                                 </Grid>
                                 
-                                <TextBlock x:Name="googleVisionVerticalGlueLabel" Text="Vertical glue distance:" Grid.Row="13" Grid.Column="0" 
+                                <TextBlock x:Name="googleVisionVerticalGlueLabel" Text="Vertical glue distance:" Grid.Row="14" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="Maximum vertical distance (in line heights) to consider text on the same line. Lower values separate lines more."/>
-                                <Grid Grid.Row="13" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueGrid" Margin="0,5,0,0">
+                                <Grid Grid.Row="14" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueGrid" Margin="0,5,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -400,10 +417,10 @@
                                 </Grid>
                                 
                                 <!-- Vertical Glue Overlap (Min Horizontal Overlap) -->
-                                <TextBlock x:Name="googleVisionVerticalGlueOverlapLabel" Text="Min horizontal overlap:" Grid.Row="14" Grid.Column="0" 
+                                <TextBlock x:Name="googleVisionVerticalGlueOverlapLabel" Text="Min horizontal overlap:" Grid.Row="15" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="Percentage of horizontal overlap required to vertically glue lines together. Lower values allow more staggered text."/>
-                                <Grid Grid.Row="14" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueOverlapGrid" Margin="0,5,0,0">
+                                <Grid Grid.Row="15" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionVerticalGlueOverlapGrid" Margin="0,5,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -416,10 +433,10 @@
                                 </Grid>
                                 
                                 <!-- Try to keep original text linefeeds -->
-                                <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="15" Grid.Column="0" 
+                                <TextBlock x:Name="googleVisionKeepLinefeedsLabel" Text="Try to keep original text linefeeds:" Grid.Row="16" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="When enabled, preserves line breaks when joining text blocks vertically. This helps maintain the original text structure even when words are grouped together."/>
-                                <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="15" Grid.Column="1" 
+                                <CheckBox x:Name="googleVisionKeepLinefeedsCheckBox" Grid.Row="16" Grid.Column="1" 
                                          Margin="0,5" IsChecked="True" Visibility="Collapsed"
                                          Checked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged" 
                                          Unchecked="GoogleVisionKeepLinefeedsCheckBox_CheckedChanged"

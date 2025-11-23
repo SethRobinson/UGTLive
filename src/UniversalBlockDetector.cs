@@ -50,6 +50,9 @@ namespace UGTLive
             public double BaseLineVerticalGap = 5.0;         // Vertical gap between lines to consider as paragraph
             public double BaseLineFontSizeTolerance = 5.0;    // Max font height difference for lines in same paragraph
             
+            // Height similarity for gluing (prevents merging text with very different sizes)
+            public double HeightSimilarityThreshold = 70.0;   // Percentage (0-100) - text heights must be within this % to glue
+            
             // Paragraph detection
             public double BaseIndentation = 20.0;             // Indentation that suggests a new paragraph
             public double BaseParagraphBreakThreshold = 20.0; // Vertical gap suggesting paragraph break
@@ -97,6 +100,39 @@ namespace UGTLive
             _config.BaseWordHorizontalGap = value;
         }
         
+        public void SetHeightSimilarity(double value)
+        {
+            _config.HeightSimilarityThreshold = value;
+        }
+        
+        /// <summary>
+        /// Check if two text elements have similar heights (within threshold percentage)
+        /// </summary>
+        private bool AreSimilarHeights(TextElement a, TextElement b)
+        {
+            double threshold = _config.HeightSimilarityThreshold;
+            
+            // If threshold is 0, allow all heights
+            if (threshold <= 0)
+                return true;
+                
+            double heightA = a.Bounds.Height;
+            double heightB = b.Bounds.Height;
+            
+            // Avoid division by zero
+            if (heightA <= 0 || heightB <= 0)
+                return true;
+            
+            // Calculate ratio (smaller/larger)
+            double ratio = Math.Min(heightA, heightB) / Math.Max(heightA, heightB);
+            
+            // Convert threshold percentage to ratio
+            // 70% threshold means ratio must be >= 0.70
+            double minRatio = threshold / 100.0;
+            
+            return ratio >= minRatio;
+        }
+        
         #endregion
         
         #region Main Processing Method
@@ -123,10 +159,12 @@ namespace UGTLive
                 double horizontalGlue = ConfigManager.Instance.GetHorizontalGlue(ocrProvider);
                 double verticalGlue = ConfigManager.Instance.GetVerticalGlue(ocrProvider);
                 double verticalGlueOverlap = ConfigManager.Instance.GetVerticalGlueOverlap(ocrProvider);
+                double heightSimilarity = ConfigManager.Instance.GetHeightSimilarity(ocrProvider);
                 
                 // Update internal config
                 SetBaseWordHorizontalGap(horizontalGlue);
                 SetBaseLineVerticalGap(verticalGlue);
+                SetHeightSimilarity(heightSimilarity);
 
                 bool keepLinefeeds = ConfigManager.Instance.GetKeepLinefeeds(ocrProvider);
                 
@@ -354,7 +392,8 @@ namespace UGTLive
                     {
                         double horizontalGap = character.Bounds.X - (currentWord.Bounds.X + currentWord.Bounds.Width);
                         
-                        if (horizontalGap <= horizontalGapThreshold)
+                        // Check both gap distance and height similarity
+                        if (horizontalGap <= horizontalGapThreshold && AreSimilarHeights(currentWord, character))
                         {
                             currentWord.Text += character.Text;
                             
@@ -463,7 +502,11 @@ namespace UGTLive
                     double bucketY = bucket.Average(s => s.CenterY);
                     double bucketHeight = bucket.Average(s => s.Bounds.Height);
                     
-                    if (Math.Abs(seg.CenterY - bucketY) < (bucketHeight * 0.5))
+                    // Check vertical proximity and height similarity with any element in bucket
+                    bool verticallyClose = Math.Abs(seg.CenterY - bucketY) < (bucketHeight * 0.5);
+                    bool heightSimilar = bucket.Any(b => AreSimilarHeights(seg, b));
+                    
+                    if (verticallyClose && heightSimilar)
                     {
                         bucket.Add(seg);
                         added = true;
@@ -498,11 +541,11 @@ namespace UGTLive
                         double avgHeight = (prev.Bounds.Height + seg.Bounds.Height) / 2.0;
                         double horizontalGapThreshold = avgHeight * horizontalGapFactor;
 
-                        // Check horizontal gap
+                        // Check horizontal gap and height similarity
                         double gap = seg.Bounds.X - (prev.Bounds.X + prev.Bounds.Width);
                         
-                        // If gap is small, add to line. If large, start new line.
-                        if (gap <= horizontalGapThreshold)
+                        // If gap is small and heights are similar, add to line. If not, start new line.
+                        if (gap <= horizontalGapThreshold && AreSimilarHeights(prev, seg))
                         {
                             currentLineSegs.Add(seg);
                         }
@@ -596,6 +639,12 @@ namespace UGTLive
                 {
                     var paragraph = activeParagraphs[i];
                     var lastLine = paragraph.Children.Last();
+                    
+                    // 0. Check Height Similarity FIRST (before other checks)
+                    if (!AreSimilarHeights(lastLine, line))
+                    {
+                        continue; // Heights too different, don't merge
+                    }
                     
                     // 1. Calculate Geometric Gap (Vertical Distance)
                     double averageHeight = (lastLine.Bounds.Height + line.Bounds.Height) * 0.5;
