@@ -873,8 +873,16 @@ namespace UGTLive
             html.AppendLine("    return;");
             html.AppendLine("  }");
             html.AppendLine("  ");
-            html.AppendLine("  const audioPath = isSource ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
-            html.AppendLine("  if (!audioPath) return;");
+            html.AppendLine("  // Try to get the preferred audio path (source or target based on isSource)");
+            html.AppendLine("  let audioPath = isSource ? overlay.getAttribute('data-source-audio') : overlay.getAttribute('data-target-audio');");
+            html.AppendLine("  ");
+            html.AppendLine("  // If preferred audio is not available, fallback to the other type");
+            html.AppendLine("  if (!audioPath || audioPath === '') {");
+            html.AppendLine("    audioPath = isSource ? overlay.getAttribute('data-target-audio') : overlay.getAttribute('data-source-audio');");
+            html.AppendLine("  }");
+            html.AppendLine("  ");
+            html.AppendLine("  // If no audio is available at all, return");
+            html.AppendLine("  if (!audioPath || audioPath === '') return;");
             html.AppendLine("  ");
             html.AppendLine("  // Update icon to stop icon and add playing class to overlay");
             html.AppendLine("  icon.textContent = '⏹️';");
@@ -1270,7 +1278,9 @@ namespace UGTLive
                      string iconReady = ConfigManager.ICON_SPEAKER_READY;
                      string iconNotReady = ConfigManager.ICON_SPEAKER_NOT_READY;
                      
-                     string script = $"setAudioState('{textObjectId}', {audioIsReady.ToString().ToLower()}, {isSourceForClick.ToString().ToLower()}, '{audioPath.Replace("'", "\\'")}', {isSourceUpdate.ToString().ToLower()}, '{iconReady}', '{iconNotReady}');";
+                     // Escape backslashes for JavaScript string
+                     string escapedAudioPath = audioPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                     string script = $"setAudioState('{textObjectId}', {audioIsReady.ToString().ToLower()}, {isSourceForClick.ToString().ToLower()}, '{escapedAudioPath}', {isSourceUpdate.ToString().ToLower()}, '{iconReady}', '{iconNotReady}');";
                      
                      textOverlayWebView.CoreWebView2.ExecuteScriptAsync(script);
                 }
