@@ -96,18 +96,14 @@ def initialize_doctr():
     return DOCTR_PREDICTOR
 
 
-def detect_text_orientation(width: int, height: int, aspect_ratio_threshold: float = 1.5) -> str:
+def detect_text_orientation() -> str:
     """
-    Detect text orientation based on bounding box dimensions.
-    
-    Args:
-        width: Width of the text bounding box
-        height: Height of the text bounding box
-        aspect_ratio_threshold: Threshold for determining orientation (default: 1.5)
+    Return text orientation.
     
     Returns:
-        "horizontal" - docTR is primarily for horizontal text (does not support Japanese/vertical text well).
-        Vertical text detection via aspect ratio is unreliable.
+        "horizontal" - Always returns horizontal. Vertical text should only be detected
+        by OCR systems with built-in vertical detection (like MangaOCR).
+        Width/height aspect ratio comparison is unreliable.
     """
     return "horizontal"
 
@@ -160,7 +156,7 @@ def process_doctr_results(image: Image.Image, result) -> List[Dict]:
                         print(f"Color extraction failed: {e}")
                     
                     # Detect text orientation
-                    text_orientation = detect_text_orientation(width, height)
+                    text_orientation = detect_text_orientation()
                     
                     # Return as single word
                     text_obj = {

@@ -105,7 +105,7 @@ namespace UGTLive
         {
             { "EasyOCR", "EasyOCR (Decent at most languages)" },
             { "MangaOCR", "MangaOCR (Vertical Japanese manga)" },
-            { "PaddleOCR", "PaddleOCR (GPU-accelerated, Multi-language)" },
+            { "PaddleOCR", "PaddleOCR (Multi-language)" },
             { "docTR", "docTR (Great at non-asian languages)" },
             { "Windows OCR", "Windows OCR (mid at most languages)" },
             { "Google Vision", "Google Cloud Vision (non-local, costs $)" }

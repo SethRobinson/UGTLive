@@ -167,10 +167,9 @@ def process_ocr_results(results: list) -> List[Dict]:
         # Convert vertices to integer lists
         vertices = [[int(round(p[0])), int(round(p[1]))] for p in bbox]
         
-        # Determine orientation based on aspect ratio
+        # Text orientation is always horizontal unless the OCR system provides it
+        # (like MangaOCR does with its built-in vertical detection)
         text_orientation = "horizontal"
-        if height > width * 1.5:
-            text_orientation = "vertical"
         
         text_obj = {
             "text": text,
