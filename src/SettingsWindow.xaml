@@ -371,7 +371,7 @@
                                           VerticalAlignment="Center" Margin="0,8,10,0" Visibility="Collapsed" FontWeight="SemiBold"/>
                                 
                                 <!-- Height Similarity for Gluing -->
-                                <TextBlock x:Name="googleVisionHeightSimilarityLabel" Text="Height similarity for gluing:" Grid.Row="12" Grid.Column="0" 
+                                <TextBlock x:Name="googleVisionHeightSimilarityLabel" Text="Height similarity required for gluing:" Grid.Row="12" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
                                           ToolTip="Minimum height similarity (%) required to merge text elements. Prevents merging text with significantly different sizes (e.g., titles with small text)."/>
                                 <Grid Grid.Row="12" Grid.Column="1" Visibility="Collapsed" x:Name="googleVisionHeightSimilarityGrid" Margin="0,5,0,0">

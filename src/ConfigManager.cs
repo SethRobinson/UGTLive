@@ -2377,12 +2377,12 @@ Here is the input JSON:";
         {
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = HORIZONTAL_GLUE_PREFIX + normalizedMethod;
-            string value = GetValue(key, "2.0"); // Default: 2.0 character widths
+            string value = GetValue(key, "1.0"); // Default: 2.0 character widths
             if (double.TryParse(value, out double result))
             {
                 return result;
             }
-            return 2.0;
+            return 1.0;
         }
         
         public void SetHorizontalGlue(string ocrMethod, double value)
@@ -2399,12 +2399,12 @@ Here is the input JSON:";
         {
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = VERTICAL_GLUE_PREFIX + normalizedMethod;
-            string value = GetValue(key, "2.0"); // Default: 2.0 line heights
+            string value = GetValue(key, "1.0"); // Default: 2.0 line heights
             if (double.TryParse(value, out double result))
             {
                 return result;
             }
-            return 2.0;
+            return 1.0;
         }
         
         public void SetVerticalGlue(string ocrMethod, double value)
