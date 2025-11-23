@@ -427,10 +427,8 @@ namespace UGTLive
             toggleOverlayMode.UseShift = false;
             _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
             
-            // Toggle Listen - Shift+I
+            // Toggle Listen - No default key
             var toggleListen = new HotkeyEntry("toggle_listen", "Toggle Listen");
-            toggleListen.KeyboardKey = Key.I;
-            toggleListen.UseShift = true;
             _actionBindings["toggle_listen"] = new List<HotkeyEntry> { toggleListen };
             
             // View in Browser - Shift+B

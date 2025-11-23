@@ -29,7 +29,7 @@ SERVICE_CONFIG = parse_service_config(str(config_path))
 # Get service settings
 SERVICE_NAME = get_config_value(SERVICE_CONFIG, 'service_name', 'PaddleOCR')
 SERVICE_PORT = int(get_config_value(SERVICE_CONFIG, 'port', '5003'))
-SERVICE_VERSION = get_config_value(SERVICE_CONFIG, 'version', '2.9.1')
+SERVICE_VERSION = get_config_value(SERVICE_CONFIG, 'version', '3.2.2')
 
 # Initialize FastAPI app
 app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
@@ -44,7 +44,8 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
     global OCR_ENGINE, CURRENT_LANG, CURRENT_ANGLE_CLS
 
     # Map language codes to PaddleOCR language codes
-    # https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.6/doc/doc_en/multi_languages_en.md
+    # https://github.com/PaddlePaddle/PaddleOCR?tab=readme-ov-file
+    # PaddleOCR 3.2.2 supports 100+ languages
     lang_map = {
         'ja': 'japan',
         'japan': 'japan',
@@ -82,20 +83,18 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
         device_name = paddle.device.get_device()
         print(f"Paddle device: {device_name} (GPU available: {use_gpu})")
 
-        print(f"Initializing PaddleOCR engine with language: {paddle_lang}, angle_cls: {use_angle_cls}...")
+        print(f"Initializing PaddleOCR engine with language: {paddle_lang}, use_textline_orientation: {use_angle_cls}...")
         start_time = time.time()
 
-        # Initialize PaddleOCR
-        # use_angle_cls: True to enable orientation classification
-        # lang: language code
-        # use_gpu: True/False
-        # show_log: False to reduce noise
+        # Initialize PaddleOCR 3.2.2
+        # use_textline_orientation: True to enable orientation classification (replaces use_angle_cls)
+        # lang: language code (supports 100+ languages)
+        # GPU is auto-detected, no use_gpu parameter needed
+        # Logging is controlled via environment variables in 3.2.2
         OCR_ENGINE = PaddleOCR(
-            use_angle_cls=use_angle_cls, 
+            use_textline_orientation=use_angle_cls, 
             lang=paddle_lang, 
-            use_gpu=use_gpu,
-            show_log=False,
-            enable_mkldnn=True # Enable MKLDNN for CPU acceleration if GPU fails or is not used
+            text_det_limit_side_len=960 # Detection limit side length for better accuracy (replaces det_limit_side_len)
         )
         
         CURRENT_LANG = paddle_lang
@@ -103,26 +102,50 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
         initialization_time = time.time() - start_time
         print(f"PaddleOCR initialization completed in {initialization_time:.2f} seconds")
     else:
-        print(f"Using existing PaddleOCR engine with language: {paddle_lang}, angle_cls: {use_angle_cls}")
+        print(f"Using existing PaddleOCR engine with language: {paddle_lang}, use_textline_orientation: {use_angle_cls}")
 
     return OCR_ENGINE
 
 def process_ocr_results(results: list) -> List[Dict]:
-    """Process PaddleOCR results into standardized format."""
+    """Process PaddleOCR 3.2.2 results into standardized format."""
     text_objects = []
     
-    # PaddleOCR result structure: 
-    # [ [ [ [x1,y1], [x2,y2], [x3,y3], [x4,y4] ], ("text", confidence) ], ... ]
-    # It returns a list of lists (one for each image), since we send one image, we take results[0]
+    # PaddleOCR 3.2.2 returns OCRResult objects with a different structure
+    # Results structure:
+    # [
+    #   OCRResult {
+    #     'rec_texts': ['text1', 'text2', ...],
+    #     'rec_scores': [0.95, 0.98, ...],
+    #     'rec_polys': [array([[x1,y1], [x2,y2], [x3,y3], [x4,y4]]), ...]
+    #   }
+    # ]
     
-    if not results or results[0] is None:
+    if not results or len(results) == 0:
         return []
-        
-    for line in results[0]:
-        bbox = line[0]
-        text_info = line[1]
-        text = text_info[0]
-        confidence = text_info[1]
+    
+    ocr_result = results[0]
+    
+    # Check if it's an OCRResult object with the expected attributes
+    if not hasattr(ocr_result, 'rec_texts') or not hasattr(ocr_result, 'rec_scores') or not hasattr(ocr_result, 'rec_polys'):
+        # Try to access as dictionary
+        if isinstance(ocr_result, dict):
+            rec_texts = ocr_result.get('rec_texts', [])
+            rec_scores = ocr_result.get('rec_scores', [])
+            rec_polys = ocr_result.get('rec_polys', [])
+        else:
+            print(f"ERROR: Unexpected result format: {type(ocr_result)}")
+            return []
+    else:
+        # Access as object attributes
+        rec_texts = ocr_result.rec_texts
+        rec_scores = ocr_result.rec_scores
+        rec_polys = ocr_result.rec_polys
+    
+    # Process each detected text
+    for i, (text, score, bbox) in enumerate(zip(rec_texts, rec_scores, rec_polys)):
+        # Skip empty text
+        if not text or text.strip() == '':
+            continue
         
         # Calculate bounding box (x, y, width, height)
         xs = [point[0] for point in bbox]
@@ -137,15 +160,10 @@ def process_ocr_results(results: list) -> List[Dict]:
         vertices = [[int(p[0]), int(p[1])] for p in bbox]
         
         # Determine orientation based on aspect ratio
-        # This is a simple heuristic; PaddleOCR's angle classifier handles image rotation,
-        # but this field is for the app's UI to know if it's vertical text.
-        # PaddleOCR output doesn't explicitly say "vertical" vs "horizontal" text direction in the same way as EasyOCR sometimes hints,
-        # but we can infer from the bounding box aspect ratio.
-        # However, for standard horizontal text, width > height.
         text_orientation = "horizontal"
         if height > width * 1.5:
-             text_orientation = "vertical"
-
+            text_orientation = "vertical"
+        
         text_obj = {
             "text": text,
             "x": x,
@@ -153,7 +171,7 @@ def process_ocr_results(results: list) -> List[Dict]:
             "width": width,
             "height": height,
             "vertices": vertices,
-            "confidence": float(confidence),
+            "confidence": float(score),
             "text_orientation": text_orientation
         }
         
@@ -193,8 +211,9 @@ async def process_image(request: Request):
         image = Image.open(BytesIO(image_bytes)).convert('RGB')
         img_array = np.array(image)
         
-        # Perform OCR
-        results = engine.ocr(img_array, cls=use_angle_cls)
+        # Perform OCR using predict() method (ocr() is deprecated in 3.2.2)
+        # Orientation classification is already set during initialization via use_textline_orientation
+        results = engine.predict(img_array)
         
         # Process results
         text_objects = process_ocr_results(results)

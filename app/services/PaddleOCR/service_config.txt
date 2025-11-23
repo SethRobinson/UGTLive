@@ -6,5 +6,4 @@ venv_name|ugt_paddleocr|
 port|5003|
 server_url|http://127.0.0.1|
 local_only|true|
-version|2.9.1|
-
+version|3.2.2

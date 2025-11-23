@@ -283,7 +283,7 @@ if errorlevel 1 (
 
 echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 11.8)...
 echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 11.8)... >> "%LOG_FILE%"
-python -m pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/ >> "%LOG_FILE%" 2>&1
+python -m pip install paddlepaddle-gpu==3.2.1 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/ >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install PaddlePaddle
     echo ERROR: Failed to install PaddlePaddle >> "%LOG_FILE%"
@@ -355,14 +355,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 12.x)...
-echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 12.x)... >> "%LOG_FILE%"
-REM Using CUDA 12.3 build (common recent version) or specific index if known.
-REM The plan mentioned https://www.paddlepaddle.org.cn/packages/stable/cu129/
-python -m pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/ >> "%LOG_FILE%" 2>&1
+echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 12.9)...
+echo [Step 2/5] Installing PaddlePaddle GPU (CUDA 12.9)... >> "%LOG_FILE%"
+REM Using CUDA 12.9 for RTX 50 series (compute capability 12.0) compatibility
+python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/ >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: Failed to install PaddlePaddle CUDA 12.x
-    echo ERROR: Failed to install PaddlePaddle CUDA 12.x >> "%LOG_FILE%"
+    echo ERROR: Failed to install PaddlePaddle CUDA 12.9
+    echo ERROR: Failed to install PaddlePaddle CUDA 12.9 >> "%LOG_FILE%"
     pause
     exit /b 1
 )
