@@ -225,22 +225,20 @@ REM -----------------------------------------------------------------
 :Install30_40Series
 echo Installing dependencies...
 
-set "PYTORCH_CHANNEL=https://download.pytorch.org/whl/cu118"
-
 echo [1/5] Installing PyTorch with CUDA 11.8...
 python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 >> "%LOG_FILE%" 2>&1
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 >> "%LOG_FILE%" 2>&1
 
 echo [2/5] Installing core packages...
-python -m pip install numpy==2.0.2 pillow==11.3.0 "opencv-python-headless>=4.10,<4.12" scipy==1.13.1 >> "%LOG_FILE%" 2>&1
-python -m pip install transformers==4.57.1 huggingface-hub==0.36.0 tokenizers==0.22.1 safetensors==0.6.2 >> "%LOG_FILE%" 2>&1
-python -m pip install fugashi==1.5.2 unidic_lite==1.0.8 >> "%LOG_FILE%" 2>&1
+python -m pip install numpy pillow opencv-python-headless scipy >> "%LOG_FILE%" 2>&1
+python -m pip install transformers huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
+python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
 
 echo [3/5] Installing Manga OCR and YOLO...
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! manga-ocr==0.1.14 ultralytics==8.3.226 >> "%LOG_FILE%" 2>&1
+python -m pip install manga-ocr ultralytics >> "%LOG_FILE%" 2>&1
 
 echo [4/5] Installing API server...
-python -m pip install fastapi==0.121.1 "uvicorn[standard]==0.38.0" python-multipart==0.0.20 pydantic==2.10.5 >> "%LOG_FILE%" 2>&1
+python -m pip install fastapi "uvicorn[standard]" python-multipart pydantic >> "%LOG_FILE%" 2>&1
 
 echo [5/5] Installing Scikit-learn (optional)...
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
