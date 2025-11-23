@@ -40,7 +40,7 @@ CURRENT_LANG = None
 CURRENT_ANGLE_CLS = False
 
 # Debug settings
-DEBUG_IMAGES = True
+DEBUG_IMAGES = False
 
 def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
     """Initialize or reinitialize the OCR engine with the specified language."""
