@@ -95,6 +95,10 @@ namespace UGTLive
         private ServerSetupDialog()
         {
             InitializeComponent();
+            
+            // Set window icon to highest resolution
+            IconHelper.SetWindowIcon(this);
+            
             this.Loaded += ServerSetupDialog_Loaded;
             this.Closing += ServerSetupDialog_Closing;
             
@@ -175,13 +179,19 @@ namespace UGTLive
         {
             try
             {
-                // Load app icon
-                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "media", "Icon1.ico");
-                if (File.Exists(iconPath))
-                {
-                    var bitmapSource = new BitmapImage(new Uri(iconPath));
-                    appIconImage.Source = bitmapSource;
-                }
+                // Load app icon - use highest resolution frame from ICO
+                Uri iconUri = new Uri("pack://application:,,,/media/Icon1.ico", UriKind.RelativeOrAbsolute);
+                IconBitmapDecoder iconDecoder = new IconBitmapDecoder(
+                    iconUri,
+                    BitmapCreateOptions.None,
+                    BitmapCacheOption.OnLoad);
+                
+                // Get the highest resolution frame (256x256)
+                BitmapSource highResIcon = iconDecoder.Frames
+                    .OrderByDescending(f => f.PixelWidth)
+                    .First();
+                
+                appIconImage.Source = highResIcon;
                 
                 // Set version text from SplashManager
                 versionTextBlock.Text = $"V{SplashManager.CurrentVersion.ToString("0.00")} by Seth A. Robinson";

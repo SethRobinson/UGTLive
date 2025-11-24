@@ -10,6 +10,7 @@ namespace UGTLive
         public GoogleVisionSetupDialog()
         {
             InitializeComponent();
+            IconHelper.SetWindowIcon(this);
         }
 
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

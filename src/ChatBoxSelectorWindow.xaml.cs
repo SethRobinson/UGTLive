@@ -28,6 +28,9 @@ namespace UGTLive
         {
             InitializeComponent();
             
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
+            
             // Set up mouse events
             this.MouseLeftButtonDown += OnMouseLeftButtonDown;
             this.MouseMove += OnMouseMove;

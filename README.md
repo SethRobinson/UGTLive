@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-0.60-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.00-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 [![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
 
@@ -39,6 +39,8 @@ Features:
 </table>
 
 # History
+
+**V1.00 Nov 24th, 2025** - Major milestone release! First stable 1.0 version.
 
 **V0.60 Nov 17th, 2025** - New customizable global hotkey system, New Page Reader/preload audio system, improved OCR capturing (thx [thanhkeke97](https://github.com/thanhkeke97)) with passthrough option, new log dialog, Settings dialog now is organized with tabs, lesson and jisho lookup added
 

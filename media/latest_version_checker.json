@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":0.60,
-     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nV0.60: Page reading, tabbed settings, configurable hotkeys, tons of new stuff\n\nBackend reinstall required: No"
+    "latest_version":1.00,
+     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nV1.00: Major milestone release! New easy to use 'GPU Service System', Page reading, Paddle OCR added, tons of general improvements.\n\nBackend reinstall required: Yes"
 }

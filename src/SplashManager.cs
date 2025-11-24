@@ -29,7 +29,7 @@ namespace UGTLive
         // Event to notify when splash screen is closed
         public event EventHandler? SplashClosed;
         
-        public const double CurrentVersion = 0.59;
+        public const double CurrentVersion = 1.00;
         private const string VersionCheckerUrl = "https://raw.githubusercontent.com/SethRobinson/UGTLive/refs/heads/main/media/latest_version_checker.json";
         private const string DownloadUrl = "https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip";
 
@@ -59,7 +59,8 @@ namespace UGTLive
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
                     Background = new SolidColorBrush(Colors.White),
                     AllowsTransparency = true,
-                    Topmost = true
+                    Topmost = true,
+                    Icon = IconHelper.LoadHighResIcon()
                 };
 
                 // Create a border with drop shadow and rounded corners for visual appeal

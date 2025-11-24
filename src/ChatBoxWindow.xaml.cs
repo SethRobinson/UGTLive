@@ -51,6 +51,9 @@ namespace UGTLive
             Instance = this;
             InitializeComponent();
             
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
+            
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
             

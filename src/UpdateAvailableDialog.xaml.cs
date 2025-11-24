@@ -14,6 +14,8 @@ namespace UGTLive
         {
             InitializeComponent();
             
+            IconHelper.SetWindowIcon(this);
+            
             _newVersion = newVersion;
             _updateMessage = updateMessage;
             _downloadUrl = downloadUrl;

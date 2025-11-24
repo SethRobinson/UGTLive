@@ -65,6 +65,9 @@ namespace UGTLive
             InitializeComponent();
             _instance = this;
             
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
+            
             // Setup tooltip exclusion from screenshots
             SetupTooltipExclusion();
             

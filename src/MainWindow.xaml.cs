@@ -291,6 +291,9 @@ namespace UGTLive
             
             _this = this;
             InitializeComponent();
+            
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
 
             // Initialize console but keep it hidden initially
             InitializeConsole();

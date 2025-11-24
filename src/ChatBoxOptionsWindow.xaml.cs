@@ -47,6 +47,9 @@ namespace UGTLive
         {
             InitializeComponent();
             
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
+            
             // Load system font families
             LoadFontFamilies();
             

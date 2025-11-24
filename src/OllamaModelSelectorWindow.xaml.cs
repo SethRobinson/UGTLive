@@ -14,6 +14,9 @@ namespace UGTLive
         public OllamaModelSelectorWindow()
         {
             InitializeComponent();
+            
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
         }
 
         public void SetModels(List<string> models)

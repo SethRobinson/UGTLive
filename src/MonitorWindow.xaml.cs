@@ -77,6 +77,9 @@ namespace UGTLive
             
             InitializeComponent();
             
+            // Set high-res icon
+            IconHelper.SetWindowIcon(this);
+            
             Console.WriteLine("MonitorWindow constructor started");
             
             // Subscribe to Play All state changes

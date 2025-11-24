@@ -18,6 +18,7 @@ namespace UGTLive
         public TtsVoiceSelectorDialog()
         {
             InitializeComponent();
+            IconHelper.SetWindowIcon(this);
             LoadCurrentSettings();
         }
         
