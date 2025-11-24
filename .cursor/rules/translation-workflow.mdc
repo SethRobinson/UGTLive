@@ -1,8 +1,9 @@
 ---
-description:
-globs:
+description: Translation workflow and OCR processing pipeline
+globs: ["**/*.cs"]
 alwaysApply: false
 ---
+
 # Translation Workflow and API Integration Guide
 
 ## Translation Pipeline Overview
@@ -29,37 +30,73 @@ private Bitmap CaptureScreen(int x, int y, int width, int height)
 ## OCR Processing
 
 ### OCR Service Selection
-UGTLive supports two OCR backends configured in [src/ConfigManager.cs](mdc:src/ConfigManager.cs):
+UGTLive supports six OCR backends configured in [src/ConfigManager.cs](mdc:src/ConfigManager.cs):
 
 1. **Windows OCR** ([src/WindowsOCRManager.cs](mdc:src/WindowsOCRManager.cs))
    - Uses Windows.Media.Ocr API
    - Faster but less accurate for some languages
    - No external dependencies
 
-2. **EasyOCR** (via [src/SocketManager.cs](mdc:src/SocketManager.cs))
+2. **EasyOCR** (via PythonServicesManager)
    - Python server running locally
    - Better accuracy for Asian languages
    - Requires conda environment setup
 
+3. **MangaOCR** (via PythonServicesManager)
+   - Specialized for vertical Japanese manga text
+   - YOLO-based text detection
+   - Configurable region size and overlap settings
+
+4. **PaddleOCR** (via PythonServicesManager)
+   - Multi-language OCR with 100+ language support
+   - Optional angle classification for rotated text
+   - GPU acceleration support
+
+5. **docTR** (via PythonServicesManager)
+   - Great for non-Asian languages
+   - Document-oriented OCR
+   - High accuracy for printed text
+
+6. **Google Vision** ([src/GoogleVisionOCRService.cs](mdc:src/GoogleVisionOCRService.cs))
+   - Cloud-based OCR service
+   - Requires API key and costs money
+   - High accuracy but not local
+
 ### OCR Data Flow
 ```
-Bitmap → OCR Service → List<TextObject> → BlockDetectionManager
+Bitmap → OCR Service → List<TextObject> → UniversalBlockDetector
 ```
 
-## Block Detection ([src/BlockDetectionManager.cs](mdc:src/BlockDetectionManager.cs))
+### Python OCR Services
+All Python OCR services are managed by `PythonServicesManager`:
+- Services discovered automatically on startup
+- Each service runs on its own port
+- Services can be installed/uninstalled via UI
+- Health checks and diagnostics available
 
-The BlockDetectionManager groups individual characters into meaningful text blocks:
+## Block Detection ([src/UniversalBlockDetector.cs](mdc:src/UniversalBlockDetector.cs))
+
+The UniversalBlockDetector groups individual characters/words/lines into meaningful text blocks:
+
+### Key Features
+- **Universal Detection**: Handles mixed input types (Words, Lines, Characters)
+- **Intelligent Grouping**: Groups based on proximity, alignment, and reading order
+- **Configurable Thresholds**: Per-OCR method settings for glue distances
+- **Height Similarity**: Prevents merging text with very different sizes
+- **Large Gap Detection**: Splits text at large horizontal gaps
 
 ### Key Parameters
-- **Block Power**: Controls grouping aggressiveness (0.0 - 1.0)
-- **Min Context Size**: Minimum characters for context inclusion
-- **Max Distance**: Maximum pixel distance for grouping
+- **Block Detection Scale**: Controls grouping aggressiveness (0.0 - 1.0)
+- **Horizontal/Vertical Glue**: Per-OCR method glue distances
+- **Height Similarity Threshold**: Percentage for height matching
+- **Settle Time**: Time to wait before processing blocks
 
 ### Grouping Algorithm
 1. Sorts text objects by position
 2. Groups based on proximity and alignment
 3. Merges overlapping blocks
 4. Filters by minimum size
+5. Handles mixed input types intelligently
 
 ## Translation Services
 
@@ -67,7 +104,7 @@ The BlockDetectionManager groups individual characters into meaningful text bloc
 ```csharp
 public interface ITranslationService
 {
-    Task<TranslationResult> TranslateAsync(
+    Task<TranslationResult?> TranslateAsync(
         string sourceText, 
         string targetLanguage, 
         string context);
@@ -85,11 +122,23 @@ public interface ITranslationService
 - Endpoint: `https://api.openai.com/v1/chat/completions`
 - Models: gpt-4o, gpt-4o-mini, o1-preview, o1-mini
 - Supports streaming responses
+- Configurable max completion tokens
 
 #### Ollama ([src/OllamaTranslationService.cs](mdc:src/OllamaTranslationService.cs))
 - Local endpoint: `http://localhost:11434/api/generate`
 - Models: Various local models (llama, gemma, etc.)
 - Privacy-focused, no cloud dependency
+- Configurable URL and port
+
+#### Google Translate ([src/GoogleTranslateService.cs](mdc:src/GoogleTranslateService.cs))
+- Can use Cloud API or free web API
+- Auto language mapping support
+- Fast translation for simple use cases
+
+#### llama.cpp ([src/LlamaCppTranslationService.cs](mdc:src/LlamaCppTranslationService.cs))
+- Local llama.cpp server endpoint
+- Configurable URL and port
+- Privacy-focused local translation
 
 ### Translation Request Format
 All services receive:
@@ -107,6 +156,12 @@ All services receive:
 - Auto-scroll and history management
 - Can be positioned anywhere on screen
 
+### Overlay System
+- Text overlays positioned at original text locations
+- Configurable clear delay
+- Passthrough mode for interaction
+- Multiple overlay modes
+
 ### Text Rendering
 - Uses WPF TextBlock with formatting
 - Supports multiple fonts and sizes
@@ -116,8 +171,8 @@ All services receive:
 ## API Key Management
 
 API keys are stored securely in [src/ConfigManager.cs](mdc:src/ConfigManager.cs):
-- Encrypted in user settings
-- Never logged or transmitted except to services
+- Stored in plain text config files (local only)
+- Never logged (masked in console output)
 - Validated on settings save
 
 ## Context Management
@@ -138,17 +193,24 @@ Previous Translations → Context Buffer → Translation Request → LLM
 ### Text-to-Speech Services
 - **Google TTS** ([src/GoogleTTSService.cs](mdc:src/GoogleTTSService.cs))
 - **ElevenLabs** ([src/ElevenLabsService.cs](mdc:src/ElevenLabsService.cs))
+- Voice selection dialogs
+- Audio preloading for source/target languages
 
 ### Real-time Audio Transcription
 - Uses OpenAI Realtime API ([src/OpenAIRealtimeAudioService.cs](mdc:src/OpenAIRealtimeAudioService.cs))
 - WebSocket connection for streaming
 - Supports voice activity detection
 
+### Audio Playback
+- Managed by `AudioPlaybackManager`
+- Preloading via `AudioPreloadService`
+- Queue management and playback control
+
 ## Error Handling
 
 ### Common Error Points
 1. **OCR Failures**: Logged, skips frame
-2. **Translation API Errors**: Displays error in ChatBox
+2. **Translation API Errors**: Displays error in ChatBox or via ErrorPopupManager
 3. **Network Issues**: Retries with exponential backoff
 4. **Invalid API Keys**: Shows settings prompt
 
@@ -158,22 +220,31 @@ All errors logged via [src/LogManager.cs](mdc:src/LogManager.cs):
 LogManager.Instance.LogError("Error description", exception);
 ```
 
+### Error Popups
+User-friendly error messages via [src/ErrorPopupManager.cs](mdc:src/ErrorPopupManager.cs):
+```csharp
+ErrorPopupManager.ShowError("Title", "Message");
+```
+
 ## Performance Considerations
 
 ### OCR Optimization
 - Configurable capture FPS
 - Region-based capture (not full screen)
 - Caching of unchanged regions
+- Per-OCR method confidence thresholds
 
 ### Translation Optimization
 - Batches small text blocks
 - Caches recent translations
 - Parallel processing where possible
+- Pause OCR while translating option
 
 ### Memory Management
 - Disposes bitmaps after use
 - Limits translation history size
 - Clears old context periodically
+- Audio preloading with size limits
 
 ## Testing Translation Services
 
@@ -189,3 +260,4 @@ LogManager.Instance.LogError("Error description", exception);
 - **Wrong language**: Verify language settings
 - **Slow performance**: Reduce capture area/FPS
 - **API errors**: Validate API key and quota
+- **Python service errors**: Check service diagnostics dialog

@@ -1,12 +1,13 @@
 ---
-description:
-globs:
+description: Universal Game Translator Live project overview and structure
+globs: ["**/*.cs", "**/*.xaml"]
 alwaysApply: false
 ---
+
 # Universal Game Translator Live - Project Guide
 
 ## Overview
-Universal Game Translator Live (UGTLive) is a Windows WPF application that provides real-time screen translation using OCR and Large Language Models (LLMs). The application captures screen regions, performs OCR, and translates text using services like Gemini, ChatGPT, or Ollama.
+Universal Game Translator Live (UGTLive) is a Windows WPF application that provides real-time screen translation using OCR and Large Language Models (LLMs). The application captures screen regions, performs OCR, and translates text using services like Gemini, ChatGPT, Ollama, Google Translate, or llama.cpp.
 
 ## Project Structure
 
@@ -22,11 +23,25 @@ Universal Game Translator Live (UGTLive) is a Windows WPF application that provi
 - [src/SettingsWindow.xaml.cs](mdc:src/SettingsWindow.xaml.cs) - Application settings interface
 - [src/ChatBoxOptionsWindow.xaml.cs](mdc:src/ChatBoxOptionsWindow.xaml.cs) - ChatBox customization options
 - [src/ChatBoxSelectorWindow.xaml.cs](mdc:src/ChatBoxSelectorWindow.xaml.cs) - ChatBox region selector
+- [src/LogWindow.xaml.cs](mdc:src/LogWindow.xaml.cs) - Log viewer window
+
+### Dialog Windows
+- [src/UpdateAvailableDialog.xaml.cs](mdc:src/UpdateAvailableDialog.xaml.cs) - Version update notification
+- [src/TtsVoiceSelectorDialog.xaml.cs](mdc:src/TtsVoiceSelectorDialog.xaml.cs) - TTS voice selection
+- [src/ServiceInstallDialog.xaml.cs](mdc:src/ServiceInstallDialog.xaml.cs) - Python service installation
+- [src/ServiceDiagnosticDialog.xaml.cs](mdc:src/ServiceDiagnosticDialog.xaml.cs) - Service diagnostics
+- [src/ServerSetupDialog.xaml.cs](mdc:src/ServerSetupDialog.xaml.cs) - Server setup wizard
+- [src/OllamaModelSelectorWindow.xaml.cs](mdc:src/OllamaModelSelectorWindow.xaml.cs) - Ollama model selection
+- [src/GoogleVisionSetupDialog.xaml.cs](mdc:src/GoogleVisionSetupDialog.xaml.cs) - Google Vision setup
+- [src/ShutdownDialog.xaml.cs](mdc:src/ShutdownDialog.xaml.cs) - Shutdown confirmation
+- [src/NoTextInfoDialog.xaml.cs](mdc:src/NoTextInfoDialog.xaml.cs) - No text detected notification
 
 ### OCR Services
 - [src/WindowsOCRManager.cs](mdc:src/WindowsOCRManager.cs) - Windows built-in OCR integration
-- [src/SocketManager.cs](mdc:src/SocketManager.cs) - Communication with Python EasyOCR server
-- [src/BlockDetectionManager.cs](mdc:src/BlockDetectionManager.cs) - Text block detection and grouping
+- [src/GoogleVisionOCRService.cs](mdc:src/GoogleVisionOCRService.cs) - Google Cloud Vision OCR
+- [src/UniversalBlockDetector.cs](mdc:src/UniversalBlockDetector.cs) - Advanced text block detection and grouping
+- [src/PythonServicesManager.cs](mdc:src/PythonServicesManager.cs) - Manages Python OCR services (EasyOCR, MangaOCR, PaddleOCR, DocTR)
+- [src/PythonService.cs](mdc:src/PythonService.cs) - Individual Python service wrapper
 
 ### Translation Services
 - [src/ITranslationService.cs](mdc:src/ITranslationService.cs) - Translation service interface
@@ -34,25 +49,49 @@ Universal Game Translator Live (UGTLive) is a Windows WPF application that provi
 - [src/ChatGptTranslationService.cs](mdc:src/ChatGptTranslationService.cs) - OpenAI ChatGPT integration
 - [src/OllamaTranslationService.cs](mdc:src/OllamaTranslationService.cs) - Local Ollama LLM integration
 - [src/GoogleTranslateService.cs](mdc:src/GoogleTranslateService.cs) - Google Translate integration
+- [src/LlamaCppTranslationService.cs](mdc:src/LlamaCppTranslationService.cs) - llama.cpp local translation
 - [src/TranslationServiceFactory.cs](mdc:src/TranslationServiceFactory.cs) - Factory for creating translation services
 
 ### Audio Services
 - [src/GoogleTTSService.cs](mdc:src/GoogleTTSService.cs) - Google Text-to-Speech
 - [src/ElevenLabsService.cs](mdc:src/ElevenLabsService.cs) - ElevenLabs TTS integration
 - [src/OpenAIRealtimeAudioService.cs](mdc:src/OpenAIRealtimeAudioService.cs) - OpenAI real-time audio transcription
+- [src/AudioPlaybackManager.cs](mdc:src/AudioPlaybackManager.cs) - Audio playback management
+- [src/AudioPreloadService.cs](mdc:src/AudioPreloadService.cs) - TTS audio preloading
 
-### Utilities
-- [src/KeyboardShortcuts.cs](mdc:src/KeyboardShortcuts.cs) - Global keyboard shortcuts
+### Utilities and Managers
+- [src/HotkeyManager.cs](mdc:src/HotkeyManager.cs) - Global keyboard shortcuts management
 - [src/MouseManager.cs](mdc:src/MouseManager.cs) - Mouse input handling
 - [src/LogManager.cs](mdc:src/LogManager.cs) - Application logging
 - [src/SplashManager.cs](mdc:src/SplashManager.cs) - Splash screen management
 - [src/TextObject.cs](mdc:src/TextObject.cs) - Text region data structure
+- [src/ErrorPopupManager.cs](mdc:src/ErrorPopupManager.cs) - Error popup management
+- [src/GamepadManager.cs](mdc:src/GamepadManager.cs) - Gamepad input management
+- [src/WebViewEnvironmentManager.cs](mdc:src/WebViewEnvironmentManager.cs) - WebView2 environment management
+- [src/WebViewPool.cs](mdc:src/WebViewPool.cs) - WebView2 instance pooling
+- [src/OverlayProfiler.cs](mdc:src/OverlayProfiler.cs) - Overlay performance profiling
+- [src/CondaHelper.cs](mdc:src/CondaHelper.cs) - Conda environment management
+- [src/ServiceConfigParser.cs](mdc:src/ServiceConfigParser.cs) - Python service config parsing
+- [src/ServiceItemViewModel.cs](mdc:src/ServiceItemViewModel.cs) - Service UI view model
+- [src/OllamaModelDownloader.cs](mdc:src/OllamaModelDownloader.cs) - Ollama model download management
+- [src/HotkeyEntry.cs](mdc:src/HotkeyEntry.cs) - Hotkey entry data structure
+- [src/TranslationEventArgs.cs](mdc:src/TranslationEventArgs.cs) - Translation event arguments
 
-### Python Server
-- `app/webserver/` - Python EasyOCR server directory
-- `app/webserver/server.py` - Main Python server file
-- `app/webserver/SetupServerCondaEnvNVidia.bat` - Server setup script
-- `app/webserver/RunServer.bat` - Server launch script
+### Python Services
+- `app/services/EasyOCR/` - EasyOCR Python service
+- `app/services/MangaOCR/` - MangaOCR Python service
+- `app/services/PaddleOCR/` - PaddleOCR Python service
+- `app/services/DocTR/` - DocTR Python service
+- `app/services/shared/` - Shared Python utilities
+- `app/services/util/` - Python installation utilities
+
+Each Python service directory contains:
+- `server.py` - FastAPI server implementation
+- `service_config.txt` - Service configuration
+- `Install.bat` - Installation script
+- `RunServer.bat` - Server launch script
+- `DiagnosticTest.bat` - Diagnostic test script
+- `Uninstall.bat` - Uninstallation script
 
 ## Key Architectural Patterns
 
@@ -60,8 +99,13 @@ Universal Game Translator Live (UGTLive) is a Windows WPF application that provi
 The application uses singleton pattern for core managers:
 - `Logic.Instance` - Main application logic
 - `ConfigManager.Instance` - Configuration management
-- `BlockDetectionManager.Instance` - Text block detection
+- `UniversalBlockDetector.Instance` - Text block detection (replaces BlockDetectionManager)
 - `LogManager.Instance` - Logging
+- `HotkeyManager.Instance` - Keyboard shortcuts (replaces KeyboardShortcuts)
+- `PythonServicesManager.Instance` - Python OCR service management
+- `AudioPlaybackManager.Instance` - Audio playback
+- `AudioPreloadService.Instance` - Audio preloading
+- `GamepadManager.Instance` - Gamepad input
 
 ### Window Management
 Each window inherits from WPF Window class and follows these patterns:
@@ -70,34 +114,36 @@ Each window inherits from WPF Window class and follows these patterns:
 - Windows communicate through events and direct method calls on Logic.Instance
 
 ### Translation Flow
-1. Screen capture → OCR (Windows OCR or EasyOCR) → Block Detection → Translation Service → Display
-2. Text blocks are grouped by BlockDetectionManager
+1. Screen capture → OCR (Windows OCR, EasyOCR, MangaOCR, PaddleOCR, DocTR, or Google Vision) → Universal Block Detection → Translation Service → Display
+2. Text blocks are grouped by UniversalBlockDetector
 3. Translation includes context from previous translations
 4. Results are displayed in ChatBox or as overlay
 
 ## Development Guidelines
 
-### Code Style (from [CLAUDE.md](mdc:CLAUDE.md))
+### Code Style
 - **Naming**: PascalCase for public members, camelCase for private, underscore prefix for fields
 - **Layout**: 4-space indentation, Allman braces, System namespaces first
-- **Properties**: Use GetVariableName/SetVariableName pattern
+- **Properties**: Use GetVariableName/SetVariableName pattern in ConfigManager
 - **UI Properties**: Direct Get/Set to GUI elements when possible
-- **Error Handling**: Avoid try/catch blocks, check for null, log errors
+- **Error Handling**: Avoid try/catch blocks, check for null, log errors via LogManager
 
 ### Project Configuration
 - **Framework**: .NET 8.0 Windows
 - **Output**: `app/` directory
 - **Assembly**: `ugtlive.exe` (or `ugtlive_debug.exe` in Debug)
-- **Dependencies**: NAudio, Microsoft.Windows.CsWinRT
+- **Dependencies**: NAudio, Microsoft.Windows.CsWinRT, WebView2
 
 ### Key Features
-- Multiple OCR backends (Windows OCR, EasyOCR)
-- Multiple translation services (Gemini, ChatGPT, Ollama)
+- Multiple OCR backends (Windows OCR, EasyOCR, MangaOCR, PaddleOCR, DocTR, Google Vision)
+- Multiple translation services (Gemini, ChatGPT, Ollama, Google Translate, llama.cpp)
 - Real-time screen capture and translation
 - Customizable overlay windows
 - Audio transcription and TTS
 - Context-aware translations
-- Global keyboard shortcuts
+- Global keyboard shortcuts (via HotkeyManager)
+- Gamepad support
+- Python service management UI
 
 ## Common Development Tasks
 
@@ -113,22 +159,30 @@ Each window inherits from WPF Window class and follows these patterns:
 3. Wire up events in `SettingsWindow.xaml.cs`
 4. Settings are automatically persisted
 
+### Adding a New Python OCR Service
+1. Create service directory in `app/services/` (e.g., `app/services/NewOCR/`)
+2. Create `service_config.txt` with required fields
+3. Create `server.py` implementing FastAPI endpoints
+4. Create batch scripts: `Install.bat`, `RunServer.bat`, `DiagnosticTest.bat`, `Uninstall.bat`
+5. Service will be automatically discovered by `PythonServicesManager`
+
 ### Debugging OCR Issues
 1. Check `LogManager` output for errors
 2. Use Monitor window to preview capture area
-3. Verify Python server is running (for EasyOCR)
-4. Check block detection settings
+3. Verify Python server is running (for Python OCR services)
+4. Check service diagnostics dialog
+5. Review UniversalBlockDetector settings
 
 ## Version Management
 
 When incrementing the version number, you must update it in **THREE places**:
 
-1. **[src/SplashManager.cs](mdc:src/SplashManager.cs)** - Line 32
+1. **[src/SplashManager.cs](mdc:src/SplashManager.cs)** - `CurrentVersion` constant
    ```csharp
    public const double CurrentVersion = 0.60;  // Update this value
    ```
 
-2. **[media/latest_version_checker.json](mdc:media/latest_version_checker.json)** - Lines 3 and 4
+2. **[media/latest_version_checker.json](mdc:media/latest_version_checker.json)** - `latest_version` field
    ```json
    {
        "name":"Universal Game Translator Live",
@@ -137,9 +191,9 @@ When incrementing the version number, you must update it in **THREE places**:
    }
    ```
 
-3. **[README.md](mdc:README.md)** - Lines 3 and 40
-   - Update the version badge on line 3: `[![Version](https://img.shields.io/badge/version-0.60-blue.svg)]`
-   - Add a new history entry at the top of the History section (line 40): `**V0.60** - [description]`
+3. **[README.md](mdc:README.md)** - Version badge and history entry
+   - Update the version badge: `[![Version](https://img.shields.io/badge/version-0.60-blue.svg)]`
+   - Add a new history entry at the top: `**V0.60** - [description]`
 
 ### Version Increment Rules
 - Default increment: **0.01** (e.g., 0.25 → 0.26)
@@ -150,7 +204,7 @@ When incrementing the version number, you must update it in **THREE places**:
 
 ## Important Notes
 - Application is Windows-only due to WPF and Windows OCR dependencies
-- Python server runs locally on port 3928
+- Python OCR services run locally on configurable ports
 - First run downloads OCR language models
-- Settings stored in user's AppData folder
-- All web calls are for version checking only (privacy-focused)
+- Settings stored in `app/` directory (config.txt, service configs)
+- All web calls are for version checking and API services only

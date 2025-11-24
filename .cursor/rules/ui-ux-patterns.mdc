@@ -1,8 +1,9 @@
 ---
-description: 
-globs: 
+description: UI/UX patterns and window management guide
+globs: ["**/*.xaml", "**/*.xaml.cs"]
 alwaysApply: false
 ---
+
 # UI/UX Patterns and Window Management Guide
 
 ## Window Architecture
@@ -30,28 +31,46 @@ UGTLive uses several specialized windows, each with specific responsibilities:
    - Tabbed interface for all settings
    - API key management
    - Service configuration
+   - OCR and translation settings
 
-## Keyboard Shortcuts ([src/KeyboardShortcuts.cs](mdc:src/KeyboardShortcuts.cs))
+5. **Log Window** ([src/LogWindow.xaml](mdc:src/LogWindow.xaml))
+   - Application log viewer
+   - Real-time log updates
+   - Filtering and search
+
+## Keyboard Shortcuts ([src/HotkeyManager.cs](mdc:src/HotkeyManager.cs))
 
 ### Global Shortcuts
-All shortcuts use Shift modifier for consistency:
+All shortcuts are managed through HotkeyManager and configurable via hotkeys.txt:
 
-| Shortcut | Action | Method |
-|----------|--------|--------|
-| Shift+S | Start/Stop OCR | `ToggleOCR()` |
-| Shift+M | Show/Hide Monitor | `ToggleMonitorWindow()` |
-| Shift+C | Show/Hide ChatBox | `ToggleChatBox()` |
-| Shift+P | Show/Hide Settings | `ToggleSettingsWindow()` |
-| Shift+L | Show/Hide Log | `ToggleLogConsole()` |
-| Shift+H | Show/Hide Main Window | `ToggleMainWindow()` |
+| Action | Default | Event |
+|--------|---------|-------|
+| Start/Stop OCR | Shift+S | `StartStopRequested` |
+| Show/Hide Monitor | Shift+M | `MonitorToggleRequested` |
+| Show/Hide ChatBox | Shift+C | `ChatBoxToggleRequested` |
+| Show/Hide Settings | Shift+P | `SettingsToggleRequested` |
+| Show/Hide Log | Shift+L | `LogToggleRequested` |
+| Show/Hide Main Window | Shift+H | `MainWindowVisibilityToggleRequested` |
+| Clear Overlays | Shift+X | `ClearOverlaysRequested` |
+| Passthrough Toggle | Shift+T | `PassthroughToggleRequested` |
+| Overlay Mode Toggle | Shift+O | `OverlayModeToggleRequested` |
+| Listen Toggle | Shift+A | `ListenToggleRequested` |
+| View in Browser | Shift+B | `ViewInBrowserRequested` |
+| Play All Audio | Shift+W | `PlayAllAudioRequested` |
 
 ### Implementation Pattern
 ```csharp
-private void RegisterHotKey(Key key, Action action)
-{
-    // Register with Windows API
-    // Store in dictionary for management
-}
+// Register hotkey events
+HotkeyManager.Instance.StartStopRequested += OnStartStopRequested;
+HotkeyManager.Instance.MonitorToggleRequested += OnMonitorToggleRequested;
+
+// Hotkeys are loaded from hotkeys.txt and can be customized
+```
+
+### Hotkey Configuration
+Hotkeys are stored in `hotkeys.txt` with format:
+```
+action=key1+key2+key3
 ```
 
 ## UI Design Patterns
@@ -59,7 +78,7 @@ private void RegisterHotKey(Key key, Action action)
 ### Window Lifecycle
 1. **Creation**: Windows created once at startup
 2. **Visibility**: Show/Hide instead of Create/Destroy
-3. **State Persistence**: Position and size saved
+3. **State Persistence**: Position and size saved via ConfigManager
 4. **Cleanup**: Proper disposal on application exit
 
 ### Common Window Properties
@@ -112,20 +131,21 @@ Topmost="{Binding IsAlwaysOnTop}"
 ## Settings Organization
 
 ### Tab Structure in Settings Window
-1. **General**: Basic app settings
+1. **General**: Basic app settings, hotkeys
 2. **OCR**: OCR service selection and config
 3. **Translation**: Service selection and API keys
 4. **ChatBox**: Display preferences
-5. **Advanced**: Debug and experimental features
+5. **Audio**: TTS settings and voice selection
+6. **Advanced**: Debug and experimental features
 
 ### Settings Pattern
 ```csharp
 // Property in ConfigManager
-public string GetSetting() => _settings.SettingName;
+public string GetSetting() => GetValue(SETTING_KEY, defaultValue);
 public void SetSetting(string value)
 {
-    _settings.SettingName = value;
-    SaveSettings();
+    SetValue(SETTING_KEY, value);
+    SaveConfig();
 }
 
 // UI Binding in XAML
@@ -154,7 +174,10 @@ public void SetSetting(string value)
 
 ### Error Handling UI
 ```csharp
-// Show error in UI
+// Show error via ErrorPopupManager
+ErrorPopupManager.ShowError("Error Title", "Error message");
+
+// Or show in UI
 Application.Current.Dispatcher.Invoke(() =>
 {
     StatusText.Text = $"Error: {message}";
@@ -187,7 +210,7 @@ Application.Current.Dispatcher.Invoke(() =>
 ### Update Patterns
 ```csharp
 // UI updates from background thread
-Dispatcher.Invoke(() =>
+Application.Current.Dispatcher.Invoke(() =>
 {
     // Update UI elements
 }, DispatcherPriority.Background);
@@ -199,15 +222,17 @@ Dispatcher.Invoke(() =>
 ```csharp
 // On window closing
 ConfigManager.Instance.SetWindowPosition(
-    this.Left, this.Top, 
+    windowName, this.Left, this.Top, 
     this.Width, this.Height);
 
 // On window loading
-var pos = ConfigManager.Instance.GetWindowPosition();
+var pos = ConfigManager.Instance.GetWindowPosition(windowName);
 if (pos != null)
 {
     this.Left = pos.X;
     this.Top = pos.Y;
+    this.Width = pos.Width;
+    this.Height = pos.Height;
 }
 ```
 
@@ -250,3 +275,38 @@ Used for resizing regions and windows:
 - Avoid jarring movements
 - Respect reduced motion preference
 
+## Service Management UI
+
+### Service Installation Dialog
+- Shows available Python OCR services
+- Installation progress
+- Error handling and diagnostics
+
+### Service Diagnostics
+- Health check status
+- Port availability
+- Service logs
+- Test image processing
+
+## Dialog Patterns
+
+### Modal Dialogs
+```csharp
+var dialog = new SettingsWindow();
+dialog.Owner = this;
+dialog.ShowDialog(); // Blocks until closed
+```
+
+### Confirmation Dialogs
+```csharp
+var result = MessageBox.Show(
+    "Are you sure you want to delete this?",
+    "Confirm",
+    MessageBoxButton.YesNo,
+    MessageBoxImage.Question);
+
+if (result == MessageBoxResult.Yes)
+{
+    // Perform action
+}
+```

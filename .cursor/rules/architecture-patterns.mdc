@@ -12,16 +12,17 @@ alwaysApply: false
 ```
 src/
   - Core application files (App.xaml, Logic.cs, ConfigManager.cs)
-  - UI/ (Window classes)
-  - Services/ (Translation, OCR, TTS services)
-  - Managers/ (BlockDetection, Log, Mouse, PythonServicesManager, etc.)
-  - Utilities/ (Helper classes)
+  - Window classes (MainWindow, MonitorWindow, ChatBoxWindow, SettingsWindow, etc.)
+  - Translation services (Gemini, ChatGPT, Ollama, GoogleTranslate, LlamaCpp)
+  - OCR services (WindowsOCRManager, GoogleVisionOCRService)
+  - Managers (UniversalBlockDetector, LogManager, HotkeyManager, PythonServicesManager, AudioPlaybackManager, etc.)
+  - Utilities (TextObject, TranslationEventArgs, etc.)
 app/
   - Compiled binaries
-  - services/ (Python OCR services - EasyOCR, MangaOCR, DocTR)
+  - services/ (Python OCR services - EasyOCR, MangaOCR, PaddleOCR, DocTR)
     - shared/ (Shared Python utilities)
-    - util/ (InstallMiniConda.bat)
-    - EasyOCR/, MangaOCR/, DocTR/ (Individual service directories)
+    - util/ (Python installation utilities)
+    - EasyOCR/, MangaOCR/, PaddleOCR/, DocTR/ (Individual service directories)
   - media/ (Resources)
 ```
 
@@ -36,9 +37,15 @@ app/
 Used for core managers:
 - `ConfigManager.Instance`
 - `Logic.Instance`
-- `BlockDetectionManager.Instance`
+- `UniversalBlockDetector.Instance` - Advanced text block detection (replaces BlockDetectionManager)
 - `LogManager.Instance`
 - `PythonServicesManager.Instance` - Manages Python OCR services
+- `HotkeyManager.Instance` - Manages global keyboard shortcuts (replaces KeyboardShortcuts)
+- `AudioPlaybackManager.Instance` - Manages audio playback
+- `AudioPreloadService.Instance` - Preloads TTS audio
+- `ErrorPopupManager` - Static class for error popups
+- `GamepadManager.Instance` - Manages gamepad input
+- `WebViewEnvironmentManager` - Static class for WebView2 environment
 
 **Implementation:**
 ```csharp
@@ -69,8 +76,11 @@ public static class TranslationServiceFactory
     {
         return serviceName switch
         {
-            "Gemini" => new GeminiTranslationService(...),
-            "ChatGPT" => new ChatGptTranslationService(...),
+            "Gemini" => new GeminiTranslationService(),
+            "ChatGPT" => new ChatGptTranslationService(),
+            "Ollama" => new OllamaTranslationService(),
+            "Google Translate" => new GoogleTranslateService(),
+            "llama.cpp" => new LlamaCppTranslationService(),
             _ => throw new ArgumentException(...)
         };
     }
@@ -83,7 +93,10 @@ Translation services implement common interface:
 ```csharp
 public interface ITranslationService
 {
-    Task<TranslationResult?> TranslateAsync(...);
+    Task<TranslationResult?> TranslateAsync(
+        string sourceText,
+        string targetLanguage,
+        string context);
 }
 ```
 
@@ -96,12 +109,12 @@ public interface ITranslationService
 
 ### Business Logic Layer
 - `Logic.cs` - Core translation workflow
-- `BlockDetectionManager.cs` - Text processing
+- `UniversalBlockDetector.cs` - Advanced text block detection and grouping
 - Service classes - External API integration
 
 ### Data Layer
 - `ConfigManager.cs` - Configuration persistence
-- File-based storage (config.txt, etc.)
+- File-based storage (config.txt, service-specific configs)
 
 ## Dependency Management
 
@@ -127,12 +140,12 @@ Managers can depend on other managers:
 public class Logic
 {
     private readonly ConfigManager _configManager;
-    private readonly BlockDetectionManager _blockManager;
+    private readonly UniversalBlockDetector _blockDetector;
     
     public Logic()
     {
         _configManager = ConfigManager.Instance;
-        _blockManager = BlockDetectionManager.Instance;
+        _blockDetector = UniversalBlockDetector.Instance;
     }
 }
 ```
@@ -159,6 +172,14 @@ public class TranslationEventArgs : EventArgs
     public string TranslatedText { get; set; } = "";
     public string SourceText { get; set; } = "";
 }
+```
+
+### Hotkey System
+Hotkeys managed through HotkeyManager events:
+
+```csharp
+HotkeyManager.Instance.StartStopRequested += OnStartStopRequested;
+HotkeyManager.Instance.MonitorToggleRequested += OnMonitorToggleRequested;
 ```
 
 ## Resource Management
@@ -213,7 +234,7 @@ State stored in ConfigManager:
 
 ```csharp
 // Current translation service
-_currentTranslationService = ConfigManager.Instance.GetTranslationService();
+_currentTranslationService = ConfigManager.Instance.GetCurrentTranslationService();
 
 // Window positions
 var pos = ConfigManager.Instance.GetWindowPosition("ChatBox");
@@ -232,7 +253,7 @@ private List<TextObject> _currentTextBlocks = new();
 ### Error Handling Strategy
 - Services return null on error
 - Log errors using LogManager
-- Show user-friendly messages
+- Show user-friendly messages via ErrorPopupManager
 - Don't crash the application
 
 ```csharp
@@ -245,6 +266,7 @@ public async Task<Result?> ProcessAsync()
     catch (Exception ex)
     {
         LogManager.Instance.LogError("Process failed", ex);
+        ErrorPopupManager.ShowError("Process failed", ex.Message);
         return null; // Return null instead of throwing
     }
 }
@@ -259,10 +281,10 @@ public async Task<Result?> ProcessAsync()
 4. Add UI in SettingsWindow
 
 ### Adding New OCR Method
-1. Add method name to `SupportedOcrMethods`
+1. Add method name to `SupportedOcrMethods` in ConfigManager
 2. Implement processing logic
    - For Python services: Add service directory in `app/services/` with `service_config.txt` and `server.py`
-   - For built-in OCR: Implement in appropriate manager class
+   - For built-in OCR: Implement in appropriate manager class (e.g., WindowsOCRManager, GoogleVisionOCRService)
 3. Update OCR selection UI
 4. Add configuration options
 
@@ -342,7 +364,9 @@ Services are independent modules:
 Managers provide cross-cutting concerns:
 - ConfigManager - Configuration
 - LogManager - Logging
-- BlockDetectionManager - Text processing
+- UniversalBlockDetector - Text processing
+- HotkeyManager - Keyboard shortcuts
+- AudioPlaybackManager - Audio playback
 
 ## Testing Architecture
 
@@ -366,12 +390,13 @@ var mockService = new Mock<ITranslationService>();
 ## Version Management
 
 ### Version Updates
-Update version in two places:
+Update version in three places:
 1. `SplashManager.cs` - `CurrentVersion` constant
 2. `media/latest_version_checker.json` - `latest_version` field
+3. `README.md` - Version badge and history entry
 
 ### Version Format
-- Use double/float (e.g., 0.27)
+- Use double/float (e.g., 0.60)
 - Increment by 0.01 for minor updates
 - Increment by 0.10 for major features
 

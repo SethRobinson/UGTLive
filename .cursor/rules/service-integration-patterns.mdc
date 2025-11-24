@@ -42,10 +42,9 @@ public class GeminiTranslationService : ITranslationService
     private static readonly HttpClient _httpClient = new HttpClient();
     private readonly string _apiKey;
     
-    public GeminiTranslationService(string apiKey)
+    public GeminiTranslationService()
     {
-        _apiKey = apiKey;
-        _httpClient.DefaultRequestHeaders.Add("x-goog-api-key", apiKey);
+        _apiKey = ConfigManager.Instance.GetGeminiApiKey();
     }
     
     public async Task<TranslationResult?> TranslateAsync(string text, string lang, string context)
@@ -106,11 +105,7 @@ else
     }
     
     // Show user-friendly error
-    Application.Current.Dispatcher.Invoke(() =>
-    {
-        MessageBox.Show($"API error: {errorMessage}", "Error", 
-            MessageBoxButton.OK, MessageBoxImage.Error);
-    });
+    ErrorPopupManager.ShowError("Translation Error", errorMessage);
     
     return null;
 }
@@ -128,11 +123,7 @@ catch (Exception ex)
     Console.WriteLine($"Service error: {ex.Message}");
     LogManager.Instance.LogError("Translation failed", ex);
     
-    Application.Current.Dispatcher.Invoke(() =>
-    {
-        MessageBox.Show($"Error: {ex.Message}", "Error", 
-            MessageBoxButton.OK, MessageBoxImage.Error);
-    });
+    ErrorPopupManager.ShowError("Translation Error", ex.Message);
     
     return null;
 }
@@ -148,13 +139,11 @@ public static class TranslationServiceFactory
     {
         return serviceName switch
         {
-            "Gemini" => new GeminiTranslationService(
-                ConfigManager.Instance.GetGeminiApiKey()),
-            "ChatGPT" => new ChatGptTranslationService(
-                ConfigManager.Instance.GetChatGptApiKey()),
-            "Ollama" => new OllamaTranslationService(
-                ConfigManager.Instance.GetOllamaUrl(),
-                ConfigManager.Instance.GetOllamaPort()),
+            "Gemini" => new GeminiTranslationService(),
+            "ChatGPT" => new ChatGptTranslationService(),
+            "Ollama" => new OllamaTranslationService(),
+            "Google Translate" => new GoogleTranslateService(),
+            "llama.cpp" => new LlamaCppTranslationService(),
             _ => throw new ArgumentException($"Unknown service: {serviceName}")
         };
     }
@@ -175,6 +164,19 @@ public class WindowsOCRManager
             // Process with Windows OCR API
             // Return TextObject list
         });
+    }
+}
+```
+
+### Google Vision OCR Pattern
+```csharp
+public class GoogleVisionOCRService
+{
+    public async Task<List<TextObject>> ProcessImageAsync(Bitmap bitmap)
+    {
+        // Convert bitmap to base64
+        // Send to Google Vision API
+        // Parse response and return TextObject list
     }
 }
 ```
@@ -213,6 +215,13 @@ private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, 
     if (serviceName == "MangaOCR")
     {
         url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}";
+    }
+    
+    // Add PaddleOCR-specific parameters
+    if (serviceName == "PaddleOCR")
+    {
+        bool useAngleCls = ConfigManager.Instance.GetBoolValue(ConfigManager.PADDLE_OCR_USE_ANGLE_CLS, false);
+        url += $"&use_angle_cls={useAngleCls.ToString().ToLower()}";
     }
     
     // Send binary image data
@@ -260,7 +269,7 @@ public class GoogleTTSService : ITTSService
 ```csharp
 using NAudio.Wave;
 
-public class AudioPlayer
+public class AudioPlaybackManager
 {
     private WaveOutEvent? _waveOut;
     
@@ -275,6 +284,19 @@ public class AudioPlayer
         _waveOut = new WaveOutEvent();
         _waveOut.Init(reader);
         _waveOut.Play();
+    }
+}
+```
+
+### Audio Preloading
+```csharp
+public class AudioPreloadService
+{
+    // Preload audio for source and target languages
+    public async Task PreloadAudioAsync(string text, string language, string service)
+    {
+        // Generate audio and cache it
+        // Used for faster playback later
     }
 }
 ```
@@ -323,7 +345,7 @@ var service = PythonService.ParseFromConfig(serviceDirectory);
 
 // Service properties available:
 // - service.ServiceName (from service_name)
-// - service.VenvName (from venv_name) - Note: config uses venv_name, not conda_env_name
+// - service.VenvName (from venv_name)
 // - service.Port (from port)
 // - service.Description, Version, Author, GithubUrl, etc.
 ```
@@ -423,5 +445,68 @@ public async Task<bool> TestConnectionAsync()
     {
         return false;
     }
+}
+```
+
+### Python Service Health Check
+```csharp
+public async Task<bool> CheckServiceHealthAsync(PythonService service)
+{
+    try
+    {
+        var url = $"{service.ServerUrl}:{service.Port}/health";
+        var response = await _httpClient.GetAsync(url);
+        return response.IsSuccessStatusCode;
+    }
+    catch
+    {
+        return false;
+    }
+}
+```
+
+## Service Discovery
+
+### Python Service Discovery
+```csharp
+// Automatically discovers services in app/services/
+PythonServicesManager.Instance.DiscoverServices();
+
+// Get all discovered services
+var services = PythonServicesManager.Instance.GetAllServices();
+
+// Get service by name
+var easyOCR = PythonServicesManager.Instance.GetServiceByName("EasyOCR");
+```
+
+## Service Lifecycle Management
+
+### Starting Services
+```csharp
+public async Task<bool> StartServiceAsync(PythonService service, bool showWindow = false)
+{
+    if (service.IsRunning)
+    {
+        return true;
+    }
+    
+    // Start Python server process
+    // Wait for health check
+    // Mark as running
+}
+```
+
+### Stopping Services
+```csharp
+public async Task StopServiceAsync(PythonService service)
+{
+    if (!service.IsRunning)
+    {
+        return;
+    }
+    
+    // Send shutdown request
+    // Wait for process to exit
+    // Mark as not running
 }
 ```
