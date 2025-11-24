@@ -13,12 +13,20 @@ public partial class App : Application
 {
     private MainWindow? _mainWindow;
     
-        protected override void OnStartup(StartupEventArgs e)
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        
+        // Log startup to file for debugging packaged builds
+        try
         {
-            base.OnStartup(e);
-            
-            // Set up application-wide keyboard handling
-            this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+            string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"\n=== App Starting at {DateTime.Now} ===\n");
+        }
+        catch { }
+        
+        // Set up application-wide keyboard handling
+        this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             
             // We'll hook keyboard events in the main window and other windows instead
             // of at the application level (which isn't supported in this context)
@@ -123,7 +131,18 @@ public partial class App : Application
     private void App_DispatcherUnhandledException(object sender, 
                                                System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
     {
-        // Log the exception
+        // Log the exception to file for debugging packaged builds
+        try
+        {
+            string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"EXCEPTION at {DateTime.Now}:\n");
+            System.IO.File.AppendAllText(logPath, $"Message: {e.Exception.Message}\n");
+            System.IO.File.AppendAllText(logPath, $"Stack trace: {e.Exception.StackTrace}\n");
+            System.IO.File.AppendAllText(logPath, $"Inner exception: {e.Exception.InnerException?.Message}\n\n");
+        }
+        catch { }
+        
+        // Log the exception to console as well
         System.Console.WriteLine($"Unhandled application exception: {e.Exception.Message}");
         System.Console.WriteLine($"Stack trace: {e.Exception.StackTrace}");
         

@@ -51,6 +51,15 @@ copy app\win-x64\publish\*.runtimeconfig.json tempbuild
 copy README.md tempbuild
 copy media\readme.txt tempbuild
 
+REM Copy runtimes folder (contains native dependencies like WebView2Loader.dll)
+robocopy app\win-x64\publish\runtimes tempbuild\runtimes /E
+if %errorlevel% geq 8 (
+    echo.
+    echo ========================================
+    echo WARNING: Runtimes folder may not have copied correctly, but continuing...
+    echo ========================================
+)
+
 :the services stuff too
 echo Copying services...
 
@@ -74,15 +83,6 @@ if %errorlevel% geq 8 (
     echo ========================================
 )
 
-REM Copy media and audio folders
-echo Copying media and audio folders...
-robocopy app\media tempbuild\media /E
-if %errorlevel% geq 8 (
-    echo.
-    echo ========================================
-    echo WARNING: Media folder may not have copied correctly, but continuing...
-    echo ========================================
-)
 
 robocopy app\audio tempbuild\audio /E
 if %errorlevel% geq 8 (

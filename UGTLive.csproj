@@ -39,9 +39,6 @@
   
   <ItemGroup>
     <Resource Include="media\Icon1.ico" />
-    <Content Include="media\Icon1.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
 </Project>
