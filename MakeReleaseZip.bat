@@ -51,19 +51,28 @@ copy app\win-x64\publish\*.runtimeconfig.json tempbuild
 copy README.md tempbuild
 copy media\readme.txt tempbuild
 
-:the server stuff too
-mkdir tempbuild\webserver
-if errorlevel 1 (
+:the services stuff too
+echo Copying services...
+
+REM First, copy the util directory entirely (no exclusions - we need the venv module in Python's stdlib)
+robocopy app\services\util tempbuild\services\util /E
+if %errorlevel% geq 8 (
     echo.
     echo ========================================
-    echo FAILED: Could not create webserver directory!
+    echo WARNING: Util directory may not have copied correctly, but continuing...
     echo ========================================
-    pause
-    exit /b 1
 )
 
-copy app\webserver\*.py tempbuild\webserver
-copy app\webserver\*.bat tempbuild\webserver
+REM Copy the rest of services tree, excluding venv, __pycache__, localdata, util, and log files
+robocopy app\services tempbuild\services /E /XD venv __pycache__ localdata util /XF setup_log.txt service_install_version_last_installed.txt *.log
+
+REM robocopy returns 0-7 for success, 8+ for errors
+if %errorlevel% geq 8 (
+    echo.
+    echo ========================================
+    echo WARNING: Some services files may not have copied correctly, but continuing...
+    echo ========================================
+)
 
 call %RT_PROJECTS%\Signing\sign.bat tempbuild\ugtlive.exe "Universal Game Translator Live"
 if errorlevel 1 (
