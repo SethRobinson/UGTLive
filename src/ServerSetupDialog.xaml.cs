@@ -29,6 +29,7 @@ namespace UGTLive
         private ObservableCollection<ServiceItemViewModel> _serviceViewModels = new ObservableCollection<ServiceItemViewModel>();
         private Dictionary<string, ServiceItemViewModel> _serviceViewModelMap = new Dictionary<string, ServiceItemViewModel>();
         private VersionInfo? _latestVersionInfo;
+        private HashSet<string> _servicesCurrentlyInstalling = new HashSet<string>();
         
         /// <summary>
         /// Gets or creates the singleton instance of ServerSetupDialog
@@ -672,6 +673,21 @@ namespace UGTLive
                     return;
                 }
                 
+                // Check if this service is already being installed
+                if (_servicesCurrentlyInstalling.Contains(serviceName))
+                {
+                    Console.WriteLine($"Installation already in progress for {serviceName}, ignoring duplicate request");
+                    MessageBox.Show(
+                        $"{serviceName} is already being installed. Please wait for the current installation to complete.",
+                        "Installation In Progress",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+                
+                // Mark service as currently installing
+                _servicesCurrentlyInstalling.Add(serviceName);
+                
                 // Disable button IMMEDIATELY to prevent multiple clicks
                 // This must happen BEFORE any async operations
                 viewModel.InstallEnabled = false;
@@ -689,7 +705,8 @@ namespace UGTLive
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                     
-                    // Re-enable button since we're not proceeding
+                    // Remove from installing set and re-enable button since we're not proceeding
+                    _servicesCurrentlyInstalling.Remove(serviceName);
                     await UpdateServiceStatusAsync(service);
                     return;
                 }
@@ -709,7 +726,8 @@ namespace UGTLive
                             
                         if (result != MessageBoxResult.Yes)
                         {
-                            // User cancelled, refresh status to restore proper button state
+                            // User cancelled, remove from installing set and refresh status to restore proper button state
+                            _servicesCurrentlyInstalling.Remove(serviceName);
                             await UpdateServiceStatusAsync(service);
                             return;
                         }
@@ -750,6 +768,11 @@ namespace UGTLive
                     
                     // Refresh status to restore proper button state
                     await UpdateServiceStatusAsync(service);
+                }
+                finally
+                {
+                    // Always remove from installing set when done
+                    _servicesCurrentlyInstalling.Remove(serviceName);
                 }
             }
         }

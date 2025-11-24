@@ -74,6 +74,24 @@ if %errorlevel% geq 8 (
     echo ========================================
 )
 
+REM Copy media and audio folders
+echo Copying media and audio folders...
+robocopy app\media tempbuild\media /E
+if %errorlevel% geq 8 (
+    echo.
+    echo ========================================
+    echo WARNING: Media folder may not have copied correctly, but continuing...
+    echo ========================================
+)
+
+robocopy app\audio tempbuild\audio /E
+if %errorlevel% geq 8 (
+    echo.
+    echo ========================================
+    echo WARNING: Audio folder may not have copied correctly, but continuing...
+    echo ========================================
+)
+
 call %RT_PROJECTS%\Signing\sign.bat tempbuild\ugtlive.exe "Universal Game Translator Live"
 if errorlevel 1 (
     echo.
