@@ -147,7 +147,7 @@ def process_ocr_results(image: Image.Image, results: list) -> List[Dict]:
             "width": width,
             "height": height,
             "vertices": vertices,
-            "confidence": confidence,
+            "confidence": round(confidence, 3) if confidence is not None else None,
             "text_orientation": text_orientation
         }
         

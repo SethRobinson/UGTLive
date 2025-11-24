@@ -168,7 +168,7 @@ def process_ocr_results(results: list) -> List[Dict]:
             "width": width,
             "height": height,
             "vertices": vertices,
-            "confidence": float(score),
+            "confidence": round(float(score), 3),
             "text_orientation": text_orientation
         }
         

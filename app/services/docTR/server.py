@@ -166,7 +166,7 @@ def process_doctr_results(image: Image.Image, result) -> List[Dict]:
                         "width": width,
                         "height": height,
                         "vertices": polygon,
-                        "confidence": confidence,
+                        "confidence": round(confidence, 3) if confidence is not None else None,
                         "text_orientation": text_orientation
                     }
                     if color_info:
