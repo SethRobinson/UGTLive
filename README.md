@@ -13,14 +13,15 @@ Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
 Features:
 
 * Built for real-time use, detects changes and translates when things "settle"
-* Can read/render/select/speak vertical Japanese in Manga, good for language learning
-* Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, docTR, Windows OCR)
+* Can read/render/select/speak vertical Japanese in manga, good for language learning
+* Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, Paddle OCR, docTR, Windows OCR, Google Cloud Vision)
 * Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech
 * New "Page Reading" feature (including a mode for top down, right to left for manga)
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
 * Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
 * Robust global hotkey system
-* New "Easy Setup" feature, don't have to run .bat files and such anymore, it internally uses conda and python to set up its own environment that won't screw with your system
+* New "GPU Service Console" feature, makes it easy to install the GPU backend services you want
+* (fairly) accurate color detection system replaces existing text in realtime, works with all OCR modes
 * Some extra stuff for Japanese learners, like single clicks for Jisho lookup and lessons for any text
 
 ## License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
@@ -32,7 +33,7 @@ Features:
 <table>
 <tr>
 <td><a href="media/easy_setup.png"><img src="media/easy_setup.png" width="200"/></a></td>
-<td><a href="media/manga_ocr.png"><img src="media/manga_ocr.png" width="200"/></a></td>
+<td><a href="media/japanese_game.png"><img src="media/japanese_game.png" width="200"/></a></td>
 <td><a href="media/manga_ocr_to_english.png"><img src="media/manga_ocr_to_english.png" width="200"/></a></td>
 <td><a href="media/manga_web_export_with_10ten.png"><img src="media/manga_web_export_with_10ten.png" width="200"/></a></td>
 </tr>
@@ -40,7 +41,7 @@ Features:
 
 # History
 
-**V1.00 Nov 24th, 2025** - Major milestone release! First stable 1.0 version.
+**V1.00 Nov 24th, 2025** - Major milestone release! Paddle OCR added, new "GPU Service Console" system that makes it easier to add new backend features, better color detection (which works with all OCR methods now)
 
 **V0.60 Nov 17th, 2025** - New customizable global hotkey system, New Page Reader/preload audio system, improved OCR capturing (thx [thanhkeke97](https://github.com/thanhkeke97)) with passthrough option, new log dialog, Settings dialog now is organized with tabs, lesson and jisho lookup added
 
@@ -56,7 +57,9 @@ Features:
 
 * Run *UGTLive.exe*
 
-* It will go through a self-check and install things if needed.  The entire setup can take up to 30 minutes, it's a lot to download.  It will auto-detect your video card, it does need an NVidia RTX 30/40/50 series card with the latest NVidia drivers.
+* The GPU Service Console will open.  Click "Install" on the services to install them one by one.  (I suggest all.. uh.. it takes a while) Next, click the "autostart" checkbox on all of them, you should be good to go.
+
+* Drag the main window rectangle around something you want to translate (note:  examples test images found in services/shared/test_images) and click the "Start" button.  Click Settings and you can enable translation, or change the OCR or translation methods.
 
 ## How to update ##
 
@@ -65,21 +68,20 @@ UGTLive will automatically check for updates when you start it. If a new version
 1. Download the latest version from the notification or from [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 2. Close UGTLive if it's running
 3. Extract the new files over your existing installation
-4. After starting UGTLive, you should probably run the *Install/Reinstall Backend* option to be safe, if some new OCR method was added that requires new libraries, this will fix it.
+4. After starting UGTLive, it wil show a warning if a backend has changed and you should reinstall it.
 
 ## Tips
 
- * To get translations, click Settings and check the "Translation Active" button.  Setup the translation service to use in settings as well.
  * Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
  * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
  * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
  * While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
- * Your RTX Pro 6000 isn't detected?  You can manually run webserver/_NVidia50Series.bat to install the 50 series backend, should work fine.
- * AMD GPU support?  Well, I don't have one, but later this could be added by tweaking webserver/SetupServerCondaEnv.bat and adding a _AMDGPU.bat or something.
- * Can't click on the text overlays on the main window?  Make sure "Passthrough" isn't checked
- * What's the best settings?  I like a local OCR with Gemini using gemini-2.5-flash-lite. It's just very fast.
+ * Your RTX Pro 6000 isn't detected?  Uh, my bad.  Let me know, I'll add it
+ * AMD GPU support? Sorry not yet.  I don't have one!
+ * Can't click on the text overlays on the main window?  Make sure "Passthrough" *is not* checked
+ * What's the best settings for translation?  I like gemini-2.5-flash-lite. It's just very fast.
  
- ## How to run it COMPLETELY LOCALLY  and free, even the translations
+ ## How to run it COMPLETELY LOCALLY and free, even the translations
  
  If you don't mind a bit slower speed to translate a screen (depends on a lot of things, but around 6 seconds on a 5090?) then this is for you! It's actually really easy to setup an Ollama or llama.cpp server (optionally) right on the same computer. 
  
@@ -131,10 +133,13 @@ After that's verified to work, in UGTLive's Translation settings, choose llama.c
 
 Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [discussions](https://github.com/SethRobinson/UGTLive/discussions) area.
 
+## When I take a screenshot, capture or use my computer remotely the UGTLive windows disappear!
+
+* Sorry, this is a side effect of the tricks used to allow it to render and capture in the same place.  You can disable this by checking the "Make our windows visible in screenshots", however it makes the entire app a lot less useful.  Another way to take a movie would be to capture directly from your computer's HDMI out.  I think.
 
 ## Why are you using an LLM instead of DeepL/Google Translate? ##
 
-I think this is the obvious way of the future - by editing the LLM prompt template in settings, you have amazing control.  For example, you can ask it to translate things more literally (good for language learning) if needed. 
+I think this is the obvious way of the future - by editing the LLM prompt template in settings, you have amazing control.  For example, you can ask it to translate things more literally (good for language learning) if needed.  (Oh, google translate is actually supported now too)
 
 It intelligently understands the difference between a block of dialog and three options that the user can choose from and inserts linefeeds at the correct positions.
 
