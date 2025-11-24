@@ -41,23 +41,7 @@ namespace UGTLive
         // Map of language codes from UGTLive to Google Vision API language hints
         private readonly Dictionary<string, string> LanguageMap = new Dictionary<string, string>
         {
-            { "en", "en" },
-            { "ja", "ja" },
-            { "ch_sim", "zh" },
-            { "es", "es" },
-            { "fr", "fr" },
-            { "it", "it" },
-            { "de", "de" },
-            { "ru", "ru" },
-            { "id", "id" },
-            { "pl", "pl" },
-            { "hi", "hi" },
-            { "ko", "ko" },
-            { "ar", "ar" },
-            { "tr", "tr" },
-            { "pt", "pt" },
-            { "vi", "vi" },
-            { "th", "th" }
+            { "ch_sim", "zh" }
         };
 
         // Convert bitmap to base64 string

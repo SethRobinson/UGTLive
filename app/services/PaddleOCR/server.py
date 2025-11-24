@@ -51,22 +51,12 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
     # PaddleOCR 3.2.2 supports 100+ languages
     lang_map = {
         'ja': 'japan',
-        'japan': 'japan',
         'ko': 'korean',
-        'korean': 'korean',
         'ch_sim': 'ch',
         'chinese': 'ch',
-        'en': 'en',
         'english': 'en',
-        'es': 'es', # spanish
-        'fr': 'fr', # french
         'de': 'german',
-        'it': 'it',
-        'ru': 'ru',
-        'pt': 'pt',
-        'vi': 'vi',
-        'ar': 'ar',
-        'hi': 'hi'
+        'nl': 'dutch'
     }
 
     # Use mapped language or default to input if not in map

@@ -2443,12 +2443,12 @@ Here is the input JSON:";
         {
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = HEIGHT_SIMILARITY_PREFIX + normalizedMethod;
-            string value = GetValue(key, "70.0"); // Default: 70%
+            string value = GetValue(key, "50.0"); // Default: 50%
             if (double.TryParse(value, out double result))
             {
                 return result;
             }
-            return 70.0;
+            return 50.0;
         }
         
         public void SetHeightSimilarity(string ocrMethod, double value)

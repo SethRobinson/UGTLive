@@ -1487,12 +1487,12 @@ namespace UGTLive
                     string ocrMethod = GetSelectedOcrMethod();
                     if (ocrMethod == "Windows OCR")
                     {
-                        string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
+                        string sourceLanguage = ConfigManager.Instance.GetSourceLanguage();
                         Logic.Instance.ProcessWithWindowsOCR(bitmap, sourceLanguage);
                     }
                     else if (ocrMethod == "Google Vision")
                     {
-                        string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
+                        string sourceLanguage = ConfigManager.Instance.GetSourceLanguage();
                         Logic.Instance.ProcessWithGoogleVision(bitmap, sourceLanguage);
                     }
                     else
@@ -1537,75 +1537,6 @@ namespace UGTLive
             }
         }
         
-   
-        // Reset OCR hash when language selection changes
-        private void SourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Skip saving during initialization
-            if (_isInitializing)
-            {
-                return;
-            }
-            
-            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                string language = selectedItem.Content.ToString() ?? "ja";
-                Console.WriteLine($"Source language changed to: {language}");
-                
-                // Save to config
-                ConfigManager.Instance.SetSourceLanguage(language);
-            }
-            
-            // Reset the OCR hash to force a fresh comparison after changing source language
-            Logic.Instance.ResetHash();
-            
-            // Clear translation history/context buffer to avoid influencing new translations
-            ClearTranslationHistory();
-            
-            // Clear any existing text objects to refresh the display
-            Logic.Instance.ClearAllTextObjects();
-            
-            // Force OCR/translation to run again if active
-            if (GetIsStarted())
-            {
-                SetOCRCheckIsWanted(true);
-                Console.WriteLine("Triggered OCR/translation refresh after source language change");
-            }
-        }
-
-        private void TargetLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Skip saving during initialization
-            if (_isInitializing)
-            {
-                return;
-            }
-            
-            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                string language = selectedItem.Content.ToString() ?? "en";
-                Console.WriteLine($"Target language changed to: {language}");
-                
-                // Save to config
-                ConfigManager.Instance.SetTargetLanguage(language);
-            }
-            
-            // Reset the OCR hash to force a fresh comparison after changing target language
-            Logic.Instance.ResetHash();
-            
-            // Clear translation history/context buffer to avoid influencing new translations
-            ClearTranslationHistory();
-            
-            // Clear any existing text objects to refresh the display
-            Logic.Instance.ClearAllTextObjects();
-            
-            // Force OCR/translation to run again if active
-            if (GetIsStarted())
-            {
-                SetOCRCheckIsWanted(true);
-                Console.WriteLine("Triggered OCR/translation refresh after target language change");
-            }
-        }
 
         private void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -2107,7 +2038,7 @@ namespace UGTLive
             AddTranslationToHistory(e.OriginalText, e.TranslatedText);
         }
         
-        // Load language settings from config
+        // Load language settings from config (no UI updates needed, ConfigManager handles everything)
         private void LoadLanguageSettingsFromConfig()
         {
             try
@@ -2115,49 +2046,7 @@ namespace UGTLive
                 string savedSourceLanguage = ConfigManager.Instance.GetSourceLanguage();
                 string savedTargetLanguage = ConfigManager.Instance.GetTargetLanguage();
                 
-                Console.WriteLine($"Loading language settings from config: Source={savedSourceLanguage}, Target={savedTargetLanguage}");
-                
-                // Set source language if found in config
-                if (!string.IsNullOrEmpty(savedSourceLanguage))
-                {
-                    // Find and select matching ComboBoxItem by content
-                    foreach (ComboBoxItem item in sourceLanguageComboBox.Items)
-                    {
-                        if (string.Equals(item.Content.ToString(), savedSourceLanguage, StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Temporarily remove event handler to prevent triggering changes
-                            sourceLanguageComboBox.SelectionChanged -= SourceLanguageComboBox_SelectionChanged;
-                            
-                            sourceLanguageComboBox.SelectedItem = item;
-                            Console.WriteLine($"Set source language to {savedSourceLanguage}");
-                            
-                            // Reattach event handler
-                            sourceLanguageComboBox.SelectionChanged += SourceLanguageComboBox_SelectionChanged;
-                            break;
-                        }
-                    }
-                }
-                
-                // Set target language if found in config
-                if (!string.IsNullOrEmpty(savedTargetLanguage))
-                {
-                    // Find and select matching ComboBoxItem by content
-                    foreach (ComboBoxItem item in targetLanguageComboBox.Items)
-                    {
-                        if (string.Equals(item.Content.ToString(), savedTargetLanguage, StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Temporarily remove event handler to prevent triggering changes
-                            targetLanguageComboBox.SelectionChanged -= TargetLanguageComboBox_SelectionChanged;
-                            
-                            targetLanguageComboBox.SelectedItem = item;
-                            Console.WriteLine($"Set target language to {savedTargetLanguage}");
-                            
-                            // Reattach event handler
-                            targetLanguageComboBox.SelectionChanged += TargetLanguageComboBox_SelectionChanged;
-                            break;
-                        }
-                    }
-                }
+                Console.WriteLine($"Loaded languages from config - Source: {savedSourceLanguage}, Target: {savedTargetLanguage}");
             }
             catch (Exception ex)
             {

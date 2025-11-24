@@ -46,12 +46,8 @@ namespace UGTLive
             // Large gap detection
             public double BaseLargeHorizontalGapThreshold = 40.0; // Large horizontal gap that should split text into separate blocks
             
-            // Line grouping thresholds
-            public double BaseLineVerticalGap = 5.0;         // Vertical gap between lines to consider as paragraph
-            public double BaseLineFontSizeTolerance = 5.0;    // Max font height difference for lines in same paragraph
-            
             // Height similarity for gluing (prevents merging text with very different sizes)
-            public double HeightSimilarityThreshold = 70.0;   // Percentage (0-100) - text heights must be within this % to glue
+            public double HeightSimilarityThreshold = 50.0;   // Percentage (0-100) - text heights must be within this % to glue
             
             // Paragraph detection
             public double BaseIndentation = 20.0;             // Indentation that suggests a new paragraph
@@ -78,16 +74,6 @@ namespace UGTLive
                 return;
             }
             _config.BaseCharacterVerticalGap = value;
-        }
-        
-        public void SetBaseLineVerticalGap(double value)
-        {
-            if (value < 0)
-            {
-            //    Console.WriteLine("Line vertical gap must be positive");
-                return;
-            }
-            _config.BaseLineVerticalGap = value;
         }
 
         public void SetBaseWordHorizontalGap(double value)
@@ -163,7 +149,6 @@ namespace UGTLive
                 
                 // Update internal config
                 SetBaseWordHorizontalGap(horizontalGlue);
-                SetBaseLineVerticalGap(verticalGlue);
                 SetHeightSimilarity(heightSimilarity);
 
                 bool keepLinefeeds = ConfigManager.Instance.GetKeepLinefeeds(ocrProvider);
@@ -201,7 +186,7 @@ namespace UGTLive
                 lines = lines.Where(l => l.Confidence >= minLineConfidence).ToList();
                 
                 // PHASE 4: Group lines into paragraphs (Vertical Glue)
-                var paragraphs = GroupLinesIntoParagraphs(lines, keepLinefeeds, verticalGlueOverlap);
+                var paragraphs = GroupLinesIntoParagraphs(lines, keepLinefeeds, verticalGlue, verticalGlueOverlap);
                 
                 // Create JSON output
                 return CreateJsonOutput(paragraphs, new List<TextElement>());
@@ -609,15 +594,12 @@ namespace UGTLive
         /// Group lines into paragraphs based on spacing and horizontal overlap.
         /// Enhanced to support multi-column layouts by tracking active paragraphs.
         /// </summary>
-        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds, double minOverlapPercent)
+        private List<TextElement> GroupLinesIntoParagraphs(List<TextElement> lines, bool keepLinefeeds, double verticalGlueFactor, double minOverlapPercent)
         {
             if (lines.Count == 0)
                 return new List<TextElement>();
                 
-            // Get config values
-            // The values from ConfigManager are "factors" (e.g., 1.5 line heights)
-            // We will multiply them by the actual line height during processing
-            double lineVerticalGapFactor = _config.BaseLineVerticalGap;
+            // verticalGlueFactor is the multiplier for line heights (e.g., 1.0 means 1.0x line height gap is allowed)
             
             // Sort lines by Y position
             // OrderBy Y, then X for a stable and logical sort
@@ -649,7 +631,7 @@ namespace UGTLive
                     // 1. Calculate Geometric Gap (Vertical Distance)
                     double averageHeight = (lastLine.Bounds.Height + line.Bounds.Height) * 0.5;
                     double geometricGap = Math.Max(0, line.Bounds.Y - (lastLine.Bounds.Y + lastLine.Bounds.Height));
-                    double maxAllowedGapPixels = averageHeight * lineVerticalGapFactor;
+                    double maxAllowedGapPixels = averageHeight * verticalGlueFactor;
                     
                     // If gap is too large, this paragraph is done (for this line, and likely for all future lines)
                     if (geometricGap > maxAllowedGapPixels)
@@ -739,21 +721,17 @@ namespace UGTLive
                 }
                 
                 // Clean up "closed" paragraphs from active list to keep it small
-                // A paragraph is closed if the current line is WAY below it.
-                // Since lines are sorted by Y, if current line Y is > paragraph.Bottom + MaxGap * 2, 
-                // then likely no future line will match it (unless lines are very out of order).
-                // Let's use a safe threshold.
+                // A paragraph is closed if the current line is way below it (more than 2x the normal merge threshold).
+                // Since lines are sorted by Y, if current line Y is significantly below a paragraph's bottom,
+                // no future line will match it either (they'd be even further down).
                 
                 for (int i = activeParagraphs.Count - 1; i >= 0; i--)
                 {
                     var p = activeParagraphs[i];
-                    // If current line Top is significantly below the paragraph Bottom, close it.
-                    // Threshold: 500 pixels or 10 lines? 
-                    // Let's say if gap is > MaxPossibleGap * 2.
-                    // MaxPossibleGap depends on user setting.
-                    double threshold = Math.Max(200, p.Children.Last().Bounds.Height * lineVerticalGapFactor * 5.0);
+                    double lastLineHeight = p.Children.Last().Bounds.Height;
+                    double closeoutThreshold = lastLineHeight * verticalGlueFactor * 2.0; // 2x the normal merge threshold
                     
-                    if (line.Bounds.Y > (p.Bounds.Y + p.Bounds.Height + threshold))
+                    if (line.Bounds.Y > (p.Bounds.Y + p.Bounds.Height + closeoutThreshold))
                     {
                         completedParagraphs.Add(p);
                         activeParagraphs.RemoveAt(i);

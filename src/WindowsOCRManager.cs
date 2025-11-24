@@ -40,7 +40,8 @@ namespace UGTLive
             { "hi", "hi-IN" },
             { "ko", "ko-KR" },
             { "ar", "ar-SA" },
-            { "tr", "tr-TR" }
+            { "tr", "tr-TR" },
+            { "nl", "nl-NL" }
         };
 
         // Convert a System.Drawing.Bitmap to a Windows.Graphics.Imaging.SoftwareBitmap

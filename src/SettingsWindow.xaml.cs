@@ -366,11 +366,10 @@ namespace UGTLive
             minLetterConfidenceTextBox.LostFocus += MinLetterConfidenceTextBox_LostFocus;
             minLineConfidenceTextBox.LostFocus += MinLineConfidenceTextBox_LostFocus;
             
-            // Load source language either from config or MainWindow as fallback
+            // Load source language from config
             string configSourceLanguage = ConfigManager.Instance.GetSourceLanguage();
             if (!string.IsNullOrEmpty(configSourceLanguage))
             {
-                // First try to load from config
                 foreach (ComboBoxItem item in sourceLanguageComboBox.Items)
                 {
                     if (string.Equals(item.Content.ToString(), configSourceLanguage, StringComparison.OrdinalIgnoreCase))
@@ -384,18 +383,11 @@ namespace UGTLive
                     }
                 }
             }
-            else if (MainWindow.Instance.sourceLanguageComboBox != null && 
-                     MainWindow.Instance.sourceLanguageComboBox.SelectedIndex >= 0)
-            {
-                // Fallback to MainWindow if config doesn't have a value
-                sourceLanguageComboBox.SelectedIndex = MainWindow.Instance.sourceLanguageComboBox.SelectedIndex;
-            }
             
-            // Load target language either from config or MainWindow as fallback
+            // Load target language from config
             string configTargetLanguage = ConfigManager.Instance.GetTargetLanguage();
             if (!string.IsNullOrEmpty(configTargetLanguage))
             {
-                // First try to load from config
                 foreach (ComboBoxItem item in targetLanguageComboBox.Items)
                 {
                     if (string.Equals(item.Content.ToString(), configTargetLanguage, StringComparison.OrdinalIgnoreCase))
@@ -408,12 +400,6 @@ namespace UGTLive
                         break;
                     }
                 }
-            }
-            else if (MainWindow.Instance.targetLanguageComboBox != null && 
-                     MainWindow.Instance.targetLanguageComboBox.SelectedIndex >= 0)
-            {
-                // Fallback to MainWindow if config doesn't have a value
-                targetLanguageComboBox.SelectedIndex = MainWindow.Instance.targetLanguageComboBox.SelectedIndex;
             }
             
             // Reattach event handlers
@@ -812,20 +798,6 @@ namespace UGTLive
                 // Save to config
                 ConfigManager.Instance.SetSourceLanguage(language);
                 
-                // Update MainWindow source language
-                if (MainWindow.Instance.sourceLanguageComboBox != null)
-                {
-                    // Find and select matching ComboBoxItem by content
-                    foreach (ComboBoxItem item in MainWindow.Instance.sourceLanguageComboBox.Items)
-                    {
-                        if (string.Equals(item.Content.ToString(), language, StringComparison.OrdinalIgnoreCase))
-                        {
-                            MainWindow.Instance.sourceLanguageComboBox.SelectedItem = item;
-                            break;
-                        }
-                    }
-                }
-                
                 // Reset the OCR hash to force a fresh comparison after changing source language
                 Logic.Instance.ResetHash();
                 
@@ -865,23 +837,9 @@ namespace UGTLive
                 // Save to config
                 ConfigManager.Instance.SetTargetLanguage(language);
                 
-                // Update MainWindow target language
-                if (MainWindow.Instance.targetLanguageComboBox != null)
-                {
-                    // Find and select matching ComboBoxItem by content
-                    foreach (ComboBoxItem item in MainWindow.Instance.targetLanguageComboBox.Items)
-                    {
-                        if (string.Equals(item.Content.ToString(), language, StringComparison.OrdinalIgnoreCase))
-                        {
-                            MainWindow.Instance.targetLanguageComboBox.SelectedItem = item;
-                            break;
-                        }
-                    }
-                }
-                
                 // Reset the OCR hash to force a fresh comparison after changing target language
                 Logic.Instance.ResetHash();
-                
+
                 // Clear translation history/context buffer to avoid influencing new translations
                 MainWindow.Instance.ClearTranslationHistory();
                 

@@ -3019,30 +3019,13 @@ namespace UGTLive
 
         private string? GetSourceLanguage()
         {
-            if (!Application.Current.Dispatcher.CheckAccess())
-            {
-                return Application.Current.Dispatcher.Invoke(() => GetSourceLanguage());
-            }
-            return (MainWindow.Instance.sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            return ConfigManager.Instance.GetSourceLanguage();
         }
 
-        // Get target language from MainWindow (for future implementation)
+        // Get target language from ConfigManager
         private string GetTargetLanguage()
         {
-            if (!Application.Current.Dispatcher.CheckAccess())
-            {
-                return Application.Current.Dispatcher.Invoke(() => GetTargetLanguage());
-            }
-            
-            // Find the MainWindow instance
-            var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-            // Get the selected ComboBoxItem
-            if (mainWindow!.targetLanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                // Return the content as string
-                return selectedItem.Content?.ToString()!;
-            }
-            return "en";
+            return ConfigManager.Instance.GetTargetLanguage();
         }
         
         // Convert language code to full language name
