@@ -2443,12 +2443,19 @@ Here is the input JSON:";
         {
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = HEIGHT_SIMILARITY_PREFIX + normalizedMethod;
-            string value = GetValue(key, "50.0"); // Default: 50%
+            
+            // Windows OCR returns word-level results (not character-level), so it needs a lower default
+            // to allow more height variation between words
+            string defaultValue = normalizedMethod == "windows_ocr" ? "10.0" : "50.0";
+            
+            string value = GetValue(key, defaultValue);
             if (double.TryParse(value, out double result))
             {
                 return result;
             }
-            return 50.0;
+            
+            // Fallback defaults
+            return normalizedMethod == "windows_ocr" ? 10.0 : 50.0;
         }
         
         public void SetHeightSimilarity(string ocrMethod, double value)
