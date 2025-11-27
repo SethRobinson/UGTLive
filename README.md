@@ -6,16 +6,16 @@
 
 <table>
 <tr>
-<td align="center">
+<td align="center" valign="top" width="50%">
 <a href="https://www.youtube.com/watch?v=eIGHV4-BMjY">
-<img src="media/manga_demo_thumb.png" width="400" alt="Manga Reading Demo"/>
+<img src="media/manga_demo_thumb.png" width="400" height="225" alt="Manga Reading Demo"/>
 </a>
 <br/>
 Video showing reading and translating vertical Japanese manga (V1.00)
 </td>
-<td align="center">
+<td align="center" valign="top" width="50%">
 <a href="https://www.youtube.com/watch?v=PFrWheMeT5k">
-<img src="media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png" width="400" alt="UGTLive Overview"/>
+<img src="media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png" width="400" height="225" alt="UGTLive Overview"/>
 </a>
 <br/>
 Video showing live game translation (old version)
