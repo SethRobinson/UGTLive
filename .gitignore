@@ -403,6 +403,7 @@ FodyWeavers.xsd
 obj/
 tempbuild/
 unused/
+localmedia/
 #disable everything in the app directory except a few things
 /app/*
 app/webserver/*
@@ -431,3 +432,4 @@ debug_original.png
 raw_test_output.png
 temp_processing_image.png
 manual_debug.png
+

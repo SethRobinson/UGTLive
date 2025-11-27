@@ -2,7 +2,27 @@
 
 [![Version](https://img.shields.io/badge/version-1.00-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
-[![Watch the video](media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png)](https://www.youtube.com/watch?v=PFrWheMeT5k)
+## Video Demonstrations
+
+<table>
+<tr>
+<td align="center">
+<a href="https://www.youtube.com/watch?v=eIGHV4-BMjY">
+<img src="media/manga_demo_thumb.png" width="400" alt="Manga Reading Demo"/>
+</a>
+<br/>
+Video showing reading and translating vertical Japanese manga (V1.00)
+</td>
+<td align="center">
+<a href="https://www.youtube.com/watch?v=PFrWheMeT5k">
+<img src="media/5e565177-6ead-48b1-86c0-7dbdebe1f554.png" width="400" alt="UGTLive Overview"/>
+</a>
+<br/>
+Video showing live game translation (old version)
+</td>
+</tr>
+</table>
+
 
 ## Description 
 
