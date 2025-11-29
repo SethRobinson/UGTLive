@@ -60,6 +60,8 @@ namespace UGTLive
         private const string DEFAULT_OUTPUT_PATH = @"webserver\image_to_process.png";
         private const double CAPTURE_INTERVAL_SECONDS = 1;
         private const int TITLE_BAR_HEIGHT = 50; // Height of our custom title bar (includes 10px for resize)
+        private const double DEFAULT_WINDOW_WIDTH = 800;
+        private const double DEFAULT_WINDOW_HEIGHT = 600;
 
         bool _bOCRCheckIsWanted = false;
         private DateTime _ocrReenableTime = DateTime.MinValue;
@@ -121,6 +123,39 @@ namespace UGTLive
   
         //allow this to be accesible through an "Instance" variable
         public static MainWindow Instance { get { return _this!; } }
+
+        // Properties for initial window size (bound in XAML)
+        public double InitialWidth
+        {
+            get
+            {
+                if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+                {
+                    double width = ConfigManager.Instance.GetOcrWindowWidth();
+                    if (!double.IsNaN(width) && width > 0)
+                    {
+                        return width;
+                    }
+                }
+                return DEFAULT_WINDOW_WIDTH;
+            }
+        }
+
+        public double InitialHeight
+        {
+            get
+            {
+                if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+                {
+                    double height = ConfigManager.Instance.GetOcrWindowHeight();
+                    if (!double.IsNaN(height) && height > 0)
+                    {
+                        return height;
+                    }
+                }
+                return DEFAULT_WINDOW_HEIGHT;
+            }
+        }
         // Socket connection status
         private TextBlock? socketStatusText;
         
@@ -290,6 +325,10 @@ namespace UGTLive
             _isInitializing = true;
             
             _this = this;
+
+            // Set DataContext to self for property bindings
+            this.DataContext = this;
+
             InitializeComponent();
             
             // Set high-res icon
@@ -318,6 +357,10 @@ namespace UGTLive
             
             // Initial update of capture rectangle and setup after window is loaded
             this.Loaded += MainWindow_Loaded;
+
+            // Subscribe to window size and location changes for persistence
+            this.SizeChanged += MainWindow_SizeChanged;
+            this.LocationChanged += MainWindow_LocationChanged;
             
             // Create socket status text block
             CreateSocketStatusIndicator();
@@ -681,6 +724,38 @@ namespace UGTLive
         
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Restore window position if persistence is enabled
+            // Width and Height are now bound in XAML via InitialWidth/InitialHeight properties
+            if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+            {
+                double left = ConfigManager.Instance.GetOcrWindowLeft();
+                double top = ConfigManager.Instance.GetOcrWindowTop();
+                double width = ConfigManager.Instance.GetOcrWindowWidth();
+                double height = ConfigManager.Instance.GetOcrWindowHeight();
+
+				System.Diagnostics.Debug.WriteLine($"MainWindow_Loaded: Restoring window position: Left={left}, Top={top}, Width={width}, Height={height}");
+
+                // Only restore position if we have valid values
+                if (!double.IsNaN(left) && !double.IsNaN(top))
+                {
+                    // Check if the saved position is within screen bounds
+                    var screenWidth = SystemParameters.PrimaryScreenWidth;
+                    var screenHeight = SystemParameters.PrimaryScreenHeight;
+
+                    // Ensure window is at least partially visible on screen
+                    // Use actual window width/height for bounds check
+                    double actualWidth = this.Width;
+                    double actualHeight = this.Height;
+                    if (left < screenWidth && top < screenHeight &&
+                        left + actualWidth > 0 && top + actualHeight > 0)
+                    {
+                        this.Left = left;
+                        this.Top = top;
+                        Console.WriteLine($"Restored window position: Left={left}, Top={top}, Width={actualWidth}, Height={actualHeight}");
+                    }
+                }
+            }
+
             // Update tooltips with hotkeys
             UpdateHotkeyTooltips();
             
@@ -2909,6 +2984,26 @@ namespace UGTLive
             
             // Update capture rectangle to account for new header height
             UpdateCaptureRect();
+        }
+
+        // Window size changed - save to config if persistence is enabled
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+            {
+                ConfigManager.Instance.SetOcrWindowWidth(this.Width);
+                ConfigManager.Instance.SetOcrWindowHeight(this.Height);
+            }
+        }
+
+        // Window location changed - save to config if persistence is enabled
+        private void MainWindow_LocationChanged(object? sender, EventArgs e)
+        {
+            if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+            {
+                ConfigManager.Instance.SetOcrWindowLeft(this.Left);
+                ConfigManager.Instance.SetOcrWindowTop(this.Top);
+            }
         }
         
         // Initialize the translation status timer

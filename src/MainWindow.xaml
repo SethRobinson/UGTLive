@@ -7,7 +7,7 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="Transparent Screen Capture" 
-        Height="600" Width="800"
+        Height="{Binding InitialHeight}" Width="{Binding InitialWidth}"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
         AllowsTransparency="True"

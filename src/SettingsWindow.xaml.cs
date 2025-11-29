@@ -471,6 +471,9 @@ namespace UGTLive
             // Load debug logging settings
             logExtraDebugStuffCheckBox.IsChecked = ConfigManager.Instance.GetLogExtraDebugStuff();
             
+            // Load persist window size setting
+            persistWindowSizeCheckBox.IsChecked = ConfigManager.Instance.IsPersistWindowSizeEnabled();
+            
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
             Color fontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
@@ -1629,6 +1632,17 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             bool enabled = logExtraDebugStuffCheckBox.IsChecked ?? false;
             ConfigManager.Instance.SetLogExtraDebugStuff(enabled);
             Console.WriteLine($"Log extra debug stuff: {enabled}");
+        }
+
+        private void PersistWindowSizeCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool enabled = persistWindowSizeCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetPersistWindowSizeEnabled(enabled);
+            Console.WriteLine($"Persist window size: {enabled}");
         }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)

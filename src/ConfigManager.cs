@@ -89,6 +89,11 @@ namespace UGTLive
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
         public const string ENABLE_CLOUD_OCR_COLOR_CORRECTION = "enable_cloud_ocr_color_correction";
+        public const string PERSIST_WINDOW_SIZE = "persist_window_size";
+        public const string OCR_WINDOW_LEFT = "ocr_window_left";
+        public const string OCR_WINDOW_TOP = "ocr_window_top";
+        public const string OCR_WINDOW_WIDTH = "ocr_window_width";
+        public const string OCR_WINDOW_HEIGHT = "ocr_window_height";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -2950,6 +2955,85 @@ Here is the input JSON:";
             _configValues[WINDOWS_VISIBLE_IN_SCREENSHOTS] = visible.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Windows visible in screenshots set to: {visible}");
+        }
+
+        // Check if persist window size is enabled
+        public bool IsPersistWindowSizeEnabled()
+        {
+            return GetBoolValue(PERSIST_WINDOW_SIZE, false);
+        }
+
+        // Set persist window size enabled
+        public void SetPersistWindowSizeEnabled(bool enabled)
+        {
+            _configValues[PERSIST_WINDOW_SIZE] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Persist window size enabled: {enabled}");
+        }
+
+        // Get/Set OCR window position and size
+        public double GetOcrWindowLeft()
+        {
+            string value = GetValue(OCR_WINDOW_LEFT, "");
+            if (double.TryParse(value, out double left))
+            {
+                return left;
+            }
+            return double.NaN;
+        }
+
+        public void SetOcrWindowLeft(double left)
+        {
+            _configValues[OCR_WINDOW_LEFT] = left.ToString();
+            SaveConfig();
+        }
+
+        public double GetOcrWindowTop()
+        {
+            string value = GetValue(OCR_WINDOW_TOP, "");
+            if (double.TryParse(value, out double top))
+            {
+                return top;
+            }
+            return double.NaN;
+        }
+
+        public void SetOcrWindowTop(double top)
+        {
+            _configValues[OCR_WINDOW_TOP] = top.ToString();
+            SaveConfig();
+        }
+
+        public double GetOcrWindowWidth()
+        {
+            string value = GetValue(OCR_WINDOW_WIDTH, "");
+            if (double.TryParse(value, out double width))
+            {
+                return width;
+            }
+            return double.NaN;
+        }
+
+        public void SetOcrWindowWidth(double width)
+        {
+            _configValues[OCR_WINDOW_WIDTH] = width.ToString();
+            SaveConfig();
+        }
+
+        public double GetOcrWindowHeight()
+        {
+            string value = GetValue(OCR_WINDOW_HEIGHT, "");
+            if (double.TryParse(value, out double height))
+            {
+                return height;
+            }
+            return double.NaN;
+        }
+
+        public void SetOcrWindowHeight(double height)
+        {
+            _configValues[OCR_WINDOW_HEIGHT] = height.ToString();
+            SaveConfig();
         }
         
         // Debug logging settings
