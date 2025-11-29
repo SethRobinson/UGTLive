@@ -455,6 +455,13 @@ namespace UGTLive
                 Console.WriteLine($"Settings window: Loading pause OCR while translating from config: {ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled()}");
             }
             
+            // Get stop after translating setting from config
+            stopAfterTranslatingCheckBox.IsChecked = ConfigManager.Instance.IsStopAfterTranslatingEnabled();
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Console.WriteLine($"Settings window: Loading stop after translating from config: {ConfigManager.Instance.IsStopAfterTranslatingEnabled()}");
+            }
+            
             // Load Cloud OCR Color Correction
             if (cloudOcrColorCorrectionCheckBox != null)
             {
@@ -959,6 +966,21 @@ namespace UGTLive
             
             // Save to config
             ConfigManager.Instance.SetPauseOcrWhileTranslatingEnabled(isEnabled);
+        }
+
+        private void StopAfterTranslatingCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing to prevent overriding values from config
+            if (_isInitializing)
+            {
+                return;
+            }
+
+            bool isEnabled = stopAfterTranslatingCheckBox.IsChecked ?? false;
+            Console.WriteLine($"Settings window: Stop after translating changed to {isEnabled}");
+
+            // Save to config
+            ConfigManager.Instance.SetStopAfterTranslatingEnabled(isEnabled);
         }
         
         private void CloudOcrColorCorrectionCheckBox_CheckedChanged(object sender, RoutedEventArgs e)

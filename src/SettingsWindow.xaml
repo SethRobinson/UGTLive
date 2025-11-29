@@ -233,27 +233,37 @@
                                          Unchecked="PauseOcrWhileTranslatingCheckBox_CheckedChanged"
                                          ToolTip="When enabled, OCR will pause while waiting for translation to complete, saving processing power"/>
                                          
+                                <!-- Stop After Translating -->
+                                <TextBlock Text="Stop after translating:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="When enabled, detection will automatically stop after completing one translation cycle"/>
+                                <CheckBox x:Name="stopAfterTranslatingCheckBox" Grid.Row="3" Grid.Column="1"
+                                         Margin="0,5" IsChecked="False"
+                                         Checked="StopAfterTranslatingCheckBox_CheckedChanged"
+                                         Unchecked="StopAfterTranslatingCheckBox_CheckedChanged"
+                                         ToolTip="When enabled, detection will automatically stop after completing one translation cycle"/>
+                                         
                                 <!-- Minimum Text Fragment Size -->
-                                <TextBlock Text="Smallest text fragment:" Grid.Row="3" Grid.Column="0" 
+                                <TextBlock Text="Smallest text fragment:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
-                                <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="3" Grid.Column="1" 
+                                <TextBox x:Name="minTextFragmentSizeTextBox" Grid.Row="4" Grid.Column="1" 
                                         Margin="0,5" Text="2" LostFocus="MinTextFragmentSizeTextBox_LostFocus"
                                         ToolTip="Minimum number of characters for a text fragment to be processed. Smaller fragments will be ignored."/>
                                 
                                 <!-- Minimum Letter Confidence -->
-                                <TextBlock x:Name="minLetterConfidenceLabel" Text="Min letter confidence:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock x:Name="minLetterConfidenceLabel" Text="Min letter confidence:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
-                                <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="4" Grid.Column="1" 
+                                <TextBox x:Name="minLetterConfidenceTextBox" Grid.Row="5" Grid.Column="1" 
                                         Margin="0,5" Text="0.1" LostFocus="MinLetterConfidenceTextBox_LostFocus"
                                         ToolTip="Minimum confidence threshold for individual letters/characters (0.0-1.0). Characters with confidence below this threshold will be filtered out."/>
                                 
                                 <!-- Minimum Line Confidence -->
-                                <TextBlock x:Name="minLineConfidenceLabel" Text="Min line confidence:" Grid.Row="5" Grid.Column="0" 
+                                <TextBlock x:Name="minLineConfidenceLabel" Text="Min line confidence:" Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
-                                <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="5" Grid.Column="1" 
+                                <TextBox x:Name="minLineConfidenceTextBox" Grid.Row="6" Grid.Column="1" 
                                         Margin="0,5" Text="0.2" LostFocus="MinLineConfidenceTextBox_LostFocus"
                                         ToolTip="Minimum confidence threshold for text lines (0.0-1.0). Lines with average confidence below this threshold will be filtered out."/>
                                 

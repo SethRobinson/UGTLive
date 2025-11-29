@@ -77,6 +77,7 @@ namespace UGTLive
         
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
+        private bool _autoStopAfterOneCycle = false;
         private DispatcherTimer _captureTimer;
         private string outputPath = DEFAULT_OUTPUT_PATH;
         private WindowInteropHelper helper;
@@ -941,6 +942,7 @@ namespace UGTLive
             {
                 Logic.Instance.ResetHash();
                 isStarted = false;
+                _autoStopAfterOneCycle = false; // Clear auto-stop flag
                 btn.Content = "Start";
                 btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
                 // Clear text objects when stopping to prevent stale overlays
@@ -971,8 +973,44 @@ namespace UGTLive
                 SetOCRCheckIsWanted(true);
                 btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
                 
+                // Enable auto-stop after one cycle completes if setting is enabled
+                _autoStopAfterOneCycle = ConfigManager.Instance.IsStopAfterTranslatingEnabled();
+                
                 // Show OCR status when starting (handled by Logic.cs)
             }
+        }
+
+        public bool ShouldAutoStopAfterOneCycle()
+        {
+            return _autoStopAfterOneCycle;
+        }
+
+        public void StopProcessing()
+        {
+            if (!isStarted)
+            {
+                return; // Already stopped
+            }
+
+            Logic.Instance.ResetHash();
+            isStarted = false;
+            _autoStopAfterOneCycle = false; // Clear auto-stop flag
+            
+            // Update button if available
+            if (toggleButton != null)
+            {
+                toggleButton.Content = "Start";
+                toggleButton.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
+            }
+            
+            // Clear text objects when stopping to prevent stale overlays
+            Logic.Instance.ClearAllTextObjects();
+            // Also hide the ChatBox "Waiting for translation" indicator (if visible)
+            ChatBoxWindow.Instance?.HideTranslationStatus();
+            
+            // Hide OCR status when stopping
+            Logic.Instance.HideOCRStatus();
+            HideTranslationStatus();
         }
 
         

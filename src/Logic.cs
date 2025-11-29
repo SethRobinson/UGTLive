@@ -214,6 +214,17 @@ namespace UGTLive
                 MainWindow.Instance.HideTranslationStatus();
                 ChatBoxWindow.Instance?.HideTranslationStatus();
             }
+
+            // Check if we should auto-stop after one cycle
+            if (MainWindow.Instance.ShouldAutoStopAfterOneCycle())
+            {
+                // Stop processing on UI thread
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    MainWindow.Instance.StopProcessing();
+                });
+                return; // Don't re-enable OCR if we're stopping
+            }
             
             // Re-enable OCR if it was paused during translation
             if (ConfigManager.Instance.IsPauseOcrWhileTranslatingEnabled())

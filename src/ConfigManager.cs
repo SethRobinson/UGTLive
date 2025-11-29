@@ -88,6 +88,7 @@ namespace UGTLive
         // OCR Processing Mode removed - replaced by Universal Block Detector
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
+        public const string STOP_AFTER_TRANSLATING = "stop_after_translating";
         public const string ENABLE_CLOUD_OCR_COLOR_CORRECTION = "enable_cloud_ocr_color_correction";
 
         // Supported OCR methods (internal IDs)
@@ -1044,6 +1045,21 @@ Here is the input JSON:";
             _configValues[PAUSE_OCR_WHILE_TRANSLATING] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Pause OCR while translating enabled: {enabled}");
+        }
+
+        // Check if stop after translating is enabled
+        public bool IsStopAfterTranslatingEnabled()
+        {
+            string value = GetValue(STOP_AFTER_TRANSLATING, "false");
+            return value.ToLower() == "true";
+        }
+
+        // Set stop after translating enabled
+        public void SetStopAfterTranslatingEnabled(bool enabled)
+        {
+            _configValues[STOP_AFTER_TRANSLATING] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Stop after translating enabled: {enabled}");
         }
 
         // Check if cloud OCR color correction is enabled
