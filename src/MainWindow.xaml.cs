@@ -1110,21 +1110,17 @@ namespace UGTLive
         // Perform a snapshot OCR capture
         private void PerformSnapshot()
         {
-            Console.WriteLine($"Snapshot requested - _snapshotInProgress={_snapshotInProgress}, _isSnapshotOverlayDisplayed={_isSnapshotOverlayDisplayed}");
-            
             // If live mode is active, stop it first
             if (isStarted)
             {
                 OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
             }
             
-            // Check if toggle mode is enabled and we should clear (either overlay displayed OR snapshot in progress)
             bool toggleMode = ConfigManager.Instance.GetSnapshotToggleMode();
-            Console.WriteLine($"Toggle mode={toggleMode}, condition=({_isSnapshotOverlayDisplayed} || {_snapshotInProgress}) = {_isSnapshotOverlayDisplayed || _snapshotInProgress}");
-            if (toggleMode && (_isSnapshotOverlayDisplayed || _snapshotInProgress))
+            
+            // If a snapshot is in progress, always cancel it (regardless of toggle mode)
+            if (_snapshotInProgress)
             {
-                // Clear/cancel and return (toggle off)
-                Console.WriteLine("Snapshot toggle: clearing overlay/canceling in-progress snapshot");
                 Logic.Instance.CancelTranslation();
                 Logic.Instance.ClearAllTextObjects();
                 Logic.Instance.ResetHash();
@@ -1138,7 +1134,30 @@ namespace UGTLive
                 HideTranslationStatus();
                 ChatBoxWindow.Instance?.HideTranslationStatus();
                 
-                // Update status to show snapshot cleared (after HideTranslationStatus resets it)
+                // Update status to show snapshot canceled
+                if (translationStatusLabel != null)
+                {
+                    translationStatusLabel.Text = "Snapshot canceled";
+                }
+                return;
+            }
+            
+            // If overlay is displayed and toggle mode is enabled, clear and return (toggle off)
+            if (toggleMode && _isSnapshotOverlayDisplayed)
+            {
+                Logic.Instance.CancelTranslation();
+                Logic.Instance.ClearAllTextObjects();
+                Logic.Instance.ResetHash();
+                _isSnapshotOverlayDisplayed = false;
+                _lastOverlayHtml = string.Empty;
+                MonitorWindow.Instance.RefreshOverlays();
+                RefreshMainWindowOverlays();
+                
+                // Stop the translation status timer and hide ChatBox status
+                HideTranslationStatus();
+                ChatBoxWindow.Instance?.HideTranslationStatus();
+                
+                // Update status to show snapshot cleared
                 if (translationStatusLabel != null)
                 {
                     translationStatusLabel.Text = "Snapshot cleared";
@@ -1146,11 +1165,10 @@ namespace UGTLive
                 return;
             }
             
-            // If a snapshot is already in progress (and toggle mode is off), ignore this request
-            if (_snapshotInProgress)
+            // If overlay is displayed and toggle mode is off, clear it and continue to start new snapshot
+            if (_isSnapshotOverlayDisplayed)
             {
-                Console.WriteLine("Snapshot already in progress, ignoring");
-                return;
+                _isSnapshotOverlayDisplayed = false;
             }
             
             // Mark snapshot as in progress to prevent double-triggering
@@ -1202,12 +1220,10 @@ namespace UGTLive
             if (success)
             {
                 _isSnapshotOverlayDisplayed = true;
-                Console.WriteLine("Snapshot complete - overlay displayed");
             }
             else
             {
                 _isSnapshotOverlayDisplayed = false;
-                Console.WriteLine("Snapshot complete - failed or no results");
             }
         }
         
