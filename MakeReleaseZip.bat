@@ -51,14 +51,8 @@ copy app\win-x64\publish\*.runtimeconfig.json tempbuild
 copy README.md tempbuild
 copy media\readme.txt tempbuild
 
-REM Copy runtimes folder (contains native dependencies like WebView2Loader.dll)
-robocopy app\win-x64\publish\runtimes tempbuild\runtimes /E
-if %errorlevel% geq 8 (
-    echo.
-    echo ========================================
-    echo WARNING: Runtimes folder may not have copied correctly, but continuing...
-    echo ========================================
-)
+REM Copy native dependencies (WebView2Loader.dll) to main directory
+copy app\win-x64\publish\runtimes\win-x64\native\*.dll tempbuild
 
 :the services stuff too
 echo Copying services...

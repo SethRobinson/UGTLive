@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.00-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.01-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -177,7 +177,7 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 
 **Credits and links**
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
-- [thanhkeke97](https://github.com/thanhkeke97)
+- Code contributions from [thanhkeke97](https://github.com/thanhkeke97) and [jeffvli](https://github.com/jeffvli)
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) - GPU-accelerated OCR supporting 80+ languages
 - [Manga OCR](https://huggingface.co/kha-white/manga-ocr-base) - Specialized OCR for Japanese manga text recognition
 - [docTR](https://github.com/mindee/doctr) - Document text recognition library with transformer architectures
