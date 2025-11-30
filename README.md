@@ -26,20 +26,21 @@ Video showing live game translation (old version)
 
 ## Description 
 
-An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.
+An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.
 
 Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
 
 Features:
 
 * Built for real-time use, detects changes and translates when things "settle"
+* "Snapshot" feature for non-live use as well
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
 * Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, Paddle OCR, docTR, Windows OCR, Google Cloud Vision)
 * Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech
 * New "Page Reading" feature (including a mode for top down, right to left for manga)
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
 * Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
-* Robust global hotkey system
+* Robust global hotkey system that allow allows gamepad buttons to be used
 * New "GPU Service Console" feature, makes it easy to install the GPU backend services you want
 * (fairly) accurate color detection system replaces existing text in realtime, works with all OCR modes
 * Some extra stuff for Japanese learners, like single clicks for Jisho lookup and lessons for any text
@@ -60,6 +61,8 @@ Features:
 </table>
 
 # History
+
+**V1.01 Nov 30th, 2025** - Added new "Snapshot" mode feature, now remembers window pos/sizes (PR by [jeffvli](https://github.com/jeffvli) ), new hotkey binding for overlay mode "previous"
 
 **V1.00 Nov 24th, 2025** - Major milestone release! Paddle OCR added, new "GPU Service Console" system that makes it easier to add new backend features, better color detection (which works with all OCR methods now)
 
