@@ -153,6 +153,27 @@
                             </Grid>
                         </GroupBox>
                         
+                        <!-- Snapshot Mode Settings -->
+                        <GroupBox Header="Snapshot Mode" Margin="0,0,0,15" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Snapshot Toggle Mode Checkbox -->
+                                <CheckBox x:Name="snapshotToggleModeCheckBox" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="True" 
+                                         Checked="SnapshotToggleModeCheckBox_CheckedChanged" 
+                                         Unchecked="SnapshotToggleModeCheckBox_CheckedChanged"
+                                         Content="Snapshot button acts as a toggle"
+                                         ToolTip="When enabled, pressing the Snapshot button (S) or hotkey (Shift+Z) while a snapshot overlay is displayed will clear the overlay. When disabled, it always performs a new snapshot."/>
+                            </Grid>
+                        </GroupBox>
+                        
                         <!-- Lesson Settings -->
                         <GroupBox Header="Lesson Settings" Margin="0,0,0,15" Padding="10">
                             <Grid>

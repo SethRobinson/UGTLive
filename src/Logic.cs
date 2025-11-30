@@ -62,6 +62,9 @@ namespace UGTLive
         
         // Flag to indicate we're keeping old translation visible while waiting for new translation
         private bool _keepingTranslationVisible = false;
+        
+        // Flag to indicate snapshot mode (bypasses settling)
+        private bool _isSnapshotMode = false;
 
         public bool GetWaitingForTranslationToFinish()
         {
@@ -186,6 +189,17 @@ namespace UGTLive
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
             
+            // Notify MainWindow if snapshot mode is completing
+            bool wasSnapshotMode = _isSnapshotMode;
+            _isSnapshotMode = false; // Reset snapshot mode after processing
+            
+            if (wasSnapshotMode)
+            {
+                // Check if we have results to display
+                bool hasResults = _textObjects.Count > 0;
+                MainWindow.Instance?.OnSnapshotComplete(hasResults);
+            }
+            
             // If we were keeping translation visible but translation failed/cancelled,
             // clear the old overlays now and reset the flag
             if (_keepingTranslationVisible)
@@ -234,6 +248,28 @@ namespace UGTLive
             _settlingStartTime = DateTime.MinValue; // Ensure settling restarts clean
         }
         
+        // Prepare for snapshot OCR, bypassing settling delays
+        // Call this before triggering capture manually
+        public void PrepareSnapshotOCR()
+        {
+            Log("Preparing snapshot OCR");
+            
+            // Set snapshot mode to bypass settling
+            _isSnapshotMode = true;
+            
+            // Clear settling state
+            _lastChangeTime = DateTime.MinValue;
+            _settlingStartTime = DateTime.MinValue;
+            
+            // Force new OCR analysis
+            ResetHash();
+        }
+        
+        // Check if snapshot mode is active
+        public bool IsSnapshotMode()
+        {
+            return _isSnapshotMode;
+        }
 
     
         private void ProcessGoogleTranslateJson(JsonElement translatedRoot)
@@ -499,8 +535,17 @@ namespace UGTLive
                                 double settleTime = ConfigManager.Instance.GetBlockDetectionSettleTime();
                                 double maxSettleTime = ConfigManager.Instance.GetBlockDetectionMaxSettleTime();
                                 
+                                // If in snapshot mode, bypass settling entirely
+                                if (_isSnapshotMode)
+                                {
+                                    Log("Snapshot mode: bypassing settle time");
+                                    _lastChangeTime = DateTime.MinValue;
+                                    _settlingStartTime = DateTime.MinValue;
+                                    _lastOcrHash = contentHash;
+                                    bForceRender = true;
+                                }
                                 // If settle time is 0 or negative, disable settling completely
-                                if (settleTime <= 0)
+                                else if (settleTime <= 0)
                                 {
                                     if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                     {

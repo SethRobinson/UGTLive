@@ -76,6 +76,10 @@
                                         Background="#FF14B414" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="OnStartButtonToggleClicked" WindowChrome.IsHitTestVisibleInChrome="True"/>
                                 
+                                <Button x:Name="snapshotButton" Content="S" Padding="8,3" Margin="2"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Click="SnapshotButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                
                                 <!-- Window Toggle Buttons -->
                                 <Button x:Name="monitorButton" Content="Monitor" Padding="8,3" Margin="2"
                                         Background="#FF4569B0" Foreground="White" BorderThickness="1" BorderBrush="White"

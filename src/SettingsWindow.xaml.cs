@@ -474,6 +474,9 @@ namespace UGTLive
             // Load persist window size setting
             persistWindowSizeCheckBox.IsChecked = ConfigManager.Instance.IsPersistWindowSizeEnabled();
             
+            // Load snapshot toggle mode setting
+            snapshotToggleModeCheckBox.IsChecked = ConfigManager.Instance.GetSnapshotToggleMode();
+            
             // Load colors and update UI
             Color bgColor = ConfigManager.Instance.GetMonitorOverrideBgColor();
             Color fontColor = ConfigManager.Instance.GetMonitorOverrideFontColor();
@@ -1643,6 +1646,17 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             bool enabled = persistWindowSizeCheckBox.IsChecked ?? false;
             ConfigManager.Instance.SetPersistWindowSizeEnabled(enabled);
             Console.WriteLine($"Persist window size: {enabled}");
+        }
+        
+        private void SnapshotToggleModeCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            // Skip if initializing
+            if (_isInitializing)
+                return;
+                
+            bool enabled = snapshotToggleModeCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetSnapshotToggleMode(enabled);
+            Console.WriteLine($"Snapshot toggle mode: {enabled}");
         }
 
         private void OverrideBgColorButton_Click(object sender, RoutedEventArgs e)
@@ -4607,7 +4621,8 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Define all available actions
             var actions = new List<ActionDisplayItem>
             {
-                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop OCR" },
+                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop Live OCR" },
+                new ActionDisplayItem { ActionId = "snapshot", ActionName = "Snapshot OCR" },
                 new ActionDisplayItem { ActionId = "toggle_monitor", ActionName = "Toggle Monitor Window" },
                 new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle ChatBox" },
                 new ActionDisplayItem { ActionId = "toggle_settings", ActionName = "Toggle Settings" },

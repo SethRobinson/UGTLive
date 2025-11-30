@@ -88,6 +88,7 @@ namespace UGTLive
         // OCR Processing Mode removed - replaced by Universal Block Detector
         public const string OVERLAY_CLEAR_DELAY_SECONDS = "overlay_clear_delay_seconds";
         public const string PAUSE_OCR_WHILE_TRANSLATING = "pause_ocr_while_translating";
+        public const string SNAPSHOT_TOGGLE_MODE = "snapshot_toggle_mode";
         public const string ENABLE_CLOUD_OCR_COLOR_CORRECTION = "enable_cloud_ocr_color_correction";
         public const string PERSIST_WINDOW_SIZE = "persist_window_size";
         public const string OCR_WINDOW_LEFT = "ocr_window_left";
@@ -2066,6 +2067,21 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine($"Overlay clear delay set to: {seconds:F2} seconds");
             }
+        }
+        
+        // Get Snapshot Toggle Mode (if true, pressing snapshot while overlay is displayed clears it)
+        public bool GetSnapshotToggleMode()
+        {
+            string value = GetValue(SNAPSHOT_TOGGLE_MODE, "true");
+            return value.ToLower() == "true";
+        }
+        
+        // Set Snapshot Toggle Mode
+        public void SetSnapshotToggleMode(bool enabled)
+        {
+            _configValues[SNAPSHOT_TOGGLE_MODE] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Snapshot toggle mode: {enabled}");
         }
         
         // Get/Set: Glue docTR lines into paragraphs

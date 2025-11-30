@@ -46,6 +46,7 @@ namespace UGTLive
         public event EventHandler? ListenToggleRequested;
         public event EventHandler? ViewInBrowserRequested;
         public event EventHandler? PlayAllAudioRequested;
+        public event EventHandler? SnapshotRequested;
         
         private HotkeyManager()
         {
@@ -277,6 +278,9 @@ namespace UGTLive
                 case "play_all_audio":
                     PlayAllAudioRequested?.Invoke(this, EventArgs.Empty);
                     break;
+                case "snapshot":
+                    SnapshotRequested?.Invoke(this, EventArgs.Empty);
+                    break;
             }
         }
         
@@ -374,7 +378,7 @@ namespace UGTLive
             _globalHotkeysEnabled = true;
             
             // Start/Stop - Shift+S
-            var startStop = new HotkeyEntry("start_stop", "Start/Stop OCR");
+            var startStop = new HotkeyEntry("start_stop", "Start/Stop Live OCR");
             startStop.KeyboardKey = Key.S;
             startStop.UseShift = true;
             _actionBindings["start_stop"] = new List<HotkeyEntry> { startStop };
@@ -436,6 +440,12 @@ namespace UGTLive
             viewInBrowser.KeyboardKey = Key.B;
             viewInBrowser.UseShift = true;
             _actionBindings["view_in_browser"] = new List<HotkeyEntry> { viewInBrowser };
+            
+            // Snapshot - Shift+Z
+            var snapshot = new HotkeyEntry("snapshot", "Snapshot OCR");
+            snapshot.KeyboardKey = Key.Z;
+            snapshot.UseShift = true;
+            _actionBindings["snapshot"] = new List<HotkeyEntry> { snapshot };
             
             SaveHotkeys();
             Console.WriteLine("Created default hotkeys");

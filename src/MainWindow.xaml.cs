@@ -79,6 +79,8 @@ namespace UGTLive
         
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
+        private bool _isSnapshotOverlayDisplayed = false;
+        private bool _snapshotInProgress = false;
         private DispatcherTimer _captureTimer;
         private string outputPath = DEFAULT_OUTPUT_PATH;
         private WindowInteropHelper helper;
@@ -391,6 +393,9 @@ namespace UGTLive
                 // Clear hash so OCR will recreate text if active
                 Logic.Instance.ResetHash();
                 
+                // Clear snapshot overlay state
+                _isSnapshotOverlayDisplayed = false;
+                
                 // Immediately disable OCR capture to prevent it from triggering during the delay
                 SetOCRCheckIsWanted(false);
                 
@@ -437,6 +442,7 @@ namespace UGTLive
             };
             HotkeyManager.Instance.PassthroughToggleRequested += (s, e) => TogglePassthrough();
             HotkeyManager.Instance.OverlayModeToggleRequested += (s, e) => ToggleOverlayMode();
+            HotkeyManager.Instance.SnapshotRequested += (s, e) => PerformSnapshot();
             
             // Start gamepad manager
             GamepadManager.Instance.Start();
@@ -635,7 +641,7 @@ namespace UGTLive
             
             // Update button tooltips
             if (toggleButton != null)
-                toggleButton.ToolTip = $"Start/Stop OCR{GetHotkeyString("start_stop")}";
+                toggleButton.ToolTip = $"Start/Stop Live OCR{GetHotkeyString("start_stop")}";
                 
             if (monitorButton != null)
                 monitorButton.ToolTip = $"Toggle Monitor Window{GetHotkeyString("toggle_monitor")}";
@@ -661,6 +667,9 @@ namespace UGTLive
             if (mousePassthroughCheckBox != null)
                 mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{GetHotkeyString("toggle_passthrough")}";
             
+            if (snapshotButton != null)
+                snapshotButton.ToolTip = $"Snapshot: Single OCR capture{GetHotkeyString("snapshot")}";
+            
             // Update overlay radio buttons
             string overlayHotkey = GetHotkeyString("toggle_overlay_mode");
             if (overlayHideRadio != null)
@@ -678,7 +687,7 @@ namespace UGTLive
         {
             var controls = new FrameworkElement[] 
             { 
-                toggleButton, monitorButton, chatBoxButton, settingsButton, logButton, 
+                toggleButton, snapshotButton, monitorButton, chatBoxButton, settingsButton, logButton, 
                 listenButton, exportButton, hideButton, mousePassthroughCheckBox,
                 overlayHideRadio, overlaySourceRadio, overlayTranslatedRadio
             };
@@ -1050,6 +1059,186 @@ namespace UGTLive
             }
         }
 
+        private void SnapshotButton_Click(object sender, RoutedEventArgs e)
+        {
+            PerformSnapshot();
+        }
+        
+        // Perform a snapshot OCR capture
+        private void PerformSnapshot()
+        {
+            Console.WriteLine("Snapshot requested");
+            
+            // If a snapshot is already in progress, ignore this request
+            if (_snapshotInProgress)
+            {
+                Console.WriteLine("Snapshot already in progress, ignoring");
+                return;
+            }
+            
+            // If live mode is active, stop it first
+            if (isStarted)
+            {
+                OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
+            }
+            
+            // Check if toggle mode is enabled and snapshot overlay is displayed
+            if (ConfigManager.Instance.GetSnapshotToggleMode() && _isSnapshotOverlayDisplayed)
+            {
+                // Clear overlays and return (toggle off)
+                Console.WriteLine("Snapshot toggle: clearing overlay");
+                Logic.Instance.CancelTranslation();
+                Logic.Instance.ClearAllTextObjects();
+                Logic.Instance.ResetHash();
+                _isSnapshotOverlayDisplayed = false;
+                _lastOverlayHtml = string.Empty;
+                MonitorWindow.Instance.RefreshOverlays();
+                RefreshMainWindowOverlays();
+                
+                // Stop the translation status timer and hide ChatBox status
+                HideTranslationStatus();
+                ChatBoxWindow.Instance?.HideTranslationStatus();
+                
+                // Update status to show snapshot cleared (after HideTranslationStatus resets it)
+                if (translationStatusLabel != null)
+                {
+                    translationStatusLabel.Text = "Snapshot cleared";
+                }
+                return;
+            }
+            
+            // Mark snapshot as in progress to prevent double-triggering
+            _snapshotInProgress = true;
+            _isSnapshotOverlayDisplayed = false; // Will be set true when results arrive
+            
+            // Show snapshot status
+            string ocrMethod = GetSelectedOcrMethod();
+            if (translationStatusLabel != null)
+            {
+                translationStatusLabel.Text = $"Snapshotting ({ocrMethod})...";
+            }
+            if (translationStatusBorder != null)
+            {
+                translationStatusBorder.Visibility = Visibility.Visible;
+            }
+            
+            // Clear any existing overlays
+            Logic.Instance.CancelTranslation();
+            Logic.Instance.ClearAllTextObjects();
+            _lastOverlayHtml = string.Empty;
+            MonitorWindow.Instance.RefreshOverlays();
+            RefreshMainWindowOverlays();
+            
+            // Prepare Logic for snapshot mode (bypasses settling)
+            Logic.Instance.PrepareSnapshotOCR();
+            
+            // Clear any delay restriction
+            _ocrReenableTime = DateTime.MinValue;
+            
+            // Force OCR to run
+            SetOCRCheckIsWanted(true);
+            
+            // Trigger capture directly
+            PerformSnapshotCapture();
+        }
+        
+        // Called by Logic when snapshot processing is complete (results displayed or failed)
+        public void OnSnapshotComplete(bool success)
+        {
+            _snapshotInProgress = false;
+            if (success)
+            {
+                _isSnapshotOverlayDisplayed = true;
+                Console.WriteLine("Snapshot complete - overlay displayed");
+            }
+            else
+            {
+                _isSnapshotOverlayDisplayed = false;
+                Console.WriteLine("Snapshot complete - failed or no results");
+            }
+        }
+        
+        // Perform capture for snapshot mode (bypasses normal checks)
+        private void PerformSnapshotCapture()
+        {
+            if (helper.Handle == IntPtr.Zero)
+            {
+                OnSnapshotComplete(false);
+                return;
+            }
+
+            // Update the capture rectangle to ensure correct dimensions
+            UpdateCaptureRect();
+
+            // If capture rect is less than 1 pixel, don't capture
+            if (captureRect.Width < 1 || captureRect.Height < 1)
+            {
+                OnSnapshotComplete(false);
+                return;
+            }
+
+            // Create bitmap with window dimensions
+            using (Bitmap bitmap = new Bitmap(captureRect.Width, captureRect.Height))
+            {
+                // Use direct GDI capture with the overlay hidden
+                using (Graphics g = Graphics.FromImage(bitmap))
+                {
+                    // Configure for speed and quality
+                    g.CompositingQuality = CompositingQuality.HighSpeed;
+                    g.SmoothingMode = SmoothingMode.HighSpeed;
+                    g.InterpolationMode = InterpolationMode.Low;
+                    g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                   
+                    try
+                    {
+                        g.CopyFromScreen(
+                            captureRect.Left,
+                            captureRect.Top,
+                            0, 0,
+                            bitmap.Size,
+                            CopyPixelOperation.SourceCopy);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during snapshot capture: {ex.Message}");
+                        OnSnapshotComplete(false);
+                        return;
+                    }
+                }
+                
+                // Store the current capture coordinates for use with OCR results
+                Logic.Instance.SetCurrentCapturePosition(captureRect.Left, captureRect.Top);
+
+                try
+                {
+                    // Update Monitor window with the copy
+                    MonitorWindow.Instance.UpdateScreenshotFromBitmap(bitmap, showWindow: false);
+
+                    // Send to OCR (snapshot mode bypasses settling in Logic)
+                    // Note: OnSnapshotComplete will be called by Logic when processing finishes
+                    string ocrMethod = GetSelectedOcrMethod();
+                    if (ocrMethod == "Windows OCR")
+                    {
+                        string sourceLanguage = ConfigManager.Instance.GetSourceLanguage();
+                        Logic.Instance.ProcessWithWindowsOCR(bitmap, sourceLanguage);
+                    }
+                    else if (ocrMethod == "Google Vision")
+                    {
+                        string sourceLanguage = ConfigManager.Instance.GetSourceLanguage();
+                        Logic.Instance.ProcessWithGoogleVision(bitmap, sourceLanguage);
+                    }
+                    else
+                    {
+                        Logic.Instance.SendImageToHttpOCR(bitmap);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing snapshot: {ex.Message}");
+                    OnSnapshotComplete(false);
+                }
+            }
+        }
         
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
