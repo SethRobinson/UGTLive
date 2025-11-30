@@ -41,6 +41,27 @@ namespace UGTLive
     {
         private static SettingsWindow? _instance;
         
+        // Shared language list for source/target language combo boxes
+        private static readonly List<(string Name, string Code)> _languages = new List<(string Name, string Code)>
+        {
+            ("Japanese", "ja"),
+            ("English", "en"),
+            ("Chinese (Simplified)", "ch_sim"),
+            ("Spanish", "es"),
+            ("French", "fr"),
+            ("Italian", "it"),
+            ("German", "de"),
+            ("Russian", "ru"),
+            ("Indonesian", "id"),
+            ("Polish", "pl"),
+            ("Hindi", "hi"),
+            ("Korean", "ko"),
+            ("Vietnamese", "vi"),
+            ("Arabic", "ar"),
+            ("Turkish", "tr"),
+            ("Dutch", "nl")
+        };
+        
         public static SettingsWindow Instance
         {
             get
@@ -136,6 +157,9 @@ namespace UGTLive
                 
                 // Set initialization flag to prevent saving during setup
                 _isInitializing = true;
+                
+                // Populate language combo boxes
+                PopulateLanguageComboBoxes();
                 
                 // Populate Whisper Language ComboBox
                 PopulateWhisperLanguageComboBox();
@@ -375,7 +399,7 @@ namespace UGTLive
             {
                 foreach (ComboBoxItem item in sourceLanguageComboBox.Items)
                 {
-                    if (string.Equals(item.Content.ToString(), configSourceLanguage, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(item.Tag?.ToString(), configSourceLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         sourceLanguageComboBox.SelectedItem = item;
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -393,7 +417,7 @@ namespace UGTLive
             {
                 foreach (ComboBoxItem item in targetLanguageComboBox.Items)
                 {
-                    if (string.Equals(item.Content.ToString(), configTargetLanguage, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(item.Tag?.ToString(), configTargetLanguage, StringComparison.OrdinalIgnoreCase))
                     {
                         targetLanguageComboBox.SelectedItem = item;
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -796,7 +820,7 @@ namespace UGTLive
             
             if (sender is ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
-                string language = selectedItem.Content.ToString() ?? "ja";
+                string language = selectedItem.Tag?.ToString() ?? "ja";
                 Console.WriteLine($"Settings: Source language changed to: {language}");
                 
                 // Cleanup audio preloading when language changes
@@ -835,7 +859,7 @@ namespace UGTLive
             
             if (sender is ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
-                string language = selectedItem.Content.ToString() ?? "en";
+                string language = selectedItem.Tag?.ToString() ?? "en";
                 Console.WriteLine($"Settings: Target language changed to: {language}");
                 
                 // Cleanup audio preloading when language changes
@@ -1828,13 +1852,28 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         
         private void SwapLanguagesButton_Click(object sender, RoutedEventArgs e)
         {
-            // Store the current selections
-            int sourceIndex = sourceLanguageComboBox.SelectedIndex;
-            int targetIndex = targetLanguageComboBox.SelectedIndex;
+            // Store the current language codes
+            string sourceCode = GetLanguageCode(sourceLanguageComboBox);
+            string targetCode = GetLanguageCode(targetLanguageComboBox);
             
-            // Swap the selections
-            sourceLanguageComboBox.SelectedIndex = targetIndex;
-            targetLanguageComboBox.SelectedIndex = sourceIndex;
+            // Find and select matching items by language code (Tag)
+            foreach (ComboBoxItem item in sourceLanguageComboBox.Items)
+            {
+                if (item.Tag?.ToString() == targetCode)
+                {
+                    sourceLanguageComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+            
+            foreach (ComboBoxItem item in targetLanguageComboBox.Items)
+            {
+                if (item.Tag?.ToString() == sourceCode)
+                {
+                    targetLanguageComboBox.SelectedItem = item;
+                    break;
+                }
+            }
             
             // The SelectionChanged events will handle updating the MainWindow
             Console.WriteLine($"Languages swapped: {GetLanguageCode(sourceLanguageComboBox)} ⇄ {GetLanguageCode(targetLanguageComboBox)}");
@@ -1849,7 +1888,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         // Helper method to get language code from ComboBox
         private string GetLanguageCode(ComboBox comboBox)
         {
-            return ((ComboBoxItem)comboBox.SelectedItem).Content.ToString() ?? "";
+            return ((ComboBoxItem)comboBox.SelectedItem).Tag?.ToString() ?? "";
         }
         
         // Block detection settings
@@ -4129,6 +4168,27 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
 
+        private void PopulateLanguageComboBoxes()
+        {
+            // Populate both combo boxes from the same language list
+            foreach (var comboBox in new[] { sourceLanguageComboBox, targetLanguageComboBox })
+            {
+                if (comboBox == null) continue;
+                
+                var handler = comboBox == sourceLanguageComboBox 
+                    ? (SelectionChangedEventHandler)SourceLanguageComboBox_SelectionChanged 
+                    : TargetLanguageComboBox_SelectionChanged;
+                
+                comboBox.SelectionChanged -= handler;
+                comboBox.Items.Clear();
+                foreach (var lang in _languages)
+                {
+                    comboBox.Items.Add(new ComboBoxItem { Content = lang.Name, Tag = lang.Code });
+                }
+                comboBox.SelectionChanged += handler;
+            }
+        }
+        
         private void PopulateWhisperLanguageComboBox()
         {
             var languages = new List<(string Name, string Code)>

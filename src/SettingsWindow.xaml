@@ -55,24 +55,7 @@
                                 <TextBlock Text="Source Language:" Grid.Row="0" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <ComboBox x:Name="sourceLanguageComboBox" Grid.Row="0" Grid.Column="1" 
-                                         Margin="0,5" SelectedIndex="0" SelectionChanged="SourceLanguageComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="ja"/>
-                                    <ComboBoxItem Content="en"/>
-                                    <ComboBoxItem Content="ch_sim"/>
-                                    <ComboBoxItem Content="es"/>
-                                    <ComboBoxItem Content="fr"/>
-                                    <ComboBoxItem Content="it"/>
-                                    <ComboBoxItem Content="de"/>
-                                    <ComboBoxItem Content="ru"/>
-                                    <ComboBoxItem Content="id"/>
-                                    <ComboBoxItem Content="pl"/>
-                                    <ComboBoxItem Content="hi"/>
-                                    <ComboBoxItem Content="ko"/>
-                                    <ComboBoxItem Content="vi"/>
-                                    <ComboBoxItem Content="ar"/>
-                                    <ComboBoxItem Content="tr"/>
-                                    <ComboBoxItem Content="nl"/>
-                                </ComboBox>
+                                         Margin="0,5" SelectionChanged="SourceLanguageComboBox_SelectionChanged"/>
                                 
                                 <!-- Swap Languages Button placed between source and target in its own column -->
                                 <Button x:Name="swapLanguagesButton" Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
@@ -85,24 +68,7 @@
                                 <TextBlock Text="Target Language:" Grid.Row="1" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <ComboBox x:Name="targetLanguageComboBox" Grid.Row="1" Grid.Column="1" 
-                                         Margin="0,5" SelectedIndex="1" SelectionChanged="TargetLanguageComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="ja"/>
-                                    <ComboBoxItem Content="en"/>
-                                    <ComboBoxItem Content="ch_sim"/>
-                                    <ComboBoxItem Content="es"/>
-                                    <ComboBoxItem Content="fr"/>
-                                    <ComboBoxItem Content="it"/>
-                                    <ComboBoxItem Content="de"/>
-                                    <ComboBoxItem Content="ru"/>
-                                    <ComboBoxItem Content="id"/>
-                                    <ComboBoxItem Content="pl"/>
-                                    <ComboBoxItem Content="hi"/>
-                                    <ComboBoxItem Content="ko"/>
-                                    <ComboBoxItem Content="vi"/>
-                                    <ComboBoxItem Content="ar"/>
-                                    <ComboBoxItem Content="tr"/>
-                                    <ComboBoxItem Content="nl"/>
-                                </ComboBox>
+                                         Margin="0,5" SelectionChanged="TargetLanguageComboBox_SelectionChanged"/>
                                 
                                 <!-- Translation Active -->
                                 <TextBlock Text="Translation Active:" Grid.Row="2" Grid.Column="0" 
