@@ -19,7 +19,7 @@ namespace UGTLive
         
         // Debouncing for actions to prevent double-triggers
         private Dictionary<string, DateTime> _lastActionTime = new Dictionary<string, DateTime>();
-        private const int DEBOUNCE_MS = 50; // 50ms debounce window (prevents double-triggers while staying responsive)
+        private const int DEBOUNCE_MS = 100; // 100ms debounce window (prevents double-triggers from gamepad while staying responsive)
         
         public static HotkeyManager Instance
         {
@@ -201,6 +201,8 @@ namespace UGTLive
             {
                 return;
             }
+            
+            Console.WriteLine($"Gamepad buttons pressed: {string.Join(", ", pressedButtons)}");
                 
             // Check all bindings for all actions
             foreach (var kvp in _actionBindings)
@@ -209,6 +211,7 @@ namespace UGTLive
                 {
                     if (binding.MatchesGamepadButtons(pressedButtons))
                     {
+                        Console.WriteLine($"Gamepad matched action: {kvp.Key}");
                         // Invoke on UI thread
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {

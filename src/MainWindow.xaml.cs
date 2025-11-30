@@ -1067,14 +1067,7 @@ namespace UGTLive
         // Perform a snapshot OCR capture
         private void PerformSnapshot()
         {
-            Console.WriteLine("Snapshot requested");
-            
-            // If a snapshot is already in progress, ignore this request
-            if (_snapshotInProgress)
-            {
-                Console.WriteLine("Snapshot already in progress, ignoring");
-                return;
-            }
+            Console.WriteLine($"Snapshot requested - _snapshotInProgress={_snapshotInProgress}, _isSnapshotOverlayDisplayed={_isSnapshotOverlayDisplayed}");
             
             // If live mode is active, stop it first
             if (isStarted)
@@ -1082,15 +1075,18 @@ namespace UGTLive
                 OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
             }
             
-            // Check if toggle mode is enabled and snapshot overlay is displayed
-            if (ConfigManager.Instance.GetSnapshotToggleMode() && _isSnapshotOverlayDisplayed)
+            // Check if toggle mode is enabled and we should clear (either overlay displayed OR snapshot in progress)
+            bool toggleMode = ConfigManager.Instance.GetSnapshotToggleMode();
+            Console.WriteLine($"Toggle mode={toggleMode}, condition=({_isSnapshotOverlayDisplayed} || {_snapshotInProgress}) = {_isSnapshotOverlayDisplayed || _snapshotInProgress}");
+            if (toggleMode && (_isSnapshotOverlayDisplayed || _snapshotInProgress))
             {
-                // Clear overlays and return (toggle off)
-                Console.WriteLine("Snapshot toggle: clearing overlay");
+                // Clear/cancel and return (toggle off)
+                Console.WriteLine("Snapshot toggle: clearing overlay/canceling in-progress snapshot");
                 Logic.Instance.CancelTranslation();
                 Logic.Instance.ClearAllTextObjects();
                 Logic.Instance.ResetHash();
                 _isSnapshotOverlayDisplayed = false;
+                _snapshotInProgress = false;
                 _lastOverlayHtml = string.Empty;
                 MonitorWindow.Instance.RefreshOverlays();
                 RefreshMainWindowOverlays();
@@ -1104,6 +1100,13 @@ namespace UGTLive
                 {
                     translationStatusLabel.Text = "Snapshot cleared";
                 }
+                return;
+            }
+            
+            // If a snapshot is already in progress (and toggle mode is off), ignore this request
+            if (_snapshotInProgress)
+            {
+                Console.WriteLine("Snapshot already in progress, ignoring");
                 return;
             }
             
@@ -1145,6 +1148,13 @@ namespace UGTLive
         // Called by Logic when snapshot processing is complete (results displayed or failed)
         public void OnSnapshotComplete(bool success)
         {
+            // Only process if snapshot is still in progress (not already canceled)
+            if (!_snapshotInProgress)
+            {
+                Console.WriteLine("Snapshot complete callback ignored - snapshot was already canceled");
+                return;
+            }
+            
             _snapshotInProgress = false;
             if (success)
             {

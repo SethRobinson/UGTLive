@@ -82,7 +82,7 @@ namespace UGTLive
                 return;
                 
             _isEnabled = true;
-            _pollTimer = new System.Threading.Timer(PollGamepad, null, 0, 50); // Poll every 50ms
+            _pollTimer = new System.Threading.Timer(PollGamepad, null, 0, 16); // Poll every 16ms (~60fps)
             Console.WriteLine("Gamepad manager started");
         }
         
@@ -120,6 +120,8 @@ namespace UGTLive
                     if (newlyPressed != 0)
                     {
                         List<string> pressedButtons = GetPressedButtons(buttons);
+                        List<string> newlyPressedButtons = GetPressedButtons(newlyPressed);
+                        Console.WriteLine($"Gamepad: newly pressed={string.Join(",", newlyPressedButtons)}, all pressed={string.Join(",", pressedButtons)}");
                         if (pressedButtons.Count > 0)
                         {
                             ButtonsPressed?.Invoke(this, pressedButtons);
