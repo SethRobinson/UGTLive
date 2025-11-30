@@ -2960,7 +2960,7 @@ Here is the input JSON:";
         // Check if persist window size is enabled
         public bool IsPersistWindowSizeEnabled()
         {
-            return GetBoolValue(PERSIST_WINDOW_SIZE, false);
+            return GetBoolValue(PERSIST_WINDOW_SIZE, true);
         }
 
         // Set persist window size enabled
