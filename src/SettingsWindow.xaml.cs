@@ -4632,7 +4632,8 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 new ActionDisplayItem { ActionId = "toggle_main_window", ActionName = "Toggle Main Window" },
                 new ActionDisplayItem { ActionId = "clear_overlays", ActionName = "Clear Overlays" },
                 new ActionDisplayItem { ActionId = "toggle_passthrough", ActionName = "Toggle Passthrough" },
-                new ActionDisplayItem { ActionId = "toggle_overlay_mode", ActionName = "Toggle Overlay Mode" },
+                new ActionDisplayItem { ActionId = "toggle_overlay_mode", ActionName = "Next Overlay Mode" },
+                new ActionDisplayItem { ActionId = "prev_overlay_mode", ActionName = "Previous Overlay Mode" },
                 new ActionDisplayItem { ActionId = "play_all_audio", ActionName = "Play All Audio Toggle" }
             };
             

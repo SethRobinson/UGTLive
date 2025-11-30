@@ -43,6 +43,7 @@ namespace UGTLive
         public event EventHandler? ClearOverlaysRequested;
         public event EventHandler? PassthroughToggleRequested;
         public event EventHandler? OverlayModeToggleRequested;
+        public event EventHandler? OverlayModePreviousRequested;
         public event EventHandler? ListenToggleRequested;
         public event EventHandler? ViewInBrowserRequested;
         public event EventHandler? PlayAllAudioRequested;
@@ -272,6 +273,9 @@ namespace UGTLive
                 case "toggle_overlay_mode":
                     OverlayModeToggleRequested?.Invoke(this, EventArgs.Empty);
                     break;
+                case "prev_overlay_mode":
+                    OverlayModePreviousRequested?.Invoke(this, EventArgs.Empty);
+                    break;
                 case "toggle_listen":
                     ListenToggleRequested?.Invoke(this, EventArgs.Empty);
                     break;
@@ -428,11 +432,15 @@ namespace UGTLive
             togglePassthrough.UseShift = true;
             _actionBindings["toggle_passthrough"] = new List<HotkeyEntry> { togglePassthrough };
             
-            // Toggle Overlay Mode - Tab
-            var toggleOverlayMode = new HotkeyEntry("toggle_overlay_mode", "Toggle Overlay Mode");
+            // Next Overlay Mode - Tab
+            var toggleOverlayMode = new HotkeyEntry("toggle_overlay_mode", "Next Overlay Mode");
             toggleOverlayMode.KeyboardKey = Key.Tab;
             toggleOverlayMode.UseShift = false;
             _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
+            
+            // Previous Overlay Mode - No default key
+            var prevOverlayMode = new HotkeyEntry("prev_overlay_mode", "Previous Overlay Mode");
+            _actionBindings["prev_overlay_mode"] = new List<HotkeyEntry> { prevOverlayMode };
             
             // Toggle Listen - No default key
             var toggleListen = new HotkeyEntry("toggle_listen", "Toggle Listen");

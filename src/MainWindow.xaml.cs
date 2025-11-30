@@ -442,6 +442,7 @@ namespace UGTLive
             };
             HotkeyManager.Instance.PassthroughToggleRequested += (s, e) => TogglePassthrough();
             HotkeyManager.Instance.OverlayModeToggleRequested += (s, e) => ToggleOverlayMode();
+            HotkeyManager.Instance.OverlayModePreviousRequested += (s, e) => PreviousOverlayMode();
             HotkeyManager.Instance.SnapshotRequested += (s, e) => PerformSnapshot();
             
             // Start gamepad manager
@@ -601,6 +602,48 @@ namespace UGTLive
                 RefreshMainWindowOverlays();
                 
                 Console.WriteLine($"Overlay mode toggled to: {_currentOverlayMode}");
+            }
+            finally
+            {
+                _updatingOverlayMode = false;
+            }
+        }
+        
+        // Cycle overlay mode in reverse order: Translated -> Source -> Hide -> Translated
+        private void PreviousOverlayMode()
+        {
+            _updatingOverlayMode = true;
+            
+            try
+            {
+                if (_currentOverlayMode == OverlayMode.Hide)
+                {
+                    _currentOverlayMode = OverlayMode.Translated;
+                    overlayTranslatedRadio.IsChecked = true;
+                }
+                else if (_currentOverlayMode == OverlayMode.Source)
+                {
+                    _currentOverlayMode = OverlayMode.Hide;
+                    overlayHideRadio.IsChecked = true;
+                }
+                else
+                {
+                    _currentOverlayMode = OverlayMode.Source;
+                    overlaySourceRadio.IsChecked = true;
+                }
+                
+                // Save to config and update display
+                string mode = _currentOverlayMode switch
+                {
+                    OverlayMode.Hide => "Hide",
+                    OverlayMode.Source => "Source",
+                    OverlayMode.Translated => "Translated",
+                    _ => "Translated"
+                };
+                ConfigManager.Instance.SetMainWindowOverlayMode(mode);
+                RefreshMainWindowOverlays();
+                
+                Console.WriteLine($"Overlay mode previous to: {_currentOverlayMode}");
             }
             finally
             {
