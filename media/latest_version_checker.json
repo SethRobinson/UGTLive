@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.01,
-     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nAdded 'Snapshot' mode, persistent window size/position, a few new hotkey bindings\n\nBackend service changes?: No"
+    "latest_version":1.02,
+     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nAdded 9 more languages, Snapshot button tweaks,\n'Show detailed Log' button during service installs,\nlanguage selection GUi improved\n\nBackend service changes?: No"
 }

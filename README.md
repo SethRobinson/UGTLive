@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.01-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.02-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -32,6 +32,7 @@ Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
 
 Features:
 
+* Supports 25 languages: Japanese, English, Chinese (Simplified & Traditional), Korean, Spanish, French, Italian, German, Portuguese, Russian, Polish, Dutch, Swedish, Czech, Hungarian, Romanian, Greek, Ukrainian, Turkish, Arabic, Hindi, Thai, Vietnamese, and Indonesian
 * Built for real-time use, detects changes and translates when things "settle"
 * "Snapshot" feature for non-live use as well
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
@@ -61,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.02 Dec 1st, 2025** - * Added 9 more languages, Snapshot button tweaks, "Show detailed Log" button during service installs, language selection GUi improved
 
 **V1.01 Nov 30th, 2025** - Added new "Snapshot" mode feature, now remembers window pos/sizes (PR by [jeffvli](https://github.com/jeffvli) ), new hotkey binding for overlay mode "previous"
 
