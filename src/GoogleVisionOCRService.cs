@@ -39,9 +39,11 @@ namespace UGTLive
         }
 
         // Map of language codes from UGTLive to Google Vision API language hints
+        // Google Vision generally auto-detects, but these hints help with specific scripts
         private readonly Dictionary<string, string> LanguageMap = new Dictionary<string, string>
         {
-            { "ch_sim", "zh" }
+            { "ch_sim", "zh" },
+            { "ch_tra", "zh-TW" }
         };
 
         // Convert bitmap to base64 string

@@ -52,16 +52,18 @@ def initialize_ocr_engine(lang: str = 'japan'):
     global OCR_ENGINE, CURRENT_LANG
 
     # Map language codes to EasyOCR language codes
+    # EasyOCR uses ISO 639-1 codes for most languages
+    # See: https://www.jaided.ai/easyocr/ for full list
+    # Only include mappings where input differs from EasyOCR code
     lang_map = {
         'japan': 'ja',
         'korean': 'ko',
         'chinese': 'ch_sim',
-        'english': 'en',
-        'vietnamese': 'vi',
-        'dutch': 'nl'
+        'english': 'en'
     }
 
     # Use mapped language or default to input if not in map
+    # Most ISO codes (ja, en, ko, es, fr, etc.) pass through unchanged
     easy_lang = lang_map.get(lang, lang)
 
     # Only reinitialize if language has changed

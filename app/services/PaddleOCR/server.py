@@ -49,17 +49,20 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
     # Map language codes to PaddleOCR language codes
     # https://github.com/PaddlePaddle/PaddleOCR?tab=readme-ov-file
     # PaddleOCR 3.2.2 supports 100+ languages
+    # Only include mappings where input differs from PaddleOCR code
     lang_map = {
         'ja': 'japan',
         'ko': 'korean',
         'ch_sim': 'ch',
+        'ch_tra': 'chinese_cht',
         'chinese': 'ch',
-        'english': 'en',
+        'fr': 'french',
         'de': 'german',
         'nl': 'dutch'
     }
 
     # Use mapped language or default to input if not in map
+    # Most ISO codes (en, es, pt, ru, etc.) pass through unchanged
     paddle_lang = lang_map.get(lang, lang)
     
     # Check if we need to reinitialize

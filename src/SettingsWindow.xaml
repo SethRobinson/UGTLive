@@ -49,6 +49,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Source Language -->
@@ -77,6 +78,12 @@
                                          Margin="0,5" IsChecked="False" 
                                          Checked="AutoTranslateCheckBox_CheckedChanged" 
                                          Unchecked="AutoTranslateCheckBox_CheckedChanged"/>
+                                
+                                <!-- Language Compatibility Warning -->
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" 
+                                          Margin="0,8,0,0" FontSize="11" FontStyle="Italic"
+                                          Foreground="#888888" TextWrapping="Wrap"
+                                          Text="Note: Some OCR methods may not support all languages. MangaOCR only works with Japanese. docTR primarily supports Latin-based languages."/>
                             </Grid>
                         </GroupBox>
                         

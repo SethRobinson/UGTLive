@@ -366,6 +366,7 @@ namespace UGTLive
                 "japanese" or "japan" or "ja" => "ja",
                 "english" or "en" => "en",
                 "chinese" or "zh" or "ch_sim" => "zh-CN",
+                "ch_tra" => "zh-TW",
                 "korean" or "ko" => "ko",
                 "vietnamese" or "vi" => "vi",
                 "french" or "fr" => "fr",
@@ -380,6 +381,13 @@ namespace UGTLive
                 "arabic" or "ar" => "ar",
                 "turkish" or "tr" => "tr",
                 "dutch" or "nl" => "nl",
+                "thai" or "th" => "th",
+                "czech" or "cs" => "cs",
+                "swedish" or "sv" => "sv",
+                "hungarian" or "hu" => "hu",
+                "romanian" or "ro" => "ro",
+                "ukrainian" or "uk" => "uk",
+                "greek" or "el" => "el",
                 _ => language
             };
         }

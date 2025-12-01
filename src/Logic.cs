@@ -2043,21 +2043,14 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Maps internal language codes to service-specific language codes
+        /// Maps internal language codes to service-specific language codes.
+        /// Python OCR services handle their own library-specific language code conversion,
+        /// so we just pass through the code unchanged.
         /// </summary>
         private string MapLanguageForService(string language)
         {
-            // Map common language codes
-            return language switch
-            {
-                "en" => "en",
-                "ja" => "japan",
-                "zh" => "ch_sim",
-                "ko" => "korean",
-                "vi" => "vi",
-                "th" => "th",
-                _ => language
-            };
+            // Pass through - Python services handle their own mapping
+            return language;
         }
         
         private static bool _hasWarnedAboutEasyOCRForColor = false;
@@ -3073,14 +3066,20 @@ namespace UGTLive
             return ConfigManager.Instance.GetTargetLanguage();
         }
         
-        // Convert language code to full language name
-        private string GetLanguageName(string languageCode)
+        /// <summary>
+        /// Convert language code to full language name.
+        /// This is the single source of truth for language display names used in:
+        /// - Settings ComboBoxes
+        /// - LLM translation prompts
+        /// </summary>
+        public static string GetLanguageName(string languageCode)
         {
             return languageCode.ToLower() switch
             {
                 "ja" => "Japanese",
                 "en" => "English",
-                "ch_sim" => "Chinese",
+                "ch_sim" => "Chinese (Simplified)",
+                "ch_tra" => "Chinese (Traditional)",
                 "es" => "Spanish",
                 "fr" => "French",
                 "it" => "Italian",
@@ -3096,6 +3095,12 @@ namespace UGTLive
                 "pt" => "Portuguese",
                 "nl" => "Dutch",
                 "th" => "Thai",
+                "cs" => "Czech",
+                "sv" => "Swedish",
+                "hu" => "Hungarian",
+                "ro" => "Romanian",
+                "uk" => "Ukrainian",
+                "el" => "Greek",
                 _ => languageCode
             };
         }

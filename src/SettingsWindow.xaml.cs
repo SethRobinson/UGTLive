@@ -41,25 +41,35 @@ namespace UGTLive
     {
         private static SettingsWindow? _instance;
         
-        // Shared language list for source/target language combo boxes
-        private static readonly List<(string Name, string Code)> _languages = new List<(string Name, string Code)>
+        // Shared language codes for source/target language combo boxes
+        // Display names are derived from Logic.GetLanguageName() to avoid duplication
+        private static readonly List<string> _languageCodes = new List<string>
         {
-            ("Japanese", "ja"),
-            ("English", "en"),
-            ("Chinese (Simplified)", "ch_sim"),
-            ("Spanish", "es"),
-            ("French", "fr"),
-            ("Italian", "it"),
-            ("German", "de"),
-            ("Russian", "ru"),
-            ("Indonesian", "id"),
-            ("Polish", "pl"),
-            ("Hindi", "hi"),
-            ("Korean", "ko"),
-            ("Vietnamese", "vi"),
-            ("Arabic", "ar"),
-            ("Turkish", "tr"),
-            ("Dutch", "nl")
+            "ja",      // Japanese
+            "en",      // English
+            "ch_sim",  // Chinese (Simplified)
+            "ch_tra",  // Chinese (Traditional)
+            "ko",      // Korean
+            "es",      // Spanish
+            "fr",      // French
+            "it",      // Italian
+            "de",      // German
+            "pt",      // Portuguese
+            "ru",      // Russian
+            "pl",      // Polish
+            "nl",      // Dutch
+            "sv",      // Swedish
+            "cs",      // Czech
+            "hu",      // Hungarian
+            "ro",      // Romanian
+            "el",      // Greek
+            "uk",      // Ukrainian
+            "tr",      // Turkish
+            "ar",      // Arabic
+            "hi",      // Hindi
+            "th",      // Thai
+            "vi",      // Vietnamese
+            "id"       // Indonesian
         };
         
         public static SettingsWindow Instance
@@ -4170,7 +4180,14 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
 
         private void PopulateLanguageComboBoxes()
         {
-            // Populate both combo boxes from the same language list
+            // Populate both combo boxes from the language codes list
+            // Display names are derived from Logic.GetLanguageName() to avoid duplication
+            // Sort alphabetically by display name for easier lookup
+            var sortedLanguages = _languageCodes
+                .Select(code => new { Code = code, Name = Logic.GetLanguageName(code) })
+                .OrderBy(lang => lang.Name)
+                .ToList();
+            
             foreach (var comboBox in new[] { sourceLanguageComboBox, targetLanguageComboBox })
             {
                 if (comboBox == null) continue;
@@ -4181,7 +4198,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 
                 comboBox.SelectionChanged -= handler;
                 comboBox.Items.Clear();
-                foreach (var lang in _languages)
+                foreach (var lang in sortedLanguages)
                 {
                     comboBox.Items.Add(new ComboBoxItem { Content = lang.Name, Tag = lang.Code });
                 }

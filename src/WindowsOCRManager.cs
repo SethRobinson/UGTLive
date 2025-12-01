@@ -30,18 +30,28 @@ namespace UGTLive
             { "en", "en-US" },
             { "ja", "ja-JP" },
             { "ch_sim", "zh-CN" },
+            { "ch_tra", "zh-TW" },
+            { "ko", "ko-KR" },
             { "es", "es-ES" },
             { "fr", "fr-FR" },
             { "it", "it-IT" },
             { "de", "de-DE" },
+            { "pt", "pt-PT" },
             { "ru", "ru-RU" },
-            { "id", "id-ID" },
             { "pl", "pl-PL" },
-            { "hi", "hi-IN" },
-            { "ko", "ko-KR" },
-            { "ar", "ar-SA" },
+            { "nl", "nl-NL" },
+            { "sv", "sv-SE" },
+            { "cs", "cs-CZ" },
+            { "hu", "hu-HU" },
+            { "ro", "ro-RO" },
+            { "el", "el-GR" },
+            { "uk", "uk-UA" },
             { "tr", "tr-TR" },
-            { "nl", "nl-NL" }
+            { "ar", "ar-SA" },
+            { "hi", "hi-IN" },
+            { "th", "th-TH" },
+            { "vi", "vi-VN" },
+            { "id", "id-ID" }
         };
 
         // Convert a System.Drawing.Bitmap to a Windows.Graphics.Imaging.SoftwareBitmap
