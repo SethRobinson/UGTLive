@@ -15,6 +15,9 @@ namespace UGTLive
         private Process? _process;
         private CancellationTokenSource? _cancellationTokenSource;
         private bool _isComplete = false;
+        private string _serviceDirectory = "";
+        private string _serviceName = "";
+        private SetupLogViewerWindow? _logViewerWindow;
         
         public bool Success { get; private set; } = false;
         
@@ -28,6 +31,9 @@ namespace UGTLive
         /// </summary>
         public async Task RunInstallAsync(PythonService service)
         {
+            _serviceDirectory = service.ServiceDirectory;
+            _serviceName = service.ServiceName;
+            
             titleText.Text = $"Installing {service.ServiceName}";
             warningText.Text = "Installation may take up to 10 minutes. Do not close this window.";
             warningBorder.Visibility = Visibility.Visible;
@@ -49,9 +55,15 @@ namespace UGTLive
         /// </summary>
         public async Task RunUninstallAsync(PythonService service)
         {
+            _serviceDirectory = service.ServiceDirectory;
+            _serviceName = service.ServiceName;
+            
             titleText.Text = $"Uninstalling {service.ServiceName}";
             warningText.Text = "Uninstallation may take a few minutes. Do not close this window.";
             warningBorder.Visibility = Visibility.Visible;
+            
+            // Hide the log button - uninstall doesn't create a setup_log.txt
+            showLogButton.Visibility = Visibility.Collapsed;
             
             // Try to find Uninstall.bat
             string batchFile = Path.Combine(service.ServiceDirectory, "Uninstall.bat");
@@ -229,6 +241,25 @@ namespace UGTLive
             this.Close();
         }
         
+        private void ShowLogButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Check if log viewer is already open
+            if (_logViewerWindow != null && _logViewerWindow.IsLoaded)
+            {
+                // Bring existing window to front
+                _logViewerWindow.Activate();
+                return;
+            }
+            
+            string logFilePath = Path.Combine(_serviceDirectory, "setup_log.txt");
+            
+            // Create and show the log viewer (non-modal)
+            // Pass this window as owner so the log viewer stays above the install dialog
+            _logViewerWindow = new SetupLogViewerWindow(logFilePath, _serviceName, this);
+            _logViewerWindow.Closed += (s, args) => _logViewerWindow = null;
+            _logViewerWindow.Show();
+        }
+        
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             if (!_isComplete)
@@ -246,6 +277,13 @@ namespace UGTLive
                 }
                 
                 _cancellationTokenSource?.Cancel();
+            }
+            
+            // Close the log viewer window if it's open
+            if (_logViewerWindow != null && _logViewerWindow.IsLoaded)
+            {
+                _logViewerWindow.Close();
+                _logViewerWindow = null;
             }
             
             base.OnClosing(e);
