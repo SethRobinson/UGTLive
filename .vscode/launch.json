@@ -2,20 +2,39 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Build & Run (Debug)",
-      "type": "node-terminal",
+      "name": "Debug",
+      "type": "coreclr",
       "request": "launch",
-      "command": "${workspaceFolder}/BuildAndRun.bat",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/app/ugtlive_debug.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/app",
+      "stopAtEntry": false,
+      "console": "internalConsole",
+      "env": {
+        "WEBVIEW2_USER_DATA_FOLDER": "${workspaceFolder}/app/temp/webview2_debug",
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": "--disable-web-security --allow-running-insecure-content"
+      }
     },
     {
-      "name": "Build & Run (Release)",
-      "type": "node-terminal",
+      "name": "Release",
+      "type": "coreclr",
       "request": "launch",
-      "command": "${workspaceFolder}/BuildAndRunRelease.bat",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
+      "preLaunchTask": "build-release",
+      "program": "${workspaceFolder}/app/ugtlive.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/app",
+      "stopAtEntry": false,
+      "console": "internalConsole",
+      "env": {
+        "WEBVIEW2_USER_DATA_FOLDER": "${workspaceFolder}/app/temp/webview2_release",
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": "--disable-web-security --allow-running-insecure-content"
+      }
+    },
+    {
+      "name": "Attach to Process",
+      "type": "coreclr",
+      "request": "attach"
     }
   ]
-} 
+}
