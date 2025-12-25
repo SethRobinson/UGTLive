@@ -33,6 +33,8 @@ namespace UGTLive
         public const string OLLAMA_MODEL = "ollama_model";
         public const string LLAMACPP_URL = "llamacpp_url";
         public const string LLAMACPP_PORT = "llamacpp_port";
+        public const string LLAMACPP_MODEL = "llamacpp_model";
+        public const string LLAMACPP_THINKING_MODE = "llamacpp_thinking_mode";
         public const string CHATGPT_API_KEY = "chatgpt_api_key";
         public const string CHATGPT_MODEL = "chatgpt_model";
         public const string CHATGPT_MAX_COMPLETION_TOKENS = "chatgpt_max_completion_tokens";
@@ -747,6 +749,31 @@ namespace UGTLive
         public void SetLlamaCppPort(string port)
         {
             _configValues[LLAMACPP_PORT] = port;
+            SaveConfig();
+        }
+        
+        // Get/Set llama.cpp Model
+        public string GetLlamaCppModel()
+        {
+            return GetValue(LLAMACPP_MODEL, "");
+        }
+        
+        public void SetLlamaCppModel(string model)
+        {
+            _configValues[LLAMACPP_MODEL] = model;
+            SaveConfig();
+        }
+        
+        // Get/Set llama.cpp Thinking Mode
+        public bool GetLlamaCppThinkingMode()
+        {
+            string value = GetValue(LLAMACPP_THINKING_MODE, "true");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetLlamaCppThinkingMode(bool enabled)
+        {
+            _configValues[LLAMACPP_THINKING_MODE] = enabled ? "true" : "false";
             SaveConfig();
         }
         
@@ -3048,6 +3075,32 @@ Here is the input JSON:";
 
         public void SetOcrWindowHeight(double height)
         {
+            _configValues[OCR_WINDOW_HEIGHT] = height.ToString();
+            SaveConfig();
+        }
+        
+        // Batch set OCR window position (saves only once)
+        public void SetOcrWindowPosition(double left, double top)
+        {
+            _configValues[OCR_WINDOW_LEFT] = left.ToString();
+            _configValues[OCR_WINDOW_TOP] = top.ToString();
+            SaveConfig();
+        }
+        
+        // Batch set OCR window size (saves only once)
+        public void SetOcrWindowSize(double width, double height)
+        {
+            _configValues[OCR_WINDOW_WIDTH] = width.ToString();
+            _configValues[OCR_WINDOW_HEIGHT] = height.ToString();
+            SaveConfig();
+        }
+        
+        // Batch set OCR window position and size (saves only once)
+        public void SetOcrWindowBounds(double left, double top, double width, double height)
+        {
+            _configValues[OCR_WINDOW_LEFT] = left.ToString();
+            _configValues[OCR_WINDOW_TOP] = top.ToString();
+            _configValues[OCR_WINDOW_WIDTH] = width.ToString();
             _configValues[OCR_WINDOW_HEIGHT] = height.ToString();
             SaveConfig();
         }

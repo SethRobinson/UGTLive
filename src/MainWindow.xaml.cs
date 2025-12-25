@@ -91,6 +91,11 @@ namespace UGTLive
         private DateTime _translationStartTime;
         private bool _isShowingSettling = false;
         
+        // Debounce timer for window position/size persistence
+        private DispatcherTimer? _windowPersistenceTimer;
+        private bool _pendingPositionSave = false;
+        private bool _pendingSizeSave = false;
+        
         // OCR status display (no tracking - handled by Logic.cs)
         
         // Store previous capture position to calculate offset
@@ -3249,8 +3254,9 @@ namespace UGTLive
         {
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
             {
-                ConfigManager.Instance.SetOcrWindowWidth(this.Width);
-                ConfigManager.Instance.SetOcrWindowHeight(this.Height);
+                // Mark pending and restart debounce timer
+                _pendingSizeSave = true;
+                RestartWindowPersistenceTimer();
             }
         }
 
@@ -3259,9 +3265,49 @@ namespace UGTLive
         {
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
             {
-                ConfigManager.Instance.SetOcrWindowLeft(this.Left);
-                ConfigManager.Instance.SetOcrWindowTop(this.Top);
+                // Mark pending and restart debounce timer
+                _pendingPositionSave = true;
+                RestartWindowPersistenceTimer();
             }
+        }
+        
+        // Restart the debounce timer for window persistence
+        private void RestartWindowPersistenceTimer()
+        {
+            if (_windowPersistenceTimer == null)
+            {
+                _windowPersistenceTimer = new DispatcherTimer();
+                _windowPersistenceTimer.Interval = TimeSpan.FromMilliseconds(500);
+                _windowPersistenceTimer.Tick += WindowPersistenceTimer_Tick;
+            }
+            
+            // Reset the timer
+            _windowPersistenceTimer.Stop();
+            _windowPersistenceTimer.Start();
+        }
+        
+        // Timer tick - save pending changes
+        private void WindowPersistenceTimer_Tick(object? sender, EventArgs e)
+        {
+            _windowPersistenceTimer?.Stop();
+            
+            // Save any pending changes in a single save operation
+            if (_pendingPositionSave && _pendingSizeSave)
+            {
+                // Both changed - save all at once
+                ConfigManager.Instance.SetOcrWindowBounds(this.Left, this.Top, this.Width, this.Height);
+            }
+            else if (_pendingPositionSave)
+            {
+                ConfigManager.Instance.SetOcrWindowPosition(this.Left, this.Top);
+            }
+            else if (_pendingSizeSave)
+            {
+                ConfigManager.Instance.SetOcrWindowSize(this.Width, this.Height);
+            }
+            
+            _pendingPositionSave = false;
+            _pendingSizeSave = false;
         }
         
         // Initialize the translation status timer
@@ -3282,7 +3328,32 @@ namespace UGTLive
             {
                 if (translationStatusLabel != null)
                 {
-                    translationStatusLabel.Text = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                    // Build status text with optional token count
+                    string statusText;
+                    
+                    if (TranslationStatus.IsStreaming)
+                    {
+                        int tokenCount = TranslationStatus.TokenCount;
+                        
+                        if (TranslationStatus.IsThinking)
+                        {
+                            statusText = $"LLM thinking... (tokens: {tokenCount})";
+                        }
+                        else if (tokenCount > 0)
+                        {
+                            statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2} (tokens: {tokenCount})";
+                        }
+                        else
+                        {
+                            statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                        }
+                    }
+                    else
+                    {
+                        statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                    }
+                    
+                    translationStatusLabel.Text = statusText;
                 }
             });
         }

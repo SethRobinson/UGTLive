@@ -614,13 +614,20 @@ namespace UGTLive
             // Temporarily remove event handlers to prevent triggering changes during initialization
             llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
             llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
+            llamacppModelTextBox.TextChanged -= LlamacppModelTextBox_TextChanged;
             
             llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
             llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+            llamacppModelTextBox.Text = ConfigManager.Instance.GetLlamaCppModel();
+            llamacppThinkingModeCheckBox.IsChecked = ConfigManager.Instance.GetLlamaCppThinkingMode();
             
             // Reattach event handlers
             llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
             llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
+            llamacppModelTextBox.TextChanged += LlamacppModelTextBox_TextChanged;
+            
+            // Update thinking mode checkbox visibility based on model name
+            UpdateLlamaCppThinkingModeVisibility();
             
             // Update service-specific settings visibility based on selected service
             UpdateServiceSpecificSettings(currentService);
@@ -2186,6 +2193,12 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     llamacppPortLabel.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (llamacppPortTextBox != null)
                     llamacppPortTextBox.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppModelLabel != null)
+                    llamacppModelLabel.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppModelGrid != null)
+                    llamacppModelGrid.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (llamacppThinkingModeCheckBox != null)
+                    llamacppThinkingModeCheckBox.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide Google Translate-specific settings
                 if (googleTranslateServiceTypeLabel != null)
@@ -2289,13 +2302,20 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                         // Temporarily remove event handlers to prevent triggering changes when switching services
                         llamacppUrlTextBox.TextChanged -= LlamacppUrlTextBox_TextChanged;
                         llamacppPortTextBox.TextChanged -= LlamacppPortTextBox_TextChanged;
+                        llamacppModelTextBox.TextChanged -= LlamacppModelTextBox_TextChanged;
                         
                         llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
                         llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
+                        llamacppModelTextBox.Text = ConfigManager.Instance.GetLlamaCppModel();
+                        llamacppThinkingModeCheckBox.IsChecked = ConfigManager.Instance.GetLlamaCppThinkingMode();
                         
                         // Reattach event handlers
                         llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
                         llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
+                        llamacppModelTextBox.TextChanged += LlamacppModelTextBox_TextChanged;
+                        
+                        // Update thinking mode checkbox visibility based on model name
+                        UpdateLlamaCppThinkingModeVisibility();
                     }
                 }
                 else if (isGoogleTranslateSelected)
@@ -2535,6 +2555,185 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     llamacppPortTextBox.Text = "8080";
                 }
             }
+        }
+        
+        // llama.cpp Model changed
+        private void LlamacppModelTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // Skip if initializing or if the sender isn't the expected TextBox
+            if (_isInitializing || sender != llamacppModelTextBox)
+                return;
+                
+            string model = llamacppModelTextBox.Text.Trim();
+            ConfigManager.Instance.SetLlamaCppModel(model);
+            Console.WriteLine($"llama.cpp model set to: {model}");
+            
+            // Update thinking mode checkbox visibility based on model name
+            UpdateLlamaCppThinkingModeVisibility();
+            
+            // Trigger retranslation if the current service is llama.cpp
+            if (ConfigManager.Instance.GetCurrentTranslationService() == "llama.cpp")
+            {
+                Console.WriteLine("llama.cpp model changed. Triggering retranslation...");
+                Logic.Instance.ResetHash();
+            }
+        }
+        
+        // llama.cpp List Models button clicked
+        private async void LlamacppListModelsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button while fetching
+                llamacppListModelsButton.IsEnabled = false;
+                llamacppListModelsButton.Content = "Loading...";
+                
+                // Fetch models from llama.cpp server
+                List<string> models = await FetchLlamaCppModelsAsync();
+                
+                // Re-enable button
+                llamacppListModelsButton.IsEnabled = true;
+                llamacppListModelsButton.Content = "List Models";
+                
+                if (models == null || models.Count == 0)
+                {
+                    MessageBox.Show(
+                        "No models found or failed to connect to llama.cpp server.\n\n" +
+                        "Please check:\n" +
+                        "1. The llama.cpp server is running\n" +
+                        "2. The server URL and port in settings are correct\n" +
+                        "3. The server may be running in single-model mode (not router mode)",
+                        "No Models Found",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+                
+                // Show model selector dialog
+                var dialog = new LlamaCppModelSelectorWindow
+                {
+                    Owner = this
+                };
+                dialog.SetModels(models);
+                
+                if (dialog.ShowDialog() == true && dialog.SelectedModel != null)
+                {
+                    // Update the model text box
+                    llamacppModelTextBox.Text = dialog.SelectedModel;
+                    // The TextChanged event handler will save it to config
+                }
+            }
+            catch (Exception ex)
+            {
+                llamacppListModelsButton.IsEnabled = true;
+                llamacppListModelsButton.Content = "List Models";
+                
+                MessageBox.Show(
+                    $"Error fetching models: {ex.Message}\n\n" +
+                    "Please check your llama.cpp server settings.",
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+        
+        // Fetch available models from llama.cpp server
+        private async Task<List<string>> FetchLlamaCppModelsAsync()
+        {
+            try
+            {
+                string llamacppUrl = ConfigManager.Instance.GetLlamaCppUrl();
+                string llamacppPort = ConfigManager.Instance.GetLlamaCppPort();
+                
+                // Correctly format the URL
+                if (!llamacppUrl.StartsWith("http://") && !llamacppUrl.StartsWith("https://"))
+                {
+                    llamacppUrl = "http://" + llamacppUrl;
+                }
+                
+                // OpenAI-compatible /v1/models endpoint
+                string apiUrl = $"{llamacppUrl}:{llamacppPort}/v1/models";
+                Console.WriteLine($"Fetching models from URL: {apiUrl}");
+                
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(30);
+                    HttpResponseMessage response = await client.GetAsync(apiUrl);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Response from llama.cpp models API: {jsonResponse}");
+                        
+                        using JsonDocument doc = JsonDocument.Parse(jsonResponse);
+                        List<string> models = new List<string>();
+                        
+                        // OpenAI format: { "object": "list", "data": [{ "id": "model-name", ... }] }
+                        if (doc.RootElement.TryGetProperty("data", out JsonElement dataElement))
+                        {
+                            foreach (JsonElement modelElement in dataElement.EnumerateArray())
+                            {
+                                if (modelElement.TryGetProperty("id", out JsonElement idElement))
+                                {
+                                    string modelId = idElement.GetString() ?? "";
+                                    if (!string.IsNullOrWhiteSpace(modelId))
+                                    {
+                                        models.Add(modelId);
+                                        Console.WriteLine($"Found available model: {modelId}");
+                                    }
+                                }
+                            }
+                        }
+                        
+                        return models.OrderBy(m => m).ToList();
+                    }
+                    else
+                    {
+                        string errorMessage = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"llama.cpp API error: {response.StatusCode}, {errorMessage}");
+                        return new List<string>();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching llama.cpp models: {ex.Message}");
+                return new List<string>();
+            }
+        }
+        
+        // llama.cpp Thinking Mode checkbox changed
+        private void LlamacppThinkingModeCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+                
+            bool isChecked = llamacppThinkingModeCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetLlamaCppThinkingMode(isChecked);
+            Console.WriteLine($"llama.cpp thinking mode set to: {isChecked}");
+            
+            // Trigger retranslation if the current service is llama.cpp
+            if (ConfigManager.Instance.GetCurrentTranslationService() == "llama.cpp")
+            {
+                Console.WriteLine("llama.cpp thinking mode changed. Triggering retranslation...");
+                Logic.Instance.ResetHash();
+            }
+        }
+        
+        // Update thinking mode checkbox visibility based on selected service
+        private void UpdateLlamaCppThinkingModeVisibility()
+        {
+            if (llamacppThinkingModeCheckBox == null)
+                return;
+            
+            // Show thinking mode checkbox whenever llama.cpp is selected
+            bool isLlamacppSelected = string.Equals(
+                ConfigManager.Instance.GetCurrentTranslationService(), 
+                "llama.cpp", 
+                StringComparison.OrdinalIgnoreCase);
+            
+            llamacppThinkingModeCheckBox.Visibility = 
+                isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
         }
         
         // Model downloader instance

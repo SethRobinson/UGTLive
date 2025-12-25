@@ -682,7 +682,7 @@
                                             TextChanged="LlamacppUrlTextBox_TextChanged"/>
                                     <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
                                         <Run>Start server with: </Run>
-                                        <Run FontFamily="Consolas">llama-server -m model.gguf</Run>
+                                        <Run FontFamily="Consolas">llama-server --models-dir [folder] for 'routing' mode</Run>
                                         <Run> | </Run>
                                         <Hyperlink Click="LlamacppDocsLink_Click">llama.cpp on github</Hyperlink>
                                     </TextBlock>
@@ -694,6 +694,39 @@
                                 <TextBox x:Name="llamacppPortTextBox" Grid.Row="2" Grid.Column="1" 
                                         Margin="0,5" Visibility="Collapsed"
                                         TextChanged="LlamacppPortTextBox_TextChanged"/>
+                                
+                                <!-- llama.cpp Model - Only visible when llama.cpp is selected -->
+                                <TextBlock x:Name="llamacppModelLabel" Text="Model:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="The model to use (required in router mode, optional otherwise)"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="llamacppModelGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="llamacppModelTextBox" Grid.Column="0"
+                                                TextChanged="LlamacppModelTextBox_TextChanged"
+                                                ToolTip="Model name from the server (e.g. gemma-2-9b.gguf)"/>
+                                        <Button x:Name="llamacppListModelsButton" Content="List Models" 
+                                               Grid.Column="1" Margin="5,0,0,0" Padding="5,0" 
+                                               Click="LlamacppListModelsButton_Click"
+                                               ToolTip="Fetch available models from the llama.cpp server"/>
+                                    </Grid>
+                                    <TextBlock Grid.Row="1" Text="Optional - only available when server runs in router mode"
+                                              FontSize="11" Foreground="Gray" Margin="0,2,0,0"/>
+                                </Grid>
+                                
+                                <!-- llama.cpp Thinking Mode - Only visible when llama.cpp is selected -->
+                                <CheckBox x:Name="llamacppThinkingModeCheckBox" Grid.Row="4" Grid.Column="1"
+                                         Content="Use Thinking Mode (GLM/DeepSeek)" Margin="0,5" Visibility="Collapsed"
+                                         Checked="LlamacppThinkingModeCheckBox_Changed"
+                                         Unchecked="LlamacppThinkingModeCheckBox_Changed"
+                                         ToolTip="Enables extended reasoning for GLM and DeepSeek models. Only applies when using compatible models."/>
                                 
                                 <!-- Google Translate API Key - Only visible when Google Translate is selected -->
                                 <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
