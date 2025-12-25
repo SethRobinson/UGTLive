@@ -1960,7 +1960,7 @@ Here is the input JSON:";
         // Get Gemini model
         public string GetGeminiModel()
         {
-            return GetValue(GEMINI_MODEL, "gemini-2.5-flash"); // Default to 2.0 Flash
+            return GetValue(GEMINI_MODEL, "gemini-2.5-flash"); // Default to Gemini 2.5 Flash
         }
         
         // Set Gemini model

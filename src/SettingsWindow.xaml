@@ -566,6 +566,7 @@
                                         <ComboBoxItem Content="gemini-2.5-flash"/>
                                         <ComboBoxItem Content="gemini-2.5-flash-lite"/>
                                         <ComboBoxItem Content="gemini-3-pro-preview"/>
+                                        <ComboBoxItem Content="gemini-3-flash-preview"/>
                                     </ComboBox>
                                     <Button x:Name="viewGeminiModelsButton" Content="View Models" Grid.Column="1"
                                            Margin="5,0,0,0" Padding="5,0" Click="ViewGeminiModelsButton_Click"
@@ -649,11 +650,11 @@
                                     </Grid.ColumnDefinitions>
                                     <ComboBox x:Name="chatGptModelComboBox" Grid.Column="0"
                                             SelectionChanged="ChatGptModelComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="GPT-4.1 Nano (Fastest)" Tag="gpt-4.1-nano"/>
-                                        <ComboBoxItem Content="GPT-5 Nano" Tag="gpt-5-nano"/>
+                                        <ComboBoxItem Content="GPT-5.2 Pro (Advanced)" Tag="gpt-5.2-pro"/>
+                                        <ComboBoxItem Content="GPT-5.2" Tag="gpt-5.2"/>
                                         <ComboBoxItem Content="GPT-5 Mini" Tag="gpt-5-mini"/>
-                                        <ComboBoxItem Content="GPT-5" Tag="gpt-5"/>
-                                        <ComboBoxItem Content="GPT-5 Pro" Tag="gpt-5-pro"/>
+                                        <ComboBoxItem Content="GPT-5 Nano" Tag="gpt-5-nano"/>
+                                        <ComboBoxItem Content="GPT-4.1 Nano" Tag="gpt-4.1-nano"/>
                                     </ComboBox>
                                     <Button x:Name="viewChatGptModelsButton" Content="View Models" Grid.Column="1"
                                            Margin="5,0,0,0" Padding="5,0" Click="ViewChatGptModelsButton_Click"

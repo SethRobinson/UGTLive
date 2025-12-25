@@ -44,6 +44,15 @@ namespace UGTLive
             }
         }
 
+        /// <summary>
+        /// Check if the model requires the Responses API instead of Chat Completions API
+        /// </summary>
+        private bool RequiresResponsesApi(string model)
+        {
+            // GPT-5.2 Pro requires the Responses API (/v1/responses)
+            return model.Equals("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
@@ -61,57 +70,89 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Log the original input
-                //Console.WriteLine($"ChatGPT input JSON: {jsonData}");
-                
                 // Parse the input JSON
                 JsonElement inputJson = JsonSerializer.Deserialize<JsonElement>(jsonData);
                 
                 // Get custom prompt from config
                 string customPrompt = ConfigManager.Instance.GetServicePrompt("ChatGPT");
                 
-                // Build messages array for ChatGPT API
-                var messages = new List<Dictionary<string, string>>();
-                
-                // Use the exact prompt format as specified
-                StringBuilder systemPrompt = new StringBuilder();
-     
-                // Add any custom instructions from the config file
-                if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
-                {
-                     systemPrompt.AppendLine(customPrompt);
-                }
-                
-                messages.Add(new Dictionary<string, string> 
-                {
-                    { "role", "system" },
-                    { "content", systemPrompt.ToString() }
-                });
-                
-                // Add the text to translate as the user message
-                messages.Add(new Dictionary<string, string>
-                {
-                    { "role", "user" },
-                    { "content", "Here is the input JSON:\n\n" + jsonData }
-                });
-                
                 // Get max completion tokens from config
                 int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
+
+                // Determine which API to use based on model
+                bool useResponsesApi = RequiresResponsesApi(model);
                 
-                // Create request body
-                var requestBody = new Dictionary<string, object>
+                string apiEndpoint;
+                string requestJson;
+                
+                if (useResponsesApi)
                 {
-                    { "model", model },
-                    { "messages", messages },
-                    { "max_completion_tokens", maxCompletionTokens }   // Configurable max tokens (ChatGPT 5+ uses max_completion_tokens)
-                    // Note: temperature parameter removed - ChatGPT 5 only supports default value of 1
-                };
-                
-                // Serialize the request body
-                string requestJson = JsonSerializer.Serialize(requestBody);
+                    // Use the Responses API for GPT-5.2 Pro
+                    apiEndpoint = "https://api.openai.com/v1/responses";
+                    
+                    // Build input text combining prompt and data
+                    string inputText = "";
+                    if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
+                    {
+                        inputText = customPrompt + "\n\n";
+                    }
+                    inputText += "Here is the input JSON:\n\n" + jsonData;
+                    
+                    // Create Responses API request body
+                    var requestBody = new Dictionary<string, object>
+                    {
+                        { "model", model },
+                        { "input", inputText },
+                        { "max_output_tokens", maxCompletionTokens }
+                    };
+                    
+                    requestJson = JsonSerializer.Serialize(requestBody);
+                    Console.WriteLine($"Using Responses API for model: {model}");
+                }
+                else
+                {
+                    // Use the Chat Completions API for other models
+                    apiEndpoint = "https://api.openai.com/v1/chat/completions";
+                    
+                    // Build messages array for ChatGPT API
+                    var messages = new List<Dictionary<string, string>>();
+                    
+                    // Use the exact prompt format as specified
+                    StringBuilder systemPrompt = new StringBuilder();
+         
+                    // Add any custom instructions from the config file
+                    if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
+                    {
+                         systemPrompt.AppendLine(customPrompt);
+                    }
+                    
+                    messages.Add(new Dictionary<string, string> 
+                    {
+                        { "role", "system" },
+                        { "content", systemPrompt.ToString() }
+                    });
+                    
+                    // Add the text to translate as the user message
+                    messages.Add(new Dictionary<string, string>
+                    {
+                        { "role", "user" },
+                        { "content", "Here is the input JSON:\n\n" + jsonData }
+                    });
+                    
+                    // Create request body
+                    var requestBody = new Dictionary<string, object>
+                    {
+                        { "model", model },
+                        { "messages", messages },
+                        { "max_completion_tokens", maxCompletionTokens }
+                    };
+                    
+                    requestJson = JsonSerializer.Serialize(requestBody);
+                    Console.WriteLine($"Using Chat Completions API for model: {model}");
+                }
                 
                 // Set up HTTP request
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+                var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint);
                 request.Headers.Add("Authorization", $"Bearer {apiKey}");
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
@@ -127,137 +168,27 @@ namespace UGTLive
                     
                     try
                     {
-                        // Parse response
-                        var responseObj = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseContent);
-                        if (responseObj != null && responseObj.TryGetValue("choices", out JsonElement choices) && choices.GetArrayLength() > 0)
+                        string translatedText;
+                        
+                        if (useResponsesApi)
                         {
-                            var firstChoice = choices[0];
-                            string translatedText = firstChoice.GetProperty("message").GetProperty("content").GetString() ?? "";
-                            
-                            // Clean up the response - sometimes there might be markdown code block markers
-                            translatedText = translatedText.Trim();
-                            if (translatedText.StartsWith("```json"))
-                            {
-                                translatedText = translatedText.Substring(7);
-                            }
-                            else if (translatedText.StartsWith("```"))
-                            {
-                                translatedText = translatedText.Substring(3);
-                            }
-                            
-                            if (translatedText.EndsWith("```"))
-                            {
-                                translatedText = translatedText.Substring(0, translatedText.Length - 3);
-                            }
-                            translatedText = translatedText.Trim();
-                            
-                            // Clean up escape sequences and newlines in the JSON
-                            if (translatedText.StartsWith("{") && translatedText.EndsWith("}"))
-                            {
-                                // Properly escape newlines within JSON strings - don't convert to literal newlines
-                                // as it will break JSON parsing
-                                
-                                // Make sure it doesn't have additional newlines that could cause issues
-                                
-                                if (translatedText.Contains("\r\n"))
-                                {
-                                    // We'll replace literal Windows newlines with spaces to avoid formatting issues
-                                    translatedText = translatedText.Replace("\r\n", " ");
-                                }
-                               
-                                
-                                // Replace nicely formatted JSON (with newlines) with compact JSON for better parsing
-                                try
-                                {
-                                    var tempJson = JsonSerializer.Deserialize<object>(translatedText);
-                                    var options = new JsonSerializerOptions 
-                                    { 
-                                        WriteIndented = false // This ensures compact JSON without any newlines
-                                    };
-                                    translatedText = JsonSerializer.Serialize(tempJson, options);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"Failed to normalize JSON format: {ex.Message}");
-                                }
-                            }
-                            
-                            // Check if the response is in JSON format
-                            if (translatedText.StartsWith("{") && translatedText.EndsWith("}"))
-                            {
-                                try
-                                {
-                                    // Validate it's proper JSON by parsing it
-                                    var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
-                                    
-                                    // Check if this is a game JSON translation with text_blocks
-                                    if (translatedJson.TryGetProperty("text_blocks", out _))
-                                    {
-                                        // For game JSON format, we need to match the format that the other translation services use
-                                        
-                                        // Save the translated JSON to a debug file for inspection
-                                        try 
-                                        {
-                                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                                            string debugFilePath = System.IO.Path.Combine(appDirectory, "chatgpt_translation_debug.txt");
-                                            System.IO.File.WriteAllText(debugFilePath, translatedText);
-                                            Console.WriteLine($"Debug translation saved to {debugFilePath}");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Console.WriteLine($"Failed to write debug file: {ex.Message}");
-                                        }
-                                        
-                                        // Based on the format of other translators, we need the text to be wrapped
-                                        var outputJson = new Dictionary<string, object>
-                                        {
-                                            { "translated_text", translatedText },
-                                            { "original_text", jsonData },
-                                            { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
-                                        };
-                                        
-                                        string finalOutput = JsonSerializer.Serialize(outputJson);
-                                        
-                                        return finalOutput;
-                                    }
-                                    else
-                                    {
-                                        // For other formats, we'll wrap the result in the standard format
-                                        var compatibilityOutput = new Dictionary<string, object>
-                                        {
-                                            { "translated_text", translatedText },
-                                            { "original_text", jsonData },
-                                            { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
-                                        };
-                                        
-                                        string finalOutput = JsonSerializer.Serialize(compatibilityOutput);
-                                        
-                                        // Log the final output format
-                                        Console.WriteLine($"Final output format: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
-                                        
-                                        return finalOutput;
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"Error parsing JSON response: {ex.Message}");
-                                    // Not valid JSON, will handle as plain text below
-                                }
-                            }
-                            
-                            // If we got plain text or invalid JSON, wrap it in our format
-                            var formattedOutput = new Dictionary<string, object>
-                            {
-                                { "translated_text", translatedText },
-                                { "original_text", jsonData },
-                                { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
-                            };
-                            
-                            string output = JsonSerializer.Serialize(formattedOutput);
-                            Console.WriteLine($"Formatted as plain text, output: {output.Substring(0, Math.Min(100, output.Length))}...");
-                            
-                            return output;
+                            // Parse Responses API response format
+                            translatedText = ParseResponsesApiResponse(responseContent);
                         }
+                        else
+                        {
+                            // Parse Chat Completions API response format
+                            translatedText = ParseChatCompletionsResponse(responseContent);
+                        }
+                        
+                        if (string.IsNullOrEmpty(translatedText))
+                        {
+                            Console.WriteLine("Failed to extract translated text from response");
+                            return null;
+                        }
+                        
+                        // Process the translated text and return formatted output
+                        return ProcessTranslatedText(translatedText, jsonData, inputJson);
                     }
                     catch (Exception ex)
                     {
@@ -353,6 +284,183 @@ namespace UGTLive
                 ErrorPopupManager.ShowError(errorMessage, "ChatGPT Translation Error");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Parse response from the Chat Completions API (/v1/chat/completions)
+        /// </summary>
+        private string ParseChatCompletionsResponse(string responseContent)
+        {
+            var responseObj = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseContent);
+            if (responseObj != null && responseObj.TryGetValue("choices", out JsonElement choices) && choices.GetArrayLength() > 0)
+            {
+                var firstChoice = choices[0];
+                return firstChoice.GetProperty("message").GetProperty("content").GetString() ?? "";
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Parse response from the Responses API (/v1/responses)
+        /// </summary>
+        private string ParseResponsesApiResponse(string responseContent)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(responseContent);
+                var root = doc.RootElement;
+                
+                // The Responses API returns output in the "output" array
+                if (root.TryGetProperty("output", out JsonElement output) && output.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in output.EnumerateArray())
+                    {
+                        // Look for message type output
+                        if (item.TryGetProperty("type", out JsonElement typeElement) && 
+                            typeElement.GetString() == "message")
+                        {
+                            if (item.TryGetProperty("content", out JsonElement content) && 
+                                content.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var contentItem in content.EnumerateArray())
+                                {
+                                    if (contentItem.TryGetProperty("type", out JsonElement contentType) &&
+                                        contentType.GetString() == "output_text")
+                                    {
+                                        if (contentItem.TryGetProperty("text", out JsonElement text))
+                                        {
+                                            return text.GetString() ?? "";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback: try to get output_text directly if it's a simpler response format
+                if (root.TryGetProperty("output_text", out JsonElement outputText))
+                {
+                    return outputText.GetString() ?? "";
+                }
+                
+                Console.WriteLine($"Could not parse Responses API response: {responseContent.Substring(0, Math.Min(500, responseContent.Length))}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing Responses API response: {ex.Message}");
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Process the translated text and format the output
+        /// </summary>
+        private string? ProcessTranslatedText(string translatedText, string jsonData, JsonElement inputJson)
+        {
+            // Clean up the response - sometimes there might be markdown code block markers
+            translatedText = translatedText.Trim();
+            if (translatedText.StartsWith("```json"))
+            {
+                translatedText = translatedText.Substring(7);
+            }
+            else if (translatedText.StartsWith("```"))
+            {
+                translatedText = translatedText.Substring(3);
+            }
+            
+            if (translatedText.EndsWith("```"))
+            {
+                translatedText = translatedText.Substring(0, translatedText.Length - 3);
+            }
+            translatedText = translatedText.Trim();
+            
+            // Clean up escape sequences and newlines in the JSON
+            if (translatedText.StartsWith("{") && translatedText.EndsWith("}"))
+            {
+                if (translatedText.Contains("\r\n"))
+                {
+                    translatedText = translatedText.Replace("\r\n", " ");
+                }
+                
+                // Replace nicely formatted JSON with compact JSON for better parsing
+                try
+                {
+                    var tempJson = JsonSerializer.Deserialize<object>(translatedText);
+                    var options = new JsonSerializerOptions 
+                    { 
+                        WriteIndented = false
+                    };
+                    translatedText = JsonSerializer.Serialize(tempJson, options);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to normalize JSON format: {ex.Message}");
+                }
+            }
+            
+            // Check if the response is in JSON format
+            if (translatedText.StartsWith("{") && translatedText.EndsWith("}"))
+            {
+                try
+                {
+                    var translatedJson = JsonSerializer.Deserialize<JsonElement>(translatedText);
+                    
+                    // Check if this is a game JSON translation with text_blocks
+                    if (translatedJson.TryGetProperty("text_blocks", out _))
+                    {
+                        try 
+                        {
+                            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                            string debugFilePath = System.IO.Path.Combine(appDirectory, "chatgpt_translation_debug.txt");
+                            System.IO.File.WriteAllText(debugFilePath, translatedText);
+                            Console.WriteLine($"Debug translation saved to {debugFilePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to write debug file: {ex.Message}");
+                        }
+                        
+                        var outputJson = new Dictionary<string, object>
+                        {
+                            { "translated_text", translatedText },
+                            { "original_text", jsonData },
+                            { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
+                        };
+                        
+                        return JsonSerializer.Serialize(outputJson);
+                    }
+                    else
+                    {
+                        var compatibilityOutput = new Dictionary<string, object>
+                        {
+                            { "translated_text", translatedText },
+                            { "original_text", jsonData },
+                            { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
+                        };
+                        
+                        string finalOutput = JsonSerializer.Serialize(compatibilityOutput);
+                        Console.WriteLine($"Final output format: {finalOutput.Substring(0, Math.Min(100, finalOutput.Length))}...");
+                        return finalOutput;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error parsing JSON response: {ex.Message}");
+                }
+            }
+            
+            // If we got plain text or invalid JSON, wrap it in our format
+            var formattedOutput = new Dictionary<string, object>
+            {
+                { "translated_text", translatedText },
+                { "original_text", jsonData },
+                { "detected_language", inputJson.GetProperty("source_language").GetString() ?? "ja" }
+            };
+            
+            string output = JsonSerializer.Serialize(formattedOutput);
+            Console.WriteLine($"Formatted as plain text, output: {output.Substring(0, Math.Min(100, output.Length))}...");
+            return output;
         }
     }
 }
