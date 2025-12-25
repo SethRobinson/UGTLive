@@ -28,7 +28,7 @@ Video showing live game translation (old version)
 
 An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.
 
-Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
+Requires **Windows** and an **NVidia RTX 20/30/40/50** series card with 8+ GB VRAM
 
 Features:
 
@@ -37,8 +37,8 @@ Features:
 * "Snapshot" feature for non-live use as well
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
 * Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, Paddle OCR, docTR, Windows OCR, Google Cloud Vision)
-* Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech
-* New "Page Reading" feature (including a mode for top down, right to left for manga)
+* Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech, and Google Translate (which does have a free mode)
+* Audio "Page Reading" feature (including a mode for top down, right to left for manga)
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
 * Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
 * Robust global hotkey system that allow allows gamepad buttons to be used
@@ -64,7 +64,7 @@ Features:
 # History
 
 
-**V1.03 Dec 25th, 2025** - * Added llama.cpp routing mode suppport, RTX 20x support, support for latest models
+**V1.03 Dec 25th, 2025** - * Added llama.cpp routing mode suppport, RTX 20x support (untested), support for latest OpenAI/Gemini models
 **V1.02 Dec 1st, 2025** - * Added 9 more languages, Snapshot button tweaks, "Show detailed Log" button during service installs, language selection GUi improved
 
 **V1.01 Nov 30th, 2025** - Added new "Snapshot" mode feature, now remembers window pos/sizes (PR by [jeffvli](https://github.com/jeffvli) ), new hotkey binding for overlay mode "previous"

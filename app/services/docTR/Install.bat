@@ -86,7 +86,9 @@ if not "!GPU_NAME!"=="Unknown" (
     
     echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
     
+    REM Check for RTX 2000/3000/4000 series
     if "!GPU_SERIES!"=="UNSUPPORTED" (
+        echo !GPU_NAME! | find /i "RTX 20" >nul && set "GPU_SERIES=30_40"
         echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
         echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
     )
