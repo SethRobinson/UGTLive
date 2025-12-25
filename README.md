@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.02-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.03-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -63,6 +63,8 @@ Features:
 
 # History
 
+
+**V1.03 Dec 25th, 2025** - * Added llama.cpp routing mode suppport, RTX 20x support, support for latest models
 **V1.02 Dec 1st, 2025** - * Added 9 more languages, Snapshot button tweaks, "Show detailed Log" button during service installs, language selection GUi improved
 
 **V1.01 Nov 30th, 2025** - Added new "Snapshot" mode feature, now remembers window pos/sizes (PR by [jeffvli](https://github.com/jeffvli) ), new hotkey binding for overlay mode "previous"

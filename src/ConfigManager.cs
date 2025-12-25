@@ -21,7 +21,7 @@ namespace UGTLive
         private readonly string _googleTranslateConfigFilePath;
         private readonly string _llamacppConfigFilePath;
         private readonly Dictionary<string, string> _configValues;
-        private string _currentTranslationService = "Gemini"; // Default to Gemini
+        private string _currentTranslationService = "Google Translate"; // Default to Google Translate
 
         // Config keys
         public const string GEMINI_API_KEY = "gemini_api_key";
@@ -290,7 +290,7 @@ namespace UGTLive
             else
             {
                 // Set default and save it
-                _currentTranslationService = "Gemini";
+                _currentTranslationService = "Google Translate";
                 _configValues[TRANSLATION_SERVICE] = _currentTranslationService;
                 SaveConfig();
             }
@@ -411,7 +411,7 @@ namespace UGTLive
             _configValues[CHATBOX_BACKGROUND_OPACITY] = "0.35";
             _configValues[CHATBOX_WINDOW_OPACITY] = "1";
             _configValues[CHATBOX_MIN_TEXT_SIZE] = "2";
-            _configValues[TRANSLATION_SERVICE] = "Gemini";
+            _configValues[TRANSLATION_SERVICE] = "Google Translate";
             _configValues[OLLAMA_URL] = "http://localhost";
             _configValues[OLLAMA_PORT] = "11434";
             _configValues[OCR_METHOD] = "EasyOCR";
@@ -456,7 +456,7 @@ namespace UGTLive
             _configValues[LEAVE_TRANSLATION_ONSCREEN] = "true";
             _configValues[MIN_LETTER_CONFIDENCE] = "0.1";
             _configValues[MIN_LINE_CONFIDENCE] = "0.1";
-            _configValues[AUTO_TRANSLATE_ENABLED] = "false";
+            _configValues[AUTO_TRANSLATE_ENABLED] = "true";
             _configValues[IGNORE_PHRASES] = "";
             _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = "0.1";
             _configValues[PAUSE_OCR_WHILE_TRANSLATING] = "true";
