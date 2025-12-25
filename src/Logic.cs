@@ -3101,6 +3101,7 @@ namespace UGTLive
                 "ro" => "Romanian",
                 "uk" => "Ukrainian",
                 "el" => "Greek",
+                "fa" => "Persian",
                 _ => languageCode
             };
         }

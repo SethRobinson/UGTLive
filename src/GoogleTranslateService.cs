@@ -388,6 +388,7 @@ namespace UGTLive
                 "romanian" or "ro" => "ro",
                 "ukrainian" or "uk" => "uk",
                 "greek" or "el" => "el",
+                "persian" or "farsi" or "fa" => "fa",
                 _ => language
             };
         }

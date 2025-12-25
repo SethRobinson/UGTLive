@@ -51,7 +51,8 @@ namespace UGTLive
             { "hi", "hi-IN" },
             { "th", "th-TH" },
             { "vi", "vi-VN" },
-            { "id", "id-ID" }
+            { "id", "id-ID" },
+            { "fa", "fa-IR" }
         };
 
         // Convert a System.Drawing.Bitmap to a Windows.Graphics.Imaging.SoftwareBitmap

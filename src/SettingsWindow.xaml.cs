@@ -69,7 +69,8 @@ namespace UGTLive
             "hi",      // Hindi
             "th",      // Thai
             "vi",      // Vietnamese
-            "id"       // Indonesian
+            "id",      // Indonesian
+            "fa"       // Persian (Farsi)
         };
         
         public static SettingsWindow Instance

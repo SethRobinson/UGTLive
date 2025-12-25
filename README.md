@@ -32,7 +32,7 @@ Requires **Windows** and an **NVidia RTX 30/40/50** series card with 8+ GB VRAM
 
 Features:
 
-* Supports 25 languages: Japanese, English, Chinese (Simplified & Traditional), Korean, Spanish, French, Italian, German, Portuguese, Russian, Polish, Dutch, Swedish, Czech, Hungarian, Romanian, Greek, Ukrainian, Turkish, Arabic, Hindi, Thai, Vietnamese, and Indonesian
+* Supports 26 languages: Japanese, English, Chinese (Simplified & Traditional), Korean, Spanish, French, Italian, German, Portuguese, Russian, Polish, Dutch, Swedish, Czech, Hungarian, Romanian, Greek, Ukrainian, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, and Persian (Farsi)
 * Built for real-time use, detects changes and translates when things "settle"
 * "Snapshot" feature for non-live use as well
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
