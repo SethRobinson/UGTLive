@@ -26,6 +26,7 @@ namespace UGTLive
         // Config keys
         public const string GEMINI_API_KEY = "gemini_api_key";
         public const string GEMINI_MODEL = "gemini_model";
+        public const string GEMINI_THINKING_ENABLED = "gemini_thinking_enabled";
         public const string TRANSLATION_SERVICE = "translation_service";
         public const string OCR_METHOD = "ocr_method";
         public const string OLLAMA_URL = "ollama_url";
@@ -38,6 +39,7 @@ namespace UGTLive
         public const string CHATGPT_API_KEY = "chatgpt_api_key";
         public const string CHATGPT_MODEL = "chatgpt_model";
         public const string CHATGPT_MAX_COMPLETION_TOKENS = "chatgpt_max_completion_tokens";
+        public const string CHATGPT_THINKING_ENABLED = "chatgpt_thinking_enabled";
         public const string FORCE_CURSOR_VISIBLE = "force_cursor_visible";
         public const string AUTO_SIZE_TEXT_BLOCKS = "auto_size_text_blocks";
         public const string GOOGLE_TRANSLATE_API_KEY = "google_translate_api_key";
@@ -448,7 +450,9 @@ namespace UGTLive
             _configValues[CHATGPT_MODEL] = "gpt-5-nano";
             _configValues[CHATGPT_API_KEY] = "<your API key here>";
             _configValues[CHATGPT_MAX_COMPLETION_TOKENS] = "32768";
+            _configValues[CHATGPT_THINKING_ENABLED] = "false";
             _configValues[GEMINI_MODEL] = "gemini-2.5-flash";
+            _configValues[GEMINI_THINKING_ENABLED] = "false";
             _configValues[BLOCK_DETECTION_SCALE] = "3.00";
             _configValues[BLOCK_DETECTION_SETTLE_TIME] = "0.15";
             _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = "1.00";
@@ -1955,6 +1959,21 @@ Here is the input JSON:";
             }
         }
         
+        // Get ChatGPT thinking enabled
+        public bool GetChatGptThinkingEnabled()
+        {
+            string value = GetValue(CHATGPT_THINKING_ENABLED, "false");
+            return value.ToLower() == "true";
+        }
+        
+        // Set ChatGPT thinking enabled
+        public void SetChatGptThinkingEnabled(bool enabled)
+        {
+            _configValues[CHATGPT_THINKING_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"ChatGPT thinking set to: {enabled}");
+        }
+        
         // Gemini methods
         
         // Get Gemini model
@@ -1972,6 +1991,21 @@ Here is the input JSON:";
                 SaveConfig();
                 Console.WriteLine($"Gemini model set to: {model}");
             }
+        }
+        
+        // Get Gemini thinking enabled
+        public bool GetGeminiThinkingEnabled()
+        {
+            string value = GetValue(GEMINI_THINKING_ENABLED, "false");
+            return value.ToLower() == "true";
+        }
+        
+        // Set Gemini thinking enabled
+        public void SetGeminiThinkingEnabled(bool enabled)
+        {
+            _configValues[GEMINI_THINKING_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Gemini thinking set to: {enabled}");
         }
         
         // OCR Display methods

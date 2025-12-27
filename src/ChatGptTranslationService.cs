@@ -52,6 +52,52 @@ namespace UGTLive
             // GPT-5.2 Pro requires the Responses API (/v1/responses)
             return model.Equals("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase);
         }
+        
+        /// <summary>
+        /// Check if the model supports reasoning effort at all (GPT-5 series only)
+        /// </summary>
+        private bool SupportsReasoningEffort(string model)
+        {
+            // Only GPT-5 series and later support reasoning_effort parameter
+            // GPT-4.1 and older models do not support it
+            return model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        /// <summary>
+        /// Check if the model supports 'none' reasoning effort (GPT-5.1 and GPT-5.2 only)
+        /// </summary>
+        private bool SupportsNoneReasoningEffort(string model)
+        {
+            // Only GPT-5.1 and GPT-5.2 series support 'none' reasoning effort
+            return model.StartsWith("gpt-5.1", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        /// <summary>
+        /// Get the appropriate reasoning effort value based on model and thinking setting
+        /// Returns null if the model doesn't support reasoning effort
+        /// </summary>
+        private string? GetReasoningEffort(string model, bool thinkingEnabled)
+        {
+            // Check if model supports reasoning effort at all
+            if (!SupportsReasoningEffort(model))
+            {
+                return null; // GPT-4.1 and older don't support this parameter
+            }
+            
+            if (thinkingEnabled)
+            {
+                // When thinking is enabled, use medium for all models
+                return "medium";
+            }
+            else
+            {
+                // When thinking is disabled:
+                // - GPT-5.1 and GPT-5.2 support 'none'
+                // - GPT-5, GPT-5 Mini, GPT-5 Nano support 'low', 'medium', 'high' (not 'none')
+                return SupportsNoneReasoningEffort(model) ? "none" : "low";
+            }
+        }
 
         public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
@@ -78,6 +124,11 @@ namespace UGTLive
                 
                 // Get max completion tokens from config
                 int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
+                bool thinkingEnabled = ConfigManager.Instance.GetChatGptThinkingEnabled();
+                
+                // Get the appropriate reasoning effort based on model and thinking setting
+                // Returns null for models that don't support reasoning effort (GPT-4.1 and older)
+                string? reasoningEffort = GetReasoningEffort(model, thinkingEnabled);
 
                 // Determine which API to use based on model
                 bool useResponsesApi = RequiresResponsesApi(model);
@@ -106,8 +157,14 @@ namespace UGTLive
                         { "max_output_tokens", maxCompletionTokens }
                     };
                     
+                    // Add reasoning config only for models that support it
+                    if (reasoningEffort != null)
+                    {
+                        requestBody.Add("reasoning", new Dictionary<string, string> { { "effort", reasoningEffort } });
+                    }
+                    
                     requestJson = JsonSerializer.Serialize(requestBody);
-                    Console.WriteLine($"Using Responses API for model: {model}");
+                    Console.WriteLine($"Using Responses API for model: {model}, reasoning effort: {reasoningEffort ?? "not supported"}");
                 }
                 else
                 {
@@ -147,8 +204,14 @@ namespace UGTLive
                         { "max_completion_tokens", maxCompletionTokens }
                     };
                     
+                    // Add reasoning_effort only for models that support it (GPT-5 series)
+                    if (reasoningEffort != null)
+                    {
+                        requestBody.Add("reasoning_effort", reasoningEffort);
+                    }
+                    
                     requestJson = JsonSerializer.Serialize(requestBody);
-                    Console.WriteLine($"Using Chat Completions API for model: {model}");
+                    Console.WriteLine($"Using Chat Completions API for model: {model}, reasoning effort: {reasoningEffort ?? "not supported"}");
                 }
                 
                 // Set up HTTP request

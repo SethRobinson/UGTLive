@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,24 @@ namespace UGTLive
     public class GeminiTranslationService : ITranslationService
     {
         private static readonly HttpClient _httpClient = new HttpClient();
+        
+        /// <summary>
+        /// Check if the model is a Gemini 3.x model
+        /// </summary>
+        private bool IsGemini3Model(string model)
+        {
+            return model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        /// <summary>
+        /// Check if the model supports thinking configuration
+        /// </summary>
+        private bool SupportsThinking(string model)
+        {
+            // Gemini 2.5 and 3.x models support thinking
+            return model.StartsWith("gemini-2.5", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
+        }
         
         /// <summary>
         /// Translate text using the Gemini API
@@ -31,25 +50,55 @@ namespace UGTLive
                     return null;
                 }
 
-                var requestContent = new
+                // Get model from config
+                string model = ConfigManager.Instance.GetGeminiModel();
+                bool thinkingEnabled = ConfigManager.Instance.GetGeminiThinkingEnabled();
+                
+                // Build the generationConfig
+                var generationConfig = new Dictionary<string, object>
                 {
-                    contents = new[]
+                    { "response_mime_type", "application/json" }
+                };
+                
+                // Add thinkingConfig for models that support it
+                if (SupportsThinking(model))
+                {
+                    var thinkingConfig = new Dictionary<string, object>();
+                    
+                    if (IsGemini3Model(model))
                     {
-                        new
+                        // Gemini 3.x uses thinkingLevel: "low" or "high"
+                        thinkingConfig["thinkingLevel"] = thinkingEnabled ? "high" : "low";
+                    }
+                    else
+                    {
+                        // Gemini 2.5 uses thinkingBudget: 0 (disabled) or -1 (dynamic/enabled)
+                        thinkingConfig["thinkingBudget"] = thinkingEnabled ? -1 : 0;
+                    }
+                    
+                    generationConfig["thinkingConfig"] = thinkingConfig;
+                    Console.WriteLine($"Gemini thinking config: model={model}, enabled={thinkingEnabled}");
+                }
+                
+                // Build the request content
+                var requestContent = new Dictionary<string, object>
+                {
+                    { "contents", new[]
                         {
-                            parts = new[]
+                            new Dictionary<string, object>
                             {
-                                new
-                                {
-                                    text = $"{prompt}\n{jsonData}"
+                                { "parts", new[]
+                                    {
+                                        new Dictionary<string, string>
+                                        {
+                                            { "text", $"{prompt}\n{jsonData}" }
+                                        }
+                                    }
                                 }
                             }
                         }
                     },
-                    generationConfig = new
-                    {
-                        response_mime_type = "application/json",
-                    }
+                    { "generationConfig", generationConfig }
                 };
 
                 var jsonOptions = new JsonSerializerOptions
@@ -58,9 +107,6 @@ namespace UGTLive
                 };
                 string requestJson = JsonSerializer.Serialize(requestContent, jsonOptions);
                 var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-
-                // Get model from config
-                string model = ConfigManager.Instance.GetGeminiModel();
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
                 HttpResponseMessage response = await _httpClient.PostAsync(url, content, cancellationToken);
 
