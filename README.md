@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.04-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.05-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -63,6 +63,7 @@ Features:
 
 # History
 
+**V1.05 Jan 7th, 2026** - Fixed issue with failed EasyOCR language downloads due to SSL issues
 
 **V1.04 Dec 27th, 2025** - Added "Thinking mode" checkbox to OpenAI and Gemini models, defaults to off for speed
 
