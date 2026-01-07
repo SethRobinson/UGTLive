@@ -8,6 +8,13 @@ from pathlib import Path
 from io import BytesIO
 from typing import List, Dict, Optional
 
+# Fix SSL certificate verification for urllib.request
+# This is needed because bundled Python may not have access to system certificates
+# Must be done BEFORE any imports that might trigger model downloads
+import ssl
+import certifi
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse

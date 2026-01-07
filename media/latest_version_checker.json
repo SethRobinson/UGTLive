@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.04,
-     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\n(Update notes here)\n\nBackend service changes?: No"
+    "latest_version":1.05,
+     "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Minor improvements to service install process.\n\nBackend service changes?: No"
 }

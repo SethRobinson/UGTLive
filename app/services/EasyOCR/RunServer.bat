@@ -60,6 +60,13 @@ REM -----------------------------------------------------------------
 call "%VENV_DIR%\Scripts\activate.bat"
 
 echo Activating environment...
+
+REM -----------------------------------------------------------------
+REM Set SSL certificate file for urllib (fixes certificate errors on some systems)
+REM -----------------------------------------------------------------
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
+set "SSL_CERT_DIR="
+
 echo Starting server...
 echo.
 

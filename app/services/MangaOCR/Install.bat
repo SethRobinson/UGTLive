@@ -169,6 +169,11 @@ echo Virtual environment activated successfully >> "%LOG_FILE%"
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
+
+REM Set SSL certificate file for urllib (fixes certificate errors on some systems)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())" 2^>nul') do set "SSL_CERT_FILE=%%i"
+set "SSL_CERT_DIR="
+
 echo Environment variables set >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
@@ -252,7 +257,9 @@ echo [5/5] Installing Scikit-learn (optional)...
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 
 echo Initializing Manga OCR...
-python -c "from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
+REM Set SSL cert for model downloads (certifi is now installed)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
+python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
 
 echo Installation completed for RTX 30/40 series
 goto :eof
@@ -282,7 +289,9 @@ echo [5/5] Installing Scikit-learn (optional)...
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 
 echo Initializing Manga OCR...
-python -c "from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
+REM Set SSL cert for model downloads (certifi is now installed)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
+python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
 
 echo Installation completed for RTX 50 series
 goto :eof

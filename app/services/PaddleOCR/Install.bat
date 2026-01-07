@@ -196,6 +196,11 @@ echo Virtual environment activated successfully >> "%LOG_FILE%"
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
+
+REM Set SSL certificate file for urllib (fixes certificate errors on some systems)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())" 2^>nul') do set "SSL_CERT_FILE=%%i"
+set "SSL_CERT_DIR="
+
 echo Environment variables set >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------

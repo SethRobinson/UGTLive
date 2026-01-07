@@ -193,6 +193,11 @@ echo Virtual environment activated successfully >> "%LOG_FILE%"
 
 set HF_HUB_DISABLE_SYMLINKS_WARNING=1
 set KMP_DUPLICATE_LIB_OK=TRUE
+
+REM Set SSL certificate file for urllib (fixes certificate errors on some systems)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())" 2^>nul') do set "SSL_CERT_FILE=%%i"
+set "SSL_CERT_DIR="
+
 echo Environment variables set >> "%LOG_FILE%"
 
 REM -----------------------------------------------------------------
@@ -349,7 +354,9 @@ if errorlevel 1 (
 echo [Step 7/7] Pre-downloading EasyOCR models...
 echo This may take a few minutes...
 echo [Step 7/7] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
-python -c "import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
+REM Set SSL cert for model downloads (certifi is now installed)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
+python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo WARNING: Failed to pre-download EasyOCR models
     echo WARNING: Failed to pre-download models >> "%LOG_FILE%"
@@ -468,7 +475,9 @@ if errorlevel 1 (
 echo [Step 7/7] Pre-downloading EasyOCR models...
 echo This may take a few minutes...
 echo [Step 7/7] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
-python -c "import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
+REM Set SSL cert for model downloads (certifi is now installed)
+for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
+python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo WARNING: Failed to pre-download EasyOCR models
     echo WARNING: Failed to pre-download models >> "%LOG_FILE%"
