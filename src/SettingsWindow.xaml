@@ -814,6 +814,21 @@
                             </Grid>
                         </GroupBox>
                         
+                        <!-- Troubleshooting -->
+                        <GroupBox Header="Troubleshooting" Margin="0,0,0,15" Padding="10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Troubleshooting info:" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                <Button x:Name="viewLastLlmRequestButton" Content="View last LLM request sent" 
+                                       Padding="10,5" Margin="0,0,10,0"
+                                       Click="ViewLastLlmRequestButton_Click"
+                                       ToolTip="Opens the last LLM request that was sent for debugging"/>
+                                <Button x:Name="viewLastLlmReplyButton" Content="View last LLM reply received" 
+                                       Padding="10,5"
+                                       Click="ViewLastLlmReplyButton_Click"
+                                       ToolTip="Opens the last LLM reply that was received for debugging"/>
+                            </StackPanel>
+                        </GroupBox>
+                        
                         <!-- Translation Context Settings -->
                         <GroupBox Header="Translation Context Settings" Margin="0,0,0,15" Padding="10">
                             <Grid>

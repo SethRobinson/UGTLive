@@ -2086,6 +2086,49 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
+        // View last LLM request sent button clicked
+        private void ViewLastLlmRequestButton_Click(object sender, RoutedEventArgs e)
+        {
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string filePath = System.IO.Path.Combine(appDirectory, "last_llm_request_sent.txt");
+            OpenTroubleshootingFile(filePath, "last LLM request");
+        }
+        
+        // View last LLM reply received button clicked
+        private void ViewLastLlmReplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string filePath = System.IO.Path.Combine(appDirectory, "last_llm_reply_received.txt");
+            OpenTroubleshootingFile(filePath, "last LLM reply");
+        }
+        
+        // Helper to open troubleshooting files
+        private void OpenTroubleshootingFile(string filePath, string description)
+        {
+            if (System.IO.File.Exists(filePath))
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = filePath,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error opening {description} file: {ex.Message}");
+                    MessageBox.Show($"Unable to open {description} file.\n\nError: {ex.Message}",
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show($"No {description} file found yet.\n\nThis file is created after your first translation request.",
+                    "File Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        
         // Text box lost focus - save prompt
         private void PromptTemplateTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
