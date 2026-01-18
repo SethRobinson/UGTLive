@@ -900,6 +900,12 @@ namespace UGTLive
                 monitorButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
             }
             
+            // Restore ChatBox and Monitor windows if they were active on last close
+            if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+            {
+                RestoreSecondaryWindowStates();
+            }
+            
             // Test configuration loading
             TestConfigLoading();
             
@@ -1612,6 +1618,12 @@ namespace UGTLive
             
             // Cancel the close for now
             e.Cancel = true;
+            
+            // Save ChatBox and Monitor window state before closing (if persistence is enabled)
+            if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
+            {
+                SaveSecondaryWindowStates();
+            }
             
             // Close Monitor window immediately before showing shutdown dialog
             if (MonitorWindow.Instance.IsVisible)
@@ -3574,6 +3586,143 @@ namespace UGTLive
             
             _pendingPositionSave = false;
             _pendingSizeSave = false;
+        }
+        
+        // Save ChatBox and Monitor window states for restoration on next startup
+        private void SaveSecondaryWindowStates()
+        {
+            // Save ChatBox window state
+            var chatBox = ChatBoxWindow.Instance;
+            if (chatBox != null)
+            {
+                bool chatBoxWasActive = chatBox.IsVisible;
+                ConfigManager.Instance.SetChatBoxWindowState(
+                    chatBox.Left,
+                    chatBox.Top,
+                    chatBox.Width,
+                    chatBox.Height,
+                    chatBoxWasActive
+                );
+                Console.WriteLine($"Saved ChatBox state: Left={chatBox.Left}, Top={chatBox.Top}, Width={chatBox.Width}, Height={chatBox.Height}, WasActive={chatBoxWasActive}");
+            }
+            
+            // Save Monitor window state
+            var monitor = MonitorWindow.Instance;
+            if (monitor != null)
+            {
+                bool monitorWasActive = monitor.IsVisible;
+                ConfigManager.Instance.SetMonitorWindowState(
+                    monitor.Left,
+                    monitor.Top,
+                    monitor.Width,
+                    monitor.Height,
+                    monitorWasActive
+                );
+                Console.WriteLine($"Saved Monitor state: Left={monitor.Left}, Top={monitor.Top}, Width={monitor.Width}, Height={monitor.Height}, WasActive={monitorWasActive}");
+            }
+        }
+        
+        // Restore ChatBox and Monitor windows if they were active on last close
+        private void RestoreSecondaryWindowStates()
+        {
+            // Restore ChatBox window if it was active
+            if (ConfigManager.Instance.GetChatBoxWindowWasActive())
+            {
+                double left = ConfigManager.Instance.GetChatBoxWindowLeft();
+                double top = ConfigManager.Instance.GetChatBoxWindowTop();
+                double width = ConfigManager.Instance.GetChatBoxWindowWidth();
+                double height = ConfigManager.Instance.GetChatBoxWindowHeight();
+                
+                // Validate the bounds are in a legal position on available screens
+                if (ConfigManager.IsWindowBoundsValid(left, top, width, height))
+                {
+                    var chatBox = ChatBoxWindow.Instance;
+                    if (chatBox != null)
+                    {
+                        chatBox.Left = left;
+                        chatBox.Top = top;
+                        chatBox.Width = width;
+                        chatBox.Height = height;
+                        chatBox.Owner = this;
+                        chatBox.Show();
+                        
+                        isChatBoxVisible = true;
+                        chatBoxWindow = chatBox;
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
+                        
+                        // Attach event handlers if not already attached
+                        if (!_chatBoxEventsAttached)
+                        {
+                            chatBox.Closed += (s, e) =>
+                            {
+                                isChatBoxVisible = false;
+                                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                            };
+                            
+                            chatBox.IsVisibleChanged += (s, e) =>
+                            {
+                                if (!(bool)e.NewValue) // Window is now hidden
+                                {
+                                    isChatBoxVisible = false;
+                                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                                }
+                            };
+                            
+                            _chatBoxEventsAttached = true;
+                        }
+                        
+                        Console.WriteLine($"Restored ChatBox: Left={left}, Top={top}, Width={width}, Height={height}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"ChatBox bounds invalid or off-screen, not restoring: Left={left}, Top={top}, Width={width}, Height={height}");
+                }
+            }
+            
+            // Restore Monitor window if it was active
+            if (ConfigManager.Instance.GetMonitorWindowWasActive())
+            {
+                double left = ConfigManager.Instance.GetMonitorWindowLeft();
+                double top = ConfigManager.Instance.GetMonitorWindowTop();
+                double width = ConfigManager.Instance.GetMonitorWindowWidth();
+                double height = ConfigManager.Instance.GetMonitorWindowHeight();
+                
+                // Validate the bounds are in a legal position on available screens
+                if (ConfigManager.IsWindowBoundsValid(left, top, width, height))
+                {
+                    var monitor = MonitorWindow.Instance;
+                    if (monitor != null)
+                    {
+                        monitor.Left = left;
+                        monitor.Top = top;
+                        monitor.Width = width;
+                        monitor.Height = height;
+                        
+                        // Update the tracked position
+                        monitorWindowLeft = left;
+                        monitorWindowTop = top;
+                        
+                        monitor.Owner = this;
+                        monitor.Show();
+                        
+                        monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
+                        
+                        // If we have a recent screenshot, load it
+                        if (File.Exists(outputPath))
+                        {
+                            monitor.UpdateScreenshot(outputPath);
+                            monitor.RefreshOverlays();
+                        }
+                        
+                        Console.WriteLine($"Restored Monitor: Left={left}, Top={top}, Width={width}, Height={height}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Monitor bounds invalid or off-screen, not restoring: Left={left}, Top={top}, Width={width}, Height={height}");
+                }
+            }
         }
         
         // Initialize the translation status timer

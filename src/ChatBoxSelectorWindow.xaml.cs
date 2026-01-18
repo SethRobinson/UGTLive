@@ -274,7 +274,7 @@ namespace UGTLive
             // Verify minimum size
             if (width < 50 || height < 50)
             {
-                MessageBox.Show("Please select a larger area (at least 50x50 pixels).", 
+                MessageBox.Show("Please drag out a larger area for the chatbox (at least 50x50 pixels).", 
                                 "Selection too small", 
                                 MessageBoxButton.OK, 
                                 MessageBoxImage.Warning);

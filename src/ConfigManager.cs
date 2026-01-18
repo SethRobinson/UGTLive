@@ -100,6 +100,20 @@ namespace UGTLive
         public const string OCR_WINDOW_TOP = "ocr_window_top";
         public const string OCR_WINDOW_WIDTH = "ocr_window_width";
         public const string OCR_WINDOW_HEIGHT = "ocr_window_height";
+        
+        // ChatBox window persistence
+        public const string CHATBOX_WINDOW_LEFT = "chatbox_window_left";
+        public const string CHATBOX_WINDOW_TOP = "chatbox_window_top";
+        public const string CHATBOX_WINDOW_WIDTH = "chatbox_window_width";
+        public const string CHATBOX_WINDOW_HEIGHT = "chatbox_window_height";
+        public const string CHATBOX_WINDOW_WAS_ACTIVE = "chatbox_window_was_active";
+        
+        // Monitor window persistence
+        public const string MONITOR_WINDOW_LEFT = "monitor_window_left";
+        public const string MONITOR_WINDOW_TOP = "monitor_window_top";
+        public const string MONITOR_WINDOW_WIDTH = "monitor_window_width";
+        public const string MONITOR_WINDOW_HEIGHT = "monitor_window_height";
+        public const string MONITOR_WINDOW_WAS_ACTIVE = "monitor_window_was_active";
 
         // Supported OCR methods (internal IDs)
         private static readonly IReadOnlyList<string> _supportedOcrMethods = new List<string>
@@ -3161,6 +3175,159 @@ Here is the input JSON:";
             _configValues[OCR_WINDOW_WIDTH] = width.ToString();
             _configValues[OCR_WINDOW_HEIGHT] = height.ToString();
             SaveConfig();
+        }
+        
+        // Get/Set ChatBox window position and size
+        public double GetChatBoxWindowLeft()
+        {
+            string value = GetValue(CHATBOX_WINDOW_LEFT, "");
+            if (double.TryParse(value, out double left))
+            {
+                return left;
+            }
+            return double.NaN;
+        }
+
+        public double GetChatBoxWindowTop()
+        {
+            string value = GetValue(CHATBOX_WINDOW_TOP, "");
+            if (double.TryParse(value, out double top))
+            {
+                return top;
+            }
+            return double.NaN;
+        }
+
+        public double GetChatBoxWindowWidth()
+        {
+            string value = GetValue(CHATBOX_WINDOW_WIDTH, "");
+            if (double.TryParse(value, out double width))
+            {
+                return width;
+            }
+            return double.NaN;
+        }
+
+        public double GetChatBoxWindowHeight()
+        {
+            string value = GetValue(CHATBOX_WINDOW_HEIGHT, "");
+            if (double.TryParse(value, out double height))
+            {
+                return height;
+            }
+            return double.NaN;
+        }
+
+        public bool GetChatBoxWindowWasActive()
+        {
+            return GetBoolValue(CHATBOX_WINDOW_WAS_ACTIVE, false);
+        }
+
+        // Batch set ChatBox window bounds and active state (saves only once)
+        public void SetChatBoxWindowState(double left, double top, double width, double height, bool wasActive)
+        {
+            _configValues[CHATBOX_WINDOW_LEFT] = left.ToString();
+            _configValues[CHATBOX_WINDOW_TOP] = top.ToString();
+            _configValues[CHATBOX_WINDOW_WIDTH] = width.ToString();
+            _configValues[CHATBOX_WINDOW_HEIGHT] = height.ToString();
+            _configValues[CHATBOX_WINDOW_WAS_ACTIVE] = wasActive.ToString().ToLower();
+            SaveConfig();
+        }
+
+        // Get/Set Monitor window position and size
+        public double GetMonitorWindowLeft()
+        {
+            string value = GetValue(MONITOR_WINDOW_LEFT, "");
+            if (double.TryParse(value, out double left))
+            {
+                return left;
+            }
+            return double.NaN;
+        }
+
+        public double GetMonitorWindowTop()
+        {
+            string value = GetValue(MONITOR_WINDOW_TOP, "");
+            if (double.TryParse(value, out double top))
+            {
+                return top;
+            }
+            return double.NaN;
+        }
+
+        public double GetMonitorWindowWidth()
+        {
+            string value = GetValue(MONITOR_WINDOW_WIDTH, "");
+            if (double.TryParse(value, out double width))
+            {
+                return width;
+            }
+            return double.NaN;
+        }
+
+        public double GetMonitorWindowHeight()
+        {
+            string value = GetValue(MONITOR_WINDOW_HEIGHT, "");
+            if (double.TryParse(value, out double height))
+            {
+                return height;
+            }
+            return double.NaN;
+        }
+
+        public bool GetMonitorWindowWasActive()
+        {
+            return GetBoolValue(MONITOR_WINDOW_WAS_ACTIVE, false);
+        }
+
+        // Batch set Monitor window bounds and active state (saves only once)
+        public void SetMonitorWindowState(double left, double top, double width, double height, bool wasActive)
+        {
+            _configValues[MONITOR_WINDOW_LEFT] = left.ToString();
+            _configValues[MONITOR_WINDOW_TOP] = top.ToString();
+            _configValues[MONITOR_WINDOW_WIDTH] = width.ToString();
+            _configValues[MONITOR_WINDOW_HEIGHT] = height.ToString();
+            _configValues[MONITOR_WINDOW_WAS_ACTIVE] = wasActive.ToString().ToLower();
+            SaveConfig();
+        }
+
+        /// <summary>
+        /// Validates if a window rectangle is in a valid position on available screens.
+        /// Returns true if at least a minimum portion of the window is visible on some screen.
+        /// </summary>
+        public static bool IsWindowBoundsValid(double left, double top, double width, double height, double minVisiblePixels = 100, double minSize = 50)
+        {
+            // Check for NaN or invalid sizes
+            if (double.IsNaN(left) || double.IsNaN(top) || double.IsNaN(width) || double.IsNaN(height))
+            {
+                return false;
+            }
+
+            // Check minimum size
+            if (width < minSize || height < minSize)
+            {
+                return false;
+            }
+
+            // Get all screens and check if the window is at least partially visible on any
+            var screens = System.Windows.Forms.Screen.AllScreens;
+            
+            // Create a rectangle for the window
+            var windowRect = new System.Drawing.Rectangle((int)left, (int)top, (int)width, (int)height);
+            
+            foreach (var screen in screens)
+            {
+                // Check if window intersects with this screen
+                var intersection = System.Drawing.Rectangle.Intersect(windowRect, screen.WorkingArea);
+                
+                // If the intersection has a reasonable size, the window is valid
+                if (intersection.Width >= minVisiblePixels && intersection.Height >= minVisiblePixels)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
         
         // Debug logging settings
