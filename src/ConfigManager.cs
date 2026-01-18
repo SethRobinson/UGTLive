@@ -73,6 +73,7 @@ namespace UGTLive
         public const string BLOCK_DETECTION_SCALE = "block_detection_scale";
         public const string BLOCK_DETECTION_SETTLE_TIME = "block_detection_settle_time";
         public const string BLOCK_DETECTION_MAX_SETTLE_TIME = "block_detection_max_settle_time";
+        public const string COOLDOWN_HASH_COMPARE_LENGTH = "cooldown_hash_compare_length";
         public const string KEEP_TRANSLATED_TEXT_UNTIL_REPLACED = "keep_translated_text_until_replaced";
         public const string LEAVE_TRANSLATION_ONSCREEN = "leave_translation_onscreen";
         public const string MIN_LETTER_CONFIDENCE = "min_letter_confidence";
@@ -456,6 +457,7 @@ namespace UGTLive
             _configValues[BLOCK_DETECTION_SCALE] = "3.00";
             _configValues[BLOCK_DETECTION_SETTLE_TIME] = "0.15";
             _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = "1.00";
+            _configValues[COOLDOWN_HASH_COMPARE_LENGTH] = "15";
             _configValues[KEEP_TRANSLATED_TEXT_UNTIL_REPLACED] = "true";
             _configValues[LEAVE_TRANSLATION_ONSCREEN] = "true";
             _configValues[MIN_LETTER_CONFIDENCE] = "0.1";
@@ -2105,6 +2107,28 @@ Here is the input JSON:";
                 _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = seconds.ToString("F2");
                 SaveConfig();
                 Console.WriteLine($"Block detection max settle time set to: {seconds:F2} seconds");
+            }
+        }
+        
+        // Get Cooldown Hash Compare Length - how many characters to compare when checking if OCR content is similar during cooldown
+        public int GetCooldownHashCompareLength()
+        {
+            string value = GetValue(COOLDOWN_HASH_COMPARE_LENGTH, "15");
+            if (int.TryParse(value, out int length) && length >= 0)
+            {
+                return length;
+            }
+            return 15; // Default
+        }
+        
+        // Set Cooldown Hash Compare Length
+        public void SetCooldownHashCompareLength(int length)
+        {
+            if (length >= 0)
+            {
+                _configValues[COOLDOWN_HASH_COMPARE_LENGTH] = length.ToString();
+                SaveConfig();
+                Console.WriteLine($"Cooldown hash compare length set to: {length} characters");
             }
         }
         

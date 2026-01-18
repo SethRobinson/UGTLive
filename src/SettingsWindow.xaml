@@ -461,6 +461,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Block Power -->
@@ -494,6 +495,14 @@
                                 <TextBox x:Name="overlayClearDelayTextBox" Grid.Row="3" Grid.Column="1" 
                                         Margin="0,5" Text="0.5" LostFocus="OverlayClearDelayTextBox_LostFocus"
                                         ToolTip="Time in seconds to wait before resuming OCR after clearing overlays"/>
+                                
+                                <!-- Cooldown Hash Compare Length -->
+                                <TextBlock Text="Cooldown Compare Length:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Number of characters to compare when checking if OCR content is similar to recently translated text. After translation completes, if new OCR content matches the first N characters, it will be ignored during the cooldown period to prevent re-translating slight OCR variations. Set to 0 to disable."/>
+                                <TextBox x:Name="cooldownHashCompareLengthTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,5" Text="15" LostFocus="CooldownHashCompareLengthTextBox_LostFocus"
+                                        ToolTip="Number of characters to compare when checking if OCR content is similar to recently translated text. After translation completes, if new OCR content matches the first N characters, it will be ignored during the cooldown period to prevent re-translating slight OCR variations. Set to 0 to disable."/>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

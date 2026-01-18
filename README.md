@@ -119,7 +119,7 @@ UGTLive will automatically check for updates when you start it. If a new version
  
  Here's how to setup llama.cpp:
  
- * Download the one that looks similar to llama-b7083-bin-win-cuda-12.4-x64.zip from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.
+ * Download the one that looks similar to Windows x64 (CUDA 13) from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.  From a command prompt, go into that dir and type "llama-server --list-devices" and see if your GPU is listed, if not, download the "CUDA 13 dlls" zip and put them in that dir and try again.  It should show the GPU.
  
  * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
 
@@ -128,7 +128,6 @@ UGTLive will automatically check for updates when you start it. If a new version
  ```
  @echo off
 REM MODEL path
-set "MODEL=Flux-Japanese-Qwen2.5-32B-Instruct-V1.0.Q2_K.gguf"
 
 REM To change context size (takes more VRAM) try changing -c to
 REM  -c 32768 ^
@@ -136,13 +135,47 @@ REM  -c 32768 ^
 REM To allow hosting beyond your own computer try adding:
 REM  --host 0.0.0.0 ^
 
+echo ========================================
+echo  Checking available devices...
+echo ========================================
+echo.
+
+REM Run device check and capture output
+llama-server --list-devices 2>&1 | findstr /i "CUDA" > nul
+if errorlevel 1 (
+    echo ========================================
+    echo  WARNING: No CUDA GPU detected!
+    echo ========================================
+    echo.
+    echo  The server will run on CPU only, which is MUCH slower.
+    echo.
+    echo  Tips to fix this:
+    echo   1. Make sure you downloaded the CUDA version of llama.cpp
+    echo      ^(e.g. llama-bXXXX-bin-win-cuda-cu12.X.X-x64.zip^)
+    echo   2. Install NVIDIA CUDA Toolkit if not already installed
+    echo   3. Update your NVIDIA GPU drivers
+    echo   4. Check that your GPU supports CUDA ^(GTX 600 series or newer^)
+    echo.
+    echo  Your detected devices:
+    llama-server --list-devices
+    echo.
+    echo  Press any key to continue anyway ^(CPU mode^), or close this window to cancel...
+    pause > nul
+    echo.
+) else (
+    echo  GPU detected! Showing device info:
+    echo.
+    llama-server --list-devices
+    echo.
+)
+
 : Let's launch a webbrowser now as we can't later, useful for making sure it's working, and testing the model
 
-start "" http://localhost:5000
+start "" http://localhost:8080
 
 llama-server ^
-  -m "%MODEL%" ^
-  --port 5000 ^
+  --models-dir .\ ^
+  --port 8080 ^
   --jinja ^
   -ngl 999 ^
   -c 8196 ^

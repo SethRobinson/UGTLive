@@ -561,6 +561,7 @@ namespace UGTLive
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
             overlayClearDelayTextBox.LostFocus -= OverlayClearDelayTextBox_LostFocus;
+            cooldownHashCompareLengthTextBox.LostFocus -= CooldownHashCompareLengthTextBox_LostFocus;
             
             
             // Block detection power is deprecated/removed, hiding or setting to default
@@ -570,6 +571,7 @@ namespace UGTLive
             settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
             maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
+            cooldownHashCompareLengthTextBox.Text = ConfigManager.Instance.GetCooldownHashCompareLength().ToString();
             
             if (ConfigManager.Instance.GetLogExtraDebugStuff())
             {
@@ -582,6 +584,7 @@ namespace UGTLive
             settleTimeTextBox.LostFocus += SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus += MaxSettleTimeTextBox_LostFocus;
             overlayClearDelayTextBox.LostFocus += OverlayClearDelayTextBox_LostFocus;
+            cooldownHashCompareLengthTextBox.LostFocus += CooldownHashCompareLengthTextBox_LostFocus;
             
             // Set translation service from config
             string currentService = ConfigManager.Instance.GetCurrentTranslationService();
@@ -4899,6 +4902,20 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             {
                 // If invalid, reset to current value from config
                 overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
+            }
+        }
+        
+        private void CooldownHashCompareLengthTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(cooldownHashCompareLengthTextBox.Text, out int length) && length >= 0)
+            {
+                ConfigManager.Instance.SetCooldownHashCompareLength(length);
+                Console.WriteLine($"Cooldown hash compare length set to: {length}");
+            }
+            else
+            {
+                // If invalid, reset to current value from config
+                cooldownHashCompareLengthTextBox.Text = ConfigManager.Instance.GetCooldownHashCompareLength().ToString();
             }
         }
         

@@ -30,7 +30,21 @@ namespace UGTLive
         private Grid? _overlayContainer;
         private int _textIDCounter = 0;
         
+        // Hash of the last successfully rendered/translated content
+        // This is only updated when we actually render, not during settling
         private string _lastOcrHash = string.Empty;
+        
+        // Hash of the content we're currently settling on
+        // This tracks OCR variations during the settling phase
+        private string _settlingHash = string.Empty;
+        
+        // Timestamp of last translation completion - used for cooldown to prevent rapid re-translations
+        // due to OCR instability on static screens
+        private DateTime _lastTranslationTime = DateTime.MinValue;
+        
+        // Cooldown period in seconds after translation completes before allowing new translations
+        // This prevents re-translations due to OCR instability on static content
+        private const double TRANSLATION_COOLDOWN_SECONDS = 2.0;
         
         // Session ID to track validity of OCR requests
         private long _overlaySessionId = 0;
@@ -184,10 +198,15 @@ namespace UGTLive
         }
       
      
-        void OnFinishedThings(bool bResetTranslationStatus)
+        void OnFinishedThings(bool bResetTranslationStatus, [System.Runtime.CompilerServices.CallerMemberName] string callerName = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Log($"[SETTLE DEBUG] OnFinishedThings called from {callerName}:{callerLine}, bResetTranslationStatus={bResetTranslationStatus}");
+            }
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
+            _settlingHash = string.Empty;
             
             // Notify MainWindow if snapshot mode is completing
             bool wasSnapshotMode = _isSnapshotMode;
@@ -244,8 +263,10 @@ namespace UGTLive
         {
             // Force mismatch on next comparison by using a unique string
             _lastOcrHash = "RESET_" + Guid.NewGuid().ToString();
+            _settlingHash = string.Empty;
             _lastChangeTime = DateTime.Now;
             _settlingStartTime = DateTime.MinValue; // Ensure settling restarts clean
+            _lastTranslationTime = DateTime.MinValue; // Clear cooldown on reset
         }
         
         // Prepare for snapshot OCR, bypassing settling delays
@@ -260,6 +281,7 @@ namespace UGTLive
             // Clear settling state
             _lastChangeTime = DateTime.MinValue;
             _settlingStartTime = DateTime.MinValue;
+            _settlingHash = string.Empty;
             
             // Force new OCR analysis
             ResetHash();
@@ -541,6 +563,7 @@ namespace UGTLive
                                     Log("Snapshot mode: bypassing settle time");
                                     _lastChangeTime = DateTime.MinValue;
                                     _settlingStartTime = DateTime.MinValue;
+                                    _settlingHash = string.Empty;
                                     _lastOcrHash = contentHash;
                                     bForceRender = true;
                                 }
@@ -553,6 +576,7 @@ namespace UGTLive
                                     }
                                     _lastChangeTime = DateTime.MinValue;
                                     _settlingStartTime = DateTime.MinValue;
+                                    _settlingHash = string.Empty;
                                     _lastOcrHash = contentHash;
                                     bForceRender = true;
                                 }
@@ -573,72 +597,114 @@ namespace UGTLive
                                                                 _settlingStartTime != DateTime.MinValue &&
                                                                 (DateTime.Now - _settlingStartTime).TotalSeconds >= maxSettleTime;
                                     
+                                    // FIRST: Check if content matches the LAST RENDERED hash - skip entirely if already processed
+                                    // This prevents re-triggering when OCR flips back to what we already translated
+                                    // IMPORTANT: We check this regardless of _lastChangeTime - if the hash matches what we
+                                    // last rendered, we should ALWAYS skip, even if OCR noise caused a temporary "change"
+                                    if (contentHash == _lastOcrHash && !_lastOcrHash.StartsWith("RESET_"))
+                                    {
+                                        // Already processed this exact content - reset settling state and return
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Log($"[SETTLE DEBUG] Hash matches last rendered, already processed - returning early. Hash: {contentHash.Substring(0, Math.Min(25, contentHash.Length))}...");
+                                        }
+                                        _lastChangeTime = DateTime.MinValue; // Reset in case OCR noise had started settling
+                                        _settlingStartTime = DateTime.MinValue;
+                                        _settlingHash = string.Empty;
+                                        ClearCurrentProcessingBitmap();
+                                        OnFinishedThings(true);
+                                        return;
+                                    }
+                                    
                                     if (maxSettleTimeExceeded)
                                     {
                                         Log($"Max settle time exceeded ({maxSettleTime}s), forcing translation after {(DateTime.Now - _settlingStartTime).TotalSeconds:F2}s of settling.");
+                                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                        {
+                                            Log($"[SETTLE DEBUG] Setting bForceRender=true (max settle time exceeded). Hash: {contentHash.Substring(0, Math.Min(25, contentHash.Length))}...");
+                                        }
                                         _lastChangeTime = DateTime.MinValue;
                                         _settlingStartTime = DateTime.MinValue;
-                                        _lastOcrHash = contentHash;
+                                        _settlingHash = string.Empty;
                                         bForceRender = true;
                                     }
-                                    // Check if content hash matches and we're NOT forcing a render
-                                    else if (contentHash == _lastOcrHash && !_lastOcrHash.StartsWith("RESET_"))
+                                    // Check if content hash matches the SETTLING hash (what we're currently settling on)
+                                    else if (_settlingHash != string.Empty && contentHash == _settlingHash)
                                     {
-                                        // Content is stable
-                                        if (_lastChangeTime == DateTime.MinValue) // Already settled and rendered
+                                        // Content matches what we're settling on - check if settle time reached
+                                        if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
                                         {
-                                            // Reset settling start time as content is stable and has been processed
-                                            if (ConfigManager.Instance.GetLogExtraDebugStuff() && _settlingStartTime != DateTime.MinValue)
+                                            double totalSettlingTime = _settlingStartTime != DateTime.MinValue ? 
+                                                (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
+                                            Log($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s. Total settling: {totalSettlingTime:F2}s");
+                                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                             {
-                                                Log($"Settling reset (content stable, already processed). Elapsed: {(DateTime.Now - _settlingStartTime).TotalSeconds:F2}s");
+                                                Log($"[SETTLE DEBUG] Setting bForceRender=true (settle time reached). Hash: {contentHash.Substring(0, Math.Min(25, contentHash.Length))}...");
                                             }
-                                            _settlingStartTime = DateTime.MinValue; 
-                                            // Clear stored bitmap since we're not displaying results
-                                            ClearCurrentProcessingBitmap();
-                                            OnFinishedThings(true); // Reset status, hide "settling"
-                                            return;
+                                            _lastChangeTime = DateTime.MinValue;
+                                            _settlingStartTime = DateTime.MinValue;
+                                            _settlingHash = string.Empty;
+                                            bForceRender = true;
                                         }
                                         else
                                         {
-                                            // Check if normal settle time is reached
-                                            if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
-                                            {
-                                                double totalSettlingTime = _settlingStartTime != DateTime.MinValue ? 
-                                                    (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
-                                                Log($"Settle time reached ({settleTime}s), content is stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s. Total settling: {totalSettlingTime:F2}s");
-                                                _lastChangeTime = DateTime.MinValue;
-                                                _settlingStartTime = DateTime.MinValue;
-                                                bForceRender = true;
-                                            }
-                                            else
-                                            {
-                                                // Still within normal settle time, content is stable but waiting
-                                                double elapsedSettlingTime = _settlingStartTime != DateTime.MinValue ? 
-                                                    (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
-                                                double remainingSettleTime = settleTime - (DateTime.Now - _lastChangeTime).TotalSeconds;
-                                                double remainingMaxSettleTime = maxSettleTime > 0 ? maxSettleTime - elapsedSettlingTime : 0;
-                                                
-                                                Log($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more (settle: {settleTime}s, max: {maxSettleTime}s, elapsed: {elapsedSettlingTime:F2}s, remaining max: {remainingMaxSettleTime:F2}s).");
-                                                ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
-                                                MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
-                                                // Clear stored bitmap since we're not displaying results yet
-                                                ClearCurrentProcessingBitmap();
-                                                return; 
-                                            }
+                                            // Still within normal settle time, content is stable but waiting
+                                            double elapsedSettlingTime = _settlingStartTime != DateTime.MinValue ? 
+                                                (DateTime.Now - _settlingStartTime).TotalSeconds : 0;
+                                            double remainingSettleTime = settleTime - (DateTime.Now - _lastChangeTime).TotalSeconds;
+                                            double remainingMaxSettleTime = maxSettleTime > 0 ? maxSettleTime - elapsedSettlingTime : 0;
+                                            
+                                            Log($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more (settle: {settleTime}s, max: {maxSettleTime}s, elapsed: {elapsedSettlingTime:F2}s, remaining max: {remainingMaxSettleTime:F2}s).");
+                                            ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
+                                            MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
+                                            ClearCurrentProcessingBitmap();
+                                            return; 
                                         }
                                     }
-                                    else // contentHash != _lastOcrHash (text has changed)
+                                    else // Content is different from both last rendered AND settling hash
                                     {
-                                        // Content has changed
-                                        if (_lastOcrHash != string.Empty && !_lastOcrHash.StartsWith("RESET_"))
+                                        // COOLDOWN CHECK: If we recently completed a translation, check if this looks like
+                                        // OCR instability on the same content (hashes start similarly but aren't identical)
+                                        // This prevents rapid re-translations due to OCR noise on static screens
+                                        if (_lastTranslationTime != DateTime.MinValue && 
+                                            (DateTime.Now - _lastTranslationTime).TotalSeconds < TRANSLATION_COOLDOWN_SECONDS)
+                                        {
+                                            // Check if the content is "similar enough" to the last rendered - first N chars match
+                                            int configuredCompareLength = ConfigManager.Instance.GetCooldownHashCompareLength();
+                                            int compareLength = Math.Min(configuredCompareLength, Math.Min(contentHash.Length, _lastOcrHash.Length));
+                                            bool isSimilar = configuredCompareLength > 0 && compareLength > 0 && 
+                                                           contentHash.Substring(0, compareLength) == _lastOcrHash.Substring(0, compareLength);
+                                            
+                                            if (isSimilar)
+                                            {
+                                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                                {
+                                                    double cooldownRemaining = TRANSLATION_COOLDOWN_SECONDS - (DateTime.Now - _lastTranslationTime).TotalSeconds;
+                                                    Log($"[SETTLE DEBUG] Cooldown active ({cooldownRemaining:F1}s remaining), content similar to last translated - skipping");
+                                                }
+                                                ClearCurrentProcessingBitmap();
+                                                OnFinishedThings(true);
+                                                return;
+                                            }
+                                        }
+                                        
+                                        // Content has changed - update settling hash (NOT _lastOcrHash!)
+                                        if (_settlingHash != string.Empty)
+                                        {
+                                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                            {
+                                                Log($"Content changed during settling! Old settling hash: {_settlingHash.Substring(0, Math.Min(20, _settlingHash.Length))}..., New hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
+                                            }
+                                        }
+                                        else if (_lastOcrHash != string.Empty && !_lastOcrHash.StartsWith("RESET_"))
                                         {
                                             Log($"Content changed! Old hash: {_lastOcrHash.Substring(0, Math.Min(20, _lastOcrHash.Length))}..., New hash: {contentHash.Substring(0, Math.Min(20, contentHash.Length))}...");
                                         }
                                         
                                         _lastChangeTime = DateTime.Now;
-                                        _lastOcrHash = contentHash;
+                                        _settlingHash = contentHash; // Update settling hash, NOT _lastOcrHash!
 
-                                        // Initialize settling start time when hash changes (only start settling when content actually changes)
+                                        // Initialize settling start time when settling first begins
                                         if (_settlingStartTime == DateTime.MinValue)
                                         {
                                             _settlingStartTime = DateTime.Now;
@@ -662,8 +728,13 @@ namespace UGTLive
                                         {
                                             double totalSettlingTime = (DateTime.Now - _settlingStartTime).TotalSeconds;
                                             Log($"Max settle time exceeded ({maxSettleTime}s) while content was changing, forcing translation after {totalSettlingTime:F2}s.");
+                                            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                            {
+                                                Log($"[SETTLE DEBUG] Setting bForceRender=true (max settle during content change). Hash: {contentHash.Substring(0, Math.Min(25, contentHash.Length))}...");
+                                            }
                                             _lastChangeTime = DateTime.MinValue;
                                             _settlingStartTime = DateTime.MinValue;
+                                            _settlingHash = string.Empty;
                                             bForceRender = true;
                                             // Don't return - continue to process the forced rendering
                                         }
@@ -706,6 +777,10 @@ namespace UGTLive
                                         MonitorWindow.Instance.RefreshOverlays();
                                         MainWindow.Instance.RefreshMainWindowOverlays();
                                     }
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Log($"[SETTLE DEBUG] Hash matches, bForceRender=false - returning without DisplayOcrResults");
+                                    }
                                     // Clear stored bitmap since hash matches and we're not displaying new results
                                     ClearCurrentProcessingBitmap();
                                     OnFinishedThings(true);
@@ -717,6 +792,7 @@ namespace UGTLive
                                 
                                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                 {
+                                    Log($"[SETTLE DEBUG] Proceeding to DisplayOcrResults (bForceRender={bForceRender}). Hash: {contentHash.Substring(0, Math.Min(25, contentHash.Length))}...");
                                     Log($"Character-level processing: {resultsElement.GetArrayLength()} characters → {modifiedResults.GetArrayLength()} blocks");
                                 }
                                 
@@ -968,6 +1044,11 @@ namespace UGTLive
         // Display OCR results from JSON - processes character-level blocks
         private async void DisplayOcrResults(JsonElement root)
         {
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                Log($"[SETTLE DEBUG] DisplayOcrResults ENTERED");
+            }
+            
             try
             {
                 // Check for results array
@@ -1230,11 +1311,21 @@ namespace UGTLive
                                 // If translation is enabled, translate the text
                                 if (!GetWaitingForTranslationToFinish())
                                 {
-                                    //Log($"Translating text: {combinedText}");
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Log($"[SETTLE DEBUG] TRIGGERING TRANSLATION. Text: {combinedText.Substring(0, Math.Min(40, combinedText.Length))}...");
+                                    }
                                     // Translate the text objects
                                     _lastChangeTime = DateTime.MinValue;
                                     _ = TranslateTextObjectsAsync();
                                     return;
+                                }
+                                else
+                                {
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Log($"[SETTLE DEBUG] SKIPPING TRANSLATION - already waiting for translation to finish");
+                                    }
                                 }
                             }
                             else
@@ -1616,12 +1707,25 @@ namespace UGTLive
         static readonly HashSet<char> g_charsToStripFromHash =
              new(" \n\r,.-:;ー・…。、~』!^へ·･");
 
+        // Normalize characters that OCR frequently confuses for hash comparison
+        // This helps prevent re-translations when OCR produces slightly different but semantically identical text
+        static readonly Dictionary<char, char> g_hashNormalizationMap = new()
+        {
+            // Small kana to regular kana (OCR often confuses these)
+            { 'ゃ', 'や' }, { 'ゅ', 'ゆ' }, { 'ょ', 'よ' },
+            { 'ャ', 'ヤ' }, { 'ュ', 'ユ' }, { 'ョ', 'ヨ' },
+            { 'ぁ', 'あ' }, { 'ぃ', 'い' }, { 'ぅ', 'う' }, { 'ぇ', 'え' }, { 'ぉ', 'お' },
+            { 'ァ', 'ア' }, { 'ィ', 'イ' }, { 'ゥ', 'ウ' }, { 'ェ', 'エ' }, { 'ォ', 'オ' },
+            { 'っ', 'つ' }, { 'ッ', 'ツ' },
+            { 'ゎ', 'わ' }, { 'ヮ', 'ワ' },
+            // Also normalize ツ/ッ confusion (keeping original behavior but using the map)
+            { 'ツ', 'つ' }, // Now maps to hiragana for consistency
+        };
 
         private string GenerateContentHash(JsonElement resultsElement)
         {
             if (resultsElement.ValueKind != JsonValueKind.Array)
                 return string.Empty;
-
 
          
             StringBuilder contentBuilder = new();
@@ -1637,18 +1741,20 @@ namespace UGTLive
 
                 foreach (char c in textElement.GetString() ?? string.Empty)
                 {
-                    //replace ツ with ッ because OCR confuses them but the LLM won't
-                    if (c == 'ツ')
+                    // Skip characters we want to strip from hash
+                    if (g_charsToStripFromHash.Contains(c))
                     {
-                        contentBuilder.Append('ッ');
+                        continue;
+                    }
+                    
+                    // Normalize characters that OCR frequently confuses
+                    if (g_hashNormalizationMap.TryGetValue(c, out char normalizedChar))
+                    {
+                        contentBuilder.Append(normalizedChar);
                     }
                     else
                     {
-
-                        if (!g_charsToStripFromHash.Contains(c))
-                        {
-                            contentBuilder.Append(c);
-                        }
+                        contentBuilder.Append(c);
                     }
                 }
             }
@@ -2889,6 +2995,10 @@ namespace UGTLive
         //!Convert textobjects to json and send for translation
         public async Task TranslateTextObjectsAsync()
         {
+            // IMPORTANT: Set waiting flag IMMEDIATELY to prevent duplicate translation triggers
+            // This must be done before any async operations or setup code
+            SetWaitingForTranslationToFinish(true);
+            
             // Cancel any existing translation
             CancelTranslation();
             
@@ -2982,7 +3092,8 @@ namespace UGTLive
 
                 _translationStopwatch.Restart();
 
-                SetWaitingForTranslationToFinish(true);
+                // Note: SetWaitingForTranslationToFinish(true) is now called at the start of this method
+                // to prevent race conditions with duplicate translation triggers
 
                 // Check for cancellation before making API call
                 cancellationToken.ThrowIfCancellationRequested();
@@ -3019,6 +3130,9 @@ namespace UGTLive
                 // LogManager.Instance.LogLlmReply(translationResponse);
 
                 ProcessTranslatedJSON(translationResponse);
+                
+                // Record when translation completed for cooldown mechanism
+                _lastTranslationTime = DateTime.Now;
               
             }
             catch (OperationCanceledException)
