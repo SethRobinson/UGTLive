@@ -25,7 +25,8 @@
         <!-- Note: Grid needs a background (even 1% opacity) for WebView2 hit testing to work in transparent windows -->
         <!-- OverlayContent is outside MainBorder so it remains visible when MainBorder is hidden -->
         <!-- Top margin will be dynamically adjusted based on header height -->
-        <Grid Name="OverlayContent" Margin="0,50,0,0" IsHitTestVisible="True" Background="#01000000">
+        <!-- Margins: Left=15, Top=50 (header), Right=15, Bottom=15 to leave room for WindowChrome resize borders -->
+        <Grid Name="OverlayContent" Margin="15,50,15,15" IsHitTestVisible="True" Background="#01000000">
             <!-- WebView2 for text overlays - no margin, fills entire OverlayContent -->
             <!-- Capture rect is calculated to match WebView's exact screen position -->
             <wv2:WebView2 x:Name="textOverlayWebView" 

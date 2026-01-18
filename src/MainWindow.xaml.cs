@@ -1150,10 +1150,10 @@ namespace UGTLive
                 customTitleBarHeight = (int)Math.Ceiling(TopControlGrid.ActualHeight * dpiScale);
             }
             
-            // Border thickness settings matching WebView margin (9,0,8,9)
-            int leftBorderThickness = (int)Math.Ceiling(9 * dpiScale);
-            int rightBorderThickness = (int)Math.Ceiling(8 * dpiScale);
-            int bottomBorderThickness = (int)Math.Ceiling(9 * dpiScale);
+            // Border thickness settings matching OverlayContent margin (15,header,15,15) for resize borders
+            int leftBorderThickness = (int)Math.Ceiling(15 * dpiScale);
+            int rightBorderThickness = (int)Math.Ceiling(15 * dpiScale);
+            int bottomBorderThickness = (int)Math.Ceiling(15 * dpiScale);
 
             captureRect = new System.Drawing.Rectangle(
                 windowRect.Left + leftBorderThickness,
@@ -3468,7 +3468,8 @@ namespace UGTLive
             double headerHeight = TopControlGrid.ActualHeight;
             
             // Update the overlay content margin to match header height
-            OverlayContent.Margin = new Thickness(0, headerHeight, 0, 0);
+            // Keep 15px margins on left, right, bottom for WindowChrome resize borders
+            OverlayContent.Margin = new Thickness(15, headerHeight, 15, 15);
             
             // Update capture rectangle to account for new header height
             UpdateCaptureRect();
