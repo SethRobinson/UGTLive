@@ -1,0 +1,48 @@
+# Version Update Workflow
+
+When updating the version number for UGTLive, you must update **three files**:
+
+## 1. Source Code Version
+**File:** `src/SplashManager.cs`
+
+Update the `CurrentVersion` constant:
+```csharp
+public const double CurrentVersion = X.XX;
+```
+
+## 2. README.md Updates
+**File:** `README.md`
+
+Update TWO locations:
+1. **Version badge** (near top of file):
+   ```markdown
+   [![Version](https://img.shields.io/badge/version-X.XX-blue.svg)](...
+   ```
+
+2. **History section** - Add a new entry at the TOP of the History section:
+   ```markdown
+   **VX.XX [Month] [Day], [Year]** - [Brief description of changes]
+   ```
+
+## 3. Version Checker JSON
+**File:** `media/latest_version_checker.json`
+
+Update:
+- `latest_version` field to the new version number
+- `message` field with the change description
+- `Backend service changes?` to "Yes" or "No" depending on whether backend reinstall is needed
+
+Example:
+```json
+{
+    "name":"Universal Game Translator Live",
+    "latest_version":X.XX,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: [Description]\n\nBackend service changes?: No"
+}
+```
+
+## Checklist
+- [ ] `src/SplashManager.cs` - Update `CurrentVersion`
+- [ ] `README.md` - Update version badge
+- [ ] `README.md` - Add history entry with date and changes
+- [ ] `media/latest_version_checker.json` - Update version and message

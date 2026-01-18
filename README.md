@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.05-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.06-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -63,6 +63,8 @@ Features:
 
 # History
 
+**V1.06 Jan 18th, 2026** - Fixed issues with constant retranslations in live mode, works much better with visual novels now.  Chatbox and monitor position/sizes are now persistent.  Fixed text alignment bug that happened if the global windows system "text size" had been changed.  Status messages are now unified and also show up on the Monitor window.
+
 **V1.05 Jan 7th, 2026** - Fixed issue with failed EasyOCR language downloads due to SSL issues
 
 **V1.04 Dec 27th, 2025** - Added "Thinking mode" checkbox to OpenAI and Gemini models, defaults to off for speed
@@ -123,53 +125,12 @@ UGTLive will automatically check for updates when you start it. If a new version
  
  * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
 
- Create a text file called run_server.bat in that directory, cut and paste this as the contents (edit the model filename name to match what you've downloaded):
+ Create a text file called run_server.bat in that directory, cut and paste this as the contents:
 
  ```
  @echo off
-REM MODEL path
 
-REM To change context size (takes more VRAM) try changing -c to
-REM  -c 32768 ^
-
-REM To allow hosting beyond your own computer try adding:
-REM  --host 0.0.0.0 ^
-
-echo ========================================
-echo  Checking available devices...
-echo ========================================
-echo.
-
-REM Run device check and capture output
-llama-server --list-devices 2>&1 | findstr /i "CUDA" > nul
-if errorlevel 1 (
-    echo ========================================
-    echo  WARNING: No CUDA GPU detected!
-    echo ========================================
-    echo.
-    echo  The server will run on CPU only, which is MUCH slower.
-    echo.
-    echo  Tips to fix this:
-    echo   1. Make sure you downloaded the CUDA version of llama.cpp
-    echo      ^(e.g. llama-bXXXX-bin-win-cuda-cu12.X.X-x64.zip^)
-    echo   2. Install NVIDIA CUDA Toolkit if not already installed
-    echo   3. Update your NVIDIA GPU drivers
-    echo   4. Check that your GPU supports CUDA ^(GTX 600 series or newer^)
-    echo.
-    echo  Your detected devices:
-    llama-server --list-devices
-    echo.
-    echo  Press any key to continue anyway ^(CPU mode^), or close this window to cancel...
-    pause > nul
-    echo.
-) else (
-    echo  GPU detected! Showing device info:
-    echo.
-    llama-server --list-devices
-    echo.
-)
-
-: Let's launch a webbrowser now as we can't later, useful for making sure it's working, and testing the model
+: Let's launch a web browser now as we can't later, useful for making sure it's working
 
 start "" http://localhost:8080
 
@@ -187,7 +148,11 @@ pause
 
 Now, just double click the run_server.bat file we made and your server should start and and a browser window should open where you can test it, maybe ask it to translate some text, make sure it can.
 
-After that's verified to work, in UGTLive's Translation settings, choose llama.cpp and set the URL to http://localhost and the port to 5000 as that's what we have in the .bat file.  It should now be able to do both OCR and translation of anything, completely locally with no cloud services! (well, you can always mix and match, for example, I still only have cloud text to speech systems setup)
+After that's verified to work, in UGTLive's Translation settings, choose llama.cpp and set the URL to http://localhost and the port to 8080 as that's what we have in the .bat file. 
+
+Choose "list models" and choose one.  (only needed it llamaserver is run in routing mode, which I recommend, as you can change models easily)
+
+It should now be able to do both OCR and translation of anything, completely locally with no cloud services! (well, you can always mix and match, for example, I still only have cloud text to speech systems setup)
 
 ## Problems?  Read this!
 
