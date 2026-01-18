@@ -106,6 +106,9 @@ namespace UGTLive
             
             // Listen for Logic's translation in progress status
             Logic.Instance.TranslationCompleted += OnTranslationCompleted;
+            
+            // Subscribe to centralized status updates
+            TranslationStatus.StatusChanged += OnStatusChanged;
         }
         
         private void SetupContextMenu()
@@ -733,6 +736,7 @@ namespace UGTLive
         }
         
         // Show translation status indicator with animation
+        // Note: The actual status text is updated via TranslationStatus.StatusChanged event
         public void ShowTranslationStatus(bool bSettling, double elapsedSettleTime = 0, double maxSettleTime = 0)
         {
             if (!Dispatcher.CheckAccess())
@@ -744,23 +748,11 @@ namespace UGTLive
             if (translationStatusPanel != null)
             {
                 translationStatusPanel.Visibility = Visibility.Visible;
+                
+                // Update text from the centralized status message
                 if (translationStatusText != null)
                 {
-                    if (bSettling)
-                    {
-                        if (maxSettleTime > 0)
-                        {
-                            translationStatusText.Text = $"Settling... {elapsedSettleTime:F1}s / {maxSettleTime:F1}s";
-                        }
-                        else
-                        {
-                            translationStatusText.Text = "Settling...";
-                        }
-                    }
-                    else
-                    {
-                        translationStatusText.Text = "Waiting for translation...";
-                    }
+                    translationStatusText.Text = TranslationStatus.CurrentMessage;
                 }
                 
                 // Start the animation timer
@@ -773,6 +765,8 @@ namespace UGTLive
         }
         
         // Hide translation status indicator
+        // Note: With the consolidated status system, this no longer hides the panel.
+        // The panel stays visible like MainWindow's status area, just stops the animation.
         public void HideTranslationStatus()
         {
             if (!Dispatcher.CheckAccess())
@@ -781,15 +775,10 @@ namespace UGTLive
                 return;
             }
             
-            if (translationStatusPanel != null)
+            // Stop the animation timer (panel visibility is now controlled by OnStatusChanged)
+            if (_animationTimer != null && _animationTimer.IsEnabled)
             {
-                translationStatusPanel.Visibility = Visibility.Collapsed;
-                
-                // Stop the animation timer
-                if (_animationTimer != null && _animationTimer.IsEnabled)
-                {
-                    _animationTimer.Stop();
-                }
+                _animationTimer.Stop();
             }
         }
         
@@ -798,6 +787,49 @@ namespace UGTLive
         {
             // Hide the translation status indicator
             HideTranslationStatus();
+        }
+        
+        // Handle status message changes from centralized TranslationStatus
+        private void OnStatusChanged(object? sender, string message)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnStatusChanged(sender, message));
+                return;
+            }
+            
+            // Always show the status panel with the current message (same as MainWindow)
+            if (translationStatusPanel != null)
+            {
+                translationStatusPanel.Visibility = Visibility.Visible;
+                if (translationStatusText != null)
+                {
+                    translationStatusText.Text = message;
+                }
+                
+                // Only animate for translation-in-progress status
+                bool isTranslationInProgress = message.StartsWith("Waiting for") || 
+                                               message.StartsWith("Settling") || 
+                                               message.StartsWith("LLM thinking");
+                
+                if (isTranslationInProgress)
+                {
+                    // Start the animation timer
+                    if (_animationTimer != null && !_animationTimer.IsEnabled)
+                    {
+                        _animationStep = 0;
+                        _animationTimer.Start();
+                    }
+                }
+                else
+                {
+                    // Stop animation for non-translation status (Stopped, OCR fps)
+                    if (_animationTimer != null && _animationTimer.IsEnabled)
+                    {
+                        _animationTimer.Stop();
+                    }
+                }
+            }
         }
         
         // Get recent original texts for context

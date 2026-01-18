@@ -655,7 +655,6 @@ namespace UGTLive
                                             double remainingMaxSettleTime = maxSettleTime > 0 ? maxSettleTime - elapsedSettlingTime : 0;
                                             
                                             Log($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more (settle: {settleTime}s, max: {maxSettleTime}s, elapsed: {elapsedSettlingTime:F2}s, remaining max: {remainingMaxSettleTime:F2}s).");
-                                            ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                             MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                             ClearCurrentProcessingBitmap();
                                             return; 
@@ -717,7 +716,6 @@ namespace UGTLive
 
                                         if (MainWindow.Instance.GetIsStarted())
                                         {
-                                            ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTimeOnChange, maxSettleTime);
                                             MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTimeOnChange, maxSettleTime);
                                         }
                                         
@@ -749,7 +747,6 @@ namespace UGTLive
                                             
                                             if (MainWindow.Instance.GetIsStarted())
                                             {
-                                                ChatBoxWindow.Instance?.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                                 MainWindow.Instance.ShowTranslationStatus(true, elapsedSettlingTime, maxSettleTime);
                                             }
                                             // Clear stored bitmap since we're not displaying results yet
@@ -1705,7 +1702,11 @@ namespace UGTLive
         }
 
         static readonly HashSet<char> g_charsToStripFromHash =
-             new(" \n\r,.-:;ー・…。、~』!^へ·･");
+             new(" \n\r,.-:;ー・…。、~』!^へ·･" +
+                 // Full-width punctuation equivalents (OCR often mixes half/full width)
+                 "！？．，：；（）［］｛｝「」『』【】〔〕" +
+                 // Additional common full-width characters
+                 "～＾｜＼／");
 
         // Normalize characters that OCR frequently confuses for hash comparison
         // This helps prevent re-translations when OCR produces slightly different but semantically identical text
@@ -1720,6 +1721,20 @@ namespace UGTLive
             { 'ゎ', 'わ' }, { 'ヮ', 'ワ' },
             // Also normalize ツ/ッ confusion (keeping original behavior but using the map)
             { 'ツ', 'つ' }, // Now maps to hiragana for consistency
+            
+            // Full-width to half-width ASCII normalization (OCR often mixes these)
+            { '０', '0' }, { '１', '1' }, { '２', '2' }, { '３', '3' }, { '４', '4' },
+            { '５', '5' }, { '６', '6' }, { '７', '7' }, { '８', '8' }, { '９', '9' },
+            { 'Ａ', 'A' }, { 'Ｂ', 'B' }, { 'Ｃ', 'C' }, { 'Ｄ', 'D' }, { 'Ｅ', 'E' },
+            { 'Ｆ', 'F' }, { 'Ｇ', 'G' }, { 'Ｈ', 'H' }, { 'Ｉ', 'I' }, { 'Ｊ', 'J' },
+            { 'Ｋ', 'K' }, { 'Ｌ', 'L' }, { 'Ｍ', 'M' }, { 'Ｎ', 'N' }, { 'Ｏ', 'O' },
+            { 'Ｐ', 'P' }, { 'Ｑ', 'Q' }, { 'Ｒ', 'R' }, { 'Ｓ', 'S' }, { 'Ｔ', 'T' },
+            { 'Ｕ', 'U' }, { 'Ｖ', 'V' }, { 'Ｗ', 'W' }, { 'Ｘ', 'X' }, { 'Ｙ', 'Y' }, { 'Ｚ', 'Z' },
+            { 'ａ', 'a' }, { 'ｂ', 'b' }, { 'ｃ', 'c' }, { 'ｄ', 'd' }, { 'ｅ', 'e' },
+            { 'ｆ', 'f' }, { 'ｇ', 'g' }, { 'ｈ', 'h' }, { 'ｉ', 'i' }, { 'ｊ', 'j' },
+            { 'ｋ', 'k' }, { 'ｌ', 'l' }, { 'ｍ', 'm' }, { 'ｎ', 'n' }, { 'ｏ', 'o' },
+            { 'ｐ', 'p' }, { 'ｑ', 'q' }, { 'ｒ', 'r' }, { 'ｓ', 's' }, { 'ｔ', 't' },
+            { 'ｕ', 'u' }, { 'ｖ', 'v' }, { 'ｗ', 'w' }, { 'ｘ', 'x' }, { 'ｙ', 'y' }, { 'ｚ', 'z' },
         };
 
         private string GenerateContentHash(JsonElement resultsElement)
@@ -3008,14 +3023,8 @@ namespace UGTLive
             
             try
             {
-                // Show translation status at the beginning
+                // Show translation status at the beginning (broadcasts to all windows via TranslationStatus)
                 MainWindow.Instance.ShowTranslationStatus(false);
-                
-                // Also show translation status in ChatBoxWindow if it's open
-                if (ChatBoxWindow.Instance != null)
-                {
-                    ChatBoxWindow.Instance.ShowTranslationStatus(false);
-                }
                 
                 if (_textObjects.Count == 0)
                 {

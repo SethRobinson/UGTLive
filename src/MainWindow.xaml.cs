@@ -3590,35 +3590,38 @@ namespace UGTLive
             TimeSpan elapsed = DateTime.Now - _translationStartTime;
             string service = ConfigManager.Instance.GetCurrentTranslationService();
             
+            // Build status text with optional token count
+            string statusText;
+            
+            if (TranslationStatus.IsStreaming)
+            {
+                int tokenCount = TranslationStatus.TokenCount;
+                
+                if (TranslationStatus.IsThinking)
+                {
+                    statusText = $"LLM thinking... (tokens: {tokenCount})";
+                }
+                else if (tokenCount > 0)
+                {
+                    statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2} (tokens: {tokenCount})";
+                }
+                else
+                {
+                    statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                }
+            }
+            else
+            {
+                statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+            }
+            
+            // Broadcast to all windows
+            TranslationStatus.SetStatus(statusText);
+            
             Dispatcher.Invoke(() =>
             {
                 if (translationStatusLabel != null)
                 {
-                    // Build status text with optional token count
-                    string statusText;
-                    
-                    if (TranslationStatus.IsStreaming)
-                    {
-                        int tokenCount = TranslationStatus.TokenCount;
-                        
-                        if (TranslationStatus.IsThinking)
-                        {
-                            statusText = $"LLM thinking... (tokens: {tokenCount})";
-                        }
-                        else if (tokenCount > 0)
-                        {
-                            statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2} (tokens: {tokenCount})";
-                        }
-                        else
-                        {
-                            statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
-                        }
-                    }
-                    else
-                    {
-                        statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
-                    }
-                    
                     translationStatusLabel.Text = statusText;
                 }
             });
@@ -3630,18 +3633,18 @@ namespace UGTLive
             if (bSettling)
             {
                 _isShowingSettling = true;
+                string statusText = maxSettleTime > 0 
+                    ? $"Settling... {elapsedSettleTime:F1}s / {maxSettleTime:F1}s"
+                    : "Settling...";
+                
+                // Broadcast to all windows
+                TranslationStatus.SetStatus(statusText);
+                
                 Dispatcher.Invoke(() =>
                 {
                     if (translationStatusLabel != null)
                     {
-                        if (maxSettleTime > 0)
-                        {
-                            translationStatusLabel.Text = $"Settling... {elapsedSettleTime:F1}s / {maxSettleTime:F1}s";
-                        }
-                        else
-                        {
-                            translationStatusLabel.Text = "Settling...";
-                        }
+                        translationStatusLabel.Text = statusText;
                     }
                     
                     if (translationStatusBorder != null)
@@ -3653,11 +3656,15 @@ namespace UGTLive
             _isShowingSettling = false;
             _translationStartTime = DateTime.Now;
             string service = ConfigManager.Instance.GetCurrentTranslationService();
+            string initialStatusText = $"Waiting for {service}... 0:00";
+            
+            // Broadcast to all windows
+            TranslationStatus.SetStatus(initialStatusText);
             
             Dispatcher.Invoke(() =>
             {
                 if (translationStatusLabel != null)
-                    translationStatusLabel.Text = $"Waiting for {service}... 0:00";
+                    translationStatusLabel.Text = initialStatusText;
                 
                 if (translationStatusBorder != null)
                     translationStatusBorder.Visibility = Visibility.Visible;
@@ -3679,6 +3686,9 @@ namespace UGTLive
         public void HideTranslationStatus()
         {
             _isShowingSettling = false;
+            
+            // Broadcast to all windows
+            TranslationStatus.SetStatus("Stopped");
             
             Dispatcher.Invoke(() =>
             {
@@ -3717,10 +3727,14 @@ namespace UGTLive
                 return;
             }
             
+            string newText = $"{ocrMethod} (fps: {fps:F1})";
+            
+            // Broadcast to all windows
+            TranslationStatus.SetStatus(newText);
+            
             if (translationStatusLabel != null)
             {
                 // Only update text if it has changed to avoid flickering
-                string newText = $"{ocrMethod} (fps: {fps:F1})";
                 if (translationStatusLabel.Text != newText)
                 {
                     translationStatusLabel.Text = newText;
@@ -3741,6 +3755,9 @@ namespace UGTLive
                 Dispatcher.Invoke(() => HideOCRStatusDisplay());
                 return;
             }
+            
+            // Broadcast to all windows
+            TranslationStatus.SetStatus("Stopped");
             
             // Update status to "Stopped" instead of hiding
             // This maintains title bar height

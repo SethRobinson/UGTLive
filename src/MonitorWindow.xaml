@@ -61,6 +61,25 @@
             <!-- Separator -->
             <Rectangle Width="1" Fill="#606060" Margin="10,2" VerticalAlignment="Stretch"/>
             
+            <!-- Status Display -->
+            <Border x:Name="statusBorder" 
+                    Background="#DD404040" 
+                    Padding="8,3" 
+                    CornerRadius="3"
+                    BorderThickness="1" 
+                    BorderBrush="#666666" 
+                    VerticalAlignment="Center" 
+                    Margin="5,0">
+                <TextBlock x:Name="statusLabel" 
+                           Foreground="#FFDDDDDD" 
+                           FontSize="12" 
+                           FontWeight="SemiBold"
+                           Text="Stopped" 
+                           Width="280" 
+                           TextAlignment="Center" 
+                           TextTrimming="CharacterEllipsis"/>
+            </Border>
+            
             <!-- Hidden controls for settings synchronization -->
             <ComboBox x:Name="ocrMethodComboBox" Width="0" Height="0" Margin="0" Visibility="Collapsed" />
             

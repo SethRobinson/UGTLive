@@ -140,8 +140,26 @@ namespace UGTLive
                 
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
+            
+            // Subscribe to centralized status updates
+            TranslationStatus.StatusChanged += OnStatusChanged;
 
             Console.WriteLine("MonitorWindow constructor completed");
+        }
+        
+        // Handle status message changes from centralized TranslationStatus
+        private void OnStatusChanged(object? sender, string message)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnStatusChanged(sender, message));
+                return;
+            }
+            
+            if (statusLabel != null)
+            {
+                statusLabel.Text = message;
+            }
         }
 
         private void PopulateOcrMethodOptions()
