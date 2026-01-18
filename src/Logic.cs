@@ -1706,7 +1706,9 @@ namespace UGTLive
                  // Full-width punctuation equivalents (OCR often mixes half/full width)
                  "！？．，：；（）［］｛｝「」『』【】〔〕" +
                  // Additional common full-width characters
-                 "～＾｜＼／");
+                 "～＾｜＼／" +
+                 // Additional ellipsis variants (OCR often confuses these)
+                 "‥⋯");
 
         // Normalize characters that OCR frequently confuses for hash comparison
         // This helps prevent re-translations when OCR produces slightly different but semantically identical text

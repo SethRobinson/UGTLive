@@ -505,6 +505,17 @@
                                         ToolTip="Number of characters to compare when checking if OCR content is similar to recently translated text. After translation completes, if new OCR content matches the first N characters, it will be ignored during the cooldown period to prevent re-translating slight OCR variations. Set to 0 to disable."/>
                             </Grid>
                         </GroupBox>
+                        
+                        <!-- Troubleshooting -->
+                        <GroupBox Header="Troubleshooting" Margin="0,0,0,15" Padding="10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Troubleshooting info:" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                                <Button x:Name="viewLastOcrReplyButton" Content="View last OCR reply received" 
+                                       Padding="10,5"
+                                       Click="ViewLastOcrReplyButton_Click"
+                                       ToolTip="Opens the last OCR reply that was received for debugging"/>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

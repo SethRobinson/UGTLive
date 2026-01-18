@@ -2103,7 +2103,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         }
         
         // Helper to open troubleshooting files
-        private void OpenTroubleshootingFile(string filePath, string description)
+        private void OpenTroubleshootingFile(string filePath, string description, string creationHint = "translation request")
         {
             if (System.IO.File.Exists(filePath))
             {
@@ -2124,9 +2124,17 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
             else
             {
-                MessageBox.Show($"No {description} file found yet.\n\nThis file is created after your first translation request.",
+                MessageBox.Show($"No {description} file found yet.\n\nThis file is created after your first {creationHint}.",
                     "File Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
+        
+        // View last OCR reply received button clicked
+        private void ViewLastOcrReplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string filePath = System.IO.Path.Combine(appDirectory, "last_ocr_reply_received.txt");
+            OpenTroubleshootingFile(filePath, "last OCR reply", "OCR request");
         }
         
         // Text box lost focus - save prompt
