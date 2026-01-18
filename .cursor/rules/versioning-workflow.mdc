@@ -1,4 +1,12 @@
+---
+description: Version update workflow - MUST follow when updating version numbers
+globs: []
+alwaysApply: true
+---
+
 # Version Update Workflow
+
+**CRITICAL**: When the user asks to update/change/increment the version, you MUST update ALL THREE files listed below. Do not update just one file.
 
 When updating the version number for UGTLive, you must update **three files**:
 

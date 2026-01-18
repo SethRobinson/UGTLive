@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.06-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.07-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -28,7 +28,7 @@ Video showing live game translation (old version)
 
 An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.
 
-Requires **Windows** and an **NVidia RTX 20/30/40/50** series card with 8+ GB VRAM
+Requires **Windows** and an **NVidia RTX 20/30/40/50** series card with 8+ GB VRAM.  (In theory others would work, but you'd need to edit the the services' Install.bat files, I don't have AMD/Intel cards so I haven't tried)
 
 Features:
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.07 Jan 19th, 2026** - Fixed issue not installing "certifi" on non 50x series cards -  https://github.com/SethRobinson/UGTLive/issues/28
 
 **V1.06 Jan 18th, 2026** - Fixed issues with constant retranslations in live mode, works much better with visual novels now.  Chatbox and monitor position/sizes are now persistent.  Fixed text alignment bug that happened if the global windows system "text size" had been changed.  Status messages are now unified and also show up on the Monitor window.
 
