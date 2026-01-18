@@ -310,7 +310,7 @@ echo PyTorch installed successfully >> "%LOG_FILE%"
 
 echo [Step 3/7] Installing core dependencies...
 echo [Step 3/7] Installing core dependencies... >> "%LOG_FILE%"
-python -m pip install numpy==2.0.2 pillow==11.3.0 "opencv-python-headless>=4.10,<4.12" scipy==1.13.1 >> "%LOG_FILE%" 2>&1
+python -m pip install numpy==2.0.2 pillow==11.3.0 "opencv-python-headless>=4.10,<4.12" scipy==1.13.1 certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install core dependencies!
     echo ERROR: Failed to install core dependencies >> "%LOG_FILE%"

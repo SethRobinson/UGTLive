@@ -243,7 +243,7 @@ python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 >> "%LOG_FILE%" 2>&1
 
 echo [2/5] Installing core packages...
-python -m pip install numpy pillow opencv-python-headless scipy >> "%LOG_FILE%" 2>&1
+python -m pip install numpy pillow opencv-python-headless scipy certifi >> "%LOG_FILE%" 2>&1
 python -m pip install transformers huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
 python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
 

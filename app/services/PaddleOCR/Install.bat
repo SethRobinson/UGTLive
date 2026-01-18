@@ -320,7 +320,7 @@ echo PaddleOCR installed successfully >> "%LOG_FILE%"
 
 echo [Step 4/5] Installing FastAPI and Uvicorn...
 echo [Step 4/5] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
-python -m pip install fastapi==0.115.6 "uvicorn[standard]==0.32.1" python-multipart==0.0.17 >> "%LOG_FILE%" 2>&1
+python -m pip install fastapi==0.115.6 "uvicorn[standard]==0.32.1" python-multipart==0.0.17 certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn
     echo ERROR: Failed to install FastAPI/Uvicorn >> "%LOG_FILE%"
@@ -394,7 +394,7 @@ echo PaddleOCR installed successfully >> "%LOG_FILE%"
 
 echo [Step 4/5] Installing FastAPI and Uvicorn...
 echo [Step 4/5] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
-python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
+python -m pip install fastapi "uvicorn[standard]" python-multipart certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn
     echo ERROR: Failed to install FastAPI/Uvicorn >> "%LOG_FILE%"
