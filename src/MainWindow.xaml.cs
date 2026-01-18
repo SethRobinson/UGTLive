@@ -40,6 +40,27 @@ namespace UGTLive
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         
+        // DWM API for getting actual window bounds without shadows
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+        
+        private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+        
+        // Get actual current DPI for window (may still be virtualized)
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hwnd);
+        
+        // Get monitor from window
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+        
+        // Get actual monitor DPI (not virtualized)
+        [DllImport("shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+        
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+        private const int MDT_EFFECTIVE_DPI = 0;
+        
         // ShowWindow commands
         private const int SW_HIDE = 0;
         private const int SW_SHOW = 5;
@@ -81,6 +102,7 @@ namespace UGTLive
         private bool isStarted = false;
         private bool _isSnapshotOverlayDisplayed = false;
         private bool _snapshotInProgress = false;
+        private bool _logCaptureRectOnce = false; // Debug flag for capture rect logging
         private DispatcherTimer _captureTimer;
         private string outputPath = DEFAULT_OUTPUT_PATH;
         private WindowInteropHelper helper;
@@ -368,6 +390,15 @@ namespace UGTLive
             // Subscribe to window size and location changes for persistence
             this.SizeChanged += MainWindow_SizeChanged;
             this.LocationChanged += MainWindow_LocationChanged;
+            
+            // Subscribe to DPI changes (when window moves to different monitor or user changes display scale)
+            this.DpiChanged += MainWindow_DpiChanged;
+            
+            // Subscribe to system settings changes (detects Windows Text Size changes)
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
+            
+            // Subscribe to display settings changes (detects display scale changes more reliably)
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
             
             // Create socket status text block
             CreateSocketStatusIndicator();
@@ -1001,32 +1032,84 @@ namespace UGTLive
                 return;
             }
 
-            // Get our window position including the entire window (client + custom chrome)
-            RECT windowRect;
-            GetWindowRect(hwnd, out windowRect);
-
-            // Get the actual header height (handles wrapping buttons dynamically)
-            int customTitleBarHeight = TITLE_BAR_HEIGHT; // Default fallback
-            if (TopControlGrid != null && TopControlGrid.ActualHeight > 0)
-            {
-                customTitleBarHeight = (int)Math.Ceiling(TopControlGrid.ActualHeight);
-            }
-            
-            // Border thickness settings
-            int leftBorderThickness = 9;  // Increased from 7 to 9
-            int rightBorderThickness = 8; // Adjusted to 8
-            int bottomBorderThickness = 9; // Increased from 7 to 9
-
             // Store previous position for calculating offset
             previousCaptureX = captureRect.Left;
             previousCaptureY = captureRect.Top;
 
-            // Adjust the capture rectangle to exclude the custom title bar and border areas
-            captureRect = new System.Drawing.Rectangle(
-                windowRect.Left + leftBorderThickness,
-                windowRect.Top + customTitleBarHeight,
-                (windowRect.Right - windowRect.Left) - leftBorderThickness - rightBorderThickness,
-                (windowRect.Bottom - windowRect.Top) - customTitleBarHeight - bottomBorderThickness);
+            // Use DwmGetWindowAttribute to get actual visible window bounds (excludes shadows)
+            // WPF's layout already accounts for text scaling, so we only need DPI conversion
+            if (textOverlayWebView != null && textOverlayWebView.IsLoaded && textOverlayWebView.ActualWidth > 0)
+            {
+                try
+                {
+                    // Get actual visible window bounds using DWM API (excludes extended frame/shadows)
+                    // NOTE: DWM returns bounds in ACTUAL physical screen pixels, even when DPI is virtualized
+                    RECT windowRect;
+                    int result = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out windowRect, 
+                        System.Runtime.InteropServices.Marshal.SizeOf(typeof(RECT)));
+                    
+                    if (result != 0)
+                    {
+                        // Fallback to GetWindowRect if DWM fails
+                        GetWindowRect(hwnd, out windowRect);
+                    }
+                    
+                    // Get actual monitor DPI (what the screen is really at)
+                    double actualDpiScale = GetActualDpiScale();
+                    // Get virtualized DPI (what WPF thinks we're at)
+                    double virtualizedDpiScale = GetVirtualizedDpiScale();
+                    
+                    // WPF dimensions are in DIPs. When multiplied by virtualizedDpiScale,
+                    // we get "virtualized physical pixels". But the window rect from DWM is
+                    // in actual physical pixels. We need to correct for this.
+                    double dpiCorrectionFactor = actualDpiScale / virtualizedDpiScale;
+                    
+                    // Get WebView's position within the window (in WPF DIPs)
+                    // WPF layout already accounts for text scaling in the DIP values
+                    var transform = textOverlayWebView.TransformToAncestor(this);
+                    System.Windows.Point webViewInWindow = transform.Transform(new System.Windows.Point(0, 0));
+                    
+                    // Convert WPF offset to actual physical pixels
+                    // DIPs * virtualizedDpiScale = virtualized physical pixels
+                    // virtualized physical pixels * correctionFactor = actual physical pixels
+                    int offsetX = (int)(webViewInWindow.X * virtualizedDpiScale * dpiCorrectionFactor);
+                    int offsetY = (int)(webViewInWindow.Y * virtualizedDpiScale * dpiCorrectionFactor);
+                    
+                    // Calculate capture size in actual physical pixels
+                    int captureWidth = (int)(textOverlayWebView.ActualWidth * virtualizedDpiScale * dpiCorrectionFactor);
+                    int captureHeight = (int)(textOverlayWebView.ActualHeight * virtualizedDpiScale * dpiCorrectionFactor);
+                    
+                    // Calculate capture position: window physical position + WebView offset
+                    int captureLeft = windowRect.Left + offsetX;
+                    int captureTop = windowRect.Top + offsetY;
+                    
+                    // Debug: log once when snapshot is taken
+                    if (_logCaptureRectOnce)
+                    {
+                        _logCaptureRectOnce = false;
+                        double textScale = GetWindowsTextScaleFactor();
+                        Console.WriteLine($"[DEBUG] Window rect: L={windowRect.Left}, T={windowRect.Top}, W={windowRect.Width}, H={windowRect.Height}");
+                        Console.WriteLine($"[DEBUG] WebView in window (DIPs): X={webViewInWindow.X:F1}, Y={webViewInWindow.Y:F1}");
+                        Console.WriteLine($"[DEBUG] WebView actual size (DIPs): {textOverlayWebView.ActualWidth:F0}x{textOverlayWebView.ActualHeight:F0}");
+                        Console.WriteLine($"[DEBUG] Actual DPI: {actualDpiScale}, Virtualized DPI: {virtualizedDpiScale}, Correction: {dpiCorrectionFactor:F3}");
+                        Console.WriteLine($"[DEBUG] Text scale: {textScale}");
+                        Console.WriteLine($"[DEBUG] Calculated offset: X={offsetX}, Y={offsetY}");
+                        Console.WriteLine($"[DEBUG] Capture rect: L={captureLeft}, T={captureTop}, {captureWidth}x{captureHeight}");
+                    }
+                    
+                    captureRect = new System.Drawing.Rectangle(captureLeft, captureTop, captureWidth, captureHeight);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[UpdateCaptureRect] Coordinate calculation failed: {ex.Message}");
+                    UpdateCaptureRectFallback(hwnd);
+                }
+            }
+            else
+            {
+                // OverlayContent not ready yet, use fallback
+                UpdateCaptureRectFallback(hwnd);
+            }
                 
             // If position changed and we have text objects, update their positions
             if ((previousCaptureX != captureRect.Left || previousCaptureY != captureRect.Top) && 
@@ -1044,6 +1127,131 @@ namespace UGTLive
                     Console.WriteLine($"Capture position changed by ({offsetX}, {offsetY}). Text overlays updated.");
                 }
             }
+        }
+
+        // Fallback method for when WebView isn't ready - uses GetWindowRect with estimated offsets
+        private void UpdateCaptureRectFallback(IntPtr hwnd)
+        {
+            RECT windowRect;
+            GetWindowRect(hwnd, out windowRect);
+
+            // Get DPI scale factor
+            double dpiScale = 1.0;
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                dpiScale = source.CompositionTarget.TransformToDevice.M11;
+            }
+
+            // Get the actual header height
+            int customTitleBarHeight = (int)Math.Ceiling(TITLE_BAR_HEIGHT * dpiScale);
+            if (TopControlGrid != null && TopControlGrid.ActualHeight > 0)
+            {
+                customTitleBarHeight = (int)Math.Ceiling(TopControlGrid.ActualHeight * dpiScale);
+            }
+            
+            // Border thickness settings matching WebView margin (9,0,8,9)
+            int leftBorderThickness = (int)Math.Ceiling(9 * dpiScale);
+            int rightBorderThickness = (int)Math.Ceiling(8 * dpiScale);
+            int bottomBorderThickness = (int)Math.Ceiling(9 * dpiScale);
+
+            captureRect = new System.Drawing.Rectangle(
+                windowRect.Left + leftBorderThickness,
+                windowRect.Top + customTitleBarHeight,
+                (windowRect.Right - windowRect.Left) - leftBorderThickness - rightBorderThickness,
+                (windowRect.Bottom - windowRect.Top) - customTitleBarHeight - bottomBorderThickness);
+        }
+
+        // Get actual DPI scale factor using Win32 API (bypasses Windows DPI virtualization)
+        // Returns 1.0 for 96 DPI (100%), 1.25 for 120 DPI (125%), etc.
+        private double GetActualDpiScale()
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (hwnd != IntPtr.Zero)
+                {
+                    // Get the actual monitor DPI (not virtualized)
+                    IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                    if (monitor != IntPtr.Zero)
+                    {
+                        int hr = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY);
+                        if (hr == 0 && dpiX > 0)
+                        {
+                            return dpiX / 96.0; // 96 DPI = 100% = scale factor 1.0
+                        }
+                    }
+                    
+                    // Fallback to GetDpiForWindow (may be virtualized)
+                    uint dpi = GetDpiForWindow(hwnd);
+                    if (dpi > 0)
+                    {
+                        return dpi / 96.0;
+                    }
+                }
+            }
+            catch
+            {
+                // Fall back to WPF method if Win32 fails
+            }
+            
+            // Fallback to WPF's TransformToDevice (may be virtualized)
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                return source.CompositionTarget.TransformToDevice.M11;
+            }
+            return 1.0;
+        }
+        
+        // Get the virtualized DPI that the window thinks it's running at
+        private double GetVirtualizedDpiScale()
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (hwnd != IntPtr.Zero)
+                {
+                    uint dpi = GetDpiForWindow(hwnd);
+                    if (dpi > 0)
+                    {
+                        return dpi / 96.0;
+                    }
+                }
+            }
+            catch { }
+            
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                return source.CompositionTarget.TransformToDevice.M11;
+            }
+            return 1.0;
+        }
+
+        // Get Windows Text Size scaling factor from registry (Accessibility > Text size setting)
+        // Returns 1.0 for 100%, 1.25 for 125%, etc.
+        private double GetWindowsTextScaleFactor()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Accessibility"))
+                {
+                    if (key != null)
+                    {
+                        var value = key.GetValue("TextScaleFactor");
+                        if (value is int textScale)
+                        {
+                            return textScale / 100.0;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore registry errors, return default
+            }
+            return 1.0; // Default to 100%
         }
 
         //!Main loop
@@ -1200,6 +1408,9 @@ namespace UGTLive
             
             // Prepare Logic for snapshot mode (bypasses settling)
             Logic.Instance.PrepareSnapshotOCR();
+            
+            // Enable debug logging for this snapshot
+            _logCaptureRectOnce = true;
             
             // Clear any delay restriction
             _ocrReenableTime = DateTime.MinValue;
@@ -1436,6 +1647,10 @@ namespace UGTLive
                     Logic.Instance.HideOCRStatus();
                     HideTranslationStatus();
                 }
+                
+                // Unsubscribe from system events to prevent memory leaks
+                Microsoft.Win32.SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
+                Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
                 
                 // Remove global keyboard hook
                 shutdownDialog.UpdateStatus("Closing connections...");
@@ -3130,14 +3345,24 @@ namespace UGTLive
                             .Replace("\r", "<br>")
                             .Replace("\n", "<br>");
                         
-                        // Use text object positions directly (no zoom on main window)
-                        double left = textObj.X;
-                        double top = textObj.Y;
-                        double width = textObj.Width;
-                        double height = textObj.Height;
+                        // Scale positions by inverse of text scale AND DPI scale
+                        // OCR coordinates are in actual physical screen pixels.
+                        // Windows DPI virtualization bitmap-scales the entire window by (actual/virtualized).
+                        // WebView CSS pixels -> virtualized physical -> (Windows scales by actual/virtualized) -> actual physical
+                        // So: CSS * virtualDpi * textScale * (actual/virtualized) = actual physical
+                        // Simplifies to: CSS * actual * textScale = actual physical
+                        // Therefore: CSS = actual_physical / (actual_dpi * textScale)
+                        double textScale = GetWindowsTextScaleFactor();
+                        double actualDpiScale = GetActualDpiScale();
+                        double combinedScale = textScale * actualDpiScale;
+                        double left = textObj.X / combinedScale;
+                        double top = textObj.Y / combinedScale;
+                        double width = textObj.Width / combinedScale;
+                        double height = textObj.Height / combinedScale;
                         
                         // Calculate initial font size based on box height (will be refined by JavaScript)
                         // Use 70% of height as a starting point, ensuring it's reasonable
+                        // Font size also needs to be scaled down since WebView will scale it back up
                         double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
                         
                         // Build the div for this text object with box-shadow for semi-transparent background
@@ -3258,6 +3483,46 @@ namespace UGTLive
                 _pendingSizeSave = true;
                 RestartWindowPersistenceTimer();
             }
+        }
+
+        // DPI changed - update capture rect and refresh overlays
+        private void MainWindow_DpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
+        {
+            Console.WriteLine($"DPI changed: {e.OldDpi.DpiScaleX:F2} -> {e.NewDpi.DpiScaleX:F2}");
+            UpdateCaptureRect();
+            _lastOverlayHtml = string.Empty; // Clear cache to force regeneration
+            RefreshMainWindowOverlays();
+        }
+
+        // System settings changed - detects Windows Text Size changes
+        private void SystemEvents_UserPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+        {
+            // Only respond to General category which includes accessibility settings
+            if (e.Category == Microsoft.Win32.UserPreferenceCategory.General ||
+                e.Category == Microsoft.Win32.UserPreferenceCategory.Accessibility)
+            {
+                // Dispatch to UI thread since this event can fire on a different thread
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Console.WriteLine($"System settings changed (category: {e.Category}), refreshing overlays");
+                    UpdateCaptureRect();
+                    _lastOverlayHtml = string.Empty; // Clear cache to force regeneration
+                    RefreshMainWindowOverlays();
+                }));
+            }
+        }
+
+        // Display settings changed - detects display scale changes
+        private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            // Dispatch to UI thread since this event can fire on a different thread
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                Console.WriteLine("Display settings changed, refreshing overlays");
+                UpdateCaptureRect();
+                _lastOverlayHtml = string.Empty; // Clear cache to force regeneration
+                RefreshMainWindowOverlays();
+            }));
         }
 
         // Window location changed - save to config if persistence is enabled

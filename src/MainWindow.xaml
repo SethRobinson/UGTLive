@@ -26,12 +26,13 @@
         <!-- OverlayContent is outside MainBorder so it remains visible when MainBorder is hidden -->
         <!-- Top margin will be dynamically adjusted based on header height -->
         <Grid Name="OverlayContent" Margin="0,50,0,0" IsHitTestVisible="True" Background="#01000000">
-            <!-- WebView2 for text overlays - with margins to avoid blocking resize borders -->
+            <!-- WebView2 for text overlays - no margin, fills entire OverlayContent -->
+            <!-- Capture rect is calculated to match WebView's exact screen position -->
             <wv2:WebView2 x:Name="textOverlayWebView" 
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
                           DefaultBackgroundColor="Transparent"
-                          Margin="15,0,15,15"
+                          Margin="0"
                           IsHitTestVisible="True"
                           Panel.ZIndex="100"/>
         </Grid>

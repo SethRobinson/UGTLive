@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -13,8 +14,26 @@ public partial class App : Application
 {
     private MainWindow? _mainWindow;
     
+    // DPI awareness APIs - needed to prevent Windows from virtualizing DPI for this app
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+    
+    // Per-Monitor DPI Aware V2 - best option for WPF apps, prevents all DPI virtualization
+    private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new IntPtr(-4);
+    
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Set DPI awareness BEFORE any windows are created
+        // This prevents Windows from virtualizing DPI when display scale changes
+        try
+        {
+            SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"Failed to set DPI awareness: {ex.Message}");
+        }
+        
         base.OnStartup(e);
         
         // Log startup to file for debugging packaged builds
