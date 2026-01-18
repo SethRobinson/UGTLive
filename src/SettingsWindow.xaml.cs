@@ -963,6 +963,9 @@ namespace UGTLive
                     // Update OCR-specific settings visibility
                     UpdateOcrSpecificSettings(ocrMethod);
                     
+                    // Delete old OCR reply file to prevent users from seeing stale data from a different OCR method
+                    DeleteLastOcrReplyFile();
+                    
                     // Reset the OCR hash to force a fresh comparison after changing OCR method
                     Logic.Instance.ResetHash();
                     
@@ -2135,6 +2138,25 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string filePath = System.IO.Path.Combine(appDirectory, "last_ocr_reply_received.txt");
             OpenTroubleshootingFile(filePath, "last OCR reply", "OCR request");
+        }
+        
+        // Delete the last OCR reply file when switching OCR methods
+        private void DeleteLastOcrReplyFile()
+        {
+            try
+            {
+                string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                string filePath = System.IO.Path.Combine(appDirectory, "last_ocr_reply_received.txt");
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                    Console.WriteLine("Deleted last_ocr_reply_received.txt due to OCR method change");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting last OCR reply file: {ex.Message}");
+            }
         }
         
         // Text box lost focus - save prompt

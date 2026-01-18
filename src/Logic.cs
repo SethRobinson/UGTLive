@@ -1714,15 +1714,32 @@ namespace UGTLive
         // This helps prevent re-translations when OCR produces slightly different but semantically identical text
         static readonly Dictionary<char, char> g_hashNormalizationMap = new()
         {
-            // Small kana to regular kana (OCR often confuses these)
+            // Small kana to regular hiragana (OCR often confuses these)
             { 'ゃ', 'や' }, { 'ゅ', 'ゆ' }, { 'ょ', 'よ' },
-            { 'ャ', 'ヤ' }, { 'ュ', 'ユ' }, { 'ョ', 'ヨ' },
+            { 'ャ', 'や' }, { 'ュ', 'ゆ' }, { 'ョ', 'よ' },  // Small katakana → hiragana
             { 'ぁ', 'あ' }, { 'ぃ', 'い' }, { 'ぅ', 'う' }, { 'ぇ', 'え' }, { 'ぉ', 'お' },
-            { 'ァ', 'ア' }, { 'ィ', 'イ' }, { 'ゥ', 'ウ' }, { 'ェ', 'エ' }, { 'ォ', 'オ' },
-            { 'っ', 'つ' }, { 'ッ', 'ツ' },
-            { 'ゎ', 'わ' }, { 'ヮ', 'ワ' },
-            // Also normalize ツ/ッ confusion (keeping original behavior but using the map)
-            { 'ツ', 'つ' }, // Now maps to hiragana for consistency
+            { 'ァ', 'あ' }, { 'ィ', 'い' }, { 'ゥ', 'う' }, { 'ェ', 'え' }, { 'ォ', 'お' },  // Small katakana → hiragana
+            { 'っ', 'つ' }, { 'ッ', 'つ' },  // Both small tsu → hiragana tsu
+            { 'ゎ', 'わ' }, { 'ヮ', 'わ' },  // Both small wa → hiragana wa
+            
+            // Katakana to hiragana normalization (OCR often mixes scripts for same sounds)
+            // This handles cases like やツ vs ヤツ being read differently
+            { 'ア', 'あ' }, { 'イ', 'い' }, { 'ウ', 'う' }, { 'エ', 'え' }, { 'オ', 'お' },
+            { 'カ', 'か' }, { 'キ', 'き' }, { 'ク', 'く' }, { 'ケ', 'け' }, { 'コ', 'こ' },
+            { 'サ', 'さ' }, { 'シ', 'し' }, { 'ス', 'す' }, { 'セ', 'せ' }, { 'ソ', 'そ' },
+            { 'タ', 'た' }, { 'チ', 'ち' }, { 'ツ', 'つ' }, { 'テ', 'て' }, { 'ト', 'と' },
+            { 'ナ', 'な' }, { 'ニ', 'に' }, { 'ヌ', 'ぬ' }, { 'ネ', 'ね' }, { 'ノ', 'の' },
+            { 'ハ', 'は' }, { 'ヒ', 'ひ' }, { 'フ', 'ふ' }, { 'ヘ', 'へ' }, { 'ホ', 'ほ' },
+            { 'マ', 'ま' }, { 'ミ', 'み' }, { 'ム', 'む' }, { 'メ', 'め' }, { 'モ', 'も' },
+            { 'ヤ', 'や' }, { 'ユ', 'ゆ' }, { 'ヨ', 'よ' },
+            { 'ラ', 'ら' }, { 'リ', 'り' }, { 'ル', 'る' }, { 'レ', 'れ' }, { 'ロ', 'ろ' },
+            { 'ワ', 'わ' }, { 'ヲ', 'を' }, { 'ン', 'ん' },
+            // Voiced/semi-voiced variants
+            { 'ガ', 'が' }, { 'ギ', 'ぎ' }, { 'グ', 'ぐ' }, { 'ゲ', 'げ' }, { 'ゴ', 'ご' },
+            { 'ザ', 'ざ' }, { 'ジ', 'じ' }, { 'ズ', 'ず' }, { 'ゼ', 'ぜ' }, { 'ゾ', 'ぞ' },
+            { 'ダ', 'だ' }, { 'ヂ', 'ぢ' }, { 'ヅ', 'づ' }, { 'デ', 'で' }, { 'ド', 'ど' },
+            { 'バ', 'ば' }, { 'ビ', 'び' }, { 'ブ', 'ぶ' }, { 'ベ', 'べ' }, { 'ボ', 'ぼ' },
+            { 'パ', 'ぱ' }, { 'ピ', 'ぴ' }, { 'プ', 'ぷ' }, { 'ペ', 'ぺ' }, { 'ポ', 'ぽ' },
             
             // Full-width to half-width ASCII normalization (OCR often mixes these)
             { '０', '0' }, { '１', '1' }, { '２', '2' }, { '３', '3' }, { '４', '4' },
