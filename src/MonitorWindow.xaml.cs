@@ -58,6 +58,16 @@ namespace UGTLive
         // Flag to allow proper closing during shutdown
         private bool _isShuttingDown = false;
         
+        // DPI/Text Scale APIs for proper overlay positioning
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+        
+        [DllImport("shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+        
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+        private const int MDT_EFFECTIVE_DPI = 0;
+        
         public void ForceClose()
         {
             _isShuttingDown = true;
@@ -1066,10 +1076,15 @@ namespace UGTLive
                             .Replace("\n", "<br>");
                         
                         // Apply zoom factor to positions and dimensions
-                        double left = textObj.X * currentZoom;
-                        double top = textObj.Y * currentZoom;
-                        double width = textObj.Width * currentZoom;
-                        double height = textObj.Height * currentZoom;
+                        // Also compensate for DPI and text scale (WebView2 CSS pixels are scaled by both)
+                        double dpiScale = GetActualDpiScale();
+                        double textScale = GetWindowsTextScaleFactor();
+                        double combinedScale = dpiScale * textScale;
+                        
+                        double left = (textObj.X * currentZoom) / combinedScale;
+                        double top = (textObj.Y * currentZoom) / combinedScale;
+                        double width = (textObj.Width * currentZoom) / combinedScale;
+                        double height = (textObj.Height * currentZoom) / combinedScale;
                         
                         // Calculate initial font size based on box height (will be refined by JavaScript)
                         // Use 70% of height as a starting point, ensuring it's reasonable
@@ -2257,8 +2272,13 @@ namespace UGTLive
             html.AppendLine("<div class=\"content-wrapper\">");
             
             // Container with image
+            // Compensate for DPI and text scale (WebView2 CSS pixels are scaled by both)
+            double dpiScale = GetActualDpiScale();
+            double textScale = GetWindowsTextScaleFactor();
+            double combinedScale = dpiScale * textScale;
+            
             html.AppendLine("<div class=\"container\">");
-            html.AppendLine($"<img class=\"monitor-image\" src=\"{imageFileName}\" width=\"{(int)(originalWidth * currentZoom)}\" height=\"{(int)(originalHeight * currentZoom)}\">");
+            html.AppendLine($"<img class=\"monitor-image\" src=\"{imageFileName}\" width=\"{(int)((originalWidth * currentZoom) / combinedScale)}\" height=\"{(int)((originalHeight * currentZoom) / combinedScale)}\">");
             
             // Add text overlays from Logic
             var textObjects = Logic.Instance?.GetTextObjects();
@@ -2268,18 +2288,18 @@ namespace UGTLive
                 {
                     if (textObj == null) continue;
                     
-                    // Get position with zoom applied
-                    double left = textObj.X * currentZoom;
-                    double top = textObj.Y * currentZoom;
+                    // Get position with zoom applied (using dpiScale/textScale/combinedScale from outer scope)
+                    double left = (textObj.X * currentZoom) / combinedScale;
+                    double top = (textObj.Y * currentZoom) / combinedScale;
                     
                     // Use TextObject dimensions with zoom
                     double width = textObj.Width > 0 
-                        ? textObj.Width * currentZoom 
-                        : 200 * currentZoom; // Default fallback width
+                        ? (textObj.Width * currentZoom) / combinedScale 
+                        : (200 * currentZoom) / combinedScale; // Default fallback width
                         
                     double height = textObj.Height > 0 
-                        ? textObj.Height * currentZoom 
-                        : 100 * currentZoom; // Default fallback height
+                        ? (textObj.Height * currentZoom) / combinedScale 
+                        : (100 * currentZoom) / combinedScale; // Default fallback height
                     
                     // Get colors with override logic
                     Color bgC;
@@ -2342,8 +2362,8 @@ namespace UGTLive
                         displayText = escapedSourceText;
                     }
                     
-                    // Calculate font size with zoom
-                    double fontSize = 24 * currentZoom; // Default font size with zoom
+                    // Calculate font size with zoom (also compensate for DPI/text scale)
+                    double fontSize = (24 * currentZoom) / combinedScale; // Default font size with zoom
                     
                     // Get relative audio file paths for export
                     string sourceAudioPath = "";
@@ -2776,6 +2796,53 @@ namespace UGTLive
         }
         
         // Removed ResetZoomButton_Click as it's no longer needed with the TextBox
+        
+        // Get actual DPI scale factor using Win32 API
+        private double GetActualDpiScale()
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (hwnd != IntPtr.Zero)
+                {
+                    IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                    if (monitor != IntPtr.Zero)
+                    {
+                        if (GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY) == 0 && dpiX > 0)
+                        {
+                            return dpiX / 96.0;
+                        }
+                    }
+                }
+            }
+            catch { }
+            
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                return source.CompositionTarget.TransformToDevice.M11;
+            }
+            return 1.0;
+        }
+        
+        // Get Windows Text Size scaling factor from registry
+        private double GetWindowsTextScaleFactor()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Accessibility");
+                if (key != null)
+                {
+                    var value = key.GetValue("TextScaleFactor");
+                    if (value is int intValue)
+                    {
+                        return intValue / 100.0;
+                    }
+                }
+            }
+            catch { }
+            return 1.0;
+        }
         
         private void ApplyZoom(System.Windows.Point? mousePosition = null)
         {
