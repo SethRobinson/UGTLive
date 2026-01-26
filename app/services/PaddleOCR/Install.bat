@@ -89,10 +89,10 @@ echo Detecting GPU... >> "%LOG_FILE%"
 set "GPU_NAME=Unknown"
 set "GPU_SERIES=UNSUPPORTED"
 
-nvidia-smi --query-gpu=name --format=csv,noheader >"%TEMP%\gpu_check.txt" 2>nul
-if exist "%TEMP%\gpu_check.txt" (
-    set /p GPU_NAME=<"%TEMP%\gpu_check.txt"
-    del "%TEMP%\gpu_check.txt" >nul 2>&1
+nvidia-smi --query-gpu=name --format=csv,noheader >"%SCRIPT_DIR%gpu_check_temp.txt" 2>nul
+if exist "%SCRIPT_DIR%gpu_check_temp.txt" (
+    set /p GPU_NAME=<"%SCRIPT_DIR%gpu_check_temp.txt"
+    del "%SCRIPT_DIR%gpu_check_temp.txt" >nul 2>&1
 )
 
 if not "!GPU_NAME!"=="Unknown" (

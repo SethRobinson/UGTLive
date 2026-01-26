@@ -237,7 +237,8 @@ namespace UGTLive
         
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            this.DialogResult = Success;
+            // Note: DialogResult can only be set on modal dialogs (ShowDialog)
+            // Since we use Show() for non-modal, just close the window
             this.Close();
         }
         

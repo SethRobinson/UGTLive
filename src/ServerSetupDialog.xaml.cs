@@ -660,6 +660,14 @@ namespace UGTLive
             }
         }
         
+        /// <summary>
+        /// Updates the Continue button state based on whether any installations/uninstalls are in progress
+        /// </summary>
+        private void UpdateContinueButtonState()
+        {
+            continueButton.IsEnabled = _servicesCurrentlyInstalling.Count == 0;
+        }
+        
         private async void ServiceInstall_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is string serviceName)
@@ -685,12 +693,34 @@ namespace UGTLive
                     return;
                 }
                 
+                // Warn if another installation is already in progress
+                if (_servicesCurrentlyInstalling.Count > 0)
+                {
+                    var result = MessageBox.Show(
+                        $"Another installation is already in progress.\n\n" +
+                        $"Running multiple installations simultaneously may cause issues with shared caches " +
+                        $"(pip packages, model downloads) and could result in corrupted installations.\n\n" +
+                        $"However, I will allow it, because I also hate waiting for things. Do you want to install {serviceName} anyway?",
+                        "Concurrent Installation Warning",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+                    
+                    if (result != MessageBoxResult.Yes)
+                    {
+                        return;
+                    }
+                }
+                
                 // Mark service as currently installing
                 _servicesCurrentlyInstalling.Add(serviceName);
+                UpdateContinueButtonState();
                 
-                // Disable button IMMEDIATELY to prevent multiple clicks
+                // Disable ALL buttons for this service IMMEDIATELY to prevent interactions during install
                 // This must happen BEFORE any async operations
                 viewModel.InstallEnabled = false;
+                viewModel.UninstallEnabled = false;
+                viewModel.StartStopEnabled = false;
+                viewModel.TestEnabled = false;
                 viewModel.StatusText = "Starting installation...";
                 viewModel.StatusIcon = "⏳";
                 viewModel.StatusColor = "Gray";
@@ -707,6 +737,7 @@ namespace UGTLive
                     
                     // Remove from installing set and re-enable button since we're not proceeding
                     _servicesCurrentlyInstalling.Remove(serviceName);
+                    UpdateContinueButtonState();
                     await UpdateServiceStatusAsync(service);
                     return;
                 }
@@ -728,6 +759,7 @@ namespace UGTLive
                         {
                             // User cancelled, remove from installing set and refresh status to restore proper button state
                             _servicesCurrentlyInstalling.Remove(serviceName);
+                            UpdateContinueButtonState();
                             await UpdateServiceStatusAsync(service);
                             return;
                         }
@@ -744,7 +776,7 @@ namespace UGTLive
                     
                     // Run installation asynchronously
                     var installTask = installDialog.RunInstallAsync(service);
-                    installDialog.ShowDialog();
+                    installDialog.Show();  // Non-modal so user can start multiple installations
                     
                     // Wait for installation to complete
                     await installTask;
@@ -773,6 +805,7 @@ namespace UGTLive
                 {
                     // Always remove from installing set when done
                     _servicesCurrentlyInstalling.Remove(serviceName);
+                    UpdateContinueButtonState();
                 }
             }
         }
@@ -803,8 +836,33 @@ namespace UGTLive
                         return;
                     }
                     
-                    // Disable button immediately to prevent multiple clicks
+                    // Warn if another operation is already in progress
+                    if (_servicesCurrentlyInstalling.Count > 0)
+                    {
+                        var concurrentResult = MessageBox.Show(
+                            $"Another installation or uninstallation is already in progress.\n\n" +
+                            $"Running multiple operations simultaneously may cause issues.\n\n" +
+                            $"Do you want to uninstall {serviceName} anyway, risks be damned?!",
+                            "Concurrent Operation Warning",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Warning);
+                        
+                        if (concurrentResult != MessageBoxResult.Yes)
+                        {
+                            return;
+                        }
+                    }
+                    
+                    // Track uninstall operation to disable Continue button
+                    string uninstallKey = $"uninstall_{serviceName}";
+                    _servicesCurrentlyInstalling.Add(uninstallKey);
+                    UpdateContinueButtonState();
+                    
+                    // Disable ALL buttons for this service immediately to prevent interactions during uninstall
+                    viewModel.InstallEnabled = false;
                     viewModel.UninstallEnabled = false;
+                    viewModel.StartStopEnabled = false;
+                    viewModel.TestEnabled = false;
                     viewModel.StatusText = "Preparing uninstall...";
                     viewModel.StatusIcon = "⏳";
                     
@@ -813,7 +871,7 @@ namespace UGTLive
                     
                     // Run uninstallation asynchronously
                     var uninstallTask = uninstallDialog.RunUninstallAsync(service);
-                    uninstallDialog.ShowDialog();
+                    uninstallDialog.Show();  // Non-modal so user can start multiple operations
                     
                     // Wait for uninstallation to complete
                     await uninstallTask;
@@ -838,6 +896,13 @@ namespace UGTLive
                     
                     // Re-enable button on error
                     await UpdateServiceStatusAsync(service);
+                }
+                finally
+                {
+                    // Always remove from installing set when done
+                    string uninstallKey = $"uninstall_{serviceName}";
+                    _servicesCurrentlyInstalling.Remove(uninstallKey);
+                    UpdateContinueButtonState();
                 }
             }
         }
