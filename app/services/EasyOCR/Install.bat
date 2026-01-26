@@ -9,6 +9,7 @@ set "LOG_FILE=%SCRIPT_DIR%setup_log.txt"
 set "VENV_DIR=%SCRIPT_DIR%venv"
 set "UTIL_DIR=%SCRIPT_DIR%..\util"
 set "NOPAUSE=%~1"
+set "FORCE_GPU=%~2"
 
 REM Delete existing log file
 if exist "%LOG_FILE%" del "%LOG_FILE%"
@@ -64,13 +65,29 @@ echo   Virtual Environment: !ENV_NAME!
 echo =============================================================
 echo.
 
+REM -----------------------------------------------------------------
+REM Detect GPU - or use forced GPU series for testing
+REM Usage: Install.bat [nopause] [30_40|50]
+REM -----------------------------------------------------------------
+if "!FORCE_GPU!"=="30_40" (
+    echo FORCED GPU SERIES: 30_40 [test mode]
+    echo FORCED GPU SERIES: 30_40 >> "%LOG_FILE%"
+    set "GPU_SERIES=30_40"
+    set "GPU_NAME=Forced RTX 30/40 series"
+    goto :SkipGPUDetect
+)
+if "!FORCE_GPU!"=="50" (
+    echo FORCED GPU SERIES: 50 [test mode]
+    echo FORCED GPU SERIES: 50 >> "%LOG_FILE%"
+    set "GPU_SERIES=50"
+    set "GPU_NAME=Forced RTX 50 series"
+    goto :SkipGPUDetect
+)
+
 echo Detecting GPU...
 echo.
 echo Detecting GPU... >> "%LOG_FILE%"
 
-REM -----------------------------------------------------------------
-REM Detect GPU model
-REM -----------------------------------------------------------------
 set "GPU_NAME=Unknown"
 set "GPU_SERIES=UNSUPPORTED"
 
@@ -101,6 +118,8 @@ if not "!GPU_NAME!"=="Unknown" (
     set "GPU_SERIES=30_40"
     echo Defaulting to GPU Series: 30_40 >> "%LOG_FILE%"
 )
+
+:SkipGPUDetect
 
 echo.
 echo. >> "%LOG_FILE%"
@@ -406,20 +425,21 @@ echo Installing dependencies for RTX 50 Series
 echo ============================================================
 echo.
 
-echo [Step 1/7] Upgrading pip...
-echo [Step 1/7] Upgrading pip... >> "%LOG_FILE%"
+echo [Step 1/8] Upgrading pip and installing core dependencies first...
+echo [Step 1/8] Upgrading pip and core deps... >> "%LOG_FILE%"
 python -m pip install --upgrade pip setuptools wheel >> "%LOG_FILE%" 2>&1
+python -m pip install numpy==2.1.3 pillow opencv-python scipy tqdm pyyaml requests certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
-    echo ERROR: Failed to upgrade pip!
-    echo ERROR: Failed to upgrade pip >> "%LOG_FILE%"
+    echo ERROR: Failed to install core dependencies!
+    echo ERROR: Failed to install core dependencies >> "%LOG_FILE%"
     pause
     exit /b 1
 )
-echo Pip upgraded successfully >> "%LOG_FILE%"
+echo Core dependencies installed successfully >> "%LOG_FILE%"
 
-echo [Step 2/7] Installing PyTorch nightly with CUDA 12.8 support...
+echo [Step 2/8] Installing PyTorch nightly with CUDA 12.8 support...
 echo This may take several minutes...
-echo [Step 2/7] Installing PyTorch nightly (CUDA 12.8)... >> "%LOG_FILE%"
+echo [Step 2/8] Installing PyTorch nightly (CUDA 12.8)... >> "%LOG_FILE%"
 python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install PyTorch nightly!
@@ -429,20 +449,15 @@ if errorlevel 1 (
 )
 echo PyTorch nightly installed successfully >> "%LOG_FILE%"
 
-echo [Step 3/7] Installing core dependencies...
-echo [Step 3/7] Installing core dependencies... >> "%LOG_FILE%"
-python -m pip install numpy pillow opencv-python scipy tqdm pyyaml requests >> "%LOG_FILE%" 2>&1
-if errorlevel 1 (
-    echo ERROR: Failed to install core dependencies!
-    echo ERROR: Failed to install core dependencies >> "%LOG_FILE%"
-    pause
-    exit /b 1
-)
-echo Core dependencies installed successfully >> "%LOG_FILE%"
+echo [Step 3/8] Installing EasyOCR dependencies...
+echo [Step 3/8] Installing EasyOCR dependencies... >> "%LOG_FILE%"
+REM Install EasyOCR's dependencies manually to avoid torch version conflicts
+python -m pip install python-bidi ninja scikit-image >> "%LOG_FILE%" 2>&1
+echo EasyOCR dependencies installed >> "%LOG_FILE%"
 
-echo [Step 4/7] Installing EasyOCR...
-echo [Step 4/7] Installing EasyOCR... >> "%LOG_FILE%"
-python -m pip install easyocr >> "%LOG_FILE%" 2>&1
+echo [Step 4/8] Installing EasyOCR (without deps to preserve torch nightly)...
+echo [Step 4/8] Installing EasyOCR... >> "%LOG_FILE%"
+python -m pip install easyocr --no-deps >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install EasyOCR!
     echo ERROR: Failed to install EasyOCR >> "%LOG_FILE%"
@@ -451,8 +466,13 @@ if errorlevel 1 (
 )
 echo EasyOCR installed successfully >> "%LOG_FILE%"
 
-echo [Step 5/7] Installing FastAPI and Uvicorn...
-echo [Step 5/7] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
+echo [Step 5/8] Reinstalling PyTorch nightly to ensure correct version...
+echo [Step 5/8] Reinstalling PyTorch nightly... >> "%LOG_FILE%"
+python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall --no-deps >> "%LOG_FILE%" 2>&1
+echo PyTorch nightly reinstalled >> "%LOG_FILE%"
+
+echo [Step 6/8] Installing FastAPI and Uvicorn...
+echo [Step 6/8] Installing FastAPI/Uvicorn... >> "%LOG_FILE%"
 python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn!
@@ -462,8 +482,8 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 6/7] Installing Scikit-learn (optional but useful for color analysis fallback)...
-echo [Step 6/7] Installing Scikit-learn... >> "%LOG_FILE%"
+echo [Step 7/8] Installing Scikit-learn (optional but useful for color analysis fallback)...
+echo [Step 7/8] Installing Scikit-learn... >> "%LOG_FILE%"
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo WARNING: Scikit-learn installation failed, some fallbacks may be limited
@@ -472,9 +492,9 @@ if errorlevel 1 (
     echo Scikit-learn installed successfully >> "%LOG_FILE%"
 )
 
-echo [Step 7/7] Pre-downloading EasyOCR models...
+echo [Step 8/8] Pre-downloading EasyOCR models...
 echo This may take a few minutes...
-echo [Step 7/7] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
+echo [Step 8/8] Pre-downloading EasyOCR models... >> "%LOG_FILE%"
 REM Set SSL cert for model downloads (certifi is now installed)
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
 python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); import easyocr; easyocr.Reader(['ja','en'])" >> "%LOG_FILE%" 2>&1

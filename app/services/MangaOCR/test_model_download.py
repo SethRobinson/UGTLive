@@ -19,14 +19,14 @@ def test_model_download():
     try:
         # This should trigger download if model doesn't exist
         model = _ensure_model()
-        print("✓ Model loaded successfully!")
-        print(f"✓ Model file exists at: {_MODEL_PATH}")
+        print("[OK] Model loaded successfully!")
+        print(f"[OK] Model file exists at: {_MODEL_PATH}")
         return True
     except ModelNotFoundError as e:
-        print(f"✗ Model download failed: {e}")
+        print(f"[FAIL] Model download failed: {e}")
         return False
     except Exception as e:
-        print(f"✗ Unexpected error: {e}")
+        print(f"[FAIL] Unexpected error: {e}")
         return False
 
 

@@ -9,6 +9,7 @@ set "LOG_FILE=%SCRIPT_DIR%setup_log.txt"
 set "VENV_DIR=%SCRIPT_DIR%venv"
 set "UTIL_DIR=%SCRIPT_DIR%..\util"
 set "NOPAUSE=%~1"
+set "FORCE_GPU=%~2"
 
 REM Delete existing log file
 if exist "%LOG_FILE%" del "%LOG_FILE%"
@@ -62,13 +63,29 @@ echo   Virtual Environment: !ENV_NAME!
 echo =============================================================
 echo.
 
+REM -----------------------------------------------------------------
+REM Detect GPU - or use forced GPU series for testing
+REM Usage: Install.bat [nopause] [30_40|50]
+REM -----------------------------------------------------------------
+if "!FORCE_GPU!"=="30_40" (
+    echo FORCED GPU SERIES: 30_40 [test mode]
+    echo FORCED GPU SERIES: 30_40 >> "%LOG_FILE%"
+    set "GPU_SERIES=30_40"
+    set "GPU_NAME=Forced RTX 30/40 series"
+    goto :SkipGPUDetect
+)
+if "!FORCE_GPU!"=="50" (
+    echo FORCED GPU SERIES: 50 [test mode]
+    echo FORCED GPU SERIES: 50 >> "%LOG_FILE%"
+    set "GPU_SERIES=50"
+    set "GPU_NAME=Forced RTX 50 series"
+    goto :SkipGPUDetect
+)
+
 echo Detecting GPU...
 echo.
 echo Detecting GPU... >> "%LOG_FILE%"
 
-REM -----------------------------------------------------------------
-REM Detect GPU model
-REM -----------------------------------------------------------------
 set "GPU_NAME=Unknown"
 set "GPU_SERIES=UNSUPPORTED"
 
@@ -99,6 +116,8 @@ if not "!GPU_NAME!"=="Unknown" (
     set "GPU_SERIES=30_40"
     echo Defaulting to GPU Series: 30_40 >> "%LOG_FILE%"
 )
+
+:SkipGPUDetect
 
 echo.
 echo. >> "%LOG_FILE%"

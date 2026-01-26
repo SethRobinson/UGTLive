@@ -9,6 +9,7 @@ set "LOG_FILE=%SCRIPT_DIR%setup_log.txt"
 set "VENV_DIR=%SCRIPT_DIR%venv"
 set "UTIL_DIR=%SCRIPT_DIR%..\util"
 set "NOPAUSE=%~1"
+set "FORCE_GPU=%~2"
 
 REM Delete existing log file
 if exist "%LOG_FILE%" del "%LOG_FILE%"
@@ -58,13 +59,29 @@ echo   Virtual Environment: !ENV_NAME!
 echo =============================================================
 echo.
 
+REM -----------------------------------------------------------------
+REM Detect GPU - or use forced GPU series for testing
+REM Usage: Install.bat [nopause] [30_40|50]
+REM -----------------------------------------------------------------
+if "!FORCE_GPU!"=="30_40" (
+    echo FORCED GPU SERIES: 30_40 [test mode]
+    echo FORCED GPU SERIES: 30_40 >> "%LOG_FILE%"
+    set "GPU_SERIES=30_40"
+    set "GPU_NAME=Forced RTX 30/40 series"
+    goto :SkipGPUDetect
+)
+if "!FORCE_GPU!"=="50" (
+    echo FORCED GPU SERIES: 50 [test mode]
+    echo FORCED GPU SERIES: 50 >> "%LOG_FILE%"
+    set "GPU_SERIES=50"
+    set "GPU_NAME=Forced RTX 50 series"
+    goto :SkipGPUDetect
+)
+
 echo Detecting GPU...
 echo.
 echo Detecting GPU... >> "%LOG_FILE%"
 
-REM -----------------------------------------------------------------
-REM Detect GPU
-REM -----------------------------------------------------------------
 set "GPU_SERIES=30_40"
 nvidia-smi --query-gpu=name --format=csv,noheader >"%TEMP%\gpu_check.txt" 2>nul
 if exist "%TEMP%\gpu_check.txt" (
@@ -78,6 +95,8 @@ if exist "%TEMP%\gpu_check.txt" (
     echo Using default GPU configuration (RTX 30/40 series)
     echo Using default GPU configuration >> "%LOG_FILE%"
 )
+
+:SkipGPUDetect
 
 echo.
 
@@ -270,22 +289,30 @@ REM -----------------------------------------------------------------
 :Install50Series
 echo Installing dependencies...
 
-echo [1/5] Installing PyTorch nightly with CUDA 12.8...
+echo [1/7] Installing pip and core packages first...
 python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
+python -m pip install numpy==2.1.3 pillow opencv-python scipy tqdm pyyaml requests certifi >> "%LOG_FILE%" 2>&1
+
+echo [2/7] Installing PyTorch nightly with CUDA 12.8...
 python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 >> "%LOG_FILE%" 2>&1
 
-echo [2/5] Installing core packages...
-python -m pip install numpy pillow opencv-python scipy tqdm pyyaml requests >> "%LOG_FILE%" 2>&1
-python -m pip install transformers huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
+echo [3/7] Installing transformers and HuggingFace dependencies...
+python -m pip install transformers==4.47.1 huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
 python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
 
-echo [3/5] Installing Manga OCR and YOLO...
-python -m pip install manga-ocr ultralytics >> "%LOG_FILE%" 2>&1
+echo [4/7] Installing Manga OCR (without deps to preserve torch nightly)...
+python -m pip install manga-ocr --no-deps >> "%LOG_FILE%" 2>&1
+python -m pip install fire jaconv loguru pyperclip >> "%LOG_FILE%" 2>&1
 
-echo [4/5] Installing API server...
+echo [5/7] Installing Ultralytics (without deps to preserve torch nightly)...
+python -m pip install ultralytics --no-deps >> "%LOG_FILE%" 2>&1
+python -m pip install matplotlib psutil polars ultralytics-thop >> "%LOG_FILE%" 2>&1
+
+echo [6/7] Reinstalling PyTorch nightly to ensure correct version...
+python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall --no-deps >> "%LOG_FILE%" 2>&1
+
+echo [7/7] Installing API server and optional packages...
 python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
-
-echo [5/5] Installing Scikit-learn (optional)...
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 
 echo Initializing Manga OCR...
