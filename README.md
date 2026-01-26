@@ -65,6 +65,8 @@ Features:
 
 **V1.08 Jan 26th, 2026** - Fixed services installer (including MangaOCR on 50x cards) not working right and made them more resistant to being suddenly broken. (the world of pytorch/gpu/pip/python is very touchy).  I'm using nodeps and pinning in some cases to help with future stability in this area. (thanks to Narci for reporting the issue)
 
+Note: If you had problems with services not working right previously, you'll need to choose the Install/Reinstall option (for that service) from UGTLive's starting menu to correct it.
+
 Also, you now install/uninstall multiple services at once if you want to live dangerously
 
 **V1.07 Jan 19th, 2026** - Fixed issue not installing "certifi" on non 50x series cards -  https://github.com/SethRobinson/UGTLive/issues/28
