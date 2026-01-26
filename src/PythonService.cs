@@ -687,23 +687,35 @@ namespace UGTLive
                     
                     if (success)
                     {
-                        string priorityName = priorityClass == HIGH_PRIORITY_CLASS ? "High" : 
-                                             priorityClass == ABOVE_NORMAL_PRIORITY_CLASS ? "Above Normal" : "Unknown";
-                        Console.WriteLine($"Set process priority to {priorityName} for PID {processId} ({ServiceName})");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            string priorityName = priorityClass == HIGH_PRIORITY_CLASS ? "High" : 
+                                                 priorityClass == ABOVE_NORMAL_PRIORITY_CLASS ? "Above Normal" : "Unknown";
+                            Console.WriteLine($"Set process priority to {priorityName} for PID {processId} ({ServiceName})");
+                        }
                     }
                     else
                     {
-                        Console.WriteLine($"Failed to set process priority for PID {processId} ({ServiceName})");
+                        if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        {
+                            Console.WriteLine($"Failed to set process priority for PID {processId} ({ServiceName})");
+                        }
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Could not open process handle for PID {processId} ({ServiceName}) - may require admin rights");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Console.WriteLine($"Could not open process handle for PID {processId} ({ServiceName}) - may require admin rights");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error setting process priority for PID {processId} ({ServiceName}): {ex.Message}");
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"Error setting process priority for PID {processId} ({ServiceName}): {ex.Message}");
+                }
             }
         }
         

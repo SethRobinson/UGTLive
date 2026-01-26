@@ -1,4 +1,4 @@
-description|A versatile OCR engine supporting multiple languages including Japanese, Korean, Chinese, and English|
+description|A versatile OCR engine supporting multiple languages including Japanese, Korean, Chinese, and English. Also includes some color utilities that other services can use.
 github_url|https://github.com/JaidedAI/EasyOCR|
 service_author|Seth A. Robinson|
 service_name|EasyOCR|

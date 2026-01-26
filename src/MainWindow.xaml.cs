@@ -1090,7 +1090,7 @@ namespace UGTLive
                     int captureTop = windowRect.Top + offsetY;
                     
                     // Debug: log once when snapshot is taken
-                    if (_logCaptureRectOnce)
+                    if (_logCaptureRectOnce && ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
                         _logCaptureRectOnce = false;
                         double textScale = GetWindowsTextScaleFactor();

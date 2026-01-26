@@ -103,12 +103,12 @@
                 <Border BorderBrush="#3366AA" BorderThickness="2" Padding="10" Margin="0,0,0,10" Background="#F0F8FF">
                     <StackPanel>
                         <TextBlock Text="GPU Service Console" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
-                        <TextBlock Text="You'll need at least one of these installed and active if you want to use local OCR features." 
+                        <TextBlock Text="You'll need at least one of these installed and active if you want to use local OCR features.  EasyOCR should be running at all times as it's used for certain features that work in tandem with other services, like text color detection." 
                                    Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         
                         <!-- Show Server Windows Checkbox -->
                         <CheckBox x:Name="showServerWindowCheckBox" 
-                                  Content="Show service windows - good to do if something isn't working"
+                                  Content="Show service windows - good to do if something isn't working, let's you see their process output."
                                   Margin="0,0,0,10" VerticalAlignment="Center"
                                   Checked="ShowServerWindowCheckBox_Changed" 
                                   Unchecked="ShowServerWindowCheckBox_Changed"/>

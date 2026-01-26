@@ -2262,6 +2262,8 @@ namespace UGTLive
                     {
                         _hasWarnedAboutEasyOCRForColor = true;
                         
+                        Log("WARNING: EasyOCR service is required for color correction but is not running.");
+                        
                         Application.Current.Dispatcher.Invoke(() => 
                         {
                             ErrorPopupManager.ShowServiceWarning(
