@@ -65,6 +65,8 @@ Features:
 
 **V1.08 Jan 26th, 2026** - Fixed services installer (including MangaOCR on 50x cards) not working right and made them more resistant to being suddenly broken. (the world of pytorch/gpu/pip/python is very touchy).  I'm using nodeps and pinning in some cases to help with future stability in this area. (thanks to Narci for reporting the issue)
 
+Also, you now install/uninstall multiple services at once if you want to live dangerously
+
 **V1.07 Jan 19th, 2026** - Fixed issue not installing "certifi" on non 50x series cards -  https://github.com/SethRobinson/UGTLive/issues/28
 
 **V1.06 Jan 18th, 2026** - Fixed issues with constant retranslations in live mode, works much better with visual novels now.  Chatbox and monitor position/sizes are now persistent.  Fixed text alignment bug that happened if the global windows system "text size" had been changed.  Status messages are now unified and also show up on the Monitor window.
