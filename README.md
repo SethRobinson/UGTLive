@@ -75,7 +75,7 @@ Features:
 
 **V1.03 Dec 25th, 2025** - Added llama.cpp routing mode support, RTX 20x support (untested), support for latest OpenAI/Gemini models
 
-**V1.02 Dec 1st, 2025** - * Added 9 more languages, Snapshot button tweaks, "Show detailed Log" button during service installs, language selection GUi improved
+**V1.02 Dec 1st, 2025** - * Added 9 more languages, Snapshot button tweaks, "Show detailed Log" button during service installs, language selection GUI improved
 
 **V1.01 Nov 30th, 2025** - Added new "Snapshot" mode feature, now remembers window pos/sizes (PR by [jeffvli](https://github.com/jeffvli) ), new hotkey binding for overlay mode "previous"
 
@@ -106,7 +106,7 @@ UGTLive will automatically check for updates when you start it. If a new version
 1. Download the latest version from the notification or from [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 2. Close UGTLive if it's running
 3. Extract the new files over your existing installation
-4. After starting UGTLive, it wil show a warning if a backend has changed and you should reinstall it.
+4. After starting UGTLive, it will show a warning if a backend has changed and you should reinstall it.
 
 ## Tips
 
@@ -154,7 +154,7 @@ Now, just double click the run_server.bat file we made and your server should st
 
 After that's verified to work, in UGTLive's Translation settings, choose llama.cpp and set the URL to http://localhost and the port to 8080 as that's what we have in the .bat file. 
 
-Choose "list models" and choose one.  (only needed it llamaserver is run in routing mode, which I recommend, as you can change models easily)
+Choose "list models" and choose one.  (only needed if llamaserver is run in routing mode, which I recommend, as you can change models easily)
 
 It should now be able to do both OCR and translation of anything, completely locally with no cloud services! (well, you can always mix and match, for example, I still only have cloud text to speech systems setup)
 

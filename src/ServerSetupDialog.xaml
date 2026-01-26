@@ -108,7 +108,7 @@
                         
                         <!-- Show Server Windows Checkbox -->
                         <CheckBox x:Name="showServerWindowCheckBox" 
-                                  Content="Show service windows - good to do if something isn't working, let's you see their process output."
+                                  Content="Show service windows - good to do if something isn't working, lets you see their process output."
                                   Margin="0,0,0,10" VerticalAlignment="Center"
                                   Checked="ShowServerWindowCheckBox_Changed" 
                                   Unchecked="ShowServerWindowCheckBox_Changed"/>
