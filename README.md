@@ -67,7 +67,7 @@ Features:
 
 Note: If you had problems with services not working right previously, you'll need to choose the Install/Reinstall option (for that service) from UGTLive's starting menu to correct it.
 
-Also, you now install/uninstall multiple services at once if you want to live dangerously
+Also, you can now install/uninstall multiple services at once if you want to live dangerously
 
 **V1.07 Jan 19th, 2026** - Fixed issue not installing "certifi" on non 50x series cards -  https://github.com/SethRobinson/UGTLive/issues/28
 
