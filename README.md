@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.07-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.08-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.08 Jan 26th, 2026** - Fixed services installer (including MangaOCR on 50x cards) not working right and made them more resistant to being suddenly broken. (the world of pytorch/gpu/pip/python is very touchy).  I'm using nodeps and pinning in some cases to help with future stability in this area. (thanks to Narci for reporting the issue)
 
 **V1.07 Jan 19th, 2026** - Fixed issue not installing "certifi" on non 50x series cards -  https://github.com/SethRobinson/UGTLive/issues/28
 
