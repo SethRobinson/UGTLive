@@ -98,6 +98,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Log Extra Debug Stuff Checkbox -->
@@ -123,6 +124,14 @@
                                          Unchecked="PersistWindowSizeCheckBox_CheckedChanged"
                                          Content="Persist window position and size"
                                          ToolTip="If checked, the main window's position and size will be saved and restored when the application restarts."/>
+                                
+                                <!-- Play Completion Sound Checkbox -->
+                                <CheckBox x:Name="playCompletionSoundCheckBox" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Margin="0,5" IsChecked="False" 
+                                         Checked="PlayCompletionSoundCheckBox_CheckedChanged" 
+                                         Unchecked="PlayCompletionSoundCheckBox_CheckedChanged"
+                                         Content="Play a sound when translation completes (translation_complete.wav)"
+                                         ToolTip="Play a gentle notification sound when a translation finishes. Useful when using slow local LLMs so you can look away and return when done."/>
                             </Grid>
                         </GroupBox>
                         

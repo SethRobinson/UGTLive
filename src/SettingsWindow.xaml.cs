@@ -509,6 +509,9 @@ namespace UGTLive
             // Load persist window size setting
             persistWindowSizeCheckBox.IsChecked = ConfigManager.Instance.IsPersistWindowSizeEnabled();
             
+            // Load completion sound setting
+            playCompletionSoundCheckBox.IsChecked = ConfigManager.Instance.IsCompletionSoundEnabled();
+
             // Load snapshot toggle mode setting
             snapshotToggleModeCheckBox.IsChecked = ConfigManager.Instance.GetSnapshotToggleMode();
             
@@ -1712,7 +1715,16 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             ConfigManager.Instance.SetPersistWindowSizeEnabled(enabled);
             Console.WriteLine($"Persist window size: {enabled}");
         }
-        
+
+        private void PlayCompletionSoundCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+
+            bool enabled = playCompletionSoundCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetCompletionSoundEnabled(enabled);
+        }
+
         private void SnapshotToggleModeCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Skip if initializing

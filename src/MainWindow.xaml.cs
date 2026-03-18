@@ -1618,7 +1618,17 @@ namespace UGTLive
             
             // Cancel the close for now
             e.Cancel = true;
-            
+
+            // Ask the user to confirm before shutting down
+            var result = System.Windows.MessageBox.Show(
+                "Are you sure you want to quit UGT Live?",
+                "Confirm Exit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
             // Save ChatBox and Monitor window state before closing (if persistence is enabled)
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
             {
@@ -2604,6 +2614,29 @@ namespace UGTLive
         private void Logic_TranslationCompleted(object? sender, TranslationEventArgs e)
         {
             AddTranslationToHistory(e.OriginalText, e.TranslatedText);
+            PlayCompletionSoundIfEnabled();
+        }
+
+        private void PlayCompletionSoundIfEnabled()
+        {
+            if (!ConfigManager.Instance.IsCompletionSoundEnabled())
+                return;
+
+            try
+            {
+                string soundPath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "audio", "translation_complete.wav");
+
+                if (System.IO.File.Exists(soundPath))
+                {
+                    var player = new System.Media.SoundPlayer(soundPath);
+                    player.Play();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error playing completion sound: {ex.Message}");
+            }
         }
         
         // Load language settings from config (no UI updates needed, ConfigManager handles everything)

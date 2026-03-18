@@ -96,6 +96,7 @@ namespace UGTLive
         public const string SNAPSHOT_TOGGLE_MODE = "snapshot_toggle_mode";
         public const string ENABLE_CLOUD_OCR_COLOR_CORRECTION = "enable_cloud_ocr_color_correction";
         public const string PERSIST_WINDOW_SIZE = "persist_window_size";
+        public const string PLAY_COMPLETION_SOUND = "play_completion_sound";
         public const string OCR_WINDOW_LEFT = "ocr_window_left";
         public const string OCR_WINDOW_TOP = "ocr_window_top";
         public const string OCR_WINDOW_WIDTH = "ocr_window_width";
@@ -3139,6 +3140,18 @@ Here is the input JSON:";
             _configValues[PERSIST_WINDOW_SIZE] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Persist window size enabled: {enabled}");
+        }
+
+        public bool IsCompletionSoundEnabled()
+        {
+            return GetBoolValue(PLAY_COMPLETION_SOUND, false);
+        }
+
+        public void SetCompletionSoundEnabled(bool enabled)
+        {
+            _configValues[PLAY_COMPLETION_SOUND] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"Completion sound enabled: {enabled}");
         }
 
         // Get/Set OCR window position and size
