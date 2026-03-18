@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Select TTS Service and Voice" 
-        Height="300" 
+        Height="400" 
         Width="500" 
+        MinHeight="350"
+        MinWidth="400"
         WindowStartupLocation="CenterScreen"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
@@ -63,11 +65,11 @@
         
         <!-- Buttons -->
         <StackPanel Grid.Row="5" Orientation="Horizontal" 
-                   HorizontalAlignment="Right" Margin="0,10,0,0">
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,10,0,0">
             <Button Content="Cancel" Click="CancelButton_Click" 
-                   Margin="0,0,10,0" Padding="15,5" MinWidth="80"/>
+                   Margin="0,0,10,0" Padding="15,5" MinWidth="80" Height="30"/>
             <Button Content="OK" Click="OkButton_Click" 
-                   IsDefault="True" Padding="15,5" MinWidth="80"/>
+                   IsDefault="True" Padding="15,5" MinWidth="80" Height="30"/>
         </StackPanel>
     </Grid>
 </Window>

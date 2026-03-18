@@ -3428,6 +3428,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     ttsDeleteCacheOnStartupCheckBox.Checked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                     ttsDeleteCacheOnStartupCheckBox.Unchecked -= TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                 }
+                if (ttsAlwaysGenerateNewAudioCheckBox != null)
+                {
+                    ttsAlwaysGenerateNewAudioCheckBox.Checked -= TtsAlwaysGenerateNewAudioCheckBox_CheckedChanged;
+                    ttsAlwaysGenerateNewAudioCheckBox.Unchecked -= TtsAlwaysGenerateNewAudioCheckBox_CheckedChanged;
+                }
                 if (ttsMaxConcurrentDownloadsTextBox != null)
                 {
                     ttsMaxConcurrentDownloadsTextBox.LostFocus -= TtsMaxConcurrentDownloadsTextBox_LostFocus;
@@ -3492,6 +3497,12 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     ttsDeleteCacheOnStartupCheckBox.IsChecked = deleteCache;
                 }
                 
+                // Load always generate new audio
+                if (ttsAlwaysGenerateNewAudioCheckBox != null)
+                {
+                    ttsAlwaysGenerateNewAudioCheckBox.IsChecked = ConfigManager.Instance.GetTtsAlwaysGenerateNewAudio();
+                }
+                
                 // Load max concurrent downloads
                 if (ttsMaxConcurrentDownloadsTextBox != null)
                 {
@@ -3530,6 +3541,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 {
                     ttsDeleteCacheOnStartupCheckBox.Checked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
                     ttsDeleteCacheOnStartupCheckBox.Unchecked += TtsDeleteCacheOnStartupCheckBox_CheckedChanged;
+                }
+                if (ttsAlwaysGenerateNewAudioCheckBox != null)
+                {
+                    ttsAlwaysGenerateNewAudioCheckBox.Checked += TtsAlwaysGenerateNewAudioCheckBox_CheckedChanged;
+                    ttsAlwaysGenerateNewAudioCheckBox.Unchecked += TtsAlwaysGenerateNewAudioCheckBox_CheckedChanged;
                 }
                 if (ttsMaxConcurrentDownloadsTextBox != null)
                 {
@@ -3698,6 +3714,22 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating TTS delete cache on startup: {ex.Message}");
+            }
+        }
+        
+        private void TtsAlwaysGenerateNewAudioCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                bool isEnabled = ttsAlwaysGenerateNewAudioCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetTtsAlwaysGenerateNewAudio(isEnabled);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS always generate new audio: {ex.Message}");
             }
         }
         

@@ -226,8 +226,9 @@ namespace UGTLive
                     continue;
                 }
                 
-                // Check if already ready
-                if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                // Check if already ready (skip unless always-generate-new is enabled)
+                if (!ConfigManager.Instance.GetTtsAlwaysGenerateNewAudio()
+                    && textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
                 {
                     continue;
                 }
@@ -331,8 +332,9 @@ namespace UGTLive
                     continue;
                 }
                 
-                // Check if already ready
-                if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                // Check if already ready (skip unless always-generate-new is enabled)
+                if (!ConfigManager.Instance.GetTtsAlwaysGenerateNewAudio()
+                    && textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
                 {
                     continue;
                 }
@@ -382,31 +384,35 @@ namespace UGTLive
             {
                 // Generate hash for caching
                 string textHash = ComputeTextHash(text);
+                bool alwaysGenerateNew = ConfigManager.Instance.GetTtsAlwaysGenerateNewAudio();
                 
-                // Check cache first (in-memory and disk)
-                string? cachedPath = GetCachedAudioPath(textHash);
-                if (cachedPath != null && File.Exists(cachedPath))
+                // Check cache first (in-memory and disk), unless always-generate is enabled
+                if (!alwaysGenerateNew)
                 {
-                    // Use cached file
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    string? cachedPath = GetCachedAudioPath(textHash);
+                    if (cachedPath != null && File.Exists(cachedPath))
                     {
-                        if (isSource)
+                        // Use cached file
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            textObj.SourceAudioFilePath = cachedPath;
-                            textObj.SourceAudioReady = true;
-                        }
-                        else
-                        {
-                            textObj.TargetAudioFilePath = cachedPath;
-                            textObj.TargetAudioReady = true;
-                        }
-                        
-                        // Refresh overlays
-                        MainWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
-                        // Use targeted update for MonitorWindow to avoid flickering
-                        MonitorWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
-                    });
-                    return;
+                            if (isSource)
+                            {
+                                textObj.SourceAudioFilePath = cachedPath;
+                                textObj.SourceAudioReady = true;
+                            }
+                            else
+                            {
+                                textObj.TargetAudioFilePath = cachedPath;
+                                textObj.TargetAudioReady = true;
+                            }
+                            
+                            // Refresh overlays
+                            MainWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
+                            // Use targeted update for MonitorWindow to avoid flickering
+                            MonitorWindow.Instance?.UpdateAudioReadyState(textObj.ID, isSource, cachedPath);
+                        });
+                        return;
+                    }
                 }
                 
                 // Wait for available slot (rate limiting)
@@ -484,15 +490,23 @@ namespace UGTLive
                                 
                                 try
                                 {
-                                    // If file with this hash already exists, delete the new one and use the existing
                                     if (File.Exists(newFilePath))
                                     {
-                                        File.Delete(audioFilePath);
+                                        if (alwaysGenerateNew)
+                                        {
+                                            // Replace old cached file with the freshly generated one
+                                            File.Delete(newFilePath);
+                                            File.Move(audioFilePath, newFilePath);
+                                        }
+                                        else
+                                        {
+                                            // Use existing cached file, discard the duplicate
+                                            File.Delete(audioFilePath);
+                                        }
                                         audioFilePath = newFilePath;
                                     }
                                     else
                                     {
-                                        // Rename to hash-based filename
                                         File.Move(audioFilePath, newFilePath);
                                         audioFilePath = newFilePath;
                                     }
@@ -710,7 +724,7 @@ namespace UGTLive
                     Console.WriteLine($"Error deleting cached audio file {filePath}: {ex.Message}");
                 }
             }
-            
+
             _audioCache.Clear();
         }
         

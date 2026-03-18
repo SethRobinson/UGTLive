@@ -1306,6 +1306,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Enable Page Reading -->
@@ -1374,11 +1375,18 @@
                                 <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="7" Grid.Column="1" 
                                          Margin="0,10,0,0" IsChecked="False"/>
                                 
+                                <!-- Always Generate New Audio -->
+                                <TextBlock Text="Always generate new audio:" Grid.Row="8" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Never use cached audio files when page reading is used. Always regenerate audio from the TTS service."/>
+                                <CheckBox x:Name="ttsAlwaysGenerateNewAudioCheckBox" Grid.Row="8" Grid.Column="1" 
+                                         Margin="0,10,0,0" IsChecked="False"/>
+                                
                                 <!-- Max Concurrent Downloads -->
-                                <TextBlock Text="Max concurrent downloads:" Grid.Row="8" Grid.Column="0"
+                                <TextBlock Text="Max concurrent downloads:" Grid.Row="9" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Maximum number of audio files to generate simultaneously. Cloud services (ElevenLabs, Google) support concurrent requests. Local services (Qwen3-TTS) process one at a time regardless of this setting."/>
-                                <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="8" Grid.Column="1" 
+                                <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="9" Grid.Column="1" 
                                         Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
                                         Text="2" LostFocus="TtsMaxConcurrentDownloadsTextBox_LostFocus"/>
                             </Grid>

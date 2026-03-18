@@ -184,6 +184,7 @@ namespace UGTLive
         public const string TTS_DELETE_CACHE_ON_STARTUP = "tts_delete_cache_on_startup";
         public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
         public const string TTS_MAX_CONCURRENT_DOWNLOADS = "tts_max_concurrent_downloads";
+        public const string TTS_ALWAYS_GENERATE_NEW_AUDIO = "tts_always_generate_new_audio";
         
         // UI Icon Constants
         public const string ICON_SPEAKER_READY = "🔉";
@@ -1938,7 +1939,19 @@ Here is the input JSON:";
             SaveConfig();
             Console.WriteLine($"TTS delete cache on startup: {enabled}");
         }
-        
+
+        public bool GetTtsAlwaysGenerateNewAudio()
+        {
+            return GetBoolValue(TTS_ALWAYS_GENERATE_NEW_AUDIO, false);
+        }
+
+        public void SetTtsAlwaysGenerateNewAudio(bool enabled)
+        {
+            _configValues[TTS_ALWAYS_GENERATE_NEW_AUDIO] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"TTS always generate new audio: {enabled}");
+        }
+
         // Get/Set TTS Vertical Overlap Threshold (in pixels)
         public double GetTtsVerticalOverlapThreshold()
         {
