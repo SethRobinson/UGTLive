@@ -37,71 +37,66 @@
                           Panel.ZIndex="100"/>
         </Grid>
         
-        <!-- Main border for resizing - can be hidden via Hide button -->
-        <!-- Higher Z-index ensures buttons are clickable above the overlay -->
-        <Border Name="MainBorder" BorderThickness="1" BorderBrush="#CFFF0000" Background="Transparent" Panel.ZIndex="200">
-            <Grid>
-                <!-- Top control bar with auto-sizing grid -->
-                <Grid x:Name="TopControlGrid" VerticalAlignment="Top">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="10"/>
-                        <!-- Resize strip -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- Fixed-height header bar -->
-                    </Grid.RowDefinitions>
-                    
-                    <!-- Top resize strip - 10px height -->
-                    <Border Grid.Row="0" Background="#50FF0000" Cursor="SizeNS"
-                           WindowChrome.IsHitTestVisibleInChrome="False"/>
-                    
-                    <!-- Fixed-height header bar (no wrapping) -->
-                    <Border Grid.Row="1" x:Name="HeaderBorder" Background="#CC202020" Height="40"
-                            MouseLeftButtonDown="Header_MouseLeftButtonDown"
-                            WindowChrome.IsHitTestVisibleInChrome="True"
-                            ClipToBounds="True">
-                        <DockPanel Margin="5,0">
-                            <!-- Status display fills remaining space -->
-                            <Border x:Name="translationStatusBorder"
-                                    Background="#DD404040"
-                                    Padding="8,2,8,2"
-                                    CornerRadius="3"
-                                    BorderThickness="1"
-                                    BorderBrush="#666666"
-                                    Visibility="Visible"
-                                    VerticalAlignment="Center"
-                                    Margin="0,0,5,0"
-                                    WindowChrome.IsHitTestVisibleInChrome="True">
-                                <StackPanel>
-                                    <TextBlock x:Name="translationStatusLabel"
-                                               Foreground="#FFDDDDDD"
-                                               FontSize="12"
-                                               FontWeight="SemiBold"
-                                               Text="Stopped"
-                                               VerticalAlignment="Center"
-                                               TextAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <ProgressBar x:Name="translationProgressBar"
-                                                 Height="3"
-                                                 IsIndeterminate="False"
-                                                 Margin="0,2,0,0"
-                                                 Visibility="Collapsed"
-                                                 Foreground="#FF2EA043"
-                                                 Background="#33FFFFFF"
-                                                 BorderThickness="0"/>
-                                </StackPanel>
-                            </Border>
-                        </DockPanel>
-                    </Border>
-                </Grid>
+        <!-- Main UI container - can be hidden via Hide button -->
+        <Grid Name="MainBorder" Background="Transparent" Panel.ZIndex="200">
+            <!-- Top control bar with auto-sizing grid -->
+            <Grid x:Name="TopControlGrid" VerticalAlignment="Top">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 
-                <!-- Resize grip indicators -->
-                <Rectangle Width="24" Height="24" Fill="#80808080"
-                          HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                          Cursor="SizeNWSE"/>
+                <!-- Top resize strip - 10px height -->
+                <Border Grid.Row="0" Background="#30808080" Cursor="SizeNS"
+                       WindowChrome.IsHitTestVisibleInChrome="False"/>
                 
-                <!-- Resize borders - visual indicators only -->
-                <Border BorderBrush="#8FFF0000" BorderThickness="7" Background="Transparent" IsHitTestVisible="False"/>
+                <!-- Fixed-height header bar (no wrapping) -->
+                <Border Grid.Row="1" x:Name="HeaderBorder" Background="#CC202020" Height="40"
+                        MouseLeftButtonDown="Header_MouseLeftButtonDown"
+                        WindowChrome.IsHitTestVisibleInChrome="True"
+                        ClipToBounds="True">
+                    <DockPanel Margin="5,0">
+                        <!-- Status display fills remaining space -->
+                        <Border x:Name="translationStatusBorder"
+                                Background="#DD404040"
+                                Padding="8,2,8,2"
+                                CornerRadius="3"
+                                BorderThickness="1"
+                                BorderBrush="#666666"
+                                Visibility="Visible"
+                                VerticalAlignment="Center"
+                                Margin="0,0,5,0"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                            <StackPanel>
+                                <TextBlock x:Name="translationStatusLabel"
+                                           Foreground="#FFDDDDDD"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Text="Stopped"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar x:Name="translationProgressBar"
+                                             Height="3"
+                                             IsIndeterminate="False"
+                                             Margin="0,2,0,0"
+                                             Visibility="Collapsed"
+                                             Foreground="#FF2EA043"
+                                             Background="#33FFFFFF"
+                                             BorderThickness="0"/>
+                            </StackPanel>
+                        </Border>
+                    </DockPanel>
+                </Border>
             </Grid>
-        </Border>
+            
+            <!-- Red capture area border - only around the actual capture area below the header -->
+            <Border Margin="8,43,8,8" BorderBrush="#8FFF0000" BorderThickness="7" Background="Transparent" IsHitTestVisible="False"/>
+            
+            <!-- Resize grip indicators -->
+            <Rectangle Width="24" Height="24" Fill="#80808080"
+                      HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                      Cursor="SizeNWSE"/>
+        </Grid>
     </Grid>
 </Window>
