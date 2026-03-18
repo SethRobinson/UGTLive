@@ -52,7 +52,7 @@
                         Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
                         Click="OptionsButton_Click"
                         ToolTip="Configure appearance settings"/>
-                <TextBlock Text="Recent Text" Foreground="White" 
+                <TextBlock Text="Transcript" Foreground="White" 
                            VerticalAlignment="Center" Margin="10,0" FontWeight="SemiBold"/>
             </DockPanel>
         </Border>

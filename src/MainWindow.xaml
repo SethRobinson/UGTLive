@@ -73,38 +73,38 @@
                                 <Button x:Name="hideButton" Content="Hide" Padding="8,3" Margin="2"
                                         Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="HideButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                        
-                                <Button x:Name="toggleButton" Content="Start" Padding="8,3" Margin="2"
-                                        Background="#FF14B414" Foreground="White" BorderThickness="1" BorderBrush="White"
+
+                                <Button x:Name="toggleButton" Content="Auto" Padding="8,3" Margin="2"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="OnStartButtonToggleClicked" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
-                                <Button x:Name="snapshotButton" Content="S" Padding="8,3" Margin="2"
+
+                                <Button x:Name="snapshotButton" Content="Snap" Padding="8,3" Margin="2"
                                         Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="SnapshotButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
+
                                 <!-- Window Toggle Buttons -->
                                 <Button x:Name="monitorButton" Content="Monitor" Padding="8,3" Margin="2"
-                                        Background="#FF4569B0" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="MonitorButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                        
-                                <Button x:Name="chatBoxButton" Content="ChatBox" Padding="8,3" Margin="2"
-                                        Background="#FF45B069" Foreground="White" BorderThickness="1" BorderBrush="White"
+
+                                <Button x:Name="chatBoxButton" Content="Transcript" Padding="8,3" Margin="2"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="ChatBoxButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                        
+
                                 <Button x:Name="listenButton" Content="Listen" Padding="8,3" Margin="2"
-                                        Background="#FF4577B0" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="ListenButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                        
+
                                 <Button x:Name="logButton" Content="Log" Padding="8,3" Margin="2"
-                                        Background="#FF9945B0" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="LogButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                        
+
                                 <Button x:Name="settingsButton" Content="Settings" Padding="8,3" Margin="2"
-                                        Background="#FFB07D45" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="SettingsButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
+
                                 <Button x:Name="exportButton" Content="View in browser" Padding="8,3" Margin="2"
-                                        Background="#FF5F8FD4" Foreground="White" BorderThickness="1" BorderBrush="White"
+                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                                         Click="ExportButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
                                 
                                 <!-- Separator -->
@@ -151,22 +151,33 @@
                                 <!-- Status Display in Header -->
 								<Border x:Name="translationStatusBorder"
                                         Background="#DD404040"
-                                        Padding="8,3"
+                                        Padding="8,2,8,2"
                                         CornerRadius="3"
                                         BorderThickness="1"
                                         BorderBrush="#666666"
                                         Visibility="Visible"
                                         VerticalAlignment="Center"
                                         Margin="5,0">
-									<TextBlock x:Name="translationStatusLabel"
-                                              Foreground="#FFDDDDDD"
-                                              FontSize="12"
-                                              FontWeight="SemiBold"
-                                              Text="Stopped"
-                                              VerticalAlignment="Center"
-                                              Width="280"
-                                              TextAlignment="Center"
-                                              TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel>
+									    <TextBlock x:Name="translationStatusLabel"
+                                                  Foreground="#FFDDDDDD"
+                                                  FontSize="12"
+                                                  FontWeight="SemiBold"
+                                                  Text="Stopped"
+                                                  VerticalAlignment="Center"
+                                                  Width="280"
+                                                  TextAlignment="Center"
+                                                  TextTrimming="CharacterEllipsis"/>
+                                        <ProgressBar x:Name="translationProgressBar"
+                                                     Height="3"
+                                                     Width="280"
+                                                     IsIndeterminate="False"
+                                                     Margin="0,2,0,0"
+                                                     Visibility="Collapsed"
+                                                     Foreground="#FF2EA043"
+                                                     Background="#33FFFFFF"
+                                                     BorderThickness="0"/>
+                                    </StackPanel>
 								</Border>
                             </WrapPanel>
                             

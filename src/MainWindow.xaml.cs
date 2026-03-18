@@ -720,13 +720,13 @@ namespace UGTLive
             
             // Update button tooltips
             if (toggleButton != null)
-                toggleButton.ToolTip = $"Start/Stop Live OCR{GetHotkeyString("start_stop")}";
+                toggleButton.ToolTip = $"Auto Mode: Continuous OCR + Translation{GetHotkeyString("start_stop")}";
                 
             if (monitorButton != null)
                 monitorButton.ToolTip = $"Toggle Monitor Window{GetHotkeyString("toggle_monitor")}";
                 
             if (chatBoxButton != null)
-                chatBoxButton.ToolTip = $"Toggle ChatBox{GetHotkeyString("toggle_chatbox")}";
+                chatBoxButton.ToolTip = $"Toggle Transcript{GetHotkeyString("toggle_chatbox")}";
                 
             if (settingsButton != null)
                 settingsButton.ToolTip = $"Toggle Settings{GetHotkeyString("toggle_settings")}";
@@ -747,7 +747,7 @@ namespace UGTLive
                 mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{GetHotkeyString("toggle_passthrough")}";
             
             if (snapshotButton != null)
-                snapshotButton.ToolTip = $"Snapshot: Single OCR capture{GetHotkeyString("snapshot")}";
+                snapshotButton.ToolTip = $"Snap: Single OCR capture{GetHotkeyString("snapshot")}";
             
             // Update overlay radio buttons
             string overlayHotkey = GetHotkeyString("toggle_overlay_mode");
@@ -896,8 +896,7 @@ namespace UGTLive
                 monitorWindowLeft = MonitorWindow.Instance.Left;
                 monitorWindowTop = MonitorWindow.Instance.Top;
                 
-                // Monitor window defaults to off (blue button)
-                monitorButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                monitorButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
             }
             
             // Restore ChatBox and Monitor windows if they were active on last close
@@ -1287,8 +1286,8 @@ namespace UGTLive
             {
                 Logic.Instance.ResetHash();
                 isStarted = false;
-                btn.Content = "Start";
-                btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
+                btn.Content = "Auto";
+                btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                 // Clear text objects when stopping to prevent stale overlays
                 Logic.Instance.ClearAllTextObjects();
                 // Also hide the ChatBox "Waiting for translation" indicator (if visible)
@@ -1310,12 +1309,13 @@ namespace UGTLive
                 
                 isStarted = true;
                 btn.Content = "Stop";
+                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
                 UpdateCaptureRect();
                 
                 // Clear any delay restriction when manually starting OCR
                 _ocrReenableTime = DateTime.MinValue;
                 SetOCRCheckIsWanted(true);
-                btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
+                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
                 
                 // Show OCR status when starting (handled by Logic.cs)
             }
@@ -1538,12 +1538,20 @@ namespace UGTLive
         
         // Button to show the window when it's hidden
         private System.Windows.Controls.Button? showButton;
-        
+        private bool _passthroughStateBeforeHide = false;
+
         private void HideButton_Click(object sender, RoutedEventArgs e)
         {
             // Hide the main window elements
             MainBorder.Visibility = Visibility.Collapsed;
-            
+
+            // Save passthrough state and force it on so the invisible overlay doesn't block clicks
+            _passthroughStateBeforeHide = mousePassthroughCheckBox?.IsChecked ?? false;
+            if (!_passthroughStateBeforeHide)
+            {
+                updateMousePassthrough(true);
+            }
+
             // Create a small "Show" button that remains visible
             if (showButton == null)
             {
@@ -1602,6 +1610,12 @@ namespace UGTLive
             if (showButton != null)
             {
                 showButton.Visibility = Visibility.Collapsed;
+            }
+
+            // Restore the passthrough state that was active before hiding
+            if (!_passthroughStateBeforeHide)
+            {
+                updateMousePassthrough(false);
             }
         }
 
@@ -1927,7 +1941,7 @@ namespace UGTLive
                 // Re-enable hotkeys now that the Settings window is hidden
                 HotkeyManager.Instance.SetEnabled(true);
                 Console.WriteLine("Settings window hidden");
-                settingsButton.Background = new SolidColorBrush(Color.FromRgb(176, 125, 69)); // Orange
+                settingsButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
             }
             else
             {
@@ -1975,7 +1989,7 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Settings window shown at position {settingsWindow.Left}, {settingsWindow.Top}");
                 }
-                settingsButton.Background = new SolidColorBrush(Color.FromRgb(69, 125, 176)); // Blue-ish
+                settingsButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
             }
         }
 
@@ -2211,7 +2225,7 @@ namespace UGTLive
             {
                 // Hide log window
                 LogWindow.Instance.Hide();
-                logButton.Background = new SolidColorBrush(Color.FromRgb(153, 69, 176)); // Purple
+                logButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
             }
             else
             {
@@ -2219,7 +2233,7 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure Log window appears above it
                 LogWindow.Instance.Owner = this;
                 LogWindow.Instance.Show();
-                logButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 153)); // Pink/Red
+                logButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
             }
         }
         
@@ -2341,7 +2355,7 @@ namespace UGTLive
                 
                 MonitorWindow.Instance.Hide();
                 Console.WriteLine("Monitor window hidden from MainWindow toggle");
-                monitorButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                monitorButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
             }
             else
             {
@@ -2369,8 +2383,8 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
                 }
-                monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
-                
+                monitorButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
+
                 // If we have a recent screenshot, load it
                 if (File.Exists(outputPath))
                 {
@@ -2393,8 +2407,8 @@ namespace UGTLive
             {
                 // Cancel the selection mode if already selecting
                 isSelectingChatBoxArea = false;
-                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
-                
+                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
+
                 // Find and close any existing selector window
                 foreach (Window window in System.Windows.Application.Current.Windows)
                 {
@@ -2416,7 +2430,7 @@ namespace UGTLive
                 // Hide ChatBox
                 chatBoxWindow.Hide();
                 isChatBoxVisible = false;
-                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                 
                 // Don't set chatBoxWindow to null here - we're just hiding it, not closing it
             }
@@ -2431,7 +2445,7 @@ namespace UGTLive
                     // Only set button to blue if the ChatBox isn't visible (was cancelled)
                     if (!isChatBoxVisible || chatBoxWindow == null || !chatBoxWindow.IsVisible)
                     {
-                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                     }
                 };
                 // Set MainWindow as owner to ensure selector window appears above it
@@ -2440,7 +2454,7 @@ namespace UGTLive
                 
                 // Set button to red while selector is active
                 isSelectingChatBoxArea = true;
-                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Red
             }
         }
         
@@ -2457,7 +2471,7 @@ namespace UGTLive
                 chatBoxWindow.Closed += (s, e) =>
                 {
                     isChatBoxVisible = false;
-                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                 };
                 
                 // Also handle visibility changes for when the X button is clicked (which now hides instead of closes)
@@ -2466,7 +2480,7 @@ namespace UGTLive
                     if (!(bool)e.NewValue) // Window is now hidden
                     {
                         isChatBoxVisible = false;
-                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                     }
                 };
                 
@@ -2484,7 +2498,7 @@ namespace UGTLive
             chatBoxWindow.Owner = this;
             chatBoxWindow.Show();
             isChatBoxVisible = true;
-            chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
+            chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Red when active
             
             // The ChatBox will get its data from MainWindow.GetTranslationHistory()
             // No need to manually load entries, just trigger an update
@@ -2665,20 +2679,20 @@ namespace UGTLive
             {
                 isListening = false;
                 btn.Content = "Listen";
-                btn.Background = new SolidColorBrush(Color.FromRgb(69, 119, 176)); // Blue
+                btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                 openAIRealtimeAudioService?.Stop();
             }
             else
             {
                 isListening = true;
                 btn.Content = "Stop Listening";
-                btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
+                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
 
                 // Show a message if ChatBox isn't visible
                 var chatBoxWin = ChatBoxWindow.Instance;
                 if (chatBoxWin == null || !chatBoxWin.IsVisible)
                 {
-                    MessageBox.Show(this, "The Listen button listens for audio and shows the detected dialog in the chatbox. Please open the chatbox window to see the detected dialog.", "ChatBox Not Visible", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(this, "The Listen button listens for audio and shows the detected dialog in the Transcript window. Please open it to see the detected dialog.", "Transcript Not Visible", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
 
                 if (openAIRealtimeAudioService == null)
@@ -3681,7 +3695,7 @@ namespace UGTLive
                         
                         isChatBoxVisible = true;
                         chatBoxWindow = chatBox;
-                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Red when active
                         
                         // Attach event handlers if not already attached
                         if (!_chatBoxEventsAttached)
@@ -3689,7 +3703,7 @@ namespace UGTLive
                             chatBox.Closed += (s, e) =>
                             {
                                 isChatBoxVisible = false;
-                                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                             };
                             
                             chatBox.IsVisibleChanged += (s, e) =>
@@ -3697,7 +3711,7 @@ namespace UGTLive
                                 if (!(bool)e.NewValue) // Window is now hidden
                                 {
                                     isChatBoxVisible = false;
-                                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
                                 }
                             };
                             
@@ -3739,7 +3753,7 @@ namespace UGTLive
                         monitor.Owner = this;
                         monitor.Show();
                         
-                        monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
+                        monitorButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
                         
                         // If we have a recent screenshot, load it
                         if (File.Exists(outputPath))
@@ -3831,6 +3845,12 @@ namespace UGTLive
                     
                     if (translationStatusBorder != null)
                         translationStatusBorder.Visibility = Visibility.Visible;
+
+                    if (translationProgressBar != null)
+                    {
+                        translationProgressBar.IsIndeterminate = true;
+                        translationProgressBar.Visibility = Visibility.Visible;
+                    }
                 });
                 return;
             }
@@ -3850,7 +3870,13 @@ namespace UGTLive
                 
                 if (translationStatusBorder != null)
                     translationStatusBorder.Visibility = Visibility.Visible;
-                
+
+                if (translationProgressBar != null)
+                {
+                    translationProgressBar.IsIndeterminate = true;
+                    translationProgressBar.Visibility = Visibility.Visible;
+                }
+
                 // Start the timer if not already running
                 if (_translationStatusTimer == null)
                 {
@@ -3889,6 +3915,12 @@ namespace UGTLive
                 // Keep the border visible to maintain title bar height
                 if (translationStatusBorder != null)
                     translationStatusBorder.Visibility = Visibility.Visible;
+
+                if (translationProgressBar != null)
+                {
+                    translationProgressBar.IsIndeterminate = false;
+                    translationProgressBar.Visibility = Visibility.Collapsed;
+                }
             });
         }
         

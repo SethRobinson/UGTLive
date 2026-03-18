@@ -397,7 +397,7 @@ namespace UGTLive
             _actionBindings["toggle_monitor"] = new List<HotkeyEntry> { toggleMonitor };
             
             // Toggle ChatBox - Shift+C
-            var toggleChatBox = new HotkeyEntry("toggle_chatbox", "Toggle ChatBox");
+            var toggleChatBox = new HotkeyEntry("toggle_chatbox", "Toggle Transcript");
             toggleChatBox.KeyboardKey = Key.C;
             toggleChatBox.UseShift = true;
             _actionBindings["toggle_chatbox"] = new List<HotkeyEntry> { toggleChatBox };

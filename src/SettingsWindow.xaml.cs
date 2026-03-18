@@ -5156,7 +5156,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop Live OCR" },
                 new ActionDisplayItem { ActionId = "snapshot", ActionName = "Snapshot OCR" },
                 new ActionDisplayItem { ActionId = "toggle_monitor", ActionName = "Toggle Monitor Window" },
-                new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle ChatBox" },
+                new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle Transcript" },
                 new ActionDisplayItem { ActionId = "toggle_settings", ActionName = "Toggle Settings" },
                 new ActionDisplayItem { ActionId = "toggle_log", ActionName = "Toggle Log" },
                 new ActionDisplayItem { ActionId = "toggle_listen", ActionName = "Toggle Listen" },
