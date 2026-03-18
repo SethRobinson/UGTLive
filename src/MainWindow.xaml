@@ -60,17 +60,6 @@
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             ClipToBounds="True">
                         <DockPanel Margin="5,0">
-                            <!-- Close button - docked rightmost, disappears last -->
-                            <Button DockPanel.Dock="Right" Content="X" Width="30" Height="30" Margin="2,5,2,5"
-                                    Background="#CCE63232" Foreground="White" FontWeight="Bold"
-                                    Click="CloseButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                            <!-- Minimize button -->
-                            <Button x:Name="minimizeButton" DockPanel.Dock="Right" Content="─" Width="30" Height="30" Margin="0,5,0,5"
-                                    Background="#CC5F5F5F" Foreground="White" FontWeight="Bold"
-                                    Click="MinimizeButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"
-                                    ToolTip="Minimize (disables global hotkeys)"/>
-
                             <!-- Status display fills remaining space -->
                             <Border x:Name="translationStatusBorder"
                                     Background="#DD404040"

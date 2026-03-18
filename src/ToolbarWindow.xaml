@@ -15,12 +15,26 @@
 
     <Border Background="#CC202020" CornerRadius="4" BorderBrush="#80FF0000" BorderThickness="1" Padding="4">
         <StackPanel Orientation="Vertical" Width="110">
-            <!-- Drag handle -->
-            <Border x:Name="DragHandle" Background="#40FFFFFF" CornerRadius="2" Height="14" Margin="0,0,0,4" Cursor="SizeAll"
-                    MouseLeftButtonDown="DragHandle_MouseLeftButtonDown">
-                <TextBlock Text="· · ·" Foreground="#80FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           FontSize="10" FontWeight="Bold" IsHitTestVisible="False"/>
-            </Border>
+            <!-- Title bar: drag handle + minimize/close -->
+            <DockPanel Height="16" Margin="0,0,0,4">
+                <!-- Close button -->
+                <Button x:Name="closeAppButton" DockPanel.Dock="Right" Content="✕" Width="18" Height="16"
+                        Background="#CCE63232" Foreground="White" FontSize="9" FontWeight="Bold"
+                        Padding="0" Margin="1,0,0,0" BorderThickness="0"
+                        Click="CloseAppButton_Click"/>
+                <!-- Minimize button -->
+                <Button x:Name="minimizeAppButton" DockPanel.Dock="Right" Content="─" Width="18" Height="16"
+                        Background="#40FFFFFF" Foreground="#CCFFFFFF" FontSize="9" FontWeight="Bold"
+                        Padding="0" Margin="1,0,0,0" BorderThickness="0"
+                        Click="MinimizeAppButton_Click"
+                        ToolTip="Minimize (disables global hotkeys)"/>
+                <!-- Drag handle fills remaining space -->
+                <Border x:Name="DragHandle" Background="#40FFFFFF" CornerRadius="2" Cursor="SizeAll"
+                        MouseLeftButtonDown="DragHandle_MouseLeftButtonDown">
+                    <TextBlock Text="· · ·" Foreground="#80FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="10" FontWeight="Bold" IsHitTestVisible="False"/>
+                </Border>
+            </DockPanel>
 
             <!-- Primary action buttons -->
             <Button x:Name="snapshotButton" Content="Snap" Padding="4,3" Margin="1"
@@ -91,10 +105,11 @@
             <!-- Separator -->
             <Rectangle Height="1" Fill="#40FFFFFF" Margin="4,3"/>
 
-            <!-- Hide toolbar -->
-            <Button x:Name="hideButton" Content="Hide" Padding="4,3" Margin="1"
+            <!-- Hide red border toggle -->
+            <Button x:Name="hideButton" Content="Hide red border" Padding="4,3" Margin="1"
                     Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
                     Click="HideButton_Click" FontSize="11"/>
+
         </StackPanel>
     </Border>
 </Window>

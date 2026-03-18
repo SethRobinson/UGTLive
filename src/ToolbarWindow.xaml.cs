@@ -12,6 +12,14 @@ namespace UGTLive
         [DllImport("user32.dll")]
         private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
 
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
+
         private const uint WDA_NONE = 0x00000000;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 
@@ -67,6 +75,16 @@ namespace UGTLive
             SetExcludeFromCapture();
         }
 
+        public void BringToFront()
+        {
+            var helper = new WindowInteropHelper(this);
+            IntPtr hwnd = helper.Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+
         // --- Drag handle ---
 
         private void DragHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -88,6 +106,16 @@ namespace UGTLive
         private void HideButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance?.HandleHideButton();
+        }
+
+        private void MinimizeAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow.Instance?.HandleMinimizeButton();
+        }
+
+        private void CloseAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow.Instance?.Close();
         }
 
         private void ToggleButton_Click(object sender, RoutedEventArgs e)

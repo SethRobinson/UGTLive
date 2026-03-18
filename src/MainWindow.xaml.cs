@@ -599,20 +599,9 @@ namespace UGTLive
         private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
         
        
-        // add method for show/hide the main window
         private void ToggleMainWindowVisibility()
         {
-            if (MainBorder.Visibility == Visibility.Visible)
-            {
-                HandleHideButton();
-            }
-            else
-            {
-                if (showButton != null)
-                {
-                    ShowButton_Click(showButton, new RoutedEventArgs());
-                }
-            }
+            HandleHideButton();
         }
         
         private void TogglePassthrough()
@@ -766,7 +755,7 @@ namespace UGTLive
                 exportButton.ToolTip = $"View current capture in browser{GetHotkeyString("view_in_browser")}";
                 
             if (hideButton != null)
-                hideButton.ToolTip = $"Toggle Main Window{GetHotkeyString("toggle_main_window")}";
+                hideButton.ToolTip = $"Toggle red border visibility{GetHotkeyString("toggle_main_window")}";
                 
             if (mousePassthroughCheckBox != null)
                 mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{GetHotkeyString("toggle_passthrough")}";
@@ -1539,87 +1528,50 @@ namespace UGTLive
             this.Close();
         }
         
-        // Button to show the window when it's hidden
-        private System.Windows.Controls.Button? showButton;
         private bool _passthroughStateBeforeHide = false;
 
         public void HandleHideButton()
         {
-            // Hide the main window elements
-            MainBorder.Visibility = Visibility.Collapsed;
-
-            // Save passthrough state and force it on so the invisible overlay doesn't block clicks
-            _passthroughStateBeforeHide = mousePassthroughCheckBox?.IsChecked ?? false;
-            if (!_passthroughStateBeforeHide)
+            if (MainBorder.Visibility == Visibility.Visible)
             {
-                updateMousePassthrough(true);
-            }
+                MainBorder.Visibility = Visibility.Collapsed;
 
-            // Create a small "Show" button that remains visible
-            if (showButton == null)
-            {
-                showButton = new System.Windows.Controls.Button
+                // Save passthrough state and force it on so the invisible overlay doesn't block clicks
+                _passthroughStateBeforeHide = mousePassthroughCheckBox?.IsChecked ?? false;
+                if (!_passthroughStateBeforeHide)
                 {
-                    Content = "Show",
-                    Width = 30,
-                    Height = 20,
-                    Padding = new Thickness(2, 0, 2, 0),
-                    FontSize = 10,
-                    Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)),
-                    Foreground = new SolidColorBrush(Colors.White),
-                    BorderThickness = new Thickness(1),
-                    BorderBrush = new SolidColorBrush(Colors.White),
-                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                    VerticalAlignment = System.Windows.VerticalAlignment.Top,
-                    Margin = new Thickness(10, 10, 0, 0),
-                    // Make sure it receives all input events
-                    IsHitTestVisible = true
-                };
-                
-                // Make button visible to WindowChrome
-                WindowChrome.SetIsHitTestVisibleInChrome(showButton, true);
-                
-                showButton.Click += ShowButton_Click;
-                
-                // Get the main grid
-                var mainGrid = this.Content as Grid;
-                if (mainGrid != null)
-                {
-                    // Add the button as the last child (top-most)
-                    mainGrid.Children.Add(showButton);
-                    
-                    // Ensure it's on top by setting a high ZIndex
-                    System.Windows.Controls.Panel.SetZIndex(showButton, 1000);
-                    
-                    Console.WriteLine("Show button added to main grid");
+                    updateMousePassthrough(true);
                 }
-                else
+
+                // Update the toolbar button to show it's in "hidden" state
+                if (hideButton != null)
                 {
-                    Console.WriteLine("ERROR: Couldn't find main grid");
+                    hideButton.Content = "Show red border";
+                    hideButton.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20));
                 }
             }
             else
             {
-                showButton.Visibility = Visibility.Visible;
+                MainBorder.Visibility = Visibility.Visible;
+
+                // Restore the passthrough state that was active before hiding
+                if (!_passthroughStateBeforeHide)
+                {
+                    updateMousePassthrough(false);
+                }
+
+                // Update the toolbar button back to normal state
+                if (hideButton != null)
+                {
+                    hideButton.Content = "Hide red border";
+                    hideButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
+                }
             }
         }
-        
-        private void ShowButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Show the main window elements
-            MainBorder.Visibility = Visibility.Visible;
-            
-            // Hide the show button
-            if (showButton != null)
-            {
-                showButton.Visibility = Visibility.Collapsed;
-            }
 
-            // Restore the passthrough state that was active before hiding
-            if (!_passthroughStateBeforeHide)
-            {
-                updateMousePassthrough(false);
-            }
+        public void HandleMinimizeButton()
+        {
+            this.WindowState = WindowState.Minimized;
         }
 
         private bool _isShuttingDown = false;
@@ -1985,6 +1937,7 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure Settings window appears above it
                 settingsWindow.Owner = this;
                 settingsWindow.Show();
+                _toolbarWindow?.BringToFront();
                 
                 // Ensure window is visible, on top, and activated
                 settingsWindow.Visibility = Visibility.Visible;
@@ -2278,6 +2231,7 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure Log window appears above it
                 LogWindow.Instance.Owner = this;
                 LogWindow.Instance.Show();
+                _toolbarWindow?.BringToFront();
                 logButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
             }
         }
@@ -2430,6 +2384,7 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure Monitor window appears above it
                 MonitorWindow.Instance.Owner = this;
                 MonitorWindow.Instance.Show();
+                _toolbarWindow?.BringToFront();
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
                     Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
@@ -2502,6 +2457,7 @@ namespace UGTLive
                 // Set MainWindow as owner to ensure selector window appears above it
                 selectorWindow.Owner = this;
                 selectorWindow.Show();
+                _toolbarWindow?.BringToFront();
                 
                 // Set button to red while selector is active
                 isSelectingChatBoxArea = true;
@@ -2548,6 +2504,7 @@ namespace UGTLive
             // Set MainWindow as owner to ensure ChatBox window appears above it
             chatBoxWindow.Owner = this;
             chatBoxWindow.Show();
+            _toolbarWindow?.BringToFront();
             isChatBoxVisible = true;
             chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Red when active
             
@@ -3738,6 +3695,7 @@ namespace UGTLive
                         chatBox.Height = height;
                         chatBox.Owner = this;
                         chatBox.Show();
+                        _toolbarWindow?.BringToFront();
                         
                         isChatBoxVisible = true;
                         chatBoxWindow = chatBox;
@@ -3798,6 +3756,7 @@ namespace UGTLive
                         
                         monitor.Owner = this;
                         monitor.Show();
+                        _toolbarWindow?.BringToFront();
                         
                         monitorButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
                         
