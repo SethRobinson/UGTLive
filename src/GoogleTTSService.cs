@@ -14,7 +14,7 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace UGTLive
 {
-    public class GoogleTTSService
+    public class GoogleTTSService : ITtsService
     {
         private static GoogleTTSService? _instance;
         private readonly HttpClient _httpClient;
@@ -233,6 +233,26 @@ namespace UGTLive
             }
         }
         
+        public async Task<string?> GenerateAudioFileAsync(string text, string voiceId)
+        {
+            string languageCode = ExtractLanguageCodeFromVoice(voiceId);
+            return await GenerateAudioFileAsync(text, languageCode, voiceId);
+        }
+
+        private string ExtractLanguageCodeFromVoice(string voice)
+        {
+            int dashIndex = voice.IndexOf("-Neural2");
+            if (dashIndex == -1) dashIndex = voice.IndexOf("-Studio");
+            if (dashIndex == -1) dashIndex = voice.IndexOf("-Standard");
+
+            if (dashIndex > 0)
+            {
+                return voice.Substring(0, dashIndex);
+            }
+
+            return "ja-JP";
+        }
+
         public async Task<string?> GenerateAudioFileAsync(string text, string languageCode, string voiceId)
         {
             try

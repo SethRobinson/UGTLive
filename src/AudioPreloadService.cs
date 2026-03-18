@@ -21,6 +21,7 @@ namespace UGTLive
         private readonly Dictionary<string, Task<string?>> _inProgressTasks; // textObject ID -> task
         private CancellationTokenSource? _cancellationTokenSource;
         private SemaphoreSlim _concurrencyLimiter;
+        private static readonly SemaphoreSlim _localServiceLimiter = new SemaphoreSlim(1, 1);
         
         public static AudioPreloadService Instance
         {
@@ -410,12 +411,20 @@ namespace UGTLive
                 
                 // Wait for available slot (rate limiting)
                 await _concurrencyLimiter.WaitAsync(cancellationToken);
+                bool acquiredLocalLimiter = false;
                 
                 try
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
                         return;
+                    }
+                    
+                    // Local services (e.g. Qwen3-TTS) can only handle one request at a time
+                    if (TtsServiceFactory.IsLocalService(service))
+                    {
+                        await _localServiceLimiter.WaitAsync(cancellationToken);
+                        acquiredLocalLimiter = true;
                     }
                     
                     // Generate audio file
@@ -439,7 +448,6 @@ namespace UGTLive
                             
                             if (service == "ElevenLabs")
                             {
-                                // Check API key
                                 string apiKey = ConfigManager.Instance.GetElevenLabsApiKey();
                                 if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
                                 {
@@ -449,12 +457,9 @@ namespace UGTLive
                                     }
                                     break;
                                 }
-                                
-                                audioFilePath = await ElevenLabsService.Instance.GenerateAudioFileAsync(text, voice);
                             }
                             else if (service == "Google Cloud TTS")
                             {
-                                // Check API key
                                 string apiKey = ConfigManager.Instance.GetGoogleTtsApiKey();
                                 if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("<your"))
                                 {
@@ -464,19 +469,10 @@ namespace UGTLive
                                     }
                                     break;
                                 }
-                                
-                                // Extract language code from voice if needed
-                                string languageCode = ExtractLanguageCodeFromVoice(voice);
-                                audioFilePath = await GoogleTTSService.Instance.GenerateAudioFileAsync(text, languageCode, voice);
                             }
-                            else
-                            {
-                                if (ConfigManager.Instance.GetLogExtraDebugStuff())
-                                {
-                                    Console.WriteLine($"AudioPreloadService: Unknown TTS service: {service}");
-                                }
-                                break;
-                            }
+
+                            ITtsService ttsServiceInstance = TtsServiceFactory.CreateService(service);
+                            audioFilePath = await ttsServiceInstance.GenerateAudioFileAsync(text, voice);
                             
                             if (audioFilePath != null && File.Exists(audioFilePath))
                             {
@@ -606,6 +602,10 @@ namespace UGTLive
                 }
                 finally
                 {
+                    if (acquiredLocalLimiter)
+                    {
+                        _localServiceLimiter.Release();
+                    }
                     _concurrencyLimiter.Release();
                 }
             }
@@ -626,21 +626,6 @@ namespace UGTLive
                 byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
                 return Convert.ToBase64String(hashBytes);
             }
-        }
-        
-        private string ExtractLanguageCodeFromVoice(string voice)
-        {
-            // Extract language code from voice ID (e.g., "ja-JP-Neural2-B" -> "ja-JP")
-            int dashIndex = voice.IndexOf("-Neural2");
-            if (dashIndex == -1) dashIndex = voice.IndexOf("-Studio");
-            if (dashIndex == -1) dashIndex = voice.IndexOf("-Standard");
-            
-            if (dashIndex > 0)
-            {
-                return voice.Substring(0, dashIndex);
-            }
-            
-            return "ja-JP"; // Default
         }
         
         private void CheckAndTriggerAutoPlay()

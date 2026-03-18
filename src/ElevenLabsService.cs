@@ -14,7 +14,7 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace UGTLive
 {
-    public class ElevenLabsService
+    public class ElevenLabsService : ITtsService
     {
         private static ElevenLabsService? _instance;
         private readonly HttpClient _httpClient;

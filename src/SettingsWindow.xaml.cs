@@ -718,6 +718,20 @@ namespace UGTLive
                 }
             }
             
+            // Set Qwen3-TTS settings
+            if (qwen3TtsVoiceComboBox != null)
+            {
+                string qwen3VoiceId = ConfigManager.Instance.GetQwen3TtsVoice();
+                foreach (ComboBoxItem item in qwen3TtsVoiceComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), qwen3VoiceId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        qwen3TtsVoiceComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+            
             // Re-attach TTS event handlers
             ttsEnabledCheckBox.Checked += TtsEnabledCheckBox_CheckedChanged;
             ttsEnabledCheckBox.Unchecked += TtsEnabledCheckBox_CheckedChanged;
@@ -2449,6 +2463,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             {
                 bool isElevenLabsSelected = selectedService == "ElevenLabs";
                 bool isGoogleTtsSelected = selectedService == "Google Cloud TTS";
+                bool isQwen3TtsSelected = selectedService == "Qwen3-TTS";
                 
                 // Make sure the window is fully loaded and controls are initialized
                 if (elevenLabsApiKeyLabel == null || elevenLabsApiKeyGrid == null || 
@@ -2476,6 +2491,13 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 googleTtsApiKeyGrid.Visibility = isGoogleTtsSelected ? Visibility.Visible : Visibility.Collapsed;
                 googleTtsVoiceLabel.Visibility = isGoogleTtsSelected ? Visibility.Visible : Visibility.Collapsed;
                 googleTtsVoiceComboBox.Visibility = isGoogleTtsSelected ? Visibility.Visible : Visibility.Collapsed;
+                
+                // Show/hide Qwen3-TTS-specific settings
+                if (qwen3TtsVoiceLabel != null && qwen3TtsVoiceComboBox != null)
+                {
+                    qwen3TtsVoiceLabel.Visibility = isQwen3TtsSelected ? Visibility.Visible : Visibility.Collapsed;
+                    qwen3TtsVoiceComboBox.Visibility = isQwen3TtsSelected ? Visibility.Visible : Visibility.Collapsed;
+                }
                 
                 // Load service-specific settings if they're being shown
                 if (isElevenLabsSelected)
@@ -2519,6 +2541,21 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                         {
                             googleTtsVoiceComboBox.SelectedItem = item;
                             break;
+                        }
+                    }
+                }
+                else if (isQwen3TtsSelected)
+                {
+                    if (qwen3TtsVoiceComboBox != null)
+                    {
+                        string voiceId = ConfigManager.Instance.GetQwen3TtsVoice();
+                        foreach (ComboBoxItem item in qwen3TtsVoiceComboBox.Items)
+                        {
+                            if (string.Equals(item.Tag?.ToString(), voiceId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                qwen3TtsVoiceComboBox.SelectedItem = item;
+                                break;
+                            }
                         }
                     }
                 }
@@ -3325,6 +3362,28 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
+        // Qwen3-TTS event handlers
+
+        private void Qwen3TtsVoiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                if (qwen3TtsVoiceComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string voiceId = selectedItem.Tag?.ToString() ?? "ono_anna";
+                    ConfigManager.Instance.SetQwen3TtsVoice(voiceId);
+                    Console.WriteLine($"Qwen3-TTS voice set to: {selectedItem.Content} (ID: {voiceId})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating Qwen3-TTS voice: {ex.Message}");
+            }
+        }
+
         // Audio Preload Settings
         
         private void LoadAudioPreloadSettings()
@@ -3430,6 +3489,9 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     _lastMaxConcurrentDownloadsValue = maxConcurrent;
                     ttsMaxConcurrentDownloadsTextBox.Text = maxConcurrent.ToString();
                 }
+                
+                // Show effective TTS service on the source/target buttons
+                updatePageReadingTtsButtonLabels();
                 
                 // Re-attach event handlers
                 if (ttsPreloadEnabledCheckBox != null)
@@ -3700,6 +3762,9 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     ConfigManager.Instance.SetTtsSourceCustomVoiceId(dialog.CustomVoiceId ?? "");
                     Console.WriteLine($"Source TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
                     
+                    updatePageReadingTtsButtonLabels();
+                    adjustConcurrencyForLocalServices();
+                    
                     // Clear audio cache and retrigger OCR if voice changed
                     if (voiceChanged)
                     {
@@ -3747,6 +3812,9 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     ConfigManager.Instance.SetTtsTargetCustomVoiceId(dialog.CustomVoiceId ?? "");
                     Console.WriteLine($"Target TTS set to: {dialog.SelectedService} / {dialog.SelectedVoice} (Custom: {dialog.UseCustomVoiceId})");
                     
+                    updatePageReadingTtsButtonLabels();
+                    adjustConcurrencyForLocalServices();
+                    
                     // Clear audio cache and retrigger OCR if voice changed
                     if (voiceChanged)
                     {
@@ -3766,6 +3834,40 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 Console.WriteLine($"Error setting target TTS: {ex.Message}");
                 MessageBox.Show($"Error setting target TTS: {ex.Message}", "Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void updatePageReadingTtsButtonLabels()
+        {
+            if (setSourceTtsButton != null)
+            {
+                setSourceTtsButton.Content = $"Source TTS: {ConfigManager.Instance.GetTtsSourceService()} (click to change)";
+            }
+            if (setTargetTtsButton != null)
+            {
+                setTargetTtsButton.Content = $"Target TTS: {ConfigManager.Instance.GetTtsTargetService()} (click to change)";
+            }
+        }
+        
+        private void adjustConcurrencyForLocalServices()
+        {
+            string sourceService = ConfigManager.Instance.GetTtsSourceService();
+            string targetService = ConfigManager.Instance.GetTtsTargetService();
+            
+            bool anyLocal = TtsServiceFactory.IsLocalService(sourceService) || 
+                           TtsServiceFactory.IsLocalService(targetService);
+            
+            if (anyLocal && ttsMaxConcurrentDownloadsTextBox != null)
+            {
+                int currentMax = ConfigManager.Instance.GetTtsMaxConcurrentDownloads();
+                if (currentMax > 1 || currentMax == 0)
+                {
+                    ConfigManager.Instance.SetTtsMaxConcurrentDownloads(1);
+                    _lastMaxConcurrentDownloadsValue = 1;
+                    ttsMaxConcurrentDownloadsTextBox.Text = "1";
+                    AudioPreloadService.Instance.UpdateConcurrencyLimit();
+                    Console.WriteLine("Auto-set max concurrent downloads to 1 (local TTS service selected)");
+                }
             }
         }
         

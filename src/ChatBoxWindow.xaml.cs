@@ -252,22 +252,7 @@ namespace UGTLive
                         
                         try
                         {
-                            bool success = false;
-                            
-                            if (ttsService == "ElevenLabs")
-                            {
-                                success = await ElevenLabsService.Instance.SpeakText(text);
-                            }
-                            else if (ttsService == "Google Cloud TTS")
-                            {
-                                success = await GoogleTTSService.Instance.SpeakText(text);
-                            }
-                            else
-                            {
-                                System.Windows.MessageBox.Show($"Text-to-Speech service '{ttsService}' is not supported yet.",
-                                    "Unsupported Service", MessageBoxButton.OK, MessageBoxImage.Information);
-                                return;
-                            }
+                            bool success = await TtsServiceFactory.CreateService(ttsService).SpeakText(text);
                             
                             if (!success)
                             {

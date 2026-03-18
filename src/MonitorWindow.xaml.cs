@@ -1565,16 +1565,7 @@ namespace UGTLive
                 
                 if (!string.IsNullOrWhiteSpace(textToSpeak))
                 {
-                    // Use the configured TTS service
-                    string ttsService = ConfigManager.Instance.GetTtsService();
-                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _ = GoogleTTSService.Instance.SpeakText(textToSpeak);
-                    }
-                    else // Default to ElevenLabs
-                    {
-                        _ = ElevenLabsService.Instance.SpeakText(textToSpeak);
-                    }
+                    _ = TtsServiceFactory.CreateService().SpeakText(textToSpeak);
                 }
             }
         }
@@ -1589,16 +1580,7 @@ namespace UGTLive
                 
                 if (!string.IsNullOrWhiteSpace(textToSpeak))
                 {
-                    // Use the configured TTS service
-                    string ttsService = ConfigManager.Instance.GetTtsService();
-                    if (ttsService.Equals("Google Cloud TTS", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _ = GoogleTTSService.Instance.SpeakText(textToSpeak);
-                    }
-                    else // Default to ElevenLabs
-                    {
-                        _ = ElevenLabsService.Instance.SpeakText(textToSpeak);
-                    }
+                    _ = TtsServiceFactory.CreateService().SpeakText(textToSpeak);
                 }
             }
         }

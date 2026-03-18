@@ -29,6 +29,7 @@
                  Margin="0,0,0,20" SelectionChanged="TtsServiceComboBox_SelectionChanged">
             <ComboBoxItem Content="ElevenLabs"/>
             <ComboBoxItem Content="Google Cloud TTS"/>
+            <ComboBoxItem Content="Qwen3-TTS"/>
         </ComboBox>
         
         <!-- Voice Selection -->

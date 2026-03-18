@@ -11,6 +11,7 @@
       "cwd": "${workspaceFolder}/app",
       "stopAtEntry": false,
       "console": "internalConsole",
+      "checkForDevCert": false,
       "env": {
         "WEBVIEW2_USER_DATA_FOLDER": "${workspaceFolder}/app/temp/webview2_debug",
         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": "--disable-web-security --allow-running-insecure-content"
@@ -26,6 +27,7 @@
       "cwd": "${workspaceFolder}/app",
       "stopAtEntry": false,
       "console": "internalConsole",
+      "checkForDevCert": false,
       "env": {
         "WEBVIEW2_USER_DATA_FOLDER": "${workspaceFolder}/app/temp/webview2_release",
         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS": "--disable-web-security --allow-running-insecure-content"

@@ -1149,6 +1149,7 @@
                                          Margin="0,5" SelectedIndex="0" SelectionChanged="TtsServiceComboBox_SelectionChanged">
                                     <ComboBoxItem Content="ElevenLabs"/>
                                     <ComboBoxItem Content="Google Cloud TTS"/>
+                                    <ComboBoxItem Content="Qwen3-TTS"/>
                                 </ComboBox>
                                 
                                 <!-- ElevenLabs API Key - Only visible when ElevenLabs is selected -->
@@ -1260,6 +1261,22 @@
                                     <ComboBoxItem Content="Vietnamese (Female) - Neural2" Tag="vi-VN-Neural2-A"/>
                                     <ComboBoxItem Content="Vietnamese (Male) - Neural2" Tag="vi-VN-Neural2-D"/>
                                 </ComboBox>
+                                
+                                <!-- Qwen3-TTS Voice - Only visible when Qwen3-TTS is selected -->
+                                <TextBlock x:Name="qwen3TtsVoiceLabel" Text="Qwen3-TTS Voice:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <ComboBox x:Name="qwen3TtsVoiceComboBox" Grid.Row="4" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="Qwen3TtsVoiceComboBox_SelectionChanged" Visibility="Collapsed">
+                                    <ComboBoxItem Content="Ono Anna (Japanese)" Tag="ono_anna"/>
+                                    <ComboBoxItem Content="Ryan (English)" Tag="ryan"/>
+                                    <ComboBoxItem Content="Aiden (English)" Tag="aiden"/>
+                                    <ComboBoxItem Content="Vivian (Chinese)" Tag="vivian"/>
+                                    <ComboBoxItem Content="Serena (Chinese)" Tag="serena"/>
+                                    <ComboBoxItem Content="Uncle Fu (Chinese)" Tag="uncle_fu"/>
+                                    <ComboBoxItem Content="Dylan (Chinese)" Tag="dylan"/>
+                                    <ComboBoxItem Content="Eric (Chinese)" Tag="eric"/>
+                                    <ComboBoxItem Content="Sohee (Korean)" Tag="sohee"/>
+                                </ComboBox>
                             </Grid>
                         </GroupBox>
                         
@@ -1349,9 +1366,9 @@
                                          Margin="0,10,0,0" IsChecked="False"/>
                                 
                                 <!-- Max Concurrent Downloads -->
-                                <TextBlock Text="Max concurrent downloads:" Grid.Row="8" Grid.Column="0" 
+                                <TextBlock Text="Max concurrent downloads:" Grid.Row="8" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,10,10,0"
-                                          ToolTip="Maximum number of audio files to download simultaneously. Set to 0 for unlimited, or set to 2 to match ElevenLabs free tier limit."/>
+                                          ToolTip="Maximum number of audio files to generate simultaneously. Cloud services (ElevenLabs, Google) support concurrent requests. Local services (Qwen3-TTS) process one at a time regardless of this setting."/>
                                 <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="8" Grid.Column="1" 
                                         Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
                                         Text="2" LostFocus="TtsMaxConcurrentDownloadsTextBox_LostFocus"/>

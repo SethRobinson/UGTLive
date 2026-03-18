@@ -138,6 +138,13 @@ namespace UGTLive
                     voiceComboBox.Items.Add(new ComboBoxItem { Content = voice.Key, Tag = voice.Value });
                 }
             }
+            else if (SelectedService == "Qwen3-TTS")
+            {
+                foreach (var voice in Qwen3TtsService.AvailableVoices)
+                {
+                    voiceComboBox.Items.Add(new ComboBoxItem { Content = voice.Key, Tag = voice.Value });
+                }
+            }
             
             // Select first item if available
             if (voiceComboBox.Items.Count > 0)

@@ -163,6 +163,9 @@ namespace UGTLive
         public const string ELEVENLABS_CUSTOM_VOICE_ID = "elevenlabs_custom_voice_id";
         public const string GOOGLE_TTS_API_KEY = "google_tts_api_key";
         public const string GOOGLE_TTS_VOICE = "google_tts_voice";
+        public const string QWEN3_TTS_URL = "qwen3_tts_url";
+        public const string QWEN3_TTS_PORT = "qwen3_tts_port";
+        public const string QWEN3_TTS_VOICE = "qwen3_tts_voice";
         
         // TTS Preload configuration keys
         public const string TTS_SOURCE_SERVICE = "tts_source_service";
@@ -287,6 +290,9 @@ namespace UGTLive
             
             // Load main config values
             LoadConfig();
+            
+            // Migrate: clear stale Page Reading TTS service defaults so they follow the main TTS service
+            migratePageReadingTtsDefaults();
             
             // Force "windows visible in screenshots" to false at startup (dangerous option)
             SetWindowsVisibleInScreenshots(false);
@@ -444,12 +450,11 @@ namespace UGTLive
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
             _configValues[TTS_ENABLED] = "false";
             
-            // TTS Preload defaults
-            _configValues[TTS_SOURCE_SERVICE] = "Google Cloud TTS";
+            // TTS Preload defaults (TTS_SOURCE_SERVICE and TTS_TARGET_SERVICE are intentionally
+            // not set here so they fall through to GetTtsService() as the dynamic default)
             _configValues[TTS_SOURCE_VOICE] = "ja-JP-Neural2-B";
             _configValues[TTS_SOURCE_USE_CUSTOM_VOICE_ID] = "false";
             _configValues[TTS_SOURCE_CUSTOM_VOICE_ID] = "";
-            _configValues[TTS_TARGET_SERVICE] = "Google Cloud TTS";
             _configValues[TTS_TARGET_VOICE] = "en-US-Studio-O";
             _configValues[TTS_TARGET_USE_CUSTOM_VOICE_ID] = "false";
             _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = "";
@@ -1690,6 +1695,56 @@ Here is the input JSON:";
             }
         }
         
+        // Qwen3-TTS methods
+
+        public string GetQwen3TtsUrl()
+        {
+            return GetValue(QWEN3_TTS_URL, "http://127.0.0.1");
+        }
+
+        public string GetQwen3TtsPort()
+        {
+            return GetValue(QWEN3_TTS_PORT, "5004");
+        }
+
+        public string GetQwen3TtsVoice()
+        {
+            return GetValue(QWEN3_TTS_VOICE, "ono_anna");
+        }
+
+        public void SetQwen3TtsVoice(string voice)
+        {
+            if (!string.IsNullOrWhiteSpace(voice))
+            {
+                _configValues[QWEN3_TTS_VOICE] = voice;
+                SaveConfig();
+                Console.WriteLine($"Qwen3-TTS voice set to: {voice}");
+            }
+        }
+        
+        private void migratePageReadingTtsDefaults()
+        {
+            // If the user never explicitly chose a Page Reading TTS service, the config file
+            // may still contain the old hardcoded default "Google Cloud TTS". Clear it so the
+            // getter falls through to the main TTS service (GetTtsService()).
+            string googleApiKey = GetValue(GOOGLE_TTS_API_KEY, "");
+            bool googleKeyIsPlaceholder = string.IsNullOrWhiteSpace(googleApiKey) || googleApiKey.Contains("<your");
+
+            if (_configValues.TryGetValue(TTS_SOURCE_SERVICE, out string? srcService)
+                && srcService == "Google Cloud TTS" && googleKeyIsPlaceholder)
+            {
+                _configValues.Remove(TTS_SOURCE_SERVICE);
+                Console.WriteLine("Migrated tts_source_service: cleared stale default so it follows the main TTS service");
+            }
+
+            if (_configValues.TryGetValue(TTS_TARGET_SERVICE, out string? tgtService)
+                && tgtService == "Google Cloud TTS" && googleKeyIsPlaceholder)
+            {
+                _configValues.Remove(TTS_TARGET_SERVICE);
+                Console.WriteLine("Migrated tts_target_service: cleared stale default so it follows the main TTS service");
+            }
+        }
+
         // TTS Preload methods
         
         // Get/Set TTS Source Service
