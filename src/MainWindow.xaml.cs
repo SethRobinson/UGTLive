@@ -455,6 +455,7 @@ namespace UGTLive
                 
                 // Clear snapshot overlay state
                 _isSnapshotOverlayDisplayed = false;
+                UpdateSnapshotButtonState();
                 
                 // Immediately disable OCR capture to prevent it from triggering during the delay
                 SetOCRCheckIsWanted(false);
@@ -1350,6 +1351,7 @@ namespace UGTLive
                 {
                     translationStatusLabel.Text = "Snapshot canceled";
                 }
+                UpdateSnapshotButtonState();
                 return;
             }
             
@@ -1373,6 +1375,7 @@ namespace UGTLive
                 {
                     translationStatusLabel.Text = "Snapshot cleared";
                 }
+                UpdateSnapshotButtonState();
                 return;
             }
             
@@ -1385,6 +1388,7 @@ namespace UGTLive
             // Mark snapshot as in progress to prevent double-triggering
             _snapshotInProgress = true;
             _isSnapshotOverlayDisplayed = false; // Will be set true when results arrive
+            UpdateSnapshotButtonState();
             
             // Show snapshot status
             string ocrMethod = GetSelectedOcrMethod();
@@ -1439,8 +1443,19 @@ namespace UGTLive
             {
                 _isSnapshotOverlayDisplayed = false;
             }
+            UpdateSnapshotButtonState();
         }
         
+        private void UpdateSnapshotButtonState()
+        {
+            if (snapshotButton == null) return;
+
+            bool isActive = _snapshotInProgress || _isSnapshotOverlayDisplayed;
+            snapshotButton.Background = isActive
+                ? new SolidColorBrush(Color.FromRgb(46, 160, 67))
+                : new SolidColorBrush(Color.FromRgb(95, 95, 95));
+        }
+
         // Perform capture for snapshot mode (bypasses normal checks)
         private void PerformSnapshotCapture()
         {
