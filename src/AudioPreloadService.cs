@@ -225,6 +225,12 @@ namespace UGTLive
                 {
                     continue;
                 }
+
+                if (ConfigManager.Instance.IsTextBelowTtsMinChars(textObj.Text))
+                {
+                    textObj.SourceAudioReady = true;
+                    continue;
+                }
                 
                 // Check if already ready (skip unless always-generate-new is enabled)
                 if (!ConfigManager.Instance.GetTtsAlwaysGenerateNewAudio()
@@ -329,6 +335,12 @@ namespace UGTLive
                 
                 if (string.IsNullOrWhiteSpace(textObj.TextTranslated))
                 {
+                    continue;
+                }
+
+                if (ConfigManager.Instance.IsTextBelowTtsMinChars(textObj.Text))
+                {
+                    textObj.TargetAudioReady = true;
                     continue;
                 }
                 
@@ -669,10 +681,13 @@ namespace UGTLive
             bool checkSource = preloadMode == "Source language" || preloadMode == "Both source and target languages";
             bool checkTarget = preloadMode == "Target language" || preloadMode == "Both source and target languages";
             
-            // Check if all requested audio is ready
+            // Check if all requested audio is ready (skip items below min chars threshold)
             bool allReady = true;
             foreach (var textObj in textObjects)
             {
+                if (ConfigManager.Instance.IsTextBelowTtsMinChars(textObj.Text))
+                    continue;
+
                 if (checkSource && !textObj.SourceAudioReady)
                 {
                     allReady = false;

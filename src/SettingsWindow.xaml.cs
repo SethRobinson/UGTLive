@@ -3437,7 +3437,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 {
                     ttsMaxConcurrentDownloadsTextBox.LostFocus -= TtsMaxConcurrentDownloadsTextBox_LostFocus;
                 }
-                
+                if (ttsMinCharsTextBox != null)
+                {
+                    ttsMinCharsTextBox.LostFocus -= TtsMinCharsTextBox_LostFocus;
+                }
+
                 // Load preload enabled checkbox
                 if (ttsPreloadEnabledCheckBox != null)
                 {
@@ -3510,6 +3514,14 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     _lastMaxConcurrentDownloadsValue = maxConcurrent;
                     ttsMaxConcurrentDownloadsTextBox.Text = maxConcurrent.ToString();
                 }
+
+                // Load minimum characters for TTS
+                if (ttsMinCharsTextBox != null)
+                {
+                    int minChars = ConfigManager.Instance.GetTtsMinCharsForTts();
+                    _lastMinCharsValue = minChars;
+                    ttsMinCharsTextBox.Text = minChars.ToString();
+                }
                 
                 // Show effective TTS service on the source/target buttons
                 updatePageReadingTtsButtonLabels();
@@ -3550,6 +3562,10 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 if (ttsMaxConcurrentDownloadsTextBox != null)
                 {
                     ttsMaxConcurrentDownloadsTextBox.LostFocus += TtsMaxConcurrentDownloadsTextBox_LostFocus;
+                }
+                if (ttsMinCharsTextBox != null)
+                {
+                    ttsMinCharsTextBox.LostFocus += TtsMinCharsTextBox_LostFocus;
                 }
             }
             catch (Exception ex)
@@ -3779,6 +3795,49 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
+        private static int _lastMinCharsValue = -1;
+
+        private void TtsMinCharsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                if (ttsMinCharsTextBox == null)
+                    return;
+
+                string text = ttsMinCharsTextBox.Text;
+
+                if (int.TryParse(text, out int minChars))
+                {
+                    if (minChars < 1)
+                    {
+                        minChars = 1;
+                        ttsMinCharsTextBox.Text = "1";
+                    }
+
+                    if (minChars != _lastMinCharsValue)
+                    {
+                        _lastMinCharsValue = minChars;
+                        ConfigManager.Instance.SetTtsMinCharsForTts(minChars);
+
+                        MonitorWindow.Instance?.RefreshOverlays();
+                        MainWindow.Instance?.RefreshMainWindowOverlays();
+                    }
+                }
+                else
+                {
+                    int currentValue = ConfigManager.Instance.GetTtsMinCharsForTts();
+                    ttsMinCharsTextBox.Text = currentValue.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating TTS minimum characters: {ex.Message}");
+            }
+        }
+
         private void SetSourceTtsButton_Click(object sender, RoutedEventArgs e)
         {
             try

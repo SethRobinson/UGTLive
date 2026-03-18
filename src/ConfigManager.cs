@@ -185,7 +185,8 @@ namespace UGTLive
         public const string TTS_VERTICAL_OVERLAP_THRESHOLD = "tts_vertical_overlap_threshold";
         public const string TTS_MAX_CONCURRENT_DOWNLOADS = "tts_max_concurrent_downloads";
         public const string TTS_ALWAYS_GENERATE_NEW_AUDIO = "tts_always_generate_new_audio";
-        
+        public const string TTS_MIN_CHARS_FOR_TTS = "tts_min_chars_for_tts";
+
         // UI Icon Constants
         public const string ICON_SPEAKER_READY = "🔉";
         public const string ICON_SPEAKER_NOT_READY = "◯";
@@ -469,6 +470,7 @@ namespace UGTLive
             _configValues[TTS_PLAY_ORDER] = "Top down, left to right";
             _configValues[TTS_AUTO_PLAY_ALL] = "false";
             _configValues[TTS_DELETE_CACHE_ON_STARTUP] = "false";
+            _configValues[TTS_MIN_CHARS_FOR_TTS] = "1";
             _configValues[MAX_CONTEXT_PIECES] = "20";
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
@@ -1992,6 +1994,41 @@ Here is the input JSON:";
             Console.WriteLine($"TTS max concurrent downloads set to: {maxConcurrent}{(maxConcurrent == 0 ? " (unlimited)" : "")}");
         }
         
+        public int GetTtsMinCharsForTts()
+        {
+            string value = GetValue(TTS_MIN_CHARS_FOR_TTS, "1");
+            if (int.TryParse(value, out int minChars) && minChars >= 1)
+            {
+                return minChars;
+            }
+            return 1;
+        }
+
+        public void SetTtsMinCharsForTts(int minChars)
+        {
+            if (minChars < 1)
+            {
+                minChars = 1;
+            }
+            _configValues[TTS_MIN_CHARS_FOR_TTS] = minChars.ToString();
+            SaveConfig();
+            Console.WriteLine($"TTS minimum characters for TTS set to: {minChars}");
+        }
+
+        public bool IsTextBelowTtsMinChars(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return true;
+            int minChars = GetTtsMinCharsForTts();
+            int nonPunctuationCount = 0;
+            foreach (char c in text)
+            {
+                if (!char.IsPunctuation(c) && !char.IsWhiteSpace(c) && !char.IsSymbol(c))
+                    nonPunctuationCount++;
+            }
+            return nonPunctuationCount < minChars;
+        }
+
         // ChatGPT methods
         
         // Get/Set ChatGPT API key

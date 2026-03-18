@@ -1303,6 +1303,10 @@ namespace UGTLive
                 Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.RefreshOverlays();
                 
+                _snapshotInProgress = false;
+                _isSnapshotOverlayDisplayed = false;
+                UpdateSnapshotButtonState();
+                
                 isStarted = true;
                 if (btn != null)
                 {
@@ -1553,9 +1557,9 @@ namespace UGTLive
 
                 // Save passthrough state and force it on so the invisible overlay doesn't block clicks
                 _passthroughStateBeforeHide = mousePassthroughCheckBox?.IsChecked ?? false;
-                if (!_passthroughStateBeforeHide)
+                if (!_passthroughStateBeforeHide && mousePassthroughCheckBox != null)
                 {
-                    updateMousePassthrough(true);
+                    mousePassthroughCheckBox.IsChecked = true;
                 }
 
                 // Update the toolbar button to show it's in "hidden" state
@@ -1570,9 +1574,9 @@ namespace UGTLive
                 MainBorder.Visibility = Visibility.Visible;
 
                 // Restore the passthrough state that was active before hiding
-                if (!_passthroughStateBeforeHide)
+                if (!_passthroughStateBeforeHide && mousePassthroughCheckBox != null)
                 {
-                    updateMousePassthrough(false);
+                    mousePassthroughCheckBox.IsChecked = false;
                 }
 
                 // Update the toolbar button back to normal state
@@ -1847,6 +1851,9 @@ namespace UGTLive
                      var textObj = textObjects?.FirstOrDefault(t => t.ID == textObjectId);
                      
                      if (textObj == null) return;
+
+                     if (ConfigManager.Instance.IsTextBelowTtsMinChars(textObj.Text))
+                         return;
                      
                      bool isTranslated = _currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated);
                      
@@ -3475,40 +3482,43 @@ namespace UGTLive
                         
                         if (preloadEnabled)
                         {
-                            // Determine which audio should be shown for current mode
-                            bool audioIsReady = false;
-                            bool isSource = true;
-                            
-                            // Only show speaker icon if the EXPECTED audio for current mode is ready
-                            // (no visual fallback - but clicking will still try fallback audio)
-                            if (isTranslated)
+                            if (!ConfigManager.Instance.IsTextBelowTtsMinChars(textObj.Text))
                             {
-                                // In translated mode, only show speaker if target audio is ready
-                                if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                                // Determine which audio should be shown for current mode
+                                bool audioIsReady = false;
+                                bool isSource = true;
+
+                                // Only show speaker icon if the EXPECTED audio for current mode is ready
+                                // (no visual fallback - but clicking will still try fallback audio)
+                                if (isTranslated)
                                 {
-                                    audioIsReady = true;
-                                    isSource = false;
+                                    // In translated mode, only show speaker if target audio is ready
+                                    if (textObj.TargetAudioReady && !string.IsNullOrEmpty(textObj.TargetAudioFilePath))
+                                    {
+                                        audioIsReady = true;
+                                        isSource = false;
+                                    }
+                                    else
+                                    {
+                                        // Show hourglass but set isSource for fallback playback if user clicks
+                                        isSource = textObj.SourceAudioReady ? true : false;
+                                    }
                                 }
                                 else
                                 {
-                                    // Show hourglass but set isSource for fallback playback if user clicks
-                                    isSource = textObj.SourceAudioReady ? true : false;
+                                    // In source mode, only show speaker if source audio is ready
+                                    if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
+                                    {
+                                        audioIsReady = true;
+                                        isSource = true;
+                                    }
                                 }
+
+                                // Show icon with appropriate state
+                                string iconEmoji = audioIsReady ? ConfigManager.ICON_SPEAKER_READY : ConfigManager.ICON_SPEAKER_NOT_READY;
+                                string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
+                                html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                             }
-                            else
-                            {
-                                // In source mode, only show speaker if source audio is ready
-                                if (textObj.SourceAudioReady && !string.IsNullOrEmpty(textObj.SourceAudioFilePath))
-                                {
-                                    audioIsReady = true;
-                                    isSource = true;
-                                }
-                            }
-                            
-                            // Show icon with appropriate state
-                            string iconEmoji = audioIsReady ? ConfigManager.ICON_SPEAKER_READY : ConfigManager.ICON_SPEAKER_NOT_READY;
-                            string iconClass = audioIsReady ? "audio-icon" : "audio-icon loading";
-                            html.Append($"<div class='{iconClass}' data-is-ready='{audioIsReady.ToString().ToLower()}' onclick='handleAudioIconClick(\"{textObj.ID}\", {isSource.ToString().ToLower()})'>{iconEmoji}</div>");
                         }
                         
                         // Wrap text in span

@@ -23,6 +23,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
+import numpy as np
 import torch
 import soundfile as sf
 
@@ -57,6 +58,14 @@ SUPPORTED_SPEAKERS = [
 ]
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+
+
+def normalize_audio(audio, target_peak=0.95):
+    """Peak-normalize audio so the loudest sample hits target_peak."""
+    peak = np.max(np.abs(audio))
+    if peak > 0 and peak < target_peak:
+        audio = audio * (target_peak / peak)
+    return audio
 
 
 class TTSRequest(BaseModel):
@@ -198,8 +207,10 @@ async def text_to_speech(request: TTSRequest):
         text_preview = request.text[:60] + "..." if len(request.text) > 60 else request.text
         print(f"TTS generated in {elapsed:.2f}s for voice={speaker}, text='{text_preview}'")
 
+        audio = normalize_audio(wavs[0])
+
         buf = BytesIO()
-        sf.write(buf, wavs[0], sr, format="WAV")
+        sf.write(buf, audio, sr, format="WAV")
         buf.seek(0)
 
         return Response(

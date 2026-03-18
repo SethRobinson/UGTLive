@@ -1307,6 +1307,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Enable Page Reading -->
@@ -1389,6 +1390,14 @@
                                 <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="9" Grid.Column="1" 
                                         Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
                                         Text="2" LostFocus="TtsMaxConcurrentDownloadsTextBox_LostFocus"/>
+                                
+                                <!-- Minimum Characters for TTS -->
+                                <TextBlock Text="Minimum characters needed to use TTS on:" Grid.Row="10" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Text with fewer characters than this threshold will be skipped during page reading TTS generation."/>
+                                <TextBox x:Name="ttsMinCharsTextBox" Grid.Row="10" Grid.Column="1" 
+                                        Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
+                                        Text="1" LostFocus="TtsMinCharsTextBox_LostFocus"/>
                             </Grid>
                         </GroupBox>
 

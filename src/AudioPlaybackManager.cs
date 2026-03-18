@@ -406,6 +406,8 @@ namespace UGTLive
             // Include objects that have either source or target audio, matching speaker icon behavior
             var objectsWithAudio = sortedObjects.Where(obj =>
             {
+                if (ConfigManager.Instance.IsTextBelowTtsMinChars(obj.Text))
+                    return false;
                 bool hasSourceAudio = obj.SourceAudioReady && !string.IsNullOrEmpty(obj.SourceAudioFilePath);
                 bool hasTargetAudio = obj.TargetAudioReady && !string.IsNullOrEmpty(obj.TargetAudioFilePath);
                 return hasSourceAudio || hasTargetAudio;
