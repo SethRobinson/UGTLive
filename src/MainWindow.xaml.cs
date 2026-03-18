@@ -100,6 +100,7 @@ namespace UGTLive
         
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
+        private bool _wasStartedBeforeMinimize = false;
         private bool _isSnapshotOverlayDisplayed = false;
         private bool _snapshotInProgress = false;
         private bool _logCaptureRectOnce = false; // Debug flag for capture rect logging
@@ -2118,6 +2119,14 @@ namespace UGTLive
         {
             if (this.WindowState == WindowState.Minimized)
             {
+                _wasStartedBeforeMinimize = isStarted;
+                if (isStarted)
+                {
+                    isStarted = false;
+                    SetOCRCheckIsWanted(false);
+                    Console.WriteLine("Auto mode paused (minimized)");
+                }
+
                 HotkeyManager.Instance.SetEnabled(false);
                 KeyboardShortcuts.SetShortcutsEnabled(false);
                 Console.WriteLine("Window minimized - global hotkeys disabled");
@@ -2127,6 +2136,13 @@ namespace UGTLive
                 HotkeyManager.Instance.SetEnabled(true);
                 KeyboardShortcuts.SetShortcutsEnabled(true);
                 Console.WriteLine("Window restored - global hotkeys enabled");
+
+                if (_wasStartedBeforeMinimize)
+                {
+                    isStarted = true;
+                    SetOCRCheckIsWanted(true);
+                    Console.WriteLine("Auto mode resumed (restored)");
+                }
             }
         }
 
