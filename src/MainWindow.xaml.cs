@@ -359,7 +359,9 @@ namespace UGTLive
             this.DataContext = this;
 
             InitializeComponent();
-            
+
+            this.StateChanged += MainWindow_StateChanged;
+
             // Set high-res icon
             IconHelper.SetWindowIcon(this);
 
@@ -2111,7 +2113,23 @@ namespace UGTLive
         {
             this.WindowState = WindowState.Minimized;
         }
-        
+
+        private void MainWindow_StateChanged(object? sender, EventArgs e)
+        {
+            if (this.WindowState == WindowState.Minimized)
+            {
+                HotkeyManager.Instance.SetEnabled(false);
+                KeyboardShortcuts.SetShortcutsEnabled(false);
+                Console.WriteLine("Window minimized - global hotkeys disabled");
+            }
+            else
+            {
+                HotkeyManager.Instance.SetEnabled(true);
+                KeyboardShortcuts.SetShortcutsEnabled(true);
+                Console.WriteLine("Window restored - global hotkeys enabled");
+            }
+        }
+
         private void AutoTranslateCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Convert sender to CheckBox

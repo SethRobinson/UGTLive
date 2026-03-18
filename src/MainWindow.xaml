@@ -181,11 +181,16 @@
 								</Border>
                             </WrapPanel>
                             
-                            <!-- Close Button -->
-                            <Button Grid.Column="1" Content="X" Width="30" Height="30" 
-                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,5,5"
-                                    Background="#CCE63232" Foreground="White" FontWeight="Bold"
-                                    Click="CloseButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            <!-- Minimize + Close Buttons -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,5,5">
+                                <Button x:Name="minimizeButton" Content="─" Width="30" Height="30"
+                                        Background="#CC5F5F5F" Foreground="White" FontWeight="Bold"
+                                        Click="MinimizeButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"
+                                        ToolTip="Minimize (disables global hotkeys)"/>
+                                <Button Content="X" Width="30" Height="30" Margin="2,0,0,0"
+                                        Background="#CCE63232" Foreground="White" FontWeight="Bold"
+                                        Click="CloseButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
