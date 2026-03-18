@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace UGTLive
 {
@@ -83,6 +84,19 @@ namespace UGTLive
             {
                 SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             }
+        }
+
+        protected override void OnDeactivated(EventArgs e)
+        {
+            base.OnDeactivated(e);
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (IsVisible)
+                {
+                    BringToFront();
+                }
+            }), DispatcherPriority.Input);
         }
 
         // --- Drag handle ---
