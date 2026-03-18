@@ -1689,6 +1689,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             ChatBoxWindow.Instance?.UpdateCaptureExclusion();
             MonitorWindow.Instance?.UpdateCaptureExclusion();
             MainWindow.Instance?.UpdateCaptureExclusion();
+            ToolbarWindow.Instance?.UpdateCaptureExclusion();
             
             // Update this window as well
             UpdateCaptureExclusion();

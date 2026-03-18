@@ -149,8 +149,29 @@ namespace UGTLive
             _translationHistory.Clear();
             Console.WriteLine("Translation history cleared from MainWindow");
         }
-       
-  
+
+        // Floating toolbar window
+        private ToolbarWindow? _toolbarWindow;
+        private bool _isToolbarDragging = false;
+
+        // Accessor properties that delegate to ToolbarWindow's named controls.
+        // These replace the old XAML-generated fields that were removed when the
+        // buttons moved from MainWindow's header into the floating toolbar.
+        private System.Windows.Controls.Button? hideButton => _toolbarWindow?.hideButton;
+        private System.Windows.Controls.Button? toggleButton => _toolbarWindow?.toggleButton;
+        private System.Windows.Controls.Button? snapshotButton => _toolbarWindow?.snapshotButton;
+        private System.Windows.Controls.Button? monitorButton => _toolbarWindow?.monitorButton;
+        private System.Windows.Controls.Button? chatBoxButton => _toolbarWindow?.chatBoxButton;
+        private System.Windows.Controls.Button? listenButton => _toolbarWindow?.listenButton;
+        private System.Windows.Controls.Button? logButton => _toolbarWindow?.logButton;
+        private System.Windows.Controls.Button? settingsButton => _toolbarWindow?.settingsButton;
+        private System.Windows.Controls.Button? exportButton => _toolbarWindow?.exportButton;
+        private System.Windows.Controls.Button? playAllAudioButton => _toolbarWindow?.playAllAudioButton;
+        private System.Windows.Controls.RadioButton? overlayHideRadio => _toolbarWindow?.overlayHideRadio;
+        private System.Windows.Controls.RadioButton? overlaySourceRadio => _toolbarWindow?.overlaySourceRadio;
+        private System.Windows.Controls.RadioButton? overlayTranslatedRadio => _toolbarWindow?.overlayTranslatedRadio;
+        private System.Windows.Controls.CheckBox? mousePassthroughCheckBox => _toolbarWindow?.mousePassthroughCheckBox;
+
         //allow this to be accesible through an "Instance" variable
         public static MainWindow Instance { get { return _this!; } }
 
@@ -413,15 +434,15 @@ namespace UGTLive
             this.PreviewKeyDown += Application_KeyDown;
             
             // Register hotkey events with the new HotkeyManager
-            HotkeyManager.Instance.StartStopRequested += (s, e) => OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
-            HotkeyManager.Instance.MonitorToggleRequested += (s, e) => MonitorButton_Click(monitorButton, new RoutedEventArgs());
-            HotkeyManager.Instance.ChatBoxToggleRequested += (s, e) => ChatBoxButton_Click(chatBoxButton, new RoutedEventArgs());
-            HotkeyManager.Instance.SettingsToggleRequested += (s, e) => SettingsButton_Click(settingsButton, new RoutedEventArgs());
-            HotkeyManager.Instance.LogToggleRequested += (s, e) => LogButton_Click(logButton, new RoutedEventArgs());
-            HotkeyManager.Instance.ListenToggleRequested += (s, e) => ListenButton_Click(listenButton, new RoutedEventArgs());
-            HotkeyManager.Instance.ViewInBrowserRequested += (s, e) => ExportButton_Click(exportButton, new RoutedEventArgs());
+            HotkeyManager.Instance.StartStopRequested += (s, e) => HandleToggleButton();
+            HotkeyManager.Instance.MonitorToggleRequested += (s, e) => HandleMonitorButton();
+            HotkeyManager.Instance.ChatBoxToggleRequested += (s, e) => HandleChatBoxButton();
+            HotkeyManager.Instance.SettingsToggleRequested += (s, e) => HandleSettingsButton();
+            HotkeyManager.Instance.LogToggleRequested += (s, e) => HandleLogButton();
+            HotkeyManager.Instance.ListenToggleRequested += (s, e) => HandleListenButton();
+            HotkeyManager.Instance.ViewInBrowserRequested += (s, e) => HandleExportButton();
             HotkeyManager.Instance.MainWindowVisibilityToggleRequested += (s, e) => ToggleMainWindowVisibility();
-            HotkeyManager.Instance.PlayAllAudioRequested += (s, e) => PlayAllAudioButton_Click(playAllAudioButton, new RoutedEventArgs());
+            HotkeyManager.Instance.PlayAllAudioRequested += (s, e) => HandlePlayAllAudioButton();
             HotkeyManager.Instance.ClearOverlaysRequested += (s, e) => {
                 // Cancel any in-progress translation
                 Logic.Instance.CancelTranslation();
@@ -583,7 +604,7 @@ namespace UGTLive
         {
             if (MainBorder.Visibility == Visibility.Visible)
             {
-                HideButton_Click(hideButton, new RoutedEventArgs());
+                HandleHideButton();
             }
             else
             {
@@ -592,18 +613,19 @@ namespace UGTLive
                     ShowButton_Click(showButton, new RoutedEventArgs());
                 }
             }
-
         }
         
-        // Toggle passthrough mode
         private void TogglePassthrough()
         {
+            bool currentState = mousePassthroughCheckBox?.IsChecked ?? false;
+            bool newState = !currentState;
+            // Setting IsChecked triggers the checkbox's Checked/Unchecked event in the toolbar,
+            // which in turn calls HandlePassthroughChanged
             if (mousePassthroughCheckBox != null)
             {
-                bool newState = !(mousePassthroughCheckBox.IsChecked ?? false);
                 mousePassthroughCheckBox.IsChecked = newState;
-                Console.WriteLine($"Passthrough toggled: {(newState ? "enabled" : "disabled")}");
             }
+            Console.WriteLine($"Passthrough toggled: {(newState ? "enabled" : "disabled")}");
         }
         
         // Toggle overlay mode between Hide, Source, and Translated
@@ -767,7 +789,7 @@ namespace UGTLive
         
         private void SetupIndividualTooltipHandlers()
         {
-            var controls = new FrameworkElement[] 
+            var controls = new FrameworkElement?[] 
             { 
                 toggleButton, snapshotButton, monitorButton, chatBoxButton, settingsButton, logButton, 
                 listenButton, exportButton, hideButton, mousePassthroughCheckBox,
@@ -847,6 +869,9 @@ namespace UGTLive
                 }
             }
 
+            // Create and show the floating toolbar
+            CreateAndShowToolbar();
+
             // Update tooltips with hotkeys
             UpdateHotkeyTooltips();
             
@@ -858,25 +883,8 @@ namespace UGTLive
             // Subscribe to current playing text object changes
             AudioPlaybackManager.Instance.CurrentPlayingTextObjectChanged += AudioPlaybackManager_CurrentPlayingTextObjectChanged;
            
-            // Add socket status to the header
-            if (HeaderBorder != null && HeaderBorder.Child is Grid headerGrid)
-            {
-                // Find the StackPanel in the header
-                var elements = headerGrid.Children;
-                foreach (var element in elements)
-                {
-                    if (element is StackPanel stackPanel && 
-                        stackPanel.HorizontalAlignment == System.Windows.HorizontalAlignment.Left)
-                    {
-                        // Add socket status text to the stack panel
-                        if (socketStatusText != null)
-                        {
-                            stackPanel.Children.Add(socketStatusText);
-                        }
-                        break;
-                    }
-                }
-            }
+            // Socket status text is no longer shown in the simplified header bar.
+            // Status is displayed through translationStatusLabel instead.
             
            
             // Load OCR method from config
@@ -1281,61 +1289,53 @@ namespace UGTLive
             }
         }
        
-        private void OnStartButtonToggleClicked(object sender, RoutedEventArgs e)
+        public void HandleToggleButton()
         {
-            System.Windows.Controls.Button btn = (System.Windows.Controls.Button)sender;
+            var btn = toggleButton;
 
             if (isStarted)
             {
                 Logic.Instance.ResetHash();
                 isStarted = false;
-                btn.Content = "Auto";
-                btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
-                // Clear text objects when stopping to prevent stale overlays
+                if (btn != null)
+                {
+                    btn.Content = "Auto";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
+                }
                 Logic.Instance.ClearAllTextObjects();
-                // Also hide the ChatBox "Waiting for translation" indicator (if visible)
                 ChatBoxWindow.Instance?.HideTranslationStatus();
-                
-                // Hide OCR status when stopping
                 Logic.Instance.HideOCRStatus();
                 HideTranslationStatus();
-                
-                // Optional: Add a way to clear overlays manually if needed
-                // You could add a separate "Clear" button or keyboard shortcut
             }
             else
             {
-                // Clear old text objects when starting again
-                Logic.Instance.ResetHash(); // Force new OCR analysis
+                Logic.Instance.ResetHash();
                 Logic.Instance.ClearAllTextObjects();
                 MonitorWindow.Instance.RefreshOverlays();
                 
                 isStarted = true;
-                btn.Content = "Stop";
-                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
+                if (btn != null)
+                {
+                    btn.Content = "Stop";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67));
+                }
                 UpdateCaptureRect();
                 
-                // Clear any delay restriction when manually starting OCR
                 _ocrReenableTime = DateTime.MinValue;
                 SetOCRCheckIsWanted(true);
-                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
-                
-                // Show OCR status when starting (handled by Logic.cs)
             }
         }
 
-        private void SnapshotButton_Click(object sender, RoutedEventArgs e)
+        public void HandleSnapshotButton()
         {
             PerformSnapshot();
         }
-        
-        // Perform a snapshot OCR capture
+
         private void PerformSnapshot()
         {
-            // If live mode is active, stop it first
             if (isStarted)
             {
-                OnStartButtonToggleClicked(toggleButton, new RoutedEventArgs());
+                HandleToggleButton();
             }
             
             bool toggleMode = ConfigManager.Instance.GetSnapshotToggleMode();
@@ -1543,7 +1543,7 @@ namespace UGTLive
         private System.Windows.Controls.Button? showButton;
         private bool _passthroughStateBeforeHide = false;
 
-        private void HideButton_Click(object sender, RoutedEventArgs e)
+        public void HandleHideButton()
         {
             // Hide the main window elements
             MainBorder.Visibility = Visibility.Collapsed;
@@ -1657,7 +1657,14 @@ namespace UGTLive
             {
                 MonitorWindow.Instance.ForceClose();
             }
-            
+
+            // Close the floating toolbar
+            if (_toolbarWindow != null)
+            {
+                _toolbarWindow.Close();
+                _toolbarWindow = null;
+            }
+
             // Show shutdown dialog
             ShutdownDialog shutdownDialog = new ShutdownDialog();
             shutdownDialog.Show();
@@ -1738,8 +1745,7 @@ namespace UGTLive
             base.OnClosed(e);
         }
         
-        // Settings button toggle handler
-        private void PlayAllAudioButton_Click(object sender, RoutedEventArgs e)
+        public void HandlePlayAllAudioButton()
         {
             try
             {
@@ -1917,7 +1923,7 @@ namespace UGTLive
             }
         }
 
-        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        public void HandleSettingsButton()
         {
             ToggleSettingsWindow();
         }
@@ -2130,6 +2136,9 @@ namespace UGTLive
                 HotkeyManager.Instance.SetEnabled(false);
                 KeyboardShortcuts.SetShortcutsEnabled(false);
                 Console.WriteLine("Window minimized - global hotkeys disabled");
+
+                if (_toolbarWindow != null)
+                    _toolbarWindow.Hide();
             }
             else
             {
@@ -2143,6 +2152,9 @@ namespace UGTLive
                     SetOCRCheckIsWanted(true);
                     Console.WriteLine("Auto mode resumed (restored)");
                 }
+
+                if (_toolbarWindow != null)
+                    _toolbarWindow.Show();
             }
         }
 
@@ -2241,13 +2253,12 @@ namespace UGTLive
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
        
         // Toggle the monitor window
-        private void MonitorButton_Click(object sender, RoutedEventArgs e)
+        public void HandleMonitorButton()
         {
             ToggleMonitorWindow();
         }
-        
-        // Handler for the Log button click
-        private void LogButton_Click(object sender, RoutedEventArgs e)
+
+        public void HandleLogButton()
         {
             toggleLogWindow();
         }
@@ -2271,12 +2282,18 @@ namespace UGTLive
             }
         }
         
-        // Update log button state (called from LogWindow when it's closed)
         public void updateLogButtonState(bool isVisible)
         {
-            logButton.Background = isVisible 
-                ? new SolidColorBrush(Color.FromRgb(176, 69, 153)) // Pink/Red - visible
-                : new SolidColorBrush(Color.FromRgb(153, 69, 176)); // Purple - hidden
+            logButton.Background = isVisible
+                ? new SolidColorBrush(Color.FromRgb(46, 160, 67))
+                : new SolidColorBrush(Color.FromRgb(95, 95, 95));
+        }
+
+        public void UpdateMonitorButtonState(bool isVisible)
+        {
+            monitorButton.Background = isVisible
+                ? new SolidColorBrush(Color.FromRgb(46, 160, 67))
+                : new SolidColorBrush(Color.FromRgb(95, 95, 95));
         }
         
         // Initialize console window with proper encoding and font
@@ -2429,7 +2446,7 @@ namespace UGTLive
         }
         
         // ChatBox Button click handler
-        private void ChatBoxButton_Click(object sender, RoutedEventArgs e)
+        public void HandleChatBoxButton()
         {
             ToggleChatBox();
         }
@@ -2706,23 +2723,28 @@ namespace UGTLive
         private bool isListening = false;
         private OpenAIRealtimeAudioServiceWhisper? openAIRealtimeAudioService = null;
 
-        private void ListenButton_Click(object sender, RoutedEventArgs e)
+        public void HandleListenButton()
         {
-            var btn = (System.Windows.Controls.Button)sender;
+            var btn = listenButton;
             if (isListening)
             {
                 isListening = false;
-                btn.Content = "Listen";
-                btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
+                if (btn != null)
+                {
+                    btn.Content = "Listen";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
+                }
                 openAIRealtimeAudioService?.Stop();
             }
             else
             {
                 isListening = true;
-                btn.Content = "Stop Listening";
-                btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67)); // Active indicator
+                if (btn != null)
+                {
+                    btn.Content = "Stop Listening";
+                    btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67));
+                }
 
-                // Show a message if ChatBox isn't visible
                 var chatBoxWin = ChatBoxWindow.Instance;
                 if (chatBoxWin == null || !chatBoxWin.IsVisible)
                 {
@@ -2732,8 +2754,6 @@ namespace UGTLive
                 if (openAIRealtimeAudioService == null)
                     openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
                 
-                // Start the realtime audio service using loopback capture to record system audio
-                // **** MODIFIED: Pass new callbacks ****
                 openAIRealtimeAudioService.StartRealtimeAudioService(
                     OnOpenAITranscriptReceived_Initial, 
                     OnOpenAITranslationUpdate_WithId, 
@@ -3551,20 +3571,11 @@ namespace UGTLive
             }
         }
         
-        // Header size changed - adjust overlay margin dynamically and update capture rect
+        // Header is now fixed-height (50px total: 10px resize strip + 40px bar).
+        // OverlayContent margin is set statically in XAML to (15,50,15,15) and no longer
+        // needs dynamic adjustment, so this handler is kept as a simple capture rect update.
         private void HeaderBorder_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if (OverlayContent == null || TopControlGrid == null)
-                return;
-                
-            // Get the actual height of the header (resize strip + header content)
-            double headerHeight = TopControlGrid.ActualHeight;
-            
-            // Update the overlay content margin to match header height
-            // Keep 15px margins on left, right, bottom for WindowChrome resize borders
-            OverlayContent.Margin = new Thickness(15, headerHeight, 15, 15);
-            
-            // Update capture rectangle to account for new header height
             UpdateCaptureRect();
         }
 
@@ -3573,10 +3584,11 @@ namespace UGTLive
         {
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
             {
-                // Mark pending and restart debounce timer
                 _pendingSizeSave = true;
                 RestartWindowPersistenceTimer();
             }
+
+            UpdateToolbarPosition();
         }
 
         // DPI changed - update capture rect and refresh overlays
@@ -3619,15 +3631,15 @@ namespace UGTLive
             }));
         }
 
-        // Window location changed - save to config if persistence is enabled
         private void MainWindow_LocationChanged(object? sender, EventArgs e)
         {
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
             {
-                // Mark pending and restart debounce timer
                 _pendingPositionSave = true;
                 RestartWindowPersistenceTimer();
             }
+
+            UpdateToolbarPosition();
         }
         
         // Restart the debounce timer for window persistence
@@ -4021,8 +4033,7 @@ namespace UGTLive
             }
         }
         
-        // Export to HTML button handler
-        private void ExportButton_Click(object sender, RoutedEventArgs e)
+        public void HandleExportButton()
         {
             try
             {
@@ -4035,11 +4046,9 @@ namespace UGTLive
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        
-        // Overlay radio button handler
-        private void OverlayRadioButton_Checked(object sender, RoutedEventArgs e)
+
+        public void HandleOverlayRadioChanged(object sender)
         {
-            // Skip if we're updating programmatically from ToggleOverlayMode
             if (_updatingOverlayMode)
                 return;
                 
@@ -4070,23 +4079,11 @@ namespace UGTLive
             }
         }
         
-        // Mouse passthrough checkbox handler
-        private void MousePassthroughCheckBox_Changed(object sender, RoutedEventArgs e)
+        public void HandlePassthroughChanged(bool isEnabled)
         {
-            if (mousePassthroughCheckBox == null)
-                return;
-                
-            bool isEnabled = mousePassthroughCheckBox.IsChecked ?? false;
-            
-            // Save to config
             ConfigManager.Instance.SetMainWindowMousePassthrough(isEnabled);
-            
-            // Update mouse passthrough state
             updateMousePassthrough(isEnabled);
-            
-            // Update text interaction state (inverse of passthrough)
             UpdateMainWindowTextInteraction();
-            
             Console.WriteLine($"Mouse passthrough {(isEnabled ? "enabled" : "disabled")}");
         }
         
@@ -4453,6 +4450,51 @@ namespace UGTLive
                     await TtsServiceFactory.CreateService().SpeakText(textToSpeak);
                 }
             }
+        }
+
+        // --- Floating Toolbar Management ---
+
+        private double _toolbarOffsetX = 5;  // default: 5px right of main window's right edge
+        private double _toolbarOffsetY = 0;  // default: aligned with main window top
+
+        private void CreateAndShowToolbar()
+        {
+            _toolbarWindow = new ToolbarWindow();
+            _toolbarWindow.Show();
+
+            // Load persisted offset
+            _toolbarOffsetX = ConfigManager.Instance.GetToolbarOffsetX();
+            _toolbarOffsetY = ConfigManager.Instance.GetToolbarOffsetY();
+
+            UpdateToolbarPosition();
+        }
+
+        private void UpdateToolbarPosition()
+        {
+            if (_toolbarWindow == null || _isToolbarDragging)
+                return;
+
+            _toolbarWindow.Left = this.Left + this.Width + _toolbarOffsetX;
+            _toolbarWindow.Top = this.Top + _toolbarOffsetY;
+        }
+
+        public void SaveToolbarOffset()
+        {
+            if (_toolbarWindow == null)
+                return;
+
+            _toolbarOffsetX = _toolbarWindow.Left - (this.Left + this.Width);
+            _toolbarOffsetY = _toolbarWindow.Top - this.Top;
+
+            ConfigManager.Instance.SetToolbarOffset(_toolbarOffsetX, _toolbarOffsetY);
+        }
+
+        public void ResetToolbarPosition()
+        {
+            _toolbarOffsetX = 5;
+            _toolbarOffsetY = 0;
+            ConfigManager.Instance.SetToolbarOffset(_toolbarOffsetX, _toolbarOffsetY);
+            UpdateToolbarPosition();
         }
     }
 }

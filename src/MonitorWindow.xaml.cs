@@ -2972,6 +2972,7 @@ namespace UGTLive
             e.Cancel = true;  // Cancel the close
             Hide();           // Hide the window instead
             Console.WriteLine("Monitor window closing operation converted to hide");
+            MainWindow.Instance?.UpdateMonitorButtonState(false);
         }
 
         // Clean up the low-level hook when window is actually closed

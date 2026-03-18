@@ -238,7 +238,11 @@ namespace UGTLive
         public const string MAIN_WINDOW_OVERLAY_MODE = "main_window_overlay_mode";
         public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
         public const string WINDOWS_VISIBLE_IN_SCREENSHOTS = "windows_visible_in_screenshots";
-        
+
+        // Floating toolbar position (offset from main window's top-right corner)
+        public const string TOOLBAR_OFFSET_X = "toolbar_offset_x";
+        public const string TOOLBAR_OFFSET_Y = "toolbar_offset_y";
+
         // docTR-specific glue toggle
         public const string GLUE_DOCTR_LINES = "glue_doctr_lines";
 
@@ -3245,6 +3249,26 @@ Here is the input JSON:";
             SaveConfig();
         }
         
+        // Toolbar offset from main window's top-right corner
+        public double GetToolbarOffsetX()
+        {
+            string value = GetValue(TOOLBAR_OFFSET_X, "5");
+            return double.TryParse(value, out double x) ? x : 5;
+        }
+
+        public double GetToolbarOffsetY()
+        {
+            string value = GetValue(TOOLBAR_OFFSET_Y, "0");
+            return double.TryParse(value, out double y) ? y : 0;
+        }
+
+        public void SetToolbarOffset(double offsetX, double offsetY)
+        {
+            _configValues[TOOLBAR_OFFSET_X] = offsetX.ToString();
+            _configValues[TOOLBAR_OFFSET_Y] = offsetY.ToString();
+            SaveConfig();
+        }
+
         // Get/Set ChatBox window position and size
         public double GetChatBoxWindowLeft()
         {

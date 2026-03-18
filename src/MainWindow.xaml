@@ -24,8 +24,7 @@
         <!-- UI elements to hide during capture - HIDDEN DURING SCREENSHOT -->
         <!-- Note: Grid needs a background (even 1% opacity) for WebView2 hit testing to work in transparent windows -->
         <!-- OverlayContent is outside MainBorder so it remains visible when MainBorder is hidden -->
-        <!-- Top margin will be dynamically adjusted based on header height -->
-        <!-- Margins: Left=15, Top=50 (header), Right=15, Bottom=15 to leave room for WindowChrome resize borders -->
+        <!-- Margins: Left=15, Top=50 (fixed header: 10px resize + 40px bar), Right=15, Bottom=15 -->
         <Grid Name="OverlayContent" Margin="15,50,15,15" IsHitTestVisible="True" Background="#01000000">
             <!-- WebView2 for text overlays - no margin, fills entire OverlayContent -->
             <!-- Capture rect is calculated to match WebView's exact screen position -->
@@ -48,150 +47,61 @@
                         <RowDefinition Height="10"/>
                         <!-- Resize strip -->
                         <RowDefinition Height="Auto"/>
-                        <!-- Header content (can wrap) -->
+                        <!-- Fixed-height header bar -->
                     </Grid.RowDefinitions>
                     
                     <!-- Top resize strip - 10px height -->
                     <Border Grid.Row="0" Background="#50FF0000" Cursor="SizeNS"
                            WindowChrome.IsHitTestVisibleInChrome="False"/>
                     
-                    <!-- Header with wrappable content -->
-                    <Border Grid.Row="1" x:Name="HeaderBorder" Background="#CC202020"
+                    <!-- Fixed-height header bar (no wrapping) -->
+                    <Border Grid.Row="1" x:Name="HeaderBorder" Background="#CC202020" Height="40"
                             MouseLeftButtonDown="Header_MouseLeftButtonDown"
                             WindowChrome.IsHitTestVisibleInChrome="True"
-                            SizeChanged="HeaderBorder_SizeChanged">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <!-- Wrappable controls -->
-                            <WrapPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" 
-                                      Margin="5,5,5,5" WindowChrome.IsHitTestVisibleInChrome="True">
-                                <!-- Primary Buttons -->
-                                <Button x:Name="hideButton" Content="Hide" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="HideButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            ClipToBounds="True">
+                        <DockPanel Margin="5,0">
+                            <!-- Close button - docked rightmost, disappears last -->
+                            <Button DockPanel.Dock="Right" Content="X" Width="30" Height="30" Margin="2,5,2,5"
+                                    Background="#CCE63232" Foreground="White" FontWeight="Bold"
+                                    Click="CloseButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
 
-                                <Button x:Name="toggleButton" Content="Auto" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="OnStartButtonToggleClicked" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            <!-- Minimize button -->
+                            <Button x:Name="minimizeButton" DockPanel.Dock="Right" Content="─" Width="30" Height="30" Margin="0,5,0,5"
+                                    Background="#CC5F5F5F" Foreground="White" FontWeight="Bold"
+                                    Click="MinimizeButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"
+                                    ToolTip="Minimize (disables global hotkeys)"/>
 
-                                <Button x:Name="snapshotButton" Content="Snap" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="SnapshotButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <!-- Window Toggle Buttons -->
-                                <Button x:Name="monitorButton" Content="Monitor" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="MonitorButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <Button x:Name="chatBoxButton" Content="Transcript" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="ChatBoxButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <Button x:Name="listenButton" Content="Listen" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="ListenButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <Button x:Name="logButton" Content="Log" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="LogButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <Button x:Name="settingsButton" Content="Settings" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="SettingsButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-
-                                <Button x:Name="exportButton" Content="View in browser" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="ExportButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
-                                <!-- Separator -->
-                                <Rectangle Width="1" Fill="#60FFFFFF" Margin="5,2" VerticalAlignment="Stretch" Height="20"/>
-                                
-                                <!-- Overlay Controls -->
-                                <TextBlock Text="Overlay:" Foreground="White" VerticalAlignment="Center" Margin="5,0,5,0"
-                                          WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                <RadioButton x:Name="overlayHideRadio" Content="Hide" Foreground="White" VerticalAlignment="Center" 
-                                             Margin="0,0,8,0" GroupName="MainOverlayMode" 
-                                             Checked="OverlayRadioButton_Checked" Tag="Hide"
-                                             WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                <RadioButton x:Name="overlaySourceRadio" Content="Source" Foreground="White" VerticalAlignment="Center" 
-                                             Margin="0,0,8,0" GroupName="MainOverlayMode"
-                                             Checked="OverlayRadioButton_Checked" Tag="Source"
-                                             WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                <RadioButton x:Name="overlayTranslatedRadio" Content="Translated" Foreground="White" VerticalAlignment="Center" 
-                                             Margin="0,0,8,0" GroupName="MainOverlayMode" 
-                                             Checked="OverlayRadioButton_Checked" Tag="Translated"
-                                             WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
-                                <!-- Separator -->
-                                <Rectangle Width="1" Fill="#60FFFFFF" Margin="5,2" VerticalAlignment="Stretch" Height="20"/>
-                                
-                                <!-- Play All Audio Button -->
-                                <Button x:Name="playAllAudioButton" Content="🔊 All" Padding="8,3" Margin="2"
-                                        Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                                        Click="PlayAllAudioButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"
-                                        ToolTip="Play all audio files in order"
-                                        MinWidth="80" Width="80"/>
-                                
-                                <!-- Separator -->
-                                <Rectangle Width="1" Fill="#60FFFFFF" Margin="5,2" VerticalAlignment="Stretch" Height="20"/>
-                                
-                                <!-- Passthrough Checkbox -->
-                                <CheckBox x:Name="mousePassthroughCheckBox" Content="Passthrough" Foreground="White" 
-                                         VerticalAlignment="Center" Margin="5,0,5,0"
-                                         Checked="MousePassthroughCheckBox_Changed" Unchecked="MousePassthroughCheckBox_Changed"
-                                         WindowChrome.IsHitTestVisibleInChrome="True"/>
-                                
-                                <!-- Separator -->
-                                <Rectangle Width="1" Fill="#60FFFFFF" Margin="5,2" VerticalAlignment="Stretch" Height="20"/>
-                                
-                                <!-- Status Display in Header -->
-								<Border x:Name="translationStatusBorder"
-                                        Background="#DD404040"
-                                        Padding="8,2,8,2"
-                                        CornerRadius="3"
-                                        BorderThickness="1"
-                                        BorderBrush="#666666"
-                                        Visibility="Visible"
-                                        VerticalAlignment="Center"
-                                        Margin="5,0">
-                                    <StackPanel>
-									    <TextBlock x:Name="translationStatusLabel"
-                                                  Foreground="#FFDDDDDD"
-                                                  FontSize="12"
-                                                  FontWeight="SemiBold"
-                                                  Text="Stopped"
-                                                  VerticalAlignment="Center"
-                                                  Width="280"
-                                                  TextAlignment="Center"
-                                                  TextTrimming="CharacterEllipsis"/>
-                                        <ProgressBar x:Name="translationProgressBar"
-                                                     Height="3"
-                                                     Width="280"
-                                                     IsIndeterminate="False"
-                                                     Margin="0,2,0,0"
-                                                     Visibility="Collapsed"
-                                                     Foreground="#FF2EA043"
-                                                     Background="#33FFFFFF"
-                                                     BorderThickness="0"/>
-                                    </StackPanel>
-								</Border>
-                            </WrapPanel>
-                            
-                            <!-- Minimize + Close Buttons -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,5,5">
-                                <Button x:Name="minimizeButton" Content="─" Width="30" Height="30"
-                                        Background="#CC5F5F5F" Foreground="White" FontWeight="Bold"
-                                        Click="MinimizeButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"
-                                        ToolTip="Minimize (disables global hotkeys)"/>
-                                <Button Content="X" Width="30" Height="30" Margin="2,0,0,0"
-                                        Background="#CCE63232" Foreground="White" FontWeight="Bold"
-                                        Click="CloseButton_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                            </StackPanel>
-                        </Grid>
+                            <!-- Status display fills remaining space -->
+                            <Border x:Name="translationStatusBorder"
+                                    Background="#DD404040"
+                                    Padding="8,2,8,2"
+                                    CornerRadius="3"
+                                    BorderThickness="1"
+                                    BorderBrush="#666666"
+                                    Visibility="Visible"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,5,0"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                                <StackPanel>
+                                    <TextBlock x:Name="translationStatusLabel"
+                                               Foreground="#FFDDDDDD"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Text="Stopped"
+                                               VerticalAlignment="Center"
+                                               TextAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <ProgressBar x:Name="translationProgressBar"
+                                                 Height="3"
+                                                 IsIndeterminate="False"
+                                                 Margin="0,2,0,0"
+                                                 Visibility="Collapsed"
+                                                 Foreground="#FF2EA043"
+                                                 Background="#33FFFFFF"
+                                                 BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                        </DockPanel>
                     </Border>
                 </Grid>
                 
