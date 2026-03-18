@@ -4460,6 +4460,7 @@ namespace UGTLive
         private void CreateAndShowToolbar()
         {
             _toolbarWindow = new ToolbarWindow();
+            _toolbarWindow.Owner = this;
             _toolbarWindow.Show();
 
             // Load persisted offset
