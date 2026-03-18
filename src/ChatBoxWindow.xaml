@@ -23,37 +23,43 @@
                 MouseLeftButtonDown="Header_MouseLeftButtonDown" 
                 Panel.ZIndex="1">
             <DockPanel LastChildFill="True">
-                <Button Content="X" Width="25" Height="25" 
+                <Button Content="X" Width="22" Height="25" 
                         DockPanel.Dock="Right"
                         Background="#CCE63232" Foreground="White" FontWeight="Bold"
+                        FontSize="11"
                         Click="CloseButton_Click"/>
-                <Button x:Name="fontIncreaseButton" Content="+" Width="25" Height="25" 
+                <Button x:Name="fontIncreaseButton" Content="+" Width="22" Height="25" 
                         DockPanel.Dock="Right"
                         Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
+                        FontSize="11"
                         Click="FontIncreaseButton_Click"
                         ToolTip="Increase font size"/>
-                <Button x:Name="fontDecreaseButton" Content="-" Width="25" Height="25" 
+                <Button x:Name="fontDecreaseButton" Content="-" Width="22" Height="25" 
                         DockPanel.Dock="Right"
                         Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
+                        FontSize="11"
                         Click="FontDecreaseButton_Click"
                         ToolTip="Decrease font size"/>
-                <Button x:Name="clearButton" Content="Clear" Width="50" Height="25" 
-                        DockPanel.Dock="Right"
-                        Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
+                <Button x:Name="clearButton" Content="Clear" Height="25" 
+                        DockPanel.Dock="Right" Margin="1,0" Padding="4,0"
+                        Background="#CC2D4C70" Foreground="White" FontWeight="SemiBold"
+                        FontSize="11"
                         Click="ClearButton_Click"
                         ToolTip="Clear translation history"/>
-                <Button x:Name="modeButton" Content="Mode" Width="50" Height="25" 
-                        DockPanel.Dock="Right"
-                        Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
+                <Button x:Name="modeButton" Content="Mode" Height="25" 
+                        DockPanel.Dock="Right" Margin="1,0" Padding="4,0"
+                        Background="#CC2D4C70" Foreground="White" FontWeight="SemiBold"
+                        FontSize="11"
                         Click="ModeButton_Click"
                         ToolTip="Toggle between showing both languages or only the translation"/>
-                <Button x:Name="optionsButton" Content="Options" Width="60" Height="25" 
-                        DockPanel.Dock="Right"
-                        Background="#CC2D4C70" Foreground="White" FontWeight="Bold"
+                <Button x:Name="optionsButton" Content="Options" Height="25" 
+                        DockPanel.Dock="Right" Margin="1,0" Padding="4,0"
+                        Background="#CC2D4C70" Foreground="White" FontWeight="SemiBold"
+                        FontSize="11"
                         Click="OptionsButton_Click"
                         ToolTip="Configure appearance settings"/>
-                <TextBlock Text="Transcript" Foreground="White" 
-                           VerticalAlignment="Center" Margin="10,0" FontWeight="SemiBold"/>
+                <TextBlock Text="Transcript" Foreground="White" FontSize="11"
+                           VerticalAlignment="Center" Margin="5,0" FontWeight="SemiBold"/>
             </DockPanel>
         </Border>
         

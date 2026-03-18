@@ -46,12 +46,13 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
-                <!-- Top resize strip - 10px height -->
-                <Border Grid.Row="0" Background="#30808080" Cursor="SizeNS"
+                <!-- Top resize strip - 10px height (nearly invisible but still hit-testable for dragging) -->
+                <Border Grid.Row="0" Background="#01000000" Cursor="SizeNS"
                        WindowChrome.IsHitTestVisibleInChrome="False"/>
                 
                 <!-- Fixed-height header bar (no wrapping) -->
                 <Border Grid.Row="1" x:Name="HeaderBorder" Background="#CC202020" Height="40"
+                        Margin="8,0,8,0"
                         MouseLeftButtonDown="Header_MouseLeftButtonDown"
                         WindowChrome.IsHitTestVisibleInChrome="True"
                         ClipToBounds="True">

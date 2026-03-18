@@ -115,7 +115,7 @@
                                          Checked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged" 
                                          Unchecked="WindowsVisibleInScreenshotsCheckBox_CheckedChanged"
                                          Content="Make our windows visible in screenshots (Don't turn this on!)"
-                                         ToolTip="If checked, ChatBox, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
+                                         ToolTip="If checked, Transcript, Monitor, and MainWindow overlays will be visible in screenshots. Uncheck (default) to exclude them from screen captures. (Don't turn this on, it breaks the app!)"/>
                                 
                                 <!-- Persist Window Position Checkbox -->
                                 <CheckBox x:Name="persistWindowSizeCheckBox" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
@@ -879,12 +879,12 @@
                                         Margin="0,5" Text="20" LostFocus="MinContextSizeTextBox_LostFocus"
                                         ToolTip="Minimum size in characters for a text piece to be included as context. Helps avoid adding tiny menu labels or buttons as context."/>
                                         
-                                <TextBlock Text="Min ChatBox Text Size:" Grid.Row="2" Grid.Column="0" 
+                                <TextBlock Text="Min Transcript Text Size:" Grid.Row="2" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
+                                          ToolTip="Minimum size in characters for text to be shown in Transcript. Smaller text will be ignored."/>
                                 <TextBox x:Name="minChatBoxTextSizeTextBox" Grid.Row="2" Grid.Column="1" 
                                         Margin="0,5" Text="2" LostFocus="MinChatBoxTextSizeTextBox_LostFocus"
-                                        ToolTip="Minimum size in characters for text to be shown in ChatBox. Smaller text will be ignored."/>
+                                        ToolTip="Minimum size in characters for text to be shown in Transcript. Smaller text will be ignored."/>
                                 
                                 <TextBlock Text="Info about the game:" Grid.Row="3" Grid.Column="0" 
                                           VerticalAlignment="Top" Margin="0,8,10,0" 

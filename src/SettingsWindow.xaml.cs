@@ -126,10 +126,7 @@ namespace UGTLive
             this.Closing += (s, e) => 
             {
                 e.Cancel = true;  // Cancel the close
-                this.Hide();      // Just hide the window
-                // Re-enable hotkeys when settings window is hidden
-                HotkeyManager.Instance.SetEnabled(true);
-                KeyboardShortcuts.SetShortcutsEnabled(true);
+                MainWindow.Instance?.HandleSettingsButton();
             };
         }
 

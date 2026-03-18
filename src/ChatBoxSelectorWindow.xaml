@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
-        Title="Select ChatBox Area" 
+        Title="Select Transcript Area" 
         WindowStyle="None"
         AllowsTransparency="True"
         Background="#01000000"
@@ -21,7 +21,7 @@
                  Visibility="Collapsed"/>
 
         <TextBlock x:Name="instructionText" 
-                  Text="Click and drag to select area for the ChatBox display" 
+                  Text="Click and drag to select area for the Transcript display" 
                   Foreground="#FFFFFF" 
                   FontSize="24" 
                   HorizontalAlignment="Left" 

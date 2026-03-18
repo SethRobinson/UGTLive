@@ -4,9 +4,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:UGTLive"
         mc:Ignorable="d"
-        Title="Chat Box Options" Height="420" Width="400"
+        Title="Transcript Options" Height="420" Width="550"
+        MinWidth="450"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResizeWithGrip"
         Icon="/media/Icon1.ico">
     
     <Grid Margin="10">
@@ -16,7 +17,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Chat Box Appearance Options" 
+        <TextBlock Text="Transcript Appearance Options" 
                    Grid.Row="0"
                    FontSize="16" 
                    FontWeight="SemiBold" 
@@ -26,109 +27,140 @@
             <StackPanel>
                 <!-- Background settings -->
                 <GroupBox Header="Background Settings" Margin="0,5,0,10" Padding="5">
-                    <StackPanel>
-                        <DockPanel Margin="0,5">
-                            <TextBlock Text="Background Color:" VerticalAlignment="Center" Width="120" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Text="Background Color:" Grid.Row="0" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <StackPanel Orientation="Horizontal" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,5">
                             <Button x:Name="backgroundColorButton" 
                                     Width="30" Height="20" 
-                                    Margin="5,0,0,0"
                                     Click="BackgroundColorButton_Click"/>
                             <TextBlock x:Name="backgroundColorText" 
                                        Text="#80000000" 
                                        VerticalAlignment="Center" 
                                        Margin="10,0,0,0"/>
-                        </DockPanel>
+                        </StackPanel>
                         
-                        <DockPanel Margin="0,5">
-                            <TextBlock Text="Background Opacity:" VerticalAlignment="Center" Width="120" />
-                            <Slider x:Name="backgroundOpacitySlider" 
-                                    Minimum="0" Maximum="1" 
-                                    Value="0.5" 
-                                    Width="150" 
-                                    TickPlacement="BottomRight"
-                                    TickFrequency="0.05"
-                                    IsSnapToTickEnabled="True"
-                                    ValueChanged="BackgroundOpacitySlider_ValueChanged"/>
-                            <TextBlock x:Name="backgroundOpacityText" 
-                                       Text="50%" 
-                                       VerticalAlignment="Center" 
-                                       Margin="10,0,0,0"/>
-                        </DockPanel>
+                        <TextBlock Text="Background Opacity:" Grid.Row="1" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <Slider x:Name="backgroundOpacitySlider" Grid.Row="1" Grid.Column="1"
+                                Minimum="0" Maximum="1" 
+                                Value="0.5" 
+                                VerticalAlignment="Center" Margin="0,5"
+                                TickPlacement="BottomRight"
+                                TickFrequency="0.05"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="BackgroundOpacitySlider_ValueChanged"/>
+                        <TextBlock x:Name="backgroundOpacityText" Grid.Row="1" Grid.Column="2"
+                                   Text="50%" 
+                                   VerticalAlignment="Center" 
+                                   Margin="10,5,0,5" MinWidth="40"/>
                         
-                        <DockPanel Margin="0,5">
-                            <TextBlock Text="Window Opacity:" VerticalAlignment="Center" Width="120" />
-                            <Slider x:Name="windowOpacitySlider" 
-                                    Minimum="0.1" Maximum="1" 
-                                    Value="1.0" 
-                                    Width="150" 
-                                    TickPlacement="BottomRight"
-                                    TickFrequency="0.1"
-                                    IsSnapToTickEnabled="True"
-                                    ValueChanged="WindowOpacitySlider_ValueChanged"/>
-                            <TextBlock x:Name="windowOpacityText" 
-                                       Text="100%" 
-                                       VerticalAlignment="Center" 
-                                       Margin="10,0,0,0"/>
-                        </DockPanel>
-                    </StackPanel>
+                        <TextBlock Text="Window Opacity:" Grid.Row="2" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <Slider x:Name="windowOpacitySlider" Grid.Row="2" Grid.Column="1"
+                                Minimum="0.1" Maximum="1" 
+                                Value="1.0" 
+                                VerticalAlignment="Center" Margin="0,5"
+                                TickPlacement="BottomRight"
+                                TickFrequency="0.1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="WindowOpacitySlider_ValueChanged"/>
+                        <TextBlock x:Name="windowOpacityText" Grid.Row="2" Grid.Column="2"
+                                   Text="100%" 
+                                   VerticalAlignment="Center" 
+                                   Margin="10,5,0,5" MinWidth="40"/>
+                    </Grid>
                 </GroupBox>
 
                 <!-- Text settings -->
                 <GroupBox Header="Text Settings" Margin="0,5,0,10" Padding="5">
-                    <StackPanel>
-                        <DockPanel Margin="0,5">
-                            <TextBlock Text="Font Family:" VerticalAlignment="Center" Width="120" />
-                            <ComboBox x:Name="fontFamilyComboBox" 
-                                      Width="200" 
-                                      SelectionChanged="FontFamilyComboBox_SelectionChanged"/>
-                        </DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         
-                        <DockPanel Margin="0,5">
-                            <TextBlock Text="Font Size:" VerticalAlignment="Center" Width="120" />
-                            <Slider x:Name="fontSizeSlider" 
-                                    Minimum="8" Maximum="48" 
-                                    Value="14" 
-                                    Width="150" 
-                                    TickPlacement="BottomRight"
-                                    TickFrequency="2"
-                                    IsSnapToTickEnabled="True"
-                                    ValueChanged="FontSizeSlider_ValueChanged"/>
-                            <TextBlock x:Name="fontSizeText" 
-                                       Text="14" 
-                                       VerticalAlignment="Center" 
-                                       Margin="10,0,0,0"/>
-                        </DockPanel>
-                    </StackPanel>
+                        <TextBlock Text="Font Family:" Grid.Row="0" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <ComboBox x:Name="fontFamilyComboBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+                                  Margin="0,5"
+                                  SelectionChanged="FontFamilyComboBox_SelectionChanged"/>
+                        
+                        <TextBlock Text="Font Size:" Grid.Row="1" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <Slider x:Name="fontSizeSlider" Grid.Row="1" Grid.Column="1"
+                                Minimum="8" Maximum="48" 
+                                Value="14" 
+                                VerticalAlignment="Center" Margin="0,5"
+                                TickPlacement="BottomRight"
+                                TickFrequency="2"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="FontSizeSlider_ValueChanged"/>
+                        <TextBlock x:Name="fontSizeText" Grid.Row="1" Grid.Column="2"
+                                   Text="14" 
+                                   VerticalAlignment="Center" 
+                                   Margin="10,5,0,5" MinWidth="40"/>
+                    </Grid>
                 </GroupBox>
 
                 <!-- Original text color -->
                 <GroupBox Header="Original Text Settings" Margin="0,5,0,10" Padding="5">
-                    <DockPanel Margin="0,5">
-                        <TextBlock Text="Text Color:" VerticalAlignment="Center" Width="120" />
-                        <Button x:Name="originalTextColorButton" 
-                                Width="30" Height="20" 
-                                Margin="5,0,0,0"
-                                Click="OriginalTextColorButton_Click"/>
-                        <TextBlock x:Name="originalTextColorText" 
-                                   Text="#FFF8E0A0" 
-                                   VerticalAlignment="Center" 
-                                   Margin="10,0,0,0"/>
-                    </DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Text="Text Color:" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="0,5">
+                            <Button x:Name="originalTextColorButton" 
+                                    Width="30" Height="20" 
+                                    Click="OriginalTextColorButton_Click"/>
+                            <TextBlock x:Name="originalTextColorText" 
+                                       Text="#FFF8E0A0" 
+                                       VerticalAlignment="Center" 
+                                       Margin="10,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
                 </GroupBox>
 
                 <!-- Translated text color -->
                 <GroupBox Header="Translated Text Settings" Margin="0,5,0,10" Padding="5">
-                    <DockPanel Margin="0,5">
-                        <TextBlock Text="Text Color:" VerticalAlignment="Center" Width="120" />
-                        <Button x:Name="translatedTextColorButton" 
-                                Width="30" Height="20" 
-                                Margin="5,0,0,0"
-                                Click="TranslatedTextColorButton_Click"/>
-                        <TextBlock x:Name="translatedTextColorText" 
-                                   Text="#FFFFFFFF" 
-                                   VerticalAlignment="Center" 
-                                   Margin="10,0,0,0"/>
-                    </DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Text="Text Color:" Grid.Column="0"
+                                   VerticalAlignment="Center" Margin="0,5,10,5"/>
+                        <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="0,5">
+                            <Button x:Name="translatedTextColorButton" 
+                                    Width="30" Height="20" 
+                                    Click="TranslatedTextColorButton_Click"/>
+                            <TextBlock x:Name="translatedTextColorText" 
+                                       Text="#FFFFFFFF" 
+                                       VerticalAlignment="Center" 
+                                       Margin="10,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>
