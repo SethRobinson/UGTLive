@@ -847,26 +847,35 @@ namespace UGTLive
 
 				System.Diagnostics.Debug.WriteLine($"MainWindow_Loaded: Restoring window position: Left={left}, Top={top}, Width={width}, Height={height}");
 
-                // Only restore position if we have valid values
-                if (!double.IsNaN(left) && !double.IsNaN(top))
-                {
-                    // Check if the saved position is within screen bounds
-                    var screenWidth = SystemParameters.PrimaryScreenWidth;
-                    var screenHeight = SystemParameters.PrimaryScreenHeight;
+                double actualWidth = double.IsNaN(this.Width) || this.Width <= 0 ? DEFAULT_WINDOW_WIDTH : this.Width;
+                double actualHeight = double.IsNaN(this.Height) || this.Height <= 0 ? DEFAULT_WINDOW_HEIGHT : this.Height;
 
-                    // Ensure window is at least partially visible on screen
-                    // Use actual window width/height for bounds check
-                    double actualWidth = this.Width;
-                    double actualHeight = this.Height;
-                    if (left < screenWidth && top < screenHeight &&
-                        left + actualWidth > 0 && top + actualHeight > 0)
+                if (ConfigManager.IsWindowBoundsValid(left, top, actualWidth, actualHeight))
+                {
+                    this.Left = left;
+                    this.Top = top;
+                    Console.WriteLine($"Restored window position: Left={left}, Top={top}, Width={actualWidth}, Height={actualHeight}");
+                }
+                else
+                {
+                    // Saved position is off-screen (e.g. monitor was removed) — reset to center of primary screen
+                    var workArea = System.Windows.Forms.Screen.PrimaryScreen?.WorkingArea;
+                    if (workArea.HasValue)
                     {
-                        this.Left = left;
-                        this.Top = top;
-                        Console.WriteLine($"Restored window position: Left={left}, Top={top}, Width={actualWidth}, Height={actualHeight}");
+                        this.Left = workArea.Value.Left + (workArea.Value.Width - actualWidth) / 2;
+                        this.Top = workArea.Value.Top + (workArea.Value.Height - actualHeight) / 2;
                     }
+                    else
+                    {
+                        this.Left = 100;
+                        this.Top = 100;
+                    }
+                    Console.WriteLine($"Window position reset (was off-screen): Left={this.Left}, Top={this.Top} (saved was Left={left}, Top={top})");
                 }
             }
+
+            // Safety net: ensure the main window is on a visible screen regardless of persistence setting
+            ensureWindowOnScreen();
 
             // Create and show the floating toolbar
             CreateAndShowToolbar();
@@ -4495,8 +4504,51 @@ namespace UGTLive
             if (_toolbarWindow == null || _isToolbarDragging)
                 return;
 
-            _toolbarWindow.Left = this.Left + this.Width + _toolbarOffsetX;
-            _toolbarWindow.Top = this.Top + _toolbarOffsetY;
+            double newLeft = this.Left + this.Width + _toolbarOffsetX;
+            double newTop = this.Top + _toolbarOffsetY;
+
+            double tbWidth = _toolbarWindow.ActualWidth > 0 ? _toolbarWindow.ActualWidth : _toolbarWindow.Width;
+            double tbHeight = _toolbarWindow.ActualHeight > 0 ? _toolbarWindow.ActualHeight : _toolbarWindow.Height;
+            if (double.IsNaN(tbWidth) || tbWidth <= 0) tbWidth = 60;
+            if (double.IsNaN(tbHeight) || tbHeight <= 0) tbHeight = 400;
+
+            if (!ConfigManager.IsWindowBoundsValid(newLeft, newTop, tbWidth, tbHeight, minVisiblePixels: 40))
+            {
+                _toolbarOffsetX = 5;
+                _toolbarOffsetY = 0;
+                newLeft = this.Left + this.Width + _toolbarOffsetX;
+                newTop = this.Top + _toolbarOffsetY;
+
+                if (!ConfigManager.IsWindowBoundsValid(newLeft, newTop, tbWidth, tbHeight, minVisiblePixels: 40))
+                {
+                    newLeft = this.Left - tbWidth - 5;
+                    newTop = this.Top;
+
+                    if (!ConfigManager.IsWindowBoundsValid(newLeft, newTop, tbWidth, tbHeight, minVisiblePixels: 40))
+                    {
+                        var workArea = System.Windows.Forms.Screen.PrimaryScreen?.WorkingArea;
+                        if (workArea.HasValue)
+                        {
+                            newLeft = workArea.Value.Right - tbWidth - 10;
+                            newTop = workArea.Value.Top + 10;
+                        }
+                        else
+                        {
+                            newLeft = 100;
+                            newTop = 100;
+                        }
+                    }
+
+                    _toolbarOffsetX = newLeft - (this.Left + this.Width);
+                    _toolbarOffsetY = newTop - this.Top;
+                }
+
+                ConfigManager.Instance.SetToolbarOffset(_toolbarOffsetX, _toolbarOffsetY);
+                Console.WriteLine($"Toolbar position reset (was off-screen): Left={newLeft}, Top={newTop}");
+            }
+
+            _toolbarWindow.Left = newLeft;
+            _toolbarWindow.Top = newTop;
         }
 
         public void SaveToolbarOffset()
@@ -4516,6 +4568,30 @@ namespace UGTLive
             _toolbarOffsetY = 0;
             ConfigManager.Instance.SetToolbarOffset(_toolbarOffsetX, _toolbarOffsetY);
             UpdateToolbarPosition();
+        }
+
+        private void ensureWindowOnScreen()
+        {
+            double w = double.IsNaN(this.Width) || this.Width <= 0 ? DEFAULT_WINDOW_WIDTH : this.Width;
+            double h = double.IsNaN(this.Height) || this.Height <= 0 ? DEFAULT_WINDOW_HEIGHT : this.Height;
+            double l = this.Left;
+            double t = this.Top;
+
+            if (double.IsNaN(l) || double.IsNaN(t) || !ConfigManager.IsWindowBoundsValid(l, t, w, h))
+            {
+                var workArea = System.Windows.Forms.Screen.PrimaryScreen?.WorkingArea;
+                if (workArea.HasValue)
+                {
+                    this.Left = workArea.Value.Left + (workArea.Value.Width - w) / 2;
+                    this.Top = workArea.Value.Top + (workArea.Value.Height - h) / 2;
+                }
+                else
+                {
+                    this.Left = 100;
+                    this.Top = 100;
+                }
+                Console.WriteLine($"ensureWindowOnScreen: Moved main window to Left={this.Left}, Top={this.Top} (was Left={l}, Top={t})");
+            }
         }
     }
 }
