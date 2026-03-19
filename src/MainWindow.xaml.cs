@@ -61,6 +61,15 @@ namespace UGTLive
         private const uint MONITOR_DEFAULTTONEAREST = 2;
         private const int MDT_EFFECTIVE_DPI = 0;
         
+        // For keeping window on top via Win32 (more reliable than WPF Topmost for transparent windows)
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
+
         // ShowWindow commands
         private const int SW_HIDE = 0;
         private const int SW_SHOW = 5;
@@ -1586,6 +1595,8 @@ namespace UGTLive
                     hideButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
                 }
             }
+
+            BringToFront();
         }
 
         public void HandleMinimizeButton()
@@ -4063,11 +4074,36 @@ namespace UGTLive
             }
         }
         
+        public void BringToFront()
+        {
+            var helper = new WindowInteropHelper(this);
+            IntPtr hwnd = helper.Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+            _toolbarWindow?.BringToFront();
+        }
+
+        protected override void OnDeactivated(EventArgs e)
+        {
+            base.OnDeactivated(e);
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (IsVisible && WindowState != WindowState.Minimized)
+                {
+                    BringToFront();
+                }
+            }), DispatcherPriority.Input);
+        }
+
         public void HandlePassthroughChanged(bool isEnabled)
         {
             ConfigManager.Instance.SetMainWindowMousePassthrough(isEnabled);
             updateMousePassthrough(isEnabled);
             UpdateMainWindowTextInteraction();
+            BringToFront();
             Console.WriteLine($"Mouse passthrough {(isEnabled ? "enabled" : "disabled")}");
         }
         
