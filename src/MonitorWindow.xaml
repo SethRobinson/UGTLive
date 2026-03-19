@@ -89,23 +89,28 @@
                      Text="5" VerticalContentAlignment="Center"/>
         </WrapPanel>
         
-        <!-- ScrollViewer for zooming and scrolling -->
-        <ScrollViewer Grid.Row="1" x:Name="imageScrollViewer" 
-                      HorizontalScrollBarVisibility="Auto" 
-                      VerticalScrollBarVisibility="Auto"
-                      Background="Black"
-                      Panel.ZIndex="0">
-            <Grid x:Name="imageContainer" Background="Black">
-                <Image x:Name="captureImage" Stretch="None" 
-                       RenderOptions.BitmapScalingMode="NearestNeighbor"
-                       HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                <wv2:WebView2 x:Name="textOverlayWebView" 
-                              Panel.ZIndex="1"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Stretch"
-                              DefaultBackgroundColor="Transparent"/>
-            </Grid>
-        </ScrollViewer>
+        <!-- Row 1: Image + Overlay area wrapped in Grid to keep WebView2 viewport-sized -->
+        <Grid Grid.Row="1">
+            <!-- ScrollViewer for zooming and scrolling -->
+            <ScrollViewer x:Name="imageScrollViewer" 
+                          HorizontalScrollBarVisibility="Auto" 
+                          VerticalScrollBarVisibility="Auto"
+                          Background="Black"
+                          Panel.ZIndex="0">
+                <Grid x:Name="imageContainer" Background="Black">
+                    <Image x:Name="captureImage" Stretch="None" 
+                           RenderOptions.BitmapScalingMode="NearestNeighbor"
+                           HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                </Grid>
+            </ScrollViewer>
+            <!-- WebView2 overlay sized to viewport only (prevents HWND airspace overlap with toolbar/title bar) -->
+            <wv2:WebView2 x:Name="textOverlayWebView" 
+                          Panel.ZIndex="1"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          DefaultBackgroundColor="Transparent"
+                          IsHitTestVisible="True"/>
+        </Grid>
         </Grid>
     </Grid>
 </Window>

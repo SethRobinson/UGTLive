@@ -422,6 +422,9 @@ namespace UGTLive
                 autoTranslateCheckBox.Unchecked += AutoTranslateCheckBox_CheckedChanged;
             }
             
+            // Subscribe to scroll events to sync overlay position with scrolled image
+            imageScrollViewer.ScrollChanged += ImageScrollViewer_ScrollChanged;
+            
             // Initialize the overlay WebView2
             InitializeOverlayWebView();
             
@@ -435,6 +438,52 @@ namespace UGTLive
         {
             // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
             SetExcludeFromCapture();
+        }
+        
+        private void ImageScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            SyncOverlayScrollOffset();
+            UpdateWebViewMarginForScrollbars();
+        }
+        
+        private void SyncOverlayScrollOffset()
+        {
+            if (!_overlayWebViewInitialized || textOverlayWebView?.CoreWebView2 == null)
+                return;
+            
+            try
+            {
+                double textScale = GetWindowsTextScaleFactor();
+                double scaleFactor = currentZoom / textScale;
+
+                System.Windows.Point imageOffset = imageContainer.TranslatePoint(new System.Windows.Point(0, 0), imageScrollViewer);
+                double offsetX = imageOffset.X / textScale;
+                double offsetY = imageOffset.Y / textScale;
+
+                textOverlayWebView.CoreWebView2.ExecuteScriptAsync(
+                    $"updateScrollOffset({offsetX:F2}, {offsetY:F2}, {scaleFactor:F4})");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error syncing overlay scroll offset: {ex.Message}");
+            }
+        }
+        
+        private void UpdateWebViewMarginForScrollbars()
+        {
+            try
+            {
+                double rightMargin = imageScrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible
+                    ? _scrollbarWidth : 0;
+                double bottomMargin = imageScrollViewer.ComputedHorizontalScrollBarVisibility == Visibility.Visible
+                    ? _scrollbarHeight : 0;
+                
+                textOverlayWebView.Margin = new Thickness(0, 0, rightMargin, bottomMargin);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating WebView margin for scrollbars: {ex.Message}");
+            }
         }
         
         private void SetExcludeFromCapture()
@@ -498,25 +547,17 @@ namespace UGTLive
         
         private void checkMousePositionAndUpdateHitTesting(System.Windows.Point screenPoint)
         {
-            // Check if mouse is over scrollbars or title bar
-            // If so, disable WebView2 hit testing to allow interaction with these UI elements
+            // Check if mouse is over scrollbars to disable WebView2 hit testing
+            // (Title bar check no longer needed: WebView2 is viewport-sized outside ScrollViewer)
             
             try
             {
-                System.Windows.Point mousePosWindow = this.PointFromScreen(screenPoint);
                 System.Windows.Point mousePosScrollViewer = imageScrollViewer.PointFromScreen(screenPoint);
                 bool shouldDisableHitTesting = false;
                 string currentRegion = "content";
                 
-                // Check if mouse is over title bar first (using window coordinates)
-                // Title bar area includes borders, so we check top portion of window
-                if (mousePosWindow.Y <= _titleBarHeight && mousePosWindow.Y >= 0)
-                {
-                    shouldDisableHitTesting = true;
-                    currentRegion = "titlebar";
-                }
                 // Check scrollbars using ScrollViewer coordinates
-                else if (mousePosScrollViewer.X >= 0 && mousePosScrollViewer.Y >= 0 &&
+                if (mousePosScrollViewer.X >= 0 && mousePosScrollViewer.Y >= 0 &&
                          mousePosScrollViewer.X <= imageScrollViewer.ActualWidth &&
                          mousePosScrollViewer.Y <= imageScrollViewer.ActualHeight)
                 {
@@ -822,6 +863,16 @@ namespace UGTLive
             html.AppendLine("  0%, 100% { filter: drop-shadow(0 0 28px rgba(120, 220, 255, 0.9)) drop-shadow(0 0 12px rgba(100, 200, 255, 0.7)); }");
             html.AppendLine("  50% { filter: drop-shadow(0 0 50px rgba(140, 230, 255, 1.0)) drop-shadow(0 0 25px rgba(120, 220, 255, 0.9)); }");
             html.AppendLine("}");
+            html.AppendLine("#scroll-container {");
+            html.AppendLine("  position: absolute;");
+            html.AppendLine("  top: 0;");
+            html.AppendLine("  left: 0;");
+            html.AppendLine("  transform-origin: 0 0;");
+            html.AppendLine("  pointer-events: none;");
+            html.AppendLine("}");
+            html.AppendLine("#scroll-container > * {");
+            html.AppendLine("  pointer-events: auto;");
+            html.AppendLine("}");
             html.AppendLine("</style>");
             html.AppendLine("<script>");
             html.AppendLine("function fitTextToBox(element, container) {");
@@ -1009,9 +1060,23 @@ namespace UGTLive
             html.AppendLine("    console.error(error);");
             html.AppendLine("  }");
             html.AppendLine("});");
+            html.AppendLine("");
+            html.AppendLine("function updateScrollOffset(offsetX, offsetY, scaleFactor) {");
+            html.AppendLine("  const container = document.getElementById('scroll-container');");
+            html.AppendLine("  if (container) {");
+            html.AppendLine("    container.style.transform = 'translate(' + offsetX + 'px, ' + offsetY + 'px) scale(' + scaleFactor + ')';");
+            html.AppendLine("  }");
+            html.AppendLine("}");
             html.AppendLine("</script>");
             html.AppendLine("</head>");
             html.AppendLine("<body>");
+            
+            double initTextScale = GetWindowsTextScaleFactor();
+            double initScaleFactor = currentZoom / initTextScale;
+            System.Windows.Point initOffset = imageContainer.TranslatePoint(new System.Windows.Point(0, 0), imageScrollViewer);
+            double initOffsetX = initOffset.X / initTextScale;
+            double initOffsetY = initOffset.Y / initTextScale;
+            html.AppendLine($"<div id='scroll-container' style='transform: translate({initOffsetX}px, {initOffsetY}px) scale({initScaleFactor:F4})'>");
             
             // Add all text overlays if mode is not Hide
             if (_currentOverlayMode != OverlayMode.Hide && Logic.Instance != null)
@@ -1093,16 +1158,12 @@ namespace UGTLive
                             .Replace("\r", "<br>")
                             .Replace("\n", "<br>");
                         
-                        // Apply zoom factor to positions and dimensions
-                        // Also compensate for DPI and text scale (WebView2 CSS pixels are scaled by both)
-                        double dpiScale = GetActualDpiScale();
-                        double textScale = GetWindowsTextScaleFactor();
-                        double combinedScale = dpiScale * textScale;
-                        
-                        double left = (textObj.X * currentZoom) / combinedScale;
-                        double top = (textObj.Y * currentZoom) / combinedScale;
-                        double width = (textObj.Width * currentZoom) / combinedScale;
-                        double height = (textObj.Height * currentZoom) / combinedScale;
+                        // Position overlays in raw image-pixel coordinates;
+                        // zoom + DPI/text-scale mapping is handled by the scroll-container CSS transform
+                        double left = textObj.X;
+                        double top = textObj.Y;
+                        double width = textObj.Width;
+                        double height = textObj.Height;
                         
                         // Calculate initial font size based on box height (will be refined by JavaScript)
                         // Use 70% of height as a starting point, ensuring it's reasonable
@@ -1179,6 +1240,7 @@ namespace UGTLive
                 }
             }
             
+            html.AppendLine("</div>"); // close scroll-container
             html.AppendLine("</body>");
             html.AppendLine("</html>");
             
@@ -1626,6 +1688,7 @@ namespace UGTLive
         {
             // Update scrollbars when window size changes
             UpdateScrollViewerSettings();
+            UpdateWebViewMarginForScrollbars();
         }
         
         // Handle Ctrl+MouseWheel for zooming
@@ -1870,15 +1933,10 @@ namespace UGTLive
         {
             if (captureImage.Source != null)
             {
-                // Make sure the image and WebView are sized correctly
                 if (captureImage.Source is BitmapSource bitmapSource)
                 {
-                    // Set the WebView size to match the image
-                    textOverlayWebView.Width = bitmapSource.PixelWidth;
-                    textOverlayWebView.Height = bitmapSource.PixelHeight;
-                    
-                    // This ensures the scrollbars will appear when the image is larger
-                    // than the available space in the ScrollViewer
+                    // WebView2 is now viewport-sized (Stretch alignment outside ScrollViewer),
+                    // so we only size the imageContainer for scrollbar calculation
                     imageContainer.Width = bitmapSource.PixelWidth;
                     imageContainer.Height = bitmapSource.PixelHeight;
                 }
@@ -3386,6 +3444,26 @@ namespace UGTLive
                             
                             return IntPtr.Zero;
                         }
+                    }
+                    else
+                    {
+                        // No Ctrl: forward scroll to the ScrollViewer (WebView2 is outside it now)
+                        int wParamVal = wParam.ToInt32();
+                        int highW = (wParamVal >> 16) & 0xFFFF;
+                        int scrollDelta = unchecked((short)highW);
+                        
+                        if (msg == WM_MOUSEHWHEEL)
+                        {
+                            imageScrollViewer.ScrollToHorizontalOffset(
+                                imageScrollViewer.HorizontalOffset - scrollDelta);
+                        }
+                        else
+                        {
+                            imageScrollViewer.ScrollToVerticalOffset(
+                                imageScrollViewer.VerticalOffset - scrollDelta);
+                        }
+                        handled = true;
+                        return IntPtr.Zero;
                     }
                 }
                 catch (Exception ex)
