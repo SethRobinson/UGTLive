@@ -2023,7 +2023,8 @@ Here is the input JSON:";
             int nonPunctuationCount = 0;
             foreach (char c in text)
             {
-                if (!char.IsPunctuation(c) && !char.IsWhiteSpace(c) && !char.IsSymbol(c))
+                if (!char.IsPunctuation(c) && !char.IsWhiteSpace(c) && !char.IsSymbol(c)
+                    && c != '〜' && c != 'ー')
                     nonPunctuationCount++;
             }
             return nonPunctuationCount < minChars;

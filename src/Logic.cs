@@ -2851,8 +2851,8 @@ namespace UGTLive
             // Trigger target audio preloading if enabled
             TriggerTargetAudioPreloading();
             
-            // Sort text objects by Y coordinate
-            var sortedTextObjects = _textObjects.OrderBy(t => t.Y).ToList();
+            string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+            var sortedTextObjects = AudioPlaybackManager.SortTextObjectsByPlayOrder(_textObjects.ToList(), playOrder);
             // Add each translated text to the ChatBox
             foreach (var textObject in sortedTextObjects)
             {

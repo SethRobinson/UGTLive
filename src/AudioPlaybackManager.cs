@@ -568,7 +568,7 @@ namespace UGTLive
             }
         }
         
-        private List<TextObject> SortTextObjectsByPlayOrder(List<TextObject> textObjects, string playOrder)
+        public static List<TextObject> SortTextObjectsByPlayOrder(List<TextObject> textObjects, string playOrder)
         {
             var sorted = new List<TextObject>(textObjects);
             
@@ -607,7 +607,7 @@ namespace UGTLive
             return sorted;
         }
         
-        private bool areOnSameLine(TextObject a, TextObject b, double pixelThreshold)
+        private static bool areOnSameLine(TextObject a, TextObject b, double pixelThreshold)
         {
             // Two rectangles are considered on the same line if the vertical distance
             // between their top-middle points is within the threshold

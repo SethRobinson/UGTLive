@@ -50,6 +50,8 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Source Language -->
@@ -79,8 +81,26 @@
                                          Checked="AutoTranslateCheckBox_CheckedChanged" 
                                          Unchecked="AutoTranslateCheckBox_CheckedChanged"/>
                                 
+                                <!-- Read Order -->
+                                <TextBlock Text="Text block read order:" Grid.Row="3" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Order in which text is displayed in the transcript and read aloud"/>
+                                <ComboBox x:Name="ttsPlayOrderComboBox" Grid.Row="3" Grid.Column="1" 
+                                         Margin="0,10,0,0" SelectionChanged="TtsPlayOrderComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Top down, left to right"/>
+                                    <ComboBoxItem Content="Top down, right to left"/>
+                                </ComboBox>
+                                
+                                <!-- Vertical Overlap Threshold -->
+                                <TextBlock Text="Vertical overlap threshold (px):" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,10,10,0"
+                                          ToolTip="Maximum vertical distance between text box tops to consider them on the same line (useful for manga)"/>
+                                <TextBox x:Name="ttsVerticalOverlapTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
+                                        Text="120"/>
+                                
                                 <!-- Language Compatibility Warning -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" 
+                                <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" 
                                           Margin="0,8,0,0" FontSize="11" FontStyle="Italic"
                                           Foreground="#888888" TextWrapping="Wrap"
                                           Text="Note: Some OCR methods may not support all languages. MangaOCR only works with Japanese. docTR primarily supports Latin-based languages."/>
@@ -1306,8 +1326,6 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Enable Page Reading -->
@@ -1344,58 +1362,40 @@
                                        Margin="0,10,0,0" Padding="8,3" HorizontalAlignment="Left"
                                        Click="SetTargetTtsButton_Click"/>
                                 
-                                <!-- Play Order -->
-                                <TextBlock Text="Play order:" Grid.Row="4" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,10,10,0"
-                                          ToolTip="Order in which audio files are played when using Play All"/>
-                                <ComboBox x:Name="ttsPlayOrderComboBox" Grid.Row="4" Grid.Column="1" 
-                                         Margin="0,10,0,0" SelectionChanged="TtsPlayOrderComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="Top down, left to right"/>
-                                    <ComboBoxItem Content="Top down, right to left"/>
-                                </ComboBox>
-                                
-                                <!-- Vertical Overlap Threshold -->
-                                <TextBlock Text="Vertical overlap threshold (px):" Grid.Row="5" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,10,10,0"
-                                          ToolTip="Maximum vertical distance between text box tops to consider them on the same line (useful for manga)"/>
-                                <TextBox x:Name="ttsVerticalOverlapTextBox" Grid.Row="5" Grid.Column="1" 
-                                        Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
-                                        Text="120"/>
-                                
                                 <!-- Auto Play All -->
-                                <TextBlock Text="Auto play all after preloading:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock Text="Auto play all after preloading:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Automatically play all audio when preloading completes"/>
-                                <CheckBox x:Name="ttsAutoPlayAllCheckBox" Grid.Row="6" Grid.Column="1" 
+                                <CheckBox x:Name="ttsAutoPlayAllCheckBox" Grid.Row="4" Grid.Column="1" 
                                          Margin="0,10,0,0" IsChecked="False"/>
                                 
                                 <!-- Delete Cache On Startup -->
-                                <TextBlock Text="Delete cached audio on startup:" Grid.Row="7" Grid.Column="0" 
+                                <TextBlock Text="Delete cached audio on startup:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Delete all cached audio files when the application starts"/>
-                                <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="7" Grid.Column="1" 
+                                <CheckBox x:Name="ttsDeleteCacheOnStartupCheckBox" Grid.Row="5" Grid.Column="1" 
                                          Margin="0,10,0,0" IsChecked="False"/>
                                 
                                 <!-- Always Generate New Audio -->
-                                <TextBlock Text="Always generate new audio:" Grid.Row="8" Grid.Column="0" 
+                                <TextBlock Text="Always generate new audio:" Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Never use cached audio files when page reading is used. Always regenerate audio from the TTS service."/>
-                                <CheckBox x:Name="ttsAlwaysGenerateNewAudioCheckBox" Grid.Row="8" Grid.Column="1" 
+                                <CheckBox x:Name="ttsAlwaysGenerateNewAudioCheckBox" Grid.Row="6" Grid.Column="1" 
                                          Margin="0,10,0,0" IsChecked="False"/>
                                 
                                 <!-- Max Concurrent Downloads -->
-                                <TextBlock Text="Max concurrent downloads:" Grid.Row="9" Grid.Column="0"
+                                <TextBlock Text="Max concurrent downloads:" Grid.Row="7" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Maximum number of audio files to generate simultaneously. Cloud services (ElevenLabs, Google) support concurrent requests. Local services (Qwen3-TTS) process one at a time regardless of this setting."/>
-                                <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="9" Grid.Column="1" 
+                                <TextBox x:Name="ttsMaxConcurrentDownloadsTextBox" Grid.Row="7" Grid.Column="1" 
                                         Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
                                         Text="2" LostFocus="TtsMaxConcurrentDownloadsTextBox_LostFocus"/>
                                 
                                 <!-- Minimum Characters for TTS -->
-                                <TextBlock Text="Minimum characters needed to use TTS on:" Grid.Row="10" Grid.Column="0"
+                                <TextBlock Text="Minimum characters needed to use TTS on:" Grid.Row="8" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,10,10,0"
                                           ToolTip="Text with fewer characters than this threshold will be skipped during page reading TTS generation."/>
-                                <TextBox x:Name="ttsMinCharsTextBox" Grid.Row="10" Grid.Column="1" 
+                                <TextBox x:Name="ttsMinCharsTextBox" Grid.Row="8" Grid.Column="1" 
                                         Margin="0,10,0,0" Width="100" HorizontalAlignment="Left"
                                         Text="1" LostFocus="TtsMinCharsTextBox_LostFocus"/>
                             </Grid>
