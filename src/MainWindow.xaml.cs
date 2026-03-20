@@ -1940,11 +1940,13 @@ namespace UGTLive
                 
                 Console.WriteLine($"Saving settings position: {settingsWindowLeft}, {settingsWindowTop}");
                 
+                settingsWindow.Topmost = false;
                 settingsWindow.Hide();
                 // Re-enable hotkeys now that the Settings window is hidden
                 HotkeyManager.Instance.SetEnabled(true);
                 Console.WriteLine("Settings window hidden");
                 settingsButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95)); // Neutral
+                _toolbarWindow?.BringToFront();
             }
             else
             {
@@ -1978,8 +1980,9 @@ namespace UGTLive
                 
                 // Set MainWindow as owner to ensure Settings window appears above it
                 settingsWindow.Owner = this;
+                // Topmost so the toolbar (also topmost) does not paint over Settings; restored to false on hide.
+                settingsWindow.Topmost = true;
                 settingsWindow.Show();
-                _toolbarWindow?.BringToFront();
                 
                 // Ensure window is visible, on top, and activated
                 settingsWindow.Visibility = Visibility.Visible;

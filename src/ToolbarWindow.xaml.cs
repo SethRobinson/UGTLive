@@ -90,9 +90,14 @@ namespace UGTLive
         {
             base.OnDeactivated(e);
 
+            if (SettingsWindow.IsOpenAndVisible())
+            {
+                return;
+            }
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (IsVisible)
+                if (IsVisible && !SettingsWindow.IsOpenAndVisible())
                 {
                     BringToFront();
                 }

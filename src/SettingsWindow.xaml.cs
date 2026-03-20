@@ -84,6 +84,19 @@ namespace UGTLive
                 return _instance;
             }
         }
+
+        /// <summary>
+        /// True when settings is shown and not minimized. Does not instantiate the window.
+        /// </summary>
+        public static bool IsOpenAndVisible()
+        {
+            if (_instance == null || !IsWindowValid(_instance))
+            {
+                return false;
+            }
+
+            return _instance.IsVisible && _instance.WindowState != WindowState.Minimized;
+        }
         
         public SettingsWindow()
         {
