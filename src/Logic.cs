@@ -36,7 +36,8 @@ namespace UGTLive
         
         // Hash of the content we're currently settling on
         // This tracks OCR variations during the settling phase
-        private string _settlingHash = string.Empty;
+        // null means "not settling", empty string is a valid hash (blank area with no text)
+        private string? _settlingHash = null;
         
         // Timestamp of last translation completion - used for cooldown to prevent rapid re-translations
         // due to OCR instability on static screens
@@ -206,7 +207,7 @@ namespace UGTLive
             }
             SetWaitingForTranslationToFinish(false);
             _settlingStartTime = DateTime.MinValue;
-            _settlingHash = string.Empty;
+            _settlingHash = null;
             
             // Notify MainWindow if snapshot mode is completing
             bool wasSnapshotMode = _isSnapshotMode;
@@ -263,7 +264,7 @@ namespace UGTLive
         {
             // Force mismatch on next comparison by using a unique string
             _lastOcrHash = "RESET_" + Guid.NewGuid().ToString();
-            _settlingHash = string.Empty;
+            _settlingHash = null;
             _lastChangeTime = DateTime.Now;
             _settlingStartTime = DateTime.MinValue; // Ensure settling restarts clean
             _lastTranslationTime = DateTime.MinValue; // Clear cooldown on reset
@@ -281,7 +282,7 @@ namespace UGTLive
             // Clear settling state
             _lastChangeTime = DateTime.MinValue;
             _settlingStartTime = DateTime.MinValue;
-            _settlingHash = string.Empty;
+            _settlingHash = null;
             
             // Force new OCR analysis
             ResetHash();
@@ -563,7 +564,20 @@ namespace UGTLive
                                     Log("Snapshot mode: bypassing settle time");
                                     _lastChangeTime = DateTime.MinValue;
                                     _settlingStartTime = DateTime.MinValue;
-                                    _settlingHash = string.Empty;
+                                    _settlingHash = null;
+                                    _lastOcrHash = contentHash;
+                                    bForceRender = true;
+                                }
+                                // If OCR found no text, bypass settling — nothing to settle on
+                                else if (modifiedResults.GetArrayLength() == 0)
+                                {
+                                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                                    {
+                                        Log("No text detected, bypassing settle time");
+                                    }
+                                    _lastChangeTime = DateTime.MinValue;
+                                    _settlingStartTime = DateTime.MinValue;
+                                    _settlingHash = null;
                                     _lastOcrHash = contentHash;
                                     bForceRender = true;
                                 }
@@ -576,7 +590,7 @@ namespace UGTLive
                                     }
                                     _lastChangeTime = DateTime.MinValue;
                                     _settlingStartTime = DateTime.MinValue;
-                                    _settlingHash = string.Empty;
+                                    _settlingHash = null;
                                     _lastOcrHash = contentHash;
                                     bForceRender = true;
                                 }
@@ -610,7 +624,7 @@ namespace UGTLive
                                         }
                                         _lastChangeTime = DateTime.MinValue; // Reset in case OCR noise had started settling
                                         _settlingStartTime = DateTime.MinValue;
-                                        _settlingHash = string.Empty;
+                                        _settlingHash = null;
                                         ClearCurrentProcessingBitmap();
                                         OnFinishedThings(true);
                                         return;
@@ -625,11 +639,11 @@ namespace UGTLive
                                         }
                                         _lastChangeTime = DateTime.MinValue;
                                         _settlingStartTime = DateTime.MinValue;
-                                        _settlingHash = string.Empty;
+                                        _settlingHash = null;
                                         bForceRender = true;
                                     }
                                     // Check if content hash matches the SETTLING hash (what we're currently settling on)
-                                    else if (_settlingHash != string.Empty && contentHash == _settlingHash)
+                                    else if (_settlingHash != null && contentHash == _settlingHash)
                                     {
                                         // Content matches what we're settling on - check if settle time reached
                                         if ((DateTime.Now - _lastChangeTime).TotalSeconds >= settleTime)
@@ -643,7 +657,7 @@ namespace UGTLive
                                             }
                                             _lastChangeTime = DateTime.MinValue;
                                             _settlingStartTime = DateTime.MinValue;
-                                            _settlingHash = string.Empty;
+                                            _settlingHash = null;
                                             bForceRender = true;
                                         }
                                         else
@@ -688,7 +702,7 @@ namespace UGTLive
                                         }
                                         
                                         // Content has changed - update settling hash (NOT _lastOcrHash!)
-                                        if (_settlingHash != string.Empty)
+                                        if (_settlingHash != null)
                                         {
                                             if (ConfigManager.Instance.GetLogExtraDebugStuff())
                                             {
@@ -732,7 +746,7 @@ namespace UGTLive
                                             }
                                             _lastChangeTime = DateTime.MinValue;
                                             _settlingStartTime = DateTime.MinValue;
-                                            _settlingHash = string.Empty;
+                                            _settlingHash = null;
                                             bForceRender = true;
                                             // Don't return - continue to process the forced rendering
                                         }
