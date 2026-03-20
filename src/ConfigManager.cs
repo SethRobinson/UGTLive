@@ -227,6 +227,7 @@ namespace UGTLive
         public const string OPENAI_LISTEN_SPOKEN_PROMPT = "openai_listen_spoken_prompt";
         public const string OPENAI_VOICE = "openai_voice";
         public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
+        public const string OPENAI_SEMANTIC_VAD_EAGERNESS = "openai_semantic_vad_eagerness";
         public const string OPENAI_TRANSCRIPTION_MODEL = "openai_transcription_model";
         public const string OPENAI_NOISE_REDUCTION = "openai_noise_reduction";
 
@@ -522,7 +523,8 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
-            _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Default silence duration
+            _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Legacy, kept for backward compat
+            _configValues[OPENAI_SEMANTIC_VAD_EAGERNESS] = "auto";
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
             _configValues[OPENAI_TRANSCRIPTION_MODEL] = "gpt-4o-transcribe";
@@ -2990,6 +2992,18 @@ Here is the input JSON:";
             {
                 Console.WriteLine($"Invalid OpenAI silence duration: {duration}. Must be non-negative.");
             }
+        }
+
+        public string GetSemanticVadEagerness()
+        {
+            return GetValue(OPENAI_SEMANTIC_VAD_EAGERNESS, "auto");
+        }
+
+        public void SetSemanticVadEagerness(string eagerness)
+        {
+            _configValues[OPENAI_SEMANTIC_VAD_EAGERNESS] = eagerness;
+            SaveConfig();
+            Console.WriteLine($"Semantic VAD eagerness set to: {eagerness}");
         }
 
         // Get/Set OpenAI Transcription Model

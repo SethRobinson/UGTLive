@@ -1419,13 +1419,19 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
+                                <!-- Model version info -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                         Text="Models: Transcription via gpt-realtime, Translation via gpt-realtime-1.5"
+                                         Foreground="Gray" FontSize="11" Margin="0,0,0,8"/>
+                                
                                 <!-- OpenAI API Key -->
-                                <TextBlock Text="OpenAI API Key:" Grid.Row="0" Grid.Column="0" 
+                                <TextBlock Text="OpenAI API Key:" Grid.Row="1" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="API Key for OpenAI Realtime API"/>
-                                <Grid Grid.Row="0" Grid.Column="1">
+                                <Grid Grid.Row="1" Grid.Column="1">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -1440,17 +1446,17 @@
                                 </Grid>
                                 
                                 <!-- Audio Input Device -->
-                                <TextBlock Text="Audio Input Device:" Grid.Row="1" Grid.Column="0" 
+                                <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Select the microphone or audio input device to use"/>
-                                <ComboBox x:Name="inputDeviceComboBox" Grid.Row="1" Grid.Column="1" 
+                                <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
                                 
                                 <!-- Transcription Model -->
-                                <TextBlock Text="Transcription Model:" Grid.Row="2" Grid.Column="0" 
+                                <TextBlock Text="Transcription Model:" Grid.Row="3" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Model used for speech-to-text transcription. gpt-4o-transcribe streams text as you speak. whisper-1 waits for silence."/>
-                                <ComboBox x:Name="transcriptionModelComboBox" Grid.Row="2" Grid.Column="1" 
+                                <ComboBox x:Name="transcriptionModelComboBox" Grid.Row="3" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="TranscriptionModelComboBox_SelectionChanged">
                                     <ComboBoxItem Content="gpt-4o-transcribe (recommended)" Tag="gpt-4o-transcribe"/>
                                     <ComboBoxItem Content="gpt-4o-mini-transcribe (faster, cheaper)" Tag="gpt-4o-mini-transcribe"/>
@@ -1458,36 +1464,41 @@
                                 </ComboBox>
                                 
                                 <!-- Source Language -->
-                                <TextBlock Text="Source Language:" Grid.Row="3" Grid.Column="0" 
+                                <TextBlock Text="Source Language:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Language for speech recognition (Auto to autodetect)"/>
-                                <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="3" Grid.Column="1" 
+                                <ComboBox x:Name="whisperSourceLanguageComboBox" Grid.Row="4" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="WhisperSourceLanguageComboBox_SelectionChanged">
                                 </ComboBox>
                                 
                                 <!-- Noise Reduction -->
-                                <TextBlock Text="Noise Reduction:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock Text="Noise Reduction:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Filters audio before speech detection. Near Field for headsets/close mics, Far Field for laptop/room mics."/>
-                                <ComboBox x:Name="noiseReductionComboBox" Grid.Row="4" Grid.Column="1" 
+                                <ComboBox x:Name="noiseReductionComboBox" Grid.Row="5" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="NoiseReductionComboBox_SelectionChanged">
                                     <ComboBoxItem Content="Near Field (headset/close mic)" Tag="near_field"/>
                                     <ComboBoxItem Content="Far Field (laptop/room mic)" Tag="far_field"/>
                                     <ComboBoxItem Content="Off" Tag="none"/>
                                 </ComboBox>
                                 
-                                <!-- OpenAI Silence Duration -->
-                                <TextBlock Text="Silence Duration (ms):" Grid.Row="5" Grid.Column="0" 
+                                <!-- VAD Eagerness -->
+                                <TextBlock Text="Speech Detection:" Grid.Row="6" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Duration of silence in milliseconds before an utterance is considered complete. Affects how quickly transcription/translation is finalized."/>
-                                <TextBox x:Name="openAiSilenceDurationMsTextBox" Grid.Row="5" Grid.Column="1" 
-                                        Margin="0,5" LostFocus="OpenAiSilenceDurationMsTextBox_LostFocus"/>
+                                          ToolTip="Controls how eagerly the AI segments speech into chunks. Low = waits longer for speaker to finish. High = segments more aggressively. Uses semantic VAD (AI-based, not silence-based)."/>
+                                <ComboBox x:Name="vadEagernessComboBox" Grid.Row="6" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="VadEagernessComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Low (patient, waits for speaker)" Tag="low"/>
+                                    <ComboBoxItem Content="Medium" Tag="medium"/>
+                                    <ComboBoxItem Content="Auto (recommended)" Tag="auto"/>
+                                    <ComboBoxItem Content="High (aggressive chunking)" Tag="high"/>
+                                </ComboBox>
                                 
                                 <!-- Audio Translation Mode -->
-                                <TextBlock Text="Translation Mode:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock Text="Translation Mode:" Grid.Row="7" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
                                           ToolTip="Method to translate audio transcriptions"/>
-                                <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="6" Grid.Column="1" 
+                                <ComboBox x:Name="audioTranslationTypeComboBox" Grid.Row="7" Grid.Column="1" 
                                          Margin="0,5" SelectionChanged="AudioTranslationTypeComboBox_SelectionChanged">
                                     <ComboBoxItem Content="None (transcribe only)" Tag="none"/>
                                     <ComboBoxItem Content="Google Translate" Tag="google"/>
@@ -1495,7 +1506,7 @@
                                 </ComboBox>
                                 
                                 <!-- Speaking Features Sub-Area -->
-                                <GroupBox Header="Spoken Translation (TTS)" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" 
+                                <GroupBox Header="Spoken Translation (TTS)" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" 
                                          Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -1551,7 +1562,7 @@
                                 </GroupBox>
                                 
                                 <!-- Listen Mode AI Prompts -->
-                                <GroupBox Header="Listen Mode AI Prompts" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                                <GroupBox Header="Listen Mode AI Prompts" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
                                          Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
                                     <StackPanel>
                                         <TextBlock Text="These prompts control the instructions sent to the AI during Listen mode. The language directive shown below is automatically appended."

@@ -292,12 +292,10 @@ namespace UGTLive
             string sourceLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
             bool isSourceSpecified = !string.IsNullOrEmpty(sourceLanguage) &&
                                      !sourceLanguage.Equals("Auto", StringComparison.OrdinalIgnoreCase);
-            int silenceDurationMs = ConfigManager.Instance.GetOpenAiSilenceDurationMs();
             string transcriptionModel = ConfigManager.Instance.GetOpenAITranscriptionModel();
             string noiseReduction = ConfigManager.Instance.GetOpenAINoiseReduction();
+            string eagerness = ConfigManager.Instance.GetSemanticVadEagerness();
 
-            // Use session.update on a realtime session with transcription enabled
-            // and create_response: false so it only transcribes, never generates responses
             var transcriptionObj = new Dictionary<string, object?>
             {
                 ["model"] = transcriptionModel
@@ -309,10 +307,8 @@ namespace UGTLive
 
             var turnDetectionObj = new Dictionary<string, object?>
             {
-                ["type"] = "server_vad",
-                ["threshold"] = 0.5,
-                ["prefix_padding_ms"] = 300,
-                ["silence_duration_ms"] = silenceDurationMs,
+                ["type"] = "semantic_vad",
+                ["eagerness"] = eagerness,
                 ["create_response"] = false,
                 ["interrupt_response"] = false
             };
@@ -342,7 +338,7 @@ namespace UGTLive
             };
 
             await sendJson(_transcribeWs!, sessionUpdate, token);
-            log($"Transcription session configured. Model: {transcriptionModel}, Silence: {silenceDurationMs}ms, Noise reduction: {noiseReduction}, Language: {(isSourceSpecified ? sourceLanguage : "auto")}");
+            log($"Transcription session configured. Model: {transcriptionModel}, VAD: semantic (eagerness: {eagerness}), Noise reduction: {noiseReduction}, Language: {(isSourceSpecified ? sourceLanguage : "auto")}");
         }
 
         private async Task configureTranslationSession(CancellationToken token)

@@ -775,7 +775,17 @@ namespace UGTLive
             // Audio Processing settings
             LoadAudioInputDevices(); // Load and set audio input devices
             openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
-            openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
+
+            // Set VAD eagerness dropdown
+            string currentEagerness = ConfigManager.Instance.GetSemanticVadEagerness();
+            foreach (ComboBoxItem item in vadEagernessComboBox.Items)
+            {
+                if (item.Tag is string tag && tag == currentEagerness)
+                {
+                    vadEagernessComboBox.SelectedItem = item;
+                    break;
+                }
+            }
             
             // Load listen mode prompts
             listenTextPromptTextBox.Text = ConfigManager.Instance.GetListenTextPrompt();
@@ -5159,21 +5169,15 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
 
-        private void OpenAiSilenceDurationMsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        private void VadEagernessComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
 
-            if (int.TryParse(openAiSilenceDurationMsTextBox.Text, out int duration) && duration >= 0)
+            if (vadEagernessComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string eagerness)
             {
-                ConfigManager.Instance.SetOpenAiSilenceDurationMs(duration);
-                Console.WriteLine($"OpenAI Silence Duration set to: {duration}ms");
+                ConfigManager.Instance.SetSemanticVadEagerness(eagerness);
+                Console.WriteLine($"Semantic VAD eagerness set to: {eagerness}");
                 restartListenIfActive();
-            }
-            else
-            {
-                // Reset to current config value if input is invalid
-                openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
-                MessageBox.Show("Invalid silence duration. Please enter a non-negative number.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
