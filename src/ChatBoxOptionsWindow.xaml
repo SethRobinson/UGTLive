@@ -105,7 +105,7 @@
                         <TextBlock Text="Font Size:" Grid.Row="1" Grid.Column="0"
                                    VerticalAlignment="Center" Margin="0,5,10,5"/>
                         <Slider x:Name="fontSizeSlider" Grid.Row="1" Grid.Column="1"
-                                Minimum="8" Maximum="48" 
+                                Minimum="8" Maximum="300" 
                                 Value="14" 
                                 VerticalAlignment="Center" Margin="0,5"
                                 TickPlacement="BottomRight"
@@ -184,18 +184,24 @@
             <StackPanel Orientation="Horizontal" 
                         HorizontalAlignment="Right"
                         Grid.Column="1">
-                <Button x:Name="applyButton" 
-                        Content="Apply" 
+                <Button x:Name="okButton" 
+                        Content="OK" 
                         Width="80" 
                         Height="25" 
                         Margin="5,0" 
-                        Click="ApplyButton_Click"/>
+                        Click="OkButton_Click"/>
                 <Button x:Name="cancelButton" 
                         Content="Cancel" 
                         Width="80" 
                         Height="25" 
                         Margin="5,0" 
                         Click="CancelButton_Click"/>
+                <Button x:Name="applyButton" 
+                        Content="Apply" 
+                        Width="80" 
+                        Height="25" 
+                        Margin="5,0" 
+                        Click="ApplyButton_Click"/>
             </StackPanel>
         </Grid>
     </Grid>

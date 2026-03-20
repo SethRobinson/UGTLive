@@ -299,32 +299,45 @@ namespace UGTLive
             }
         }
 
+        private void applySettings()
+        {
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_COLOR, ColorToHexString(
+                Color.FromArgb(255, _currentBackgroundColor.R, _currentBackgroundColor.G, _currentBackgroundColor.B)));
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_OPACITY, _currentBackgroundOpacity.ToString());
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_WINDOW_OPACITY, _currentWindowOpacity.ToString());
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_FAMILY, _currentFontFamily);
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, _currentFontSize.ToString());
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_ORIGINAL_TEXT_COLOR, ColorToHexString(_currentOriginalTextColor));
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_TRANSLATED_TEXT_COLOR, ColorToHexString(_currentTranslatedTextColor));
+
+            ConfigManager.Instance.SaveConfig();
+
+            if (ChatBoxWindow.Instance != null)
+            {
+                ChatBoxWindow.Instance.ApplyConfigurationStyling();
+            }
+        }
+
+        private void OkButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                applySettings();
+                this.DialogResult = true;
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving settings: {ex.Message}");
+                MessageBox.Show($"Error saving settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Save settings to config
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_COLOR, ColorToHexString(
-                    Color.FromArgb(255, _currentBackgroundColor.R, _currentBackgroundColor.G, _currentBackgroundColor.B)));
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_OPACITY, _currentBackgroundOpacity.ToString());
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_WINDOW_OPACITY, _currentWindowOpacity.ToString());
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_FAMILY, _currentFontFamily);
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, _currentFontSize.ToString());
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_ORIGINAL_TEXT_COLOR, ColorToHexString(_currentOriginalTextColor));
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_TRANSLATED_TEXT_COLOR, ColorToHexString(_currentTranslatedTextColor));
-                
-                // Save config to file
-                ConfigManager.Instance.SaveConfig();
-                
-                // Apply changes to ChatBoxWindow if it's open
-                if (ChatBoxWindow.Instance != null)
-                {
-                    ChatBoxWindow.Instance.ApplyConfigurationStyling();
-                }
-                
-                // Close the window
-                this.DialogResult = true;
-                this.Close();
+                applySettings();
             }
             catch (Exception ex)
             {

@@ -565,7 +565,7 @@ namespace UGTLive
             get { return _chatFontSize; }
             set 
             { 
-                _chatFontSize = Math.Max(8, Math.Min(48, value));  // Clamp between 8 and 48
+                _chatFontSize = Math.Max(8, Math.Min(300, value));
             }
         }
         
