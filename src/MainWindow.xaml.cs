@@ -142,6 +142,9 @@ namespace UGTLive
         private bool isChatBoxVisible = false;
         private bool isSelectingChatBoxArea = false;
         private bool _chatBoxEventsAttached = false;
+
+        // Capture area selector
+        private bool _isSelectingCaptureArea = false;
         
         // Keep translation history even when ChatBox is closed
         private List<TranslationEntry> _translationHistory = new List<TranslationEntry>();
@@ -167,6 +170,7 @@ namespace UGTLive
         // These replace the old XAML-generated fields that were removed when the
         // buttons moved from MainWindow's header into the floating toolbar.
         private System.Windows.Controls.Button? hideButton => _toolbarWindow?.hideButton;
+        private System.Windows.Controls.Button? drawBorderButton => _toolbarWindow?.drawBorderButton;
         private System.Windows.Controls.Button? toggleButton => _toolbarWindow?.toggleButton;
         private System.Windows.Controls.Button? snapshotButton => _toolbarWindow?.snapshotButton;
         private System.Windows.Controls.Button? monitorButton => _toolbarWindow?.monitorButton;
@@ -1606,6 +1610,89 @@ namespace UGTLive
             }
 
             BringToFront();
+        }
+
+        public void HandleDrawBorderButton()
+        {
+            if (_isSelectingCaptureArea)
+            {
+                _isSelectingCaptureArea = false;
+                if (drawBorderButton != null)
+                {
+                    drawBorderButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
+                }
+
+                foreach (Window window in System.Windows.Application.Current.Windows)
+                {
+                    if (window is CaptureSelectorWindow selectorWindow)
+                    {
+                        selectorWindow.Close();
+                        return;
+                    }
+                }
+                return;
+            }
+
+            CaptureSelectorWindow selectorWindow2 = CaptureSelectorWindow.GetInstance();
+            selectorWindow2.SelectionComplete += CaptureSelector_SelectionComplete;
+            selectorWindow2.Closed += (s, e) =>
+            {
+                _isSelectingCaptureArea = false;
+                if (drawBorderButton != null)
+                {
+                    drawBorderButton.Background = new SolidColorBrush(Color.FromRgb(95, 95, 95));
+                }
+            };
+            selectorWindow2.Owner = this;
+            selectorWindow2.Show();
+            _toolbarWindow?.BringToFront();
+
+            _isSelectingCaptureArea = true;
+            if (drawBorderButton != null)
+            {
+                drawBorderButton.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67));
+            }
+        }
+
+        private void CaptureSelector_SelectionComplete(object? sender, Rect selectionRect)
+        {
+            // The selectionRect is in screen coordinates (physical pixels).
+            // We need to convert to WPF DIPs and account for the window chrome
+            // (title bar + borders) so the capture area matches the drawn rect.
+            double dpiScale = 1.0;
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                dpiScale = source.CompositionTarget.TransformToDevice.M11;
+            }
+
+            // The border/chrome offsets in DIPs that surround the capture area
+            double borderLeft = 15;
+            double borderRight = 15;
+            double borderBottom = 15;
+            double titleBarHeight = TITLE_BAR_HEIGHT;
+
+            // Convert screen-pixel selection to DIPs
+            double selLeftDip = selectionRect.X / dpiScale;
+            double selTopDip = selectionRect.Y / dpiScale;
+            double selWidthDip = selectionRect.Width / dpiScale;
+            double selHeightDip = selectionRect.Height / dpiScale;
+
+            // Position the MainWindow so that its capture area aligns with the selection
+            this.Left = selLeftDip - borderLeft;
+            this.Top = selTopDip - titleBarHeight;
+            this.Width = selWidthDip + borderLeft + borderRight;
+            this.Height = selHeightDip + titleBarHeight + borderBottom;
+
+            // Make sure the border is visible
+            if (MainBorder.Visibility != Visibility.Visible)
+            {
+                HandleHideButton();
+            }
+
+            UpdateCaptureRect();
+
+            Console.WriteLine($"Capture area drawn: screen({selectionRect.X:F0},{selectionRect.Y:F0} {selectionRect.Width:F0}x{selectionRect.Height:F0}) -> window({this.Left:F0},{this.Top:F0} {this.Width:F0}x{this.Height:F0})");
         }
 
         public void HandleMinimizeButton()

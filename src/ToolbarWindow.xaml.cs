@@ -127,6 +127,11 @@ namespace UGTLive
             MainWindow.Instance?.HandleHideButton();
         }
 
+        private void DrawBorderButton_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow.Instance?.HandleDrawBorderButton();
+        }
+
         private void MinimizeAppButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance?.HandleMinimizeButton();

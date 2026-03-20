@@ -138,6 +138,10 @@
             <Button x:Name="hideButton" Content="Hide red border" Style="{StaticResource ToolbarButtonStyle}"
                     Click="HideButton_Click"/>
 
+            <!-- Draw red border (select capture area) -->
+            <Button x:Name="drawBorderButton" Content="Draw red border" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="DrawBorderButton_Click"/>
+
         </StackPanel>
     </Border>
 </Window>
