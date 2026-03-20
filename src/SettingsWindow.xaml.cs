@@ -3201,7 +3201,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     
                 if (chatGptModelComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    string model = selectedItem.Tag?.ToString() ?? "gpt-3.5-turbo";
+                    string model = selectedItem.Tag?.ToString() ?? "gpt-5.4-nano";
                     
                     // Save to config
                     ConfigManager.Instance.SetChatGptModel(model);

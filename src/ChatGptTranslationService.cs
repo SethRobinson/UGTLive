@@ -49,8 +49,9 @@ namespace UGTLive
         /// </summary>
         private bool RequiresResponsesApi(string model)
         {
-            // GPT-5.2 Pro requires the Responses API (/v1/responses)
-            return model.Equals("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase);
+            // Pro tier models require the Responses API (/v1/responses)
+            return model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase);
         }
         
         /// <summary>
@@ -64,13 +65,18 @@ namespace UGTLive
         }
         
         /// <summary>
-        /// Check if the model supports 'none' reasoning effort (GPT-5.1 and GPT-5.2 only)
+        /// Check if the model supports 'none' reasoning effort (not GPT-5.4-pro: medium/high/xhigh only)
         /// </summary>
         private bool SupportsNoneReasoningEffort(string model)
         {
-            // Only GPT-5.1 and GPT-5.2 series support 'none' reasoning effort
+            if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             return model.StartsWith("gpt-5.1", StringComparison.OrdinalIgnoreCase) ||
-                   model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase);
+                   model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gpt-5.4", StringComparison.OrdinalIgnoreCase);
         }
         
         /// <summary>
@@ -93,8 +99,14 @@ namespace UGTLive
             else
             {
                 // When thinking is disabled:
-                // - GPT-5.1 and GPT-5.2 support 'none'
-                // - GPT-5, GPT-5 Mini, GPT-5 Nano support 'low', 'medium', 'high' (not 'none')
+                // - GPT-5.4-pro supports only medium / high / xhigh (use medium as minimum)
+                // - GPT-5.1, GPT-5.2, GPT-5.4 (non-pro) support 'none'
+                // - Base GPT-5, Mini, Nano support 'low', 'medium', 'high' (not 'none')
+                if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "medium";
+                }
+
                 return SupportsNoneReasoningEffort(model) ? "none" : "low";
             }
         }

@@ -382,6 +382,8 @@ namespace UGTLive
                     // Then process regular single-line values
                     ProcessSingleLineValues(content);
                 }
+
+                applyDeprecatedModelMigrations();
             }
             catch (Exception ex)
             {
@@ -397,6 +399,27 @@ namespace UGTLive
                 Console.WriteLine($"  {entry.Key} = {(entry.Key.Contains("api_key") ? "***" : entry.Value)}");
             }
             Console.WriteLine("===============================");
+        }
+
+        /// <summary>
+        /// Remap model IDs that vendors have shut down or deprecated so existing config files keep working.
+        /// </summary>
+        private void applyDeprecatedModelMigrations()
+        {
+            bool changed = false;
+
+            if (_configValues.TryGetValue(GEMINI_MODEL, out string? geminiModel) &&
+                string.Equals(geminiModel.Trim(), "gemini-3-pro-preview", StringComparison.OrdinalIgnoreCase))
+            {
+                _configValues[GEMINI_MODEL] = "gemini-3.1-pro-preview";
+                changed = true;
+                Console.WriteLine("Config: migrated gemini_model gemini-3-pro-preview -> gemini-3.1-pro-preview");
+            }
+
+            if (changed)
+            {
+                SaveConfig();
+            }
         }
         
         public bool GetGoogleTranslateUseCloudApi()
@@ -475,7 +498,7 @@ namespace UGTLive
             _configValues[MIN_CONTEXT_SIZE] = "8";
             _configValues[GAME_INFO] = "We're playing an unspecified game.";
             _configValues[MIN_TEXT_FRAGMENT_SIZE] = "1";
-            _configValues[CHATGPT_MODEL] = "gpt-5-nano";
+            _configValues[CHATGPT_MODEL] = "gpt-5.4-nano";
             _configValues[CHATGPT_API_KEY] = "<your API key here>";
             _configValues[CHATGPT_MAX_COMPLETION_TOKENS] = "32768";
             _configValues[CHATGPT_THINKING_ENABLED] = "false";
@@ -2048,7 +2071,7 @@ Here is the input JSON:";
         // Get/Set ChatGPT model
         public string GetChatGptModel()
         {
-            return GetValue(CHATGPT_MODEL, "gpt-3.5-turbo"); // Default to gpt-3.5-turbo
+            return GetValue(CHATGPT_MODEL, "gpt-5.4-nano"); // Default to GPT-5.4 Nano
         }
         
         public void SetChatGptModel(string model)
