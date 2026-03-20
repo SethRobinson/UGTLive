@@ -13,6 +13,44 @@
         KeyboardNavigation.TabNavigation="None"
         Icon="/media/Icon1.ico">
 
+    <Window.Resources>
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="White"/>
+            <Setter Property="Background" Value="#FF5F5F5F"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bgBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    SnapsToDevicePixels="True"/>
+                            <Border x:Name="hoverOverlay"
+                                    Background="Transparent"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="hoverOverlay" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="bgBorder" Property="BorderBrush" Value="#FFAAAAAA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="hoverOverlay" Property="Background" Value="#50FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Border Background="#CC202020" CornerRadius="4" BorderBrush="#80FF0000" BorderThickness="1" Padding="4">
         <StackPanel Orientation="Vertical" Width="110">
             <!-- Title bar: drag handle + minimize/close -->
@@ -37,49 +75,40 @@
             </DockPanel>
 
             <!-- Primary action buttons -->
-            <Button x:Name="snapshotButton" Content="Snap" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="SnapshotButton_Click" FontSize="11"/>
+            <Button x:Name="snapshotButton" Content="Snap" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="SnapshotButton_Click"/>
 
-            <Button x:Name="toggleButton" Content="Auto" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="ToggleButton_Click" FontSize="11"/>
+            <Button x:Name="toggleButton" Content="Auto" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="ToggleButton_Click"/>
 
             <!-- Separator -->
             <Rectangle Height="1" Fill="#40FFFFFF" Margin="4,3"/>
 
             <!-- Window toggle buttons -->
-            <Button x:Name="monitorButton" Content="Monitor" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="MonitorButton_Click" FontSize="11"/>
+            <Button x:Name="monitorButton" Content="Monitor" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="MonitorButton_Click"/>
 
-            <Button x:Name="chatBoxButton" Content="Transcript" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="ChatBoxButton_Click" FontSize="11"/>
+            <Button x:Name="chatBoxButton" Content="Transcript" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="ChatBoxButton_Click"/>
 
-            <Button x:Name="exportButton" Content="Browser" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="ExportButton_Click" FontSize="11" ToolTip="View in browser"/>
+            <Button x:Name="exportButton" Content="Browser" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="ExportButton_Click" ToolTip="View in browser"/>
 
-            <Button x:Name="listenButton" Content="Listen" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="ListenButton_Click" FontSize="11"/>
+            <Button x:Name="listenButton" Content="Listen" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="ListenButton_Click"/>
 
-            <Button x:Name="logButton" Content="Log" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="LogButton_Click" FontSize="11"/>
+            <Button x:Name="logButton" Content="Log" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="LogButton_Click"/>
 
-            <Button x:Name="settingsButton" Content="Settings" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="SettingsButton_Click" FontSize="11"/>
+            <Button x:Name="settingsButton" Content="Settings" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="SettingsButton_Click"/>
 
             <!-- Separator -->
             <Rectangle Height="1" Fill="#40FFFFFF" Margin="4,3"/>
 
             <!-- Play All Audio -->
-            <Button x:Name="playAllAudioButton" Content="🔊 All" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="PlayAllAudioButton_Click" FontSize="11"
+            <Button x:Name="playAllAudioButton" Content="🔊 All" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="PlayAllAudioButton_Click"
                     ToolTip="Play all audio files in order"/>
 
             <!-- Passthrough -->
@@ -106,9 +135,8 @@
             <Rectangle Height="1" Fill="#40FFFFFF" Margin="4,3"/>
 
             <!-- Hide red border toggle -->
-            <Button x:Name="hideButton" Content="Hide red border" Padding="4,3" Margin="1"
-                    Background="#FF5F5F5F" Foreground="White" BorderThickness="1" BorderBrush="White"
-                    Click="HideButton_Click" FontSize="11"/>
+            <Button x:Name="hideButton" Content="Hide red border" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="HideButton_Click"/>
 
         </StackPanel>
     </Border>

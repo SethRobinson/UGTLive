@@ -9,191 +9,190 @@ namespace UGTLive
 {
     public class OpenAIRealtimeAudioServiceWhisper
     {
-        private ClientWebSocket? ws;
-        private CancellationTokenSource? cts;
-        private WaveInEvent? waveIn;
-        private WasapiLoopbackCapture? loopbackCapture;
-        private WaveOutEvent? waveOut;
-        private BufferedWaveProvider? bufferedWaveProvider;
-        private bool useLoopback;
-        private readonly List<byte> audioBuffer = new List<byte>();
-        private readonly object bufferLock = new object();
-        private int chunkSize;
+        private ClientWebSocket? _transcribeWs;
+        private ClientWebSocket? _translateWs;
+        private CancellationTokenSource? _cts;
+        private WaveInEvent? _waveIn;
+        private WasapiLoopbackCapture? _loopbackCapture;
+        private WaveOutEvent? _waveOut;
+        private BufferedWaveProvider? _bufferedWaveProvider;
+        private bool _useLoopback;
+        private readonly List<byte> _audioBuffer = new List<byte>();
+        private readonly object _bufferLock = new object();
+        private int _chunkSize;
 
-        // Renamed state variables for clarity
-        private string _currentRawTranscriptText = string.Empty;
+        private string _currentPartialTranscript = string.Empty;
         private string _currentTranslationText = string.Empty;
-        // Holds the specific transcript for which an OpenAI translation is currently being processed
-        private string _activeTranscriptForTurn = string.Empty; 
-        // Track the last few transcript/translation pairs for context
+        private string _activeTranscriptForTranslation = string.Empty;
+
         private Queue<(string Transcript, string Translation)> _recentUtterances = new Queue<(string, string)>();
         private const int MAX_RECENT_UTTERANCES = 5;
-        
-        // Track all session content for debugging
-        private StringBuilder _fullSessionContent = new StringBuilder();
-        
-        // **** NEW: Callbacks for transcript/translation separation ****
-        private Func<string, string, string>? _onTranscriptReceived; // text, translation -> returns ID
-        private Action<string, string, string>? _onTranslationUpdate; // id, originalText, translation
-        // Keep the original for backward compatibility or simple use cases? Maybe remove later.
-        // private Action<string, string>? _onResult; 
+
+        // Callbacks
+        private Func<string, string, string>? _onTranscriptReceived;
+        private Action<string, string, string>? _onTranslationUpdate;
+        private Action<string>? _onPartialTranscript;
 
         // Audio playback settings
-        private bool _audioPlaybackEnabled = true;
-        private int _audioOutputDeviceIndex = -1; // Default to system default
+        private bool _audioPlaybackEnabled = false;
+        private int _audioOutputDeviceIndex = -1;
 
-        public void StartRealtimeAudioService(Func<string, string, string> onTranscriptReceived, Action<string, string, string> onTranslationUpdate, bool useLoopback = false)
+        // Track current line ID for OpenAI translation updates
+        private string _currentTranslationLineId = string.Empty;
+
+        public void StartRealtimeAudioService(
+            Func<string, string, string> onTranscriptReceived,
+            Action<string, string, string> onTranslationUpdate,
+            Action<string>? onPartialTranscript,
+            bool useLoopback = false)
         {
-            this.useLoopback = useLoopback;
-            this._onTranscriptReceived = onTranscriptReceived;
-            this._onTranslationUpdate = onTranslationUpdate;
-            // this._onResult = onResult; // Keep original if needed? Let's remove for now.
+            _useLoopback = useLoopback;
+            _onTranscriptReceived = onTranscriptReceived;
+            _onTranslationUpdate = onTranslationUpdate;
+            _onPartialTranscript = onPartialTranscript;
 
             Stop();
-            cts = new CancellationTokenSource();
-            // Pass the callbacks down
-            Task.Run(() => RunAsync(cts.Token), cts.Token);
+            _cts = new CancellationTokenSource();
+            Task.Run(() => RunAsync(_cts.Token), _cts.Token);
+        }
+
+        // Backward-compatible overload
+        public void StartRealtimeAudioService(
+            Func<string, string, string> onTranscriptReceived,
+            Action<string, string, string> onTranslationUpdate,
+            bool useLoopback = false)
+        {
+            StartRealtimeAudioService(onTranscriptReceived, onTranslationUpdate, null, useLoopback);
         }
 
         public void Stop()
         {
             try
             {
-                cts?.Cancel();
-                StopAudioCapture();
-                StopAudioPlayback();
+                _cts?.Cancel();
+                stopAudioCapture();
+                stopAudioPlayback();
+                closeWebSocket(_transcribeWs);
+                closeWebSocket(_translateWs);
+            }
+            catch (Exception ex)
+            {
+                log($"Error during stop: {ex.Message}");
+            }
+            finally
+            {
+                _waveIn = null;
+                _loopbackCapture = null;
+                _transcribeWs = null;
+                _translateWs = null;
+            }
+        }
+
+        private void closeWebSocket(ClientWebSocket? ws)
+        {
+            try
+            {
                 ws?.Dispose();
             }
             catch (Exception ex)
             {
-                Log($"Error during stop: {ex.Message}");
-            }
-            finally
-            {
-                waveIn = null;
-                loopbackCapture = null;
-                ws = null;
+                log($"Error disposing WebSocket: {ex.Message}");
             }
         }
-        
-        private void StopAudioCapture()
+
+        private void stopAudioCapture()
         {
             try
             {
-                // Make a local copy of the references to avoid race conditions
-                var localWaveIn = waveIn;
-                var localLoopbackCapture = loopbackCapture;
-                
-                // First set the class variables to null to prevent new access
-                waveIn = null;
-                loopbackCapture = null;
-                
-                // Now safely dispose the local copies
+                var localWaveIn = _waveIn;
+                var localLoopbackCapture = _loopbackCapture;
+
+                _waveIn = null;
+                _loopbackCapture = null;
+
                 if (localWaveIn != null)
                 {
                     try
                     {
-                        // Detach event handler first
-                        localWaveIn.DataAvailable -= OnDataAvailable;
-                        
-                        // Stop recording safely - WaveInEvent doesn't have RecordingState
-                        try
+                        localWaveIn.DataAvailable -= onDataAvailable;
+                        try { localWaveIn.StopRecording(); }
+                        catch (InvalidOperationException) { logVerbose("WaveIn was already stopped"); }
+
+                        Task.Run(() =>
                         {
-                            localWaveIn.StopRecording();
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            // Already stopped, ignore this exception
-                            Log("WaveIn was already stopped");
-                        }
-                        
-                        // Dispose with a small delay to allow any pending operations to complete
-                        Task.Run(() => {
-                            try 
+                            try
                             {
-                                Thread.Sleep(100); // Give time for any pending operations
+                                Thread.Sleep(100);
                                 localWaveIn.Dispose();
                             }
                             catch (Exception ex)
                             {
-                                Log($"Error during delayed WaveIn disposal: {ex.Message}");
+                                log($"Error during delayed WaveIn disposal: {ex.Message}");
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Log($"Error stopping WaveIn: {ex.Message}");
+                        log($"Error stopping WaveIn: {ex.Message}");
                     }
                 }
-                
+
                 if (localLoopbackCapture != null)
                 {
                     try
                     {
-                        // Detach event handler first
-                        localLoopbackCapture.DataAvailable -= OnDataAvailable;
-                        
-                        // Stop recording safely
-                        try
+                        localLoopbackCapture.DataAvailable -= onDataAvailable;
+                        try { localLoopbackCapture.StopRecording(); }
+                        catch (InvalidOperationException) { logVerbose("Loopback capture was already stopped"); }
+
+                        Task.Run(() =>
                         {
-                            localLoopbackCapture.StopRecording();
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            // Already stopped, ignore this exception
-                            Log("Loopback capture was already stopped");
-                        }
-                        
-                        // Dispose with a small delay
-                        Task.Run(() => {
-                            try 
+                            try
                             {
-                                Thread.Sleep(100); // Give time for any pending operations
+                                Thread.Sleep(100);
                                 localLoopbackCapture.Dispose();
                             }
                             catch (Exception ex)
                             {
-                                Log($"Error during delayed loopback capture disposal: {ex.Message}");
+                                log($"Error during delayed loopback capture disposal: {ex.Message}");
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Log($"Error stopping loopback capture: {ex.Message}");
+                        log($"Error stopping loopback capture: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error in StopAudioCapture: {ex.Message}");
+                log($"Error in stopAudioCapture: {ex.Message}");
             }
         }
-        
-        private void StopAudioPlayback()
+
+        private void stopAudioPlayback()
         {
             try
             {
-                if (waveOut != null)
+                if (_waveOut != null)
                 {
-                    waveOut.Stop();
-                    waveOut.Dispose();
-                    waveOut = null;
+                    _waveOut.Stop();
+                    _waveOut.Dispose();
+                    _waveOut = null;
                 }
-                
-                bufferedWaveProvider = null;
+                _bufferedWaveProvider = null;
             }
             catch (Exception ex)
             {
-                Log($"Error stopping audio playback: {ex.Message}");
+                log($"Error stopping audio playback: {ex.Message}");
             }
         }
 
         private async Task RunAsync(CancellationToken token)
         {
-            // Ensure callbacks are set
             if (_onTranscriptReceived == null || _onTranslationUpdate == null)
             {
-                Log("Error: Callbacks not provided to StartRealtimeAudioService.");
+                log("Error: Callbacks not provided to StartRealtimeAudioService.");
                 return;
             }
 
@@ -207,385 +206,363 @@ namespace UGTLive
                 return;
             }
 
-            // Reset state variables
-            _currentRawTranscriptText = string.Empty;
-            _currentTranslationText = string.Empty;
-            _activeTranscriptForTurn = string.Empty;
-            _recentUtterances.Clear(); // Clear history
-            _fullSessionContent.Clear(); // Clear session content
-            
-            // Load audio playback settings
-            LoadAudioPlaybackSettings();
-            
-            // Initialize audio playback if enabled
-            if (_audioPlaybackEnabled)
-            {
-                InitializeAudioPlayback();
-            }
+            resetState();
+            loadAudioPlaybackSettings();
 
-            // Connect to OpenAI
+            // Determine translation mode
+            bool isOpenAiTranslation = ConfigManager.Instance.IsOpenAITranslationEnabled();
+            bool isGoogleTranslation = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+            string translationMode = isOpenAiTranslation ? "openai" : isGoogleTranslation ? "google" : "none";
+            log($"Translation mode: {translationMode}");
+
+            // --- Session 1: Transcription-only ---
+            string transcriptionModel = ConfigManager.Instance.GetOpenAITranscriptionModel();
             try
             {
-                ws = new ClientWebSocket();
-                ws.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-                ws.Options.SetRequestHeader("OpenAI-Beta", "realtime=v1");
-                Uri serverToUse = new("wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03");
+                _transcribeWs = new ClientWebSocket();
+                _transcribeWs.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
 
-
-
-                await ws.ConnectAsync(serverToUse, token);
-               
-                Log("Connected to OpenAI Realtime API");
+                // GA API: connect with gpt-realtime, then set session type to "transcription"
+                Uri transcribeUri = new("wss://api.openai.com/v1/realtime?model=gpt-realtime");
+                await _transcribeWs.ConnectAsync(transcribeUri, token);
+                log($"Connected to transcription session (transcription model: {transcriptionModel})");
             }
             catch (Exception ex)
             {
-                Log($"Failed to connect to OpenAI: {ex.Message}");
+                log($"Failed to connect transcription session: {ex.Message}");
                 return;
             }
 
-            // Configuration for OpenAI Translation
-            bool useOpenAITranslation = ConfigManager.Instance.IsOpenAITranslationEnabled(); 
-            string targetLanguage = ConfigManager.Instance.GetTargetLanguage();
-            string sourceLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
-            bool isSourceLanguageSpecified = !string.IsNullOrEmpty(sourceLanguage) && 
-                                           !sourceLanguage.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+            await configureTranscriptionSession(token);
 
-            // Track accumulated translation for this session (helpful for debugging)
-            Log("Starting new session, tracking all content...");
-
-            // Prepare the system prompt which includes speech style and translation instructions
-            string systemPrompt = "";
-            if (useOpenAITranslation)
+            // --- Session 2: Translation (only if OpenAI mode) ---
+            if (translationMode == "openai")
             {
-                // Add speech style instructions if audio playback is enabled
+                try
+                {
+                    _translateWs = new ClientWebSocket();
+                    _translateWs.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+
+                    Uri translateUri = new("wss://api.openai.com/v1/realtime?model=gpt-realtime-1.5");
+                    await _translateWs.ConnectAsync(translateUri, token);
+                    log("Connected to translation session (gpt-realtime-1.5)");
+                }
+                catch (Exception ex)
+                {
+                    log($"Failed to connect translation session: {ex.Message}");
+                    return;
+                }
+
                 if (_audioPlaybackEnabled)
                 {
-                    // Get custom speech prompt and apply it as the primary instruction
-                    string speechPromptConfig = ConfigManager.Instance.GetOpenAISpeechPrompt();
-                    if (!string.IsNullOrEmpty(speechPromptConfig))
-                    {
-                        systemPrompt = speechPromptConfig + " ";
-                        Log($"Applied speech prompt as primary instruction: '{speechPromptConfig}'");
-                    }
-                    else
-                    {
-                        systemPrompt = "You are a real-time translator for a dialogue in a video game or movie. ";
-                        Log("No custom speech prompt found, using default translator role for speech style.");
-                    }
+                    initializeAudioPlayback();
                 }
-                else
-                {
-                    systemPrompt = "You are a real-time translator for a dialogue in a video game or movie. ";
-                    Log("Audio playback disabled, not applying speech prompt for style.");
-                }
-                
-                // Add translation instructions
-                systemPrompt += $"Translate speech from ";
-                
-                if (isSourceLanguageSpecified)
-                {
-                    systemPrompt += $"{sourceLanguage} to {targetLanguage}";
-                }
-                else
-                {
-                    systemPrompt += $"the detected language to {targetLanguage}";
-                }
-                systemPrompt += ". Return only the translation, with no extra text.";
-                Log($"Constructed system prompt for session instructions: {systemPrompt}");
+
+                await configureTranslationSession(token);
+            }
+
+            // Start audio capture
+            initializeAudioCapture();
+
+            // Run receive loops concurrently
+            var transcribeTask = receiveTranscriptionMessages(token, translationMode);
+
+            if (translationMode == "openai" && _translateWs != null)
+            {
+                var translateTask = receiveTranslationMessages(token);
+                await Task.WhenAll(transcribeTask, translateTask);
             }
             else
             {
-                Log("OpenAI translation is disabled. No system prompt/instructions will be sent for translation or speech style.");
+                await transcribeTask;
             }
-            
-            // Configure Whisper transcription
-            object transcriptionConfig;
-            if (isSourceLanguageSpecified)
-            {
-                transcriptionConfig = new
-                {
-                    model = "whisper-1",
-                    language = sourceLanguage
-                };
-                Log($"Configuring Whisper with language: {sourceLanguage}");
-            }
-            else
-            {
-                transcriptionConfig = new
-                {
-                    model = "whisper-1"
-                };
-                Log("Configuring Whisper with auto language detection");
-            }
-
-            // Set up a higher silence duration to reduce utterance fragmentation
-            int silenceDurationMs = ConfigManager.Instance.GetOpenAiSilenceDurationMs();
-            
-            // **** Determine mode based on existing boolean flags ****
-            bool isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
-            bool isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-            string currentAudioMode;
-            if (isOpenAiEnabled) 
-            {
-                currentAudioMode = "openai";
-            }
-            else if (isGoogleEnabled)
-            {
-                currentAudioMode = "google";
-            }
-            else
-            {
-                currentAudioMode = "none";
-            }
-            
-            bool createOpenAIResponse = (currentAudioMode == "openai"); // Only create response if mode is openai
-            Log($"Effective Audio Mode: {currentAudioMode} (OpenAI Enabled: {isOpenAiEnabled}, Google Enabled: {isGoogleEnabled}). OpenAI creates response: {createOpenAIResponse}");
-
-            var sessionUpdateMessage = new
-            {
-                type = "session.update",
-                session = new
-                {
-                    input_audio_format = "pcm16",
-                    input_audio_transcription = transcriptionConfig,
-                    turn_detection = new
-                    {
-                        
-                        type = "server_vad",
-                        silence_duration_ms = silenceDurationMs,
-                        // **** Use the conditional boolean ****
-                        create_response = createOpenAIResponse, 
-                        interrupt_response = false,
-                        prefix_padding_ms = 500, // Increase from 300 to 500ms for better context
-                        threshold = 0.6 // Increase threshold slightly for more definitive utterance detection
-                        
-                    //another method that didn't seem to work well:
-                    
-                        // type = "semantic_vad",
-                        //// The semantic VAD classifier determines turn-taking based on linguistic cues
-                        //eagerness = "auto", // Can be low | medium | high | auto. Auto balances latency & completeness
-                        //create_response = useOpenAITranslation,
-                        //interrupt_response = false
-                    
-                    },
-                    // Get voice from config instead of hardcoding
-                    voice = ConfigManager.Instance.GetOpenAIVoice(),
-                    // Add instructions for translation, otherwise send empty string to satisfy API requirement
-                    instructions = useOpenAITranslation && !string.IsNullOrEmpty(systemPrompt) ? systemPrompt : "" 
-                }
-            };
-            
-            await SendJson(ws, sessionUpdateMessage, token);
-            Log($"Session configured (Mode: {currentAudioMode}). Silence: {silenceDurationMs}ms. Instructions: {!string.IsNullOrEmpty(systemPrompt)}. OpenAI generates response: {createOpenAIResponse}");
-
-            // Initialize audio capture
-            InitializeAudioCapture();
-
-            // Main receive loop
-            await ReceiveMessagesLoop(token);
         }
-        
-        private void LoadAudioPlaybackSettings()
+
+        private void resetState()
+        {
+            _currentPartialTranscript = string.Empty;
+            _currentTranslationText = string.Empty;
+            _activeTranscriptForTranslation = string.Empty;
+            _currentTranslationLineId = string.Empty;
+            _recentUtterances.Clear();
+        }
+
+        private async Task configureTranscriptionSession(CancellationToken token)
+        {
+            string sourceLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
+            bool isSourceSpecified = !string.IsNullOrEmpty(sourceLanguage) &&
+                                     !sourceLanguage.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+            int silenceDurationMs = ConfigManager.Instance.GetOpenAiSilenceDurationMs();
+            string transcriptionModel = ConfigManager.Instance.GetOpenAITranscriptionModel();
+            string noiseReduction = ConfigManager.Instance.GetOpenAINoiseReduction();
+
+            // Use session.update on a realtime session with transcription enabled
+            // and create_response: false so it only transcribes, never generates responses
+            var transcriptionObj = new Dictionary<string, object?>
+            {
+                ["model"] = transcriptionModel
+            };
+            if (isSourceSpecified)
+            {
+                transcriptionObj["language"] = sourceLanguage;
+            }
+
+            var turnDetectionObj = new Dictionary<string, object?>
+            {
+                ["type"] = "server_vad",
+                ["threshold"] = 0.5,
+                ["prefix_padding_ms"] = 300,
+                ["silence_duration_ms"] = silenceDurationMs,
+                ["create_response"] = false,
+                ["interrupt_response"] = false
+            };
+
+            var inputObj = new Dictionary<string, object?>
+            {
+                ["format"] = new { type = "audio/pcm", rate = 24000 },
+                ["transcription"] = transcriptionObj,
+                ["turn_detection"] = turnDetectionObj
+            };
+
+            if (noiseReduction != "none")
+            {
+                inputObj["noise_reduction"] = new { type = noiseReduction };
+            }
+
+            var session = new Dictionary<string, object?>
+            {
+                ["type"] = "realtime",
+                ["audio"] = new { input = inputObj }
+            };
+
+            var sessionUpdate = new Dictionary<string, object?>
+            {
+                ["type"] = "session.update",
+                ["session"] = session
+            };
+
+            await sendJson(_transcribeWs!, sessionUpdate, token);
+            log($"Transcription session configured. Model: {transcriptionModel}, Silence: {silenceDurationMs}ms, Noise reduction: {noiseReduction}, Language: {(isSourceSpecified ? sourceLanguage : "auto")}");
+        }
+
+        private async Task configureTranslationSession(CancellationToken token)
+        {
+            if (_translateWs == null) return;
+
+            string targetLanguage = ConfigManager.Instance.GetTargetLanguage();
+            string sourceLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
+            bool isSourceSpecified = !string.IsNullOrEmpty(sourceLanguage) &&
+                                     !sourceLanguage.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+
+            string langDirective = isSourceSpecified
+                ? $"Translate from {sourceLanguage} to {targetLanguage}."
+                : $"Translate from the detected language to {targetLanguage}.";
+
+            string userPrompt = _audioPlaybackEnabled
+                ? ConfigManager.Instance.GetListenSpokenPrompt()
+                : ConfigManager.Instance.GetListenTextPrompt();
+
+            string instructions = userPrompt + " " + langDirective;
+
+            // API only supports ["audio"] or ["text"], not both simultaneously.
+            // When audio is enabled, we get the text transcript via output_audio_transcript events.
+            string[] outputModalities = _audioPlaybackEnabled ? new[] { "audio" } : new[] { "text" };
+            string voice = ConfigManager.Instance.GetOpenAIVoice();
+
+            // GA format: session.update with type: "realtime" and nested audio config
+            // Disable turn_detection via audio.input since we only send text via conversation.item.create
+            var session = new Dictionary<string, object?>
+            {
+                ["type"] = "realtime",
+                ["instructions"] = instructions,
+                ["output_modalities"] = outputModalities
+            };
+
+            if (_audioPlaybackEnabled)
+            {
+                session["audio"] = new
+                {
+                    input = new { turn_detection = (object?)null },
+                    output = new { voice = voice }
+                };
+            }
+            else
+            {
+                session["audio"] = new
+                {
+                    input = new { turn_detection = (object?)null }
+                };
+            }
+
+            var sessionUpdate = new Dictionary<string, object?>
+            {
+                ["type"] = "session.update",
+                ["session"] = session
+            };
+
+            await sendJson(_translateWs, sessionUpdate, token);
+            log($"Translation session configured (GA format). Target: {targetLanguage}, Output: [{string.Join(", ", outputModalities)}], Voice: {voice}");
+        }
+
+        private void loadAudioPlaybackSettings()
         {
             try
             {
-                // Get audio playback settings from ConfigManager
                 _audioPlaybackEnabled = ConfigManager.Instance.IsOpenAIAudioPlaybackEnabled();
                 _audioOutputDeviceIndex = ConfigManager.Instance.GetAudioOutputDeviceIndex();
-                
-                Log($"Audio playback enabled: {_audioPlaybackEnabled}, Output device index: {_audioOutputDeviceIndex}");
+                log($"Audio playback enabled: {_audioPlaybackEnabled}, Output device index: {_audioOutputDeviceIndex}");
             }
             catch (Exception ex)
             {
-                Log($"Error loading audio playback settings: {ex.Message}");
-                // Use defaults if loading fails
-                _audioPlaybackEnabled = true;
+                log($"Error loading audio playback settings: {ex.Message}");
+                _audioPlaybackEnabled = false;
                 _audioOutputDeviceIndex = -1;
             }
         }
-        
-        private void InitializeAudioPlayback()
+
+        private void initializeAudioPlayback()
         {
             try
             {
-                // Create wave format for playback - 24kHz stereo 16-bit PCM (OpenAI's format)
                 var waveFormat = new WaveFormat(24000, 16, 1);
-                
-                // Create buffer
-                bufferedWaveProvider = new BufferedWaveProvider(waveFormat);
-                bufferedWaveProvider.DiscardOnBufferOverflow = true;
-                
-                // Create wave output
-                waveOut = new WaveOutEvent();
-                
-                // Set device if specified
+                _bufferedWaveProvider = new BufferedWaveProvider(waveFormat);
+                _bufferedWaveProvider.DiscardOnBufferOverflow = true;
+
+                _waveOut = new WaveOutEvent();
                 if (_audioOutputDeviceIndex >= 0 && _audioOutputDeviceIndex < WaveOut.DeviceCount)
                 {
-                    waveOut.DeviceNumber = _audioOutputDeviceIndex;
-                    Log($"Using audio output device: {WaveOut.GetCapabilities(_audioOutputDeviceIndex).ProductName}");
+                    _waveOut.DeviceNumber = _audioOutputDeviceIndex;
+                    logVerbose($"Using audio output device: {WaveOut.GetCapabilities(_audioOutputDeviceIndex).ProductName}");
                 }
                 else
                 {
-                    Log("Using default audio output device");
+                    logVerbose("Using default audio output device");
                 }
-                
-                // Initialize playback
-                waveOut.Init(bufferedWaveProvider);
-                waveOut.Play();
-                
-                Log("Audio playback initialized successfully");
+
+                _waveOut.Init(_bufferedWaveProvider);
+                _waveOut.Play();
+                logVerbose("Audio playback initialized successfully");
             }
             catch (Exception ex)
             {
-                Log($"Error initializing audio playback: {ex.Message}");
-                StopAudioPlayback();
+                log($"Error initializing audio playback: {ex.Message}");
+                stopAudioPlayback();
                 _audioPlaybackEnabled = false;
             }
         }
-        
-        private void InitializeAudioCapture()
+
+        private void initializeAudioCapture()
         {
             try
             {
-                if (useLoopback)
+                if (_useLoopback)
                 {
-                    loopbackCapture = new WasapiLoopbackCapture();
-                    loopbackCapture.DataAvailable += OnDataAvailable;
-                    chunkSize = loopbackCapture.WaveFormat.AverageBytesPerSecond / 8;
-                    loopbackCapture.StartRecording();
-                    Log("Started loopback audio capture");
+                    _loopbackCapture = new WasapiLoopbackCapture();
+                    _loopbackCapture.DataAvailable += onDataAvailable;
+                    _chunkSize = _loopbackCapture.WaveFormat.AverageBytesPerSecond / 8;
+                    _loopbackCapture.StartRecording();
+                    logVerbose("Started loopback audio capture");
                 }
                 else
                 {
-                    waveIn = new WaveInEvent();
+                    _waveIn = new WaveInEvent();
                     int deviceIndex = ConfigManager.Instance.GetAudioInputDeviceIndex();
-                    
+
                     if (deviceIndex >= 0 && deviceIndex < WaveInEvent.DeviceCount)
                     {
-                        waveIn.DeviceNumber = deviceIndex;
-                        Log($"Using audio input device: {WaveInEvent.GetCapabilities(deviceIndex).ProductName} (Index: {deviceIndex})");
+                        _waveIn.DeviceNumber = deviceIndex;
+                        logVerbose($"Using audio input device: {WaveInEvent.GetCapabilities(deviceIndex).ProductName} (Index: {deviceIndex})");
                     }
                     else
                     {
-                        waveIn.DeviceNumber = 0;
+                        _waveIn.DeviceNumber = 0;
                         if (WaveInEvent.DeviceCount > 0)
                         {
-                            Log($"Invalid device index {deviceIndex}. Using device 0: {WaveInEvent.GetCapabilities(0).ProductName}");
+                            log($"Invalid device index {deviceIndex}. Using device 0: {WaveInEvent.GetCapabilities(0).ProductName}");
                         }
                         else
                         {
-                            Log("No audio input devices found. Using device 0 (may fail)");
+                            log("No audio input devices found. Using device 0 (may fail)");
                         }
                     }
 
-                    // Configure for 24kHz mono 16-bit PCM
-                    waveIn.WaveFormat = new WaveFormat(24000, 16, 1);
-                    chunkSize = waveIn.WaveFormat.AverageBytesPerSecond / 8;
-                    
-                    // Clear buffer and start recording
-                    audioBuffer.Clear();
-                    waveIn.DataAvailable += OnDataAvailable;
-                    waveIn.StartRecording();
-                    Log("Started microphone audio capture");
+                    _waveIn.WaveFormat = new WaveFormat(24000, 16, 1);
+                    _chunkSize = _waveIn.WaveFormat.AverageBytesPerSecond / 8;
+                    _audioBuffer.Clear();
+                    _waveIn.DataAvailable += onDataAvailable;
+                    _waveIn.StartRecording();
+                    logVerbose("Started microphone audio capture");
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error initializing audio capture: {ex.Message}");
-                StopAudioCapture();
+                log($"Error initializing audio capture: {ex.Message}");
+                stopAudioCapture();
             }
         }
 
-        private async Task ReceiveMessagesLoop(CancellationToken token)
+        // =====================================================================
+        // Transcription session receive loop
+        // =====================================================================
+        private async Task receiveTranscriptionMessages(CancellationToken token, string translationMode)
         {
-            var buffer = new byte[16384]; // Larger buffer for audio messages
+            var buffer = new byte[16384];
             var messageBuffer = new MemoryStream();
-            var transcriptBuilder = new StringBuilder(); // For accumulating Whisper deltas
+            var transcriptBuilder = new StringBuilder();
 
             try
             {
-                while (!token.IsCancellationRequested && ws != null && ws.State == WebSocketState.Open)
+                while (!token.IsCancellationRequested && _transcribeWs != null && _transcribeWs.State == WebSocketState.Open)
                 {
                     messageBuffer.SetLength(0);
                     WebSocketReceiveResult result;
-                    
-                    // Read the complete message
+
                     do
                     {
-                        result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+                        result = await _transcribeWs.ReceiveAsync(new ArraySegment<byte>(buffer), token);
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, token);
+                            await _transcribeWs.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, token);
                             break;
                         }
                         messageBuffer.Write(buffer, 0, result.Count);
                     } while (!result.EndOfMessage);
 
-                    if (messageBuffer.Length == 0 || result.MessageType == WebSocketMessageType.Close) 
+                    if (messageBuffer.Length == 0 || result.MessageType == WebSocketMessageType.Close)
                         continue;
 
-                    // Get the message as string
-                    var jsonBytes = messageBuffer.ToArray();
-                    var json = Encoding.UTF8.GetString(jsonBytes);
-                    
-                    // Check if it's an audio message (which is large)
-                    bool isAudioMessage = json.Contains("response.audio.delta");
-                    
-                    // For non-audio messages, log the full content
-                    if (!isAudioMessage)
-                    {
-                        Log($"Received message: {json}");
-                    }
-                    else
-                    {
-                        Log($"Received audio message ({jsonBytes.Length} bytes)");
-                    }
+                    var json = Encoding.UTF8.GetString(messageBuffer.ToArray());
+                    logVerbose($"[Transcribe] {json}");
 
                     try
                     {
                         using var doc = JsonDocument.Parse(json);
                         var root = doc.RootElement;
-                        
-                        // Check for error messages
-                        if (root.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "error")
+
+                        if (!root.TryGetProperty("type", out var typeProp))
+                            continue;
+
+                        string? messageType = typeProp.GetString();
+
+                        if (messageType == "error")
                         {
-                            if (root.TryGetProperty("error", out var errorProp) && 
-                                errorProp.TryGetProperty("message", out var messageProp))
-                            {
-                                Log($"API Error: {messageProp.GetString()}");
-                            }
-                            else
-                            {
-                                Log($"Unknown API Error: {json}");
-                            }
+                            string errorMsg = root.TryGetProperty("error", out var errorProp) &&
+                                              errorProp.TryGetProperty("message", out var msgProp)
+                                ? msgProp.GetString() ?? "Unknown"
+                                : json;
+                            log($"[Transcribe] API Error: {errorMsg}");
                             continue;
                         }
-                        
-                        // Get the message type
-                        string? messageType = typeProp.GetString();
-                        
+
                         switch (messageType)
                         {
-                            // Handle session creation confirmation
                             case "session.created":
-                                if (root.TryGetProperty("session", out var sessionCreatedProp) && 
-                                    sessionCreatedProp.TryGetProperty("id", out var sessionIdProp))
-                                {
-                                    Log($"Session created successfully. ID: {sessionIdProp.GetString()}");
-                                }
-                                else
-                                {
-                                    Log("Session created message received, but ID could not be parsed.");
-                                }
-                                break;
-
-                            // Handle session update confirmation
                             case "session.updated":
-                                Log("Session updated successfully by server.");
-                                // Optionally, you could parse and log specific updated fields from root.GetProperty("session") if needed for debugging.
+                            case "transcription_session.created":
+                            case "transcription_session.updated":
+                                logVerbose($"[Transcribe] Session event: {messageType}");
                                 break;
 
-                            // Handle whisper transcription (partial)
                             case "conversation.item.input_audio_transcription.delta":
                                 if (root.TryGetProperty("delta", out var deltaProp))
                                 {
@@ -593,174 +570,317 @@ namespace UGTLive
                                     if (!string.IsNullOrEmpty(delta))
                                     {
                                         transcriptBuilder.Append(delta);
-                                        _currentRawTranscriptText = transcriptBuilder.ToString();
-                                        
-                                        // If not using OpenAI for translation, update the UI with partial transcript
-                                        // The translation will come once complete (from Google)
-                                        if (!ConfigManager.Instance.IsOpenAITranslationEnabled())
-                                        {
-                                            // _onResult?.Invoke(_currentRawTranscriptText, string.Empty); // Show live Whisper transcript
-                                            // TODO: Decide how to handle partials with new callback system if needed
-                                        }
-                                        // If OpenAI translation is enabled, we display the raw transcript
-                                        // when it's completed, then pair it with incoming translation deltas.
+                                        _currentPartialTranscript = transcriptBuilder.ToString();
+                                        _onPartialTranscript?.Invoke(_currentPartialTranscript);
                                     }
                                 }
                                 break;
-                                
-                            // Handle whisper transcription (complete)
+
                             case "conversation.item.input_audio_transcription.completed":
                                 if (root.TryGetProperty("transcript", out var transcriptProp))
                                 {
                                     var transcript = transcriptProp.GetString() ?? string.Empty;
-                                    transcriptBuilder.Clear(); // Reset for next utterance
-                                    _currentRawTranscriptText = transcript;
-                                    
-                                    // **** Determine Mode Again based on flags ****
-                                    bool _isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
-                                    bool _isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-                                    string _currentAudioMode;
-                                    if (_isOpenAiEnabled) _currentAudioMode = "openai";
-                                    else if (_isGoogleEnabled) _currentAudioMode = "google";
-                                    else _currentAudioMode = "none";
+                                    transcriptBuilder.Clear();
+                                    _currentPartialTranscript = string.Empty;
 
-                                    // **** BRANCH BASED ON MODE ****
-                                    if (_currentAudioMode == "google") // External Translation Path
+                                    if (string.IsNullOrWhiteSpace(transcript))
                                     {
-                                        Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. Requesting external translation...");
-                                        
-                                        // Call first callback to display transcript and get ID
-                                        string lineId = _onTranscriptReceived?.Invoke(_currentRawTranscriptText, string.Empty) ?? string.Empty;
+                                        logVerbose("[Transcribe] Empty transcript received, skipping.");
+                                        break;
+                                    }
 
-                                        if (string.IsNullOrEmpty(lineId))
-                                        {
-                                            Log("Warning: _onTranscriptReceived did not return a line ID.");
-                                        }
-                                        
-                                        // Call external translation service
-                                        string translationJson = await TranslateLineAsync(_currentRawTranscriptText);
-                                        string translatedTextExternal = ParseTranslationResult(translationJson); // Use helper to parse
-                                        
-                                        if (!string.IsNullOrEmpty(translatedTextExternal))
-                                        {
-                                            Log($"External translation received: \'{translatedTextExternal}\' for ID: {lineId}");
-                                            // Call second callback to update the line with translation
-                                            _onTranslationUpdate?.Invoke(lineId, _currentRawTranscriptText, translatedTextExternal); 
-                                            
-                                            // Store this pair in recent utterances for context
-                                            _recentUtterances.Enqueue((_currentRawTranscriptText, translatedTextExternal));
-                                            while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
-                                            
-                                            // Append to full session for debugging
-                                            _fullSessionContent.AppendLine($"(Ext) JP: {_currentRawTranscriptText}");
-                                            _fullSessionContent.AppendLine($"(Ext) EN: {translatedTextExternal}");
-                                            _fullSessionContent.AppendLine();
-                                        }
-                                        else
-                                        {
-                                            Log($"External translation failed or returned empty for ID: {lineId}");
-                                            // Optionally call update with an error message?
-                                            // _onTranslationUpdate?.Invoke(lineId, _currentRawTranscriptText, "[Translation Failed]"); 
-                                        }
-                                        
-                                        // Reset state (less critical now, but good practice)
-                                        _activeTranscriptForTurn = string.Empty; 
-                                        _currentTranslationText = string.Empty;
-                                    }
-                                    else if (_currentAudioMode == "openai") // OpenAI Realtime Translation Path
-                                    {
-                                         Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. Waiting for OpenAI translation...");
-                                        // If we already had an active transcript, this means it's a new utterance
-                                        if (!string.IsNullOrEmpty(_activeTranscriptForTurn))
-                                        {
-                                            Log($"New transcript while another was still active. Resetting translation state.");
-                                            // Reset translation for the new turn
-                                            _currentTranslationText = string.Empty;
-                                        }
-                                        
-                                        // Store the completed transcript
-                                        _activeTranscriptForTurn = transcript;
-                                        
-                                        // Display the transcript immediately using the first callback
-                                        // We don't get an ID back here, as the translation update comes via delta/done
-                                        _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, string.Empty);
-                                    }
-                                    else // Mode is "none" (Transcription only)
-                                    {
-                                         Log($"New transcript received (Mode: {_currentAudioMode}): \'{_currentRawTranscriptText}\'. No translation configured.");
-                                         // Display the transcript immediately using the first callback, with empty translation
-                                         _onTranscriptReceived?.Invoke(_currentRawTranscriptText, string.Empty);
-                                         
-                                         // Store this pair (with empty translation) in recent utterances for context
-                                        _recentUtterances.Enqueue((_currentRawTranscriptText, string.Empty));
-                                        while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+                                    logVerbose($"[Transcribe] Completed: '{transcript}'");
 
-                                        // Append to full session for debugging
-                                        _fullSessionContent.AppendLine($"(None) JP: {_currentRawTranscriptText}");
-                                        _fullSessionContent.AppendLine($"(None) EN: ");
-                                        _fullSessionContent.AppendLine();
-
-                                        // Reset state variables
-                                        _activeTranscriptForTurn = string.Empty;
-                                        _currentTranslationText = string.Empty;
-                                    }
-                                }
-                                break;
-                                
-                            // Handle OpenAI translation delta
-                            case "response.audio_transcript.delta": // Transcript of AI's spoken audio
-                                if (ConfigManager.Instance.IsOpenAITranslationEnabled())
-                                {
-                                    if (root.TryGetProperty("delta", out var currentDeltaProp))
-                                    {
-                                        var deltaText = currentDeltaProp.GetString();
-                                        if (!string.IsNullOrEmpty(deltaText))
-                                        {
-                                            // This is the transcript of the audio being spoken by the AI.
-                                            // Log it, but do not append it to _currentTranslationText for display.
-                                            // The displayed text will come from response.text.delta.
-                                            Log($"Received AI spoken audio transcript delta: '{deltaText}'");
-                                        }
-                                    }
+                                    await handleCompletedTranscript(transcript, translationMode);
                                 }
                                 break;
 
-                            case "response.text.delta": // Textual translation from AI
-                                // **** Execute only if effective mode is openai ****
-                                bool delta_isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
-                                bool delta_isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-                                if (delta_isOpenAiEnabled) // Check if OpenAI mode is active
-                                {
-                                    if (root.TryGetProperty("delta", out var textDeltaProp))
-                                    {
-                                        var delta = textDeltaProp.GetString();
-                                        if (!string.IsNullOrEmpty(delta))
-                                        {
-                                            _currentTranslationText += delta;
-                                            Log($"Accumulating OpenAI text delta: \'{delta}\'");
-                                            
-                                            // Use the UPDATE callback to show intermediate results
-                                            // Need an ID... how do we get it here? We don't have one.
-                                            // Option 1: Look up ID based on _activeTranscriptForTurn (if stored in MainWindow) - complex
-                                            // Option 2: Send update without ID, MainWindow figures it out (e.g., updates the *last* line added) - fragile
-                                            // Option 3: Use the *original* _onResult callback for this path? Requires having both callback types.
-                                            // Let's stick with the new callbacks for now and accept that intermediate OpenAI deltas won't update the specific line via ID.
-                                            // We can call _onTranscriptReceived again, which might just add a new line or update the last one depending on MainWindow impl.
-                                            _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, _currentTranslationText); 
+                            case "input_audio_buffer.speech_started":
+                                logVerbose("[Transcribe] Speech started");
+                                break;
 
+                            case "input_audio_buffer.speech_stopped":
+                                logVerbose("[Transcribe] Speech stopped");
+                                break;
+
+                            case "input_audio_buffer.committed":
+                                logVerbose("[Transcribe] Audio buffer committed");
+                                break;
+
+                            default:
+                                break;
+                        }
+                    }
+                    catch (JsonException jex)
+                    {
+                        log($"[Transcribe] JSON parse error: {jex.Message}");
+                    }
+                }
+            }
+            catch (WebSocketException wsex)
+            {
+                log($"[Transcribe] WebSocket error: {wsex.Message}");
+            }
+            catch (TaskCanceledException)
+            {
+                logVerbose("[Transcribe] Task cancelled");
+            }
+            catch (Exception ex)
+            {
+                log($"[Transcribe] Error: {ex.Message}");
+            }
+            finally
+            {
+                stopAudioCapture();
+                try
+                {
+                    if (_transcribeWs != null && _transcribeWs.State == WebSocketState.Open)
+                    {
+                        await _transcribeWs.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closing", CancellationToken.None);
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private async Task handleCompletedTranscript(string transcript, string translationMode)
+        {
+            switch (translationMode)
+            {
+                case "openai":
+                    await handleOpenAITranslation(transcript);
+                    break;
+
+                case "google":
+                    await handleGoogleTranslation(transcript);
+                    break;
+
+                default:
+                    _onTranscriptReceived?.Invoke(transcript, string.Empty);
+                    _recentUtterances.Enqueue((transcript, string.Empty));
+                    while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+                    break;
+            }
+        }
+
+        private async Task handleOpenAITranslation(string transcript)
+        {
+            if (_translateWs == null || _translateWs.State != WebSocketState.Open || _cts == null)
+            {
+                log("[Translate] Translation WebSocket not available, showing transcript only");
+                _onTranscriptReceived?.Invoke(transcript, string.Empty);
+                return;
+            }
+
+            _activeTranscriptForTranslation = transcript;
+            _currentTranslationText = string.Empty;
+
+            // Show the transcript immediately, get the line ID for later updates
+            string lineId = _onTranscriptReceived?.Invoke(transcript, string.Empty) ?? string.Empty;
+            _currentTranslationLineId = lineId;
+
+            string targetLanguage = ConfigManager.Instance.GetTargetLanguage();
+
+            // When audio mode is active, prefix with explicit translation directive
+            string messageText = _audioPlaybackEnabled
+                ? $"[Translate to {targetLanguage}]: {transcript}"
+                : transcript;
+
+            var createItem = new
+            {
+                type = "conversation.item.create",
+                item = new
+                {
+                    type = "message",
+                    role = "user",
+                    content = new[] { new { type = "input_text", text = messageText } }
+                }
+            };
+            await sendJson(_translateWs, createItem, _cts.Token);
+
+            // Request a response, with per-request instructions reinforcing translation-only behavior
+            if (_audioPlaybackEnabled)
+            {
+                var responseCreate = new
+                {
+                    type = "response.create",
+                    response = new
+                    {
+                        instructions = $"Speak only the {targetLanguage} translation. No other words."
+                    }
+                };
+                await sendJson(_translateWs, responseCreate, _cts.Token);
+            }
+            else
+            {
+                var responseCreate = new { type = "response.create" };
+                await sendJson(_translateWs, responseCreate, _cts.Token);
+            }
+
+            logVerbose($"[Translate] Sent transcript for translation: '{transcript}' (lineId: {lineId})");
+        }
+
+        private async Task handleGoogleTranslation(string transcript)
+        {
+            string lineId = _onTranscriptReceived?.Invoke(transcript, string.Empty) ?? string.Empty;
+
+            if (string.IsNullOrEmpty(lineId))
+            {
+                logVerbose("[Google] Warning: _onTranscriptReceived did not return a line ID.");
+            }
+
+            string translationJson = await translateLineAsync(transcript);
+            string translatedText = parseTranslationResult(translationJson);
+
+            if (!string.IsNullOrEmpty(translatedText))
+            {
+                logVerbose($"[Google] Translation received: '{translatedText}' for ID: {lineId}");
+                _onTranslationUpdate?.Invoke(lineId, transcript, translatedText);
+                _recentUtterances.Enqueue((transcript, translatedText));
+                while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+            }
+            else
+            {
+                logVerbose($"[Google] Translation failed or returned empty for ID: {lineId}");
+            }
+        }
+
+        // =====================================================================
+        // Translation session receive loop (OpenAI mode only)
+        // =====================================================================
+        private async Task receiveTranslationMessages(CancellationToken token)
+        {
+            var buffer = new byte[16384];
+            var messageBuffer = new MemoryStream();
+
+            try
+            {
+                while (!token.IsCancellationRequested && _translateWs != null && _translateWs.State == WebSocketState.Open)
+                {
+                    messageBuffer.SetLength(0);
+                    WebSocketReceiveResult result;
+
+                    do
+                    {
+                        result = await _translateWs.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+                        if (result.MessageType == WebSocketMessageType.Close)
+                        {
+                            await _translateWs.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, token);
+                            break;
+                        }
+                        messageBuffer.Write(buffer, 0, result.Count);
+                    } while (!result.EndOfMessage);
+
+                    if (messageBuffer.Length == 0 || result.MessageType == WebSocketMessageType.Close)
+                        continue;
+
+                    var jsonBytes = messageBuffer.ToArray();
+                    var json = Encoding.UTF8.GetString(jsonBytes);
+
+                    bool isAudioMessage = json.Contains("response.output_audio.delta");
+                    if (!isAudioMessage)
+                    {
+                        logVerbose($"[Translate] {json}");
+                    }
+                    else
+                    {
+                        logVerbose($"[Translate] Audio message ({jsonBytes.Length} bytes)");
+                    }
+
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(json);
+                        var root = doc.RootElement;
+
+                        if (!root.TryGetProperty("type", out var typeProp))
+                            continue;
+
+                        string? messageType = typeProp.GetString();
+
+                        if (messageType == "error")
+                        {
+                            string errorMsg = root.TryGetProperty("error", out var errorProp) &&
+                                              errorProp.TryGetProperty("message", out var msgProp)
+                                ? msgProp.GetString() ?? "Unknown"
+                                : json;
+                            log($"[Translate] API Error: {errorMsg}");
+                            continue;
+                        }
+
+                        switch (messageType)
+                        {
+                            case "session.created":
+                            case "session.updated":
+                                logVerbose($"[Translate] Session event: {messageType}");
+                                break;
+
+                            // Streaming text translation deltas
+                            case "response.output_text.delta":
+                                if (root.TryGetProperty("delta", out var textDeltaProp))
+                                {
+                                    var delta = textDeltaProp.GetString();
+                                    if (!string.IsNullOrEmpty(delta))
+                                    {
+                                        _currentTranslationText += delta;
+
+                                        if (!string.IsNullOrEmpty(_currentTranslationLineId))
+                                        {
+                                            _onTranslationUpdate?.Invoke(
+                                                _currentTranslationLineId,
+                                                _activeTranscriptForTranslation,
+                                                _currentTranslationText);
                                         }
                                     }
-                                } 
-                                else 
-                                {
-                                     Log("Received response.text.delta - Ignoring as external translation is used.");
                                 }
                                 break;
-                                
-                            // Handle audio data
-                            case "response.audio.delta":
-                                // Handle audio data for playback (if enabled)
-                                if (_audioPlaybackEnabled && bufferedWaveProvider != null && 
+
+                            case "response.output_text.done":
+                                if (root.TryGetProperty("text", out var textDoneProp))
+                                {
+                                    var finalText = textDoneProp.GetString() ?? string.Empty;
+                                    if (!string.IsNullOrEmpty(finalText))
+                                    {
+                                        _currentTranslationText = finalText;
+                                    }
+                                }
+                                logVerbose($"[Translate] Text complete: '{_currentTranslationText}'");
+                                break;
+
+                            // Audio transcript of the spoken translation (used when output_modalities is ["audio"])
+                            case "response.output_audio_transcript.delta":
+                                if (root.TryGetProperty("delta", out var audioTransDeltaProp))
+                                {
+                                    var delta = audioTransDeltaProp.GetString();
+                                    if (!string.IsNullOrEmpty(delta))
+                                    {
+                                        _currentTranslationText += delta;
+
+                                        if (!string.IsNullOrEmpty(_currentTranslationLineId))
+                                        {
+                                            _onTranslationUpdate?.Invoke(
+                                                _currentTranslationLineId,
+                                                _activeTranscriptForTranslation,
+                                                _currentTranslationText);
+                                        }
+                                    }
+                                }
+                                break;
+
+                            case "response.output_audio_transcript.done":
+                                if (root.TryGetProperty("transcript", out var audioTransDoneProp))
+                                {
+                                    var finalText = audioTransDoneProp.GetString() ?? string.Empty;
+                                    if (!string.IsNullOrEmpty(finalText))
+                                    {
+                                        _currentTranslationText = finalText;
+                                    }
+                                }
+                                logVerbose($"[Translate] Audio transcript complete: '{_currentTranslationText}'");
+                                break;
+
+                            // Audio playback data
+                            case "response.output_audio.delta":
+                                if (_audioPlaybackEnabled && _bufferedWaveProvider != null &&
                                     root.TryGetProperty("delta", out var audioDeltaProp))
                                 {
                                     var audioBase64 = audioDeltaProp.GetString();
@@ -768,280 +888,140 @@ namespace UGTLive
                                     {
                                         try
                                         {
-                                            // Decode the Base64 audio data
                                             byte[] audioData = Convert.FromBase64String(audioBase64);
-                                            
-                                            // Log audio data size to help with debugging
-                                            Log($"Received audio data: {audioData.Length} bytes");
-                                            
-                                            // Add to buffer for playback
-                                            bufferedWaveProvider.AddSamples(audioData, 0, audioData.Length);
+                                            _bufferedWaveProvider.AddSamples(audioData, 0, audioData.Length);
                                         }
                                         catch (Exception ex)
                                         {
-                                            Log($"Error processing audio data: {ex.Message}");
+                                            log($"[Translate] Error processing audio data: {ex.Message}");
                                         }
                                     }
                                 }
-                                else if (!_audioPlaybackEnabled)
-                                {
-                                    // Just log that we're ignoring the audio data
-                                    Log("Received audio data but playback is disabled - ignoring");
-                                }
                                 break;
-                                
-                            // Handle audio transcript completion
-                            // This message indicates that the spoken audio's transcript is complete
-                            case "response.audio_transcript.completed":
-                                if (ConfigManager.Instance.IsOpenAITranslationEnabled())
-                                {
-                                    if (root.TryGetProperty("transcript", out var audioTranscriptProp))
-                                    {
-                                        var completeAudioTranscript = audioTranscriptProp.GetString() ?? string.Empty;
-                                        Log($"Complete AI spoken audio transcript received: '{completeAudioTranscript}'");
-                                        // Do not modify _currentTranslationText here.
-                                        // This event is informational about the audio playback.
-                                    }
-                                }
-                                break;
-                                
-                            // Handle response completion
+
                             case "response.done":
-                                // **** Determine mode again ****
-                                bool done_isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
-                                bool done_isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-                                string doneModeCheck;
-                                if (done_isOpenAiEnabled) doneModeCheck = "openai";
-                                else if (done_isGoogleEnabled) doneModeCheck = "google";
-                                else doneModeCheck = "none";
-
-                                if (doneModeCheck == "openai")
-                                {
-                                    // OpenAI mode processing (original logic)
-                                    {
-                                        // **** THIS IS THE ORIGINAL LOGIC from before external translation was added ****
-                                        // Attempt to extract text from the response.done message structure
-                                        bool foundTextInDoneOutput = false;
-                                        // Need responseProp declared here
-                                        JsonElement responseProp = default; 
-                                        if (root.TryGetProperty("response", out responseProp))
-                                        {
-                                            if (responseProp.TryGetProperty("output", out var outputArray) &&
-                                                outputArray.ValueKind == JsonValueKind.Array && outputArray.GetArrayLength() > 0)
-                                            {
-                                                foreach (JsonElement outputItem in outputArray.EnumerateArray())
-                                                {
-                                                    if (outputItem.TryGetProperty("content", out var contentArray) && 
-                                                        contentArray.ValueKind == JsonValueKind.Array && contentArray.GetArrayLength() > 0)
-                                                    {
-                                                        // First, look for an explicit text part
-                                                        foreach (JsonElement contentPart in contentArray.EnumerateArray())
-                                                        {
-                                                            if (contentPart.TryGetProperty("type", out var partTypeProp) && partTypeProp.GetString() == "text")
-                                                            {
-                                                                if (contentPart.TryGetProperty("text", out var textValueProp) && !string.IsNullOrEmpty(textValueProp.GetString()))
-                                                                {
-                                                                    _currentTranslationText = textValueProp.GetString() ?? string.Empty;
-                                                                    foundTextInDoneOutput = true;
-                                                                    Log($"Extracted final text from response.done output.content[type=text]: \'{_currentTranslationText}\'");
-                                                                    break; 
-                                                                }
-                                                            }
-                                                        }
-
-                                                        if (foundTextInDoneOutput) break; 
-
-                                                        // Fallback to audio transcript if text part missing and no delta received
-                                                        if (string.IsNullOrEmpty(_currentTranslationText)) 
-                                                        {
-                                                            foreach (JsonElement contentPart in contentArray.EnumerateArray())
-                                                            {
-                                                                if (contentPart.TryGetProperty("type", out var partTypePropAudio) && partTypePropAudio.GetString() == "audio")
-                                                                {
-                                                                    if (contentPart.TryGetProperty("transcript", out var transcriptValueProp) && !string.IsNullOrEmpty(transcriptValueProp.GetString()))
-                                                                    {
-                                                                        _currentTranslationText = transcriptValueProp.GetString() ?? string.Empty;
-                                                                        Log($"Using audio transcript from response.done output.content[type=audio] as translation: \'{_currentTranslationText}\'");
-                                                                        break; 
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                    if (foundTextInDoneOutput || !string.IsNullOrEmpty(_currentTranslationText)) break; 
-                                                }
-                                            }
-                                        } // end if TryGetProperty response
-
-
-                                        if (string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
-                                        {
-                                            Log("No translation text found from response.text.delta or in response.done output structure.");
-                                        }
-                                        else if (!string.IsNullOrEmpty(_currentTranslationText) && !foundTextInDoneOutput)
-                                        {
-                                            Log($"Retaining translation from response.text.delta: \'{_currentTranslationText}\'");
-                                        }
-
-                                        // Log completion status
-                                        string responseStatus = responseProp.TryGetProperty("status", out var statusProp) ? statusProp.GetString() ?? "unknown" : "unknown";
-                                        string cancelReason = "";
-                                        if (responseStatus == "cancelled" && 
-                                            responseProp.TryGetProperty("status_details", out var statusDetailsProp) && 
-                                            statusDetailsProp.TryGetProperty("reason", out var reasonProp))
-                                        {
-                                            cancelReason = reasonProp.GetString() ?? "";
-                                        }
-
-                                        if (responseStatus == "cancelled" && cancelReason == "turn_detected")
-                                        {
-                                            Log($"OpenAI response CANCELLED due to turn detection for transcript: \'{_activeTranscriptForTurn}\'");
-                                        }
-                                        else
-                                        {
-                                            Log($"OpenAI response done (Status: {responseStatus}) for transcript: \'{_activeTranscriptForTurn}\' -> \'{_currentTranslationText}\'");
-                                        }
-                                        
-                                        // Final UI Update - Use the primary callback
-                                        if (!string.IsNullOrEmpty(_activeTranscriptForTurn) && !string.IsNullOrEmpty(_currentTranslationText))
-                                        {
-                                             // Check for incompleteness (optional, consider removing if problematic)
-                                            bool seemsIncomplete = false;
-                                            if (!string.IsNullOrEmpty(_currentTranslationText))
-                                            {
-                                                var trimmed = _currentTranslationText.Trim();
-                                                if (trimmed.EndsWith(",") || trimmed.EndsWith("...") || (trimmed.Length > 3 && !trimmed.EndsWith(".") && !trimmed.EndsWith("!") && !trimmed.EndsWith("?")))
-                                                {
-                                                    seemsIncomplete = true;
-                                                }
-                                            }
-                                            string finalTranslation = _currentTranslationText;
-                                            if (seemsIncomplete && !finalTranslation.EndsWith("...")) finalTranslation += "...";
-
-                                            // Final update to UI with both transcript and complete translation via the main callback
-                                            // Again, we don't have an ID here. This might add a new line or update the last one.
-                                            _onTranscriptReceived?.Invoke(_activeTranscriptForTurn, finalTranslation); 
-                                            
-                                            // Store this pair in recent utterances for context
-                                            _recentUtterances.Enqueue((_activeTranscriptForTurn, finalTranslation));
-                                            while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
-                                            
-                                            Log($"Sent final OpenAI translation pair to UI - Original: \'{_activeTranscriptForTurn}\', Translation: \'{finalTranslation}\'");
-                                            
-                                            _fullSessionContent.AppendLine($"(OpenAI) JP: {_activeTranscriptForTurn}");
-                                            _fullSessionContent.AppendLine($"(OpenAI) EN: {finalTranslation}");
-                                            _fullSessionContent.AppendLine();
-                                        }
-                                        else
-                                        {
-                                             Log($"Missing transcript or translation - skipping final UI update. Transcript: \'{_activeTranscriptForTurn}\', Translation: \'{_currentTranslationText}\'");
-                                        }
-
-                                        // Reset for the next turn
-                                        _activeTranscriptForTurn = string.Empty;
-                                        _currentTranslationText = string.Empty;
-                                    }
-                                } 
-                                else // External Translation Mode or None Mode
-                                {
-                                     Log($"Received response.done (Mode: {doneModeCheck}). Status: {root.GetProperty("response").GetProperty("status").GetString()} - Ignoring for translation.");
-                                     // Reset state variables just in case
-                                     _activeTranscriptForTurn = string.Empty;
-                                     _currentTranslationText = string.Empty;
-                                }
+                                handleTranslationResponseDone(root);
                                 break;
-                                
-                            // Log other message types but don't process them
+
                             default:
-                                Log($"Unhandled message type: {messageType}");
                                 break;
                         }
                     }
                     catch (JsonException jex)
                     {
-                        Log($"Error parsing JSON: {jex.Message}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"Error processing message: {ex.Message}");
+                        log($"[Translate] JSON parse error: {jex.Message}");
                     }
                 }
             }
             catch (WebSocketException wsex)
             {
-                Log($"WebSocket error: {wsex.Message}");
+                log($"[Translate] WebSocket error: {wsex.Message}");
             }
             catch (TaskCanceledException)
             {
-                Log("Task was canceled");
+                logVerbose("[Translate] Task cancelled");
             }
             catch (Exception ex)
             {
-                Log($"Error in receive loop: {ex.Message}");
+                log($"[Translate] Error: {ex.Message}");
             }
             finally
             {
-                // Clean up
-                StopAudioCapture();
-                StopAudioPlayback();
-                
+                stopAudioPlayback();
                 try
                 {
-                    if (ws != null && ws.State == WebSocketState.Open)
+                    if (_translateWs != null && _translateWs.State == WebSocketState.Open)
                     {
-                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closing connection", CancellationToken.None);
+                        await _translateWs.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closing", CancellationToken.None);
                     }
                 }
                 catch { }
             }
         }
 
-        private async Task FlushRemainingBuffer(CancellationToken token)
+        private void handleTranslationResponseDone(JsonElement root)
         {
-            if (ws == null || ws.State != WebSocketState.Open)
-                return;
-                
-            byte[] leftover;
-            lock (bufferLock)
+            string responseStatus = "unknown";
+            if (root.TryGetProperty("response", out var responseProp))
             {
-                leftover = audioBuffer.ToArray();
-                audioBuffer.Clear();
+                if (responseProp.TryGetProperty("status", out var statusProp))
+                {
+                    responseStatus = statusProp.GetString() ?? "unknown";
+                }
+
+                // Try to extract final text from the response output structure
+                if (string.IsNullOrEmpty(_currentTranslationText))
+                {
+                    if (responseProp.TryGetProperty("output", out var outputArray) &&
+                        outputArray.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (JsonElement outputItem in outputArray.EnumerateArray())
+                        {
+                            if (outputItem.TryGetProperty("content", out var contentArray) &&
+                                contentArray.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (JsonElement contentPart in contentArray.EnumerateArray())
+                                {
+                                    if (contentPart.TryGetProperty("type", out var partType))
+                                    {
+                                        string typeStr = partType.GetString() ?? "";
+                                        if (typeStr == "text" && contentPart.TryGetProperty("text", out var textVal))
+                                        {
+                                            _currentTranslationText = textVal.GetString() ?? string.Empty;
+                                            break;
+                                        }
+                                        if (typeStr == "audio" && contentPart.TryGetProperty("transcript", out var transVal))
+                                        {
+                                            _currentTranslationText = transVal.GetString() ?? string.Empty;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!string.IsNullOrEmpty(_currentTranslationText)) break;
+                            }
+                            if (!string.IsNullOrEmpty(_currentTranslationText)) break;
+                        }
+                    }
+                }
             }
 
-            if (leftover.Length > 0)
+            logVerbose($"[Translate] Response done (status: {responseStatus}). Transcript: '{_activeTranscriptForTranslation}' -> Translation: '{_currentTranslationText}'");
+
+            // Final update to UI
+            if (!string.IsNullOrEmpty(_activeTranscriptForTranslation) && !string.IsNullOrEmpty(_currentTranslationText))
             {
-                try
+                if (!string.IsNullOrEmpty(_currentTranslationLineId))
                 {
-                    string base64 = Convert.ToBase64String(leftover);
-                    var audioEvent = new { type = "input_audio_buffer.append", audio = base64 };
-                    await SendJson(ws, audioEvent, token);
-                    Log($"Flushed {leftover.Length} bytes of audio");
+                    _onTranslationUpdate?.Invoke(
+                        _currentTranslationLineId,
+                        _activeTranscriptForTranslation,
+                        _currentTranslationText);
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log($"Error flushing buffer: {ex.Message}");
+                    _onTranscriptReceived?.Invoke(_activeTranscriptForTranslation, _currentTranslationText);
                 }
+
+                _recentUtterances.Enqueue((_activeTranscriptForTranslation, _currentTranslationText));
+                while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
             }
 
-            try
-            {
-                var commitEvent = new { type = "input_audio_buffer.commit" };
-                await SendJson(ws, commitEvent, token);
-                Log("Committed final audio buffer");
-            }
-            catch (Exception ex)
-            {
-                Log($"Error committing buffer: {ex.Message}");
-            }
+            // Reset for next turn
+            _activeTranscriptForTranslation = string.Empty;
+            _currentTranslationText = string.Empty;
+            _currentTranslationLineId = string.Empty;
         }
 
-        private void OnDataAvailable(object? sender, WaveInEventArgs e)
+        // =====================================================================
+        // Audio capture -> transcription session
+        // =====================================================================
+        private void onDataAvailable(object? sender, WaveInEventArgs e)
         {
             if (e.BytesRecorded <= 0) return;
 
-            lock (bufferLock)
+            lock (_bufferLock)
             {
-                audioBuffer.AddRange(new ArraySegment<byte>(e.Buffer, 0, e.BytesRecorded));
+                _audioBuffer.AddRange(new ArraySegment<byte>(e.Buffer, 0, e.BytesRecorded));
             }
 
             Task.Run(async () =>
@@ -1051,22 +1031,23 @@ namespace UGTLive
                     while (true)
                     {
                         byte[]? chunkData = null;
-                        lock (bufferLock)
+                        lock (_bufferLock)
                         {
-                            if (audioBuffer.Count >= chunkSize)
+                            if (_audioBuffer.Count >= _chunkSize)
                             {
-                                chunkData = audioBuffer.GetRange(0, chunkSize).ToArray();
-                                audioBuffer.RemoveRange(0, chunkSize);
+                                chunkData = _audioBuffer.GetRange(0, _chunkSize).ToArray();
+                                _audioBuffer.RemoveRange(0, _chunkSize);
                             }
                         }
 
                         if (chunkData == null) break;
 
-                        if (ws != null && ws.State == WebSocketState.Open && !cts!.IsCancellationRequested)
+                        // Send audio only to the transcription session
+                        if (_transcribeWs != null && _transcribeWs.State == WebSocketState.Open && !_cts!.IsCancellationRequested)
                         {
                             string base64Audio = Convert.ToBase64String(chunkData);
                             var audioEvent = new { type = "input_audio_buffer.append", audio = base64Audio };
-                            await SendJson(ws, audioEvent, cts.Token);
+                            await sendJson(_transcribeWs, audioEvent, _cts.Token);
                         }
                         else
                         {
@@ -1076,12 +1057,15 @@ namespace UGTLive
                 }
                 catch (Exception ex)
                 {
-                    Log($"Error sending audio chunk: {ex.Message}");
+                    log($"Error sending audio chunk: {ex.Message}");
                 }
             });
         }
 
-        private async Task SendJson(ClientWebSocket ws, object obj, CancellationToken token)
+        // =====================================================================
+        // Utilities
+        // =====================================================================
+        private async Task sendJson(ClientWebSocket ws, object obj, CancellationToken token)
         {
             try
             {
@@ -1092,21 +1076,15 @@ namespace UGTLive
                 var bytes = Encoding.UTF8.GetBytes(json);
                 await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, token);
             }
-            catch (ObjectDisposedException)
-            {
-                // WebSocket was disposed while attempting to send; ignore as we're shutting down.
-            }
-            catch (WebSocketException)
-            {
-                // Socket closed or aborted. Safe to ignore during shutdown.
-            }
+            catch (ObjectDisposedException) { }
+            catch (WebSocketException) { }
             catch (Exception ex)
             {
-                Log($"SendJson error: {ex.Message}");
+                log($"SendJson error: {ex.Message}");
             }
         }
 
-        private void Log(string message)
+        private void log(string message)
         {
             try
             {
@@ -1114,60 +1092,47 @@ namespace UGTLive
                 File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
             }
             catch { }
-            Console.WriteLine("[OpenAIRealtimeAudioService] " + message);
+            Console.WriteLine("[OpenAIRealtimeAudio] " + message);
         }
 
-        // Translate a single line using configured external service
-        private async Task<string> TranslateLineAsync(string text)
+        private void logVerbose(string message)
         {
-            // This logic needs to align with the mode detection.
-            // It should only be called when the mode is determined to be "google".
+            if (ConfigManager.Instance.GetLogExtraDebugStuff())
+            {
+                log(message);
+            }
+        }
 
+        private async Task<string> translateLineAsync(string text)
+        {
             try
             {
-                 // Determine effective mode
-                 bool _isOpenAiEnabled = ConfigManager.Instance.IsOpenAITranslationEnabled();
-                 bool _isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-                 string _currentAudioMode;
-                 if (_isOpenAiEnabled) _currentAudioMode = "openai";
-                 else if (_isGoogleEnabled) _currentAudioMode = "google";
-                 else _currentAudioMode = "none";
+                if (string.IsNullOrEmpty(text)) return string.Empty;
 
-                 if (string.IsNullOrEmpty(text)) return string.Empty;
+                bool isGoogleEnabled = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
+                if (!isGoogleEnabled) return string.Empty;
 
-                 // Only proceed if mode is google
-                 if (_currentAudioMode == "google")
-                 {
-                     ITranslationService service = TranslationServiceFactory.CreateService("Google Translate"); 
-                     string serviceName = "Google Translate (External)";
-                     Log($"Using {serviceName} for external translation (Mode: {_currentAudioMode}).");
+                ITranslationService service = TranslationServiceFactory.CreateService("Google Translate");
+                logVerbose($"[Google] Translating: '{text}'");
 
-                     // Prepare minimal JSON with one text block (Specific to Google Translate endpoint?)
-                     var payload = new
-                     {
-                         text_blocks = new[] { new { id = "text_0", text = text } }
-                     };
-                     string json = JsonSerializer.Serialize(payload);
-                     string? response = await service.TranslateAsync(json, string.Empty); // Assuming TranslateAsync handles different services
-                     
-                     if (!string.IsNullOrEmpty(response))
-                         return response; // Return raw JSON response
-                 }
-                 else
-                 {
-                     Log($"TranslateLineAsync called, but current mode ({_currentAudioMode}) is not 'google'. Skipping external translation.");
-                     return string.Empty; 
-                 }
+                var payload = new
+                {
+                    text_blocks = new[] { new { id = "text_0", text = text } }
+                };
+                string json = JsonSerializer.Serialize(payload);
+                string? response = await service.TranslateAsync(json, string.Empty);
+
+                if (!string.IsNullOrEmpty(response))
+                    return response;
             }
             catch (Exception ex)
             {
-                Log($"Translation error in TranslateLineAsync: {ex.Message}");
+                log($"[Google] Translation error: {ex.Message}");
             }
-            return string.Empty; // Return empty on error or no response
+            return string.Empty;
         }
-        
-        // Helper function to parse translation result JSON (assuming Google format for now)
-        private string ParseTranslationResult(string translationJson)
+
+        private string parseTranslationResult(string translationJson)
         {
             if (string.IsNullOrEmpty(translationJson)) return string.Empty;
 
@@ -1180,19 +1145,16 @@ namespace UGTLive
                     translations.ValueKind == JsonValueKind.Array &&
                     translations.GetArrayLength() > 0)
                 {
-                    // Assuming structure like Google Translate API response
                     return translations[0].GetProperty("translated_text").GetString() ?? string.Empty;
                 }
-                 // TODO: Add parsing logic if using OpenAI Chat Completions API response format
-                 // else if (transRoot.TryGetProperty("choices", out var choices) && ...) { ... }
             }
             catch (JsonException ex)
             {
-                Log($"Error parsing translation JSON: {ex.Message} - JSON: {translationJson}");
+                log($"[Google] Error parsing translation JSON: {ex.Message}");
             }
             catch (Exception ex)
             {
-                 Log($"Generic error parsing translation: {ex.Message}");
+                log($"[Google] Generic error parsing translation: {ex.Message}");
             }
             return string.Empty;
         }

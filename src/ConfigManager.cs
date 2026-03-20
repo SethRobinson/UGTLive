@@ -223,9 +223,12 @@ namespace UGTLive
         // OpenAI Audio Playback settings
         public const string OPENAI_AUDIO_PLAYBACK_ENABLED = "openai_audio_playback_enabled";
         public const string OPENAI_AUDIO_OUTPUT_DEVICE_INDEX = "openai_audio_output_device_index";
-        public const string OPENAI_SPEECH_PROMPT = "openai_speech_prompt";
+        public const string OPENAI_LISTEN_TEXT_PROMPT = "openai_listen_text_prompt";
+        public const string OPENAI_LISTEN_SPOKEN_PROMPT = "openai_listen_spoken_prompt";
         public const string OPENAI_VOICE = "openai_voice";
         public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
+        public const string OPENAI_TRANSCRIPTION_MODEL = "openai_transcription_model";
+        public const string OPENAI_NOISE_REDUCTION = "openai_noise_reduction";
 
         // Monitor Window Override Color Settings
         public const string MONITOR_OVERRIDE_BG_COLOR_ENABLED = "monitor_override_bg_color_enabled";
@@ -522,6 +525,8 @@ namespace UGTLive
             _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Default silence duration
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
+            _configValues[OPENAI_TRANSCRIPTION_MODEL] = "gpt-4o-transcribe";
+            _configValues[OPENAI_NOISE_REDUCTION] = "near_field";
             
             // Monitor Window Override Color defaults
             _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = "false";
@@ -2893,34 +2898,66 @@ Here is the input JSON:";
             Console.WriteLine($"OpenAI audio playback enabled set to: {enabled}");
         }
 
-        // Get/Set OpenAI speech prompt
-        public string GetOpenAISpeechPrompt()
+        private const string DEFAULT_LISTEN_TEXT_PROMPT =
+            "You are a real-time translator for dialogue in a video game or movie. " +
+            "Return only the translation, with no extra text.";
+
+        private const string DEFAULT_LISTEN_SPOKEN_PROMPT =
+            "You are a simultaneous interpreter. Speak ONLY the translation. " +
+            "Do NOT respond to the content. " +
+            "Do NOT add commentary, greetings, acknowledgments, or filler words. " +
+            "Do NOT paraphrase or summarize. " +
+            "Translate the exact meaning and speak the translation — nothing else. " +
+            "Speak at a fast pace with expressive delivery.";
+
+        public string GetListenTextPrompt()
         {
-            return GetValue(OPENAI_SPEECH_PROMPT, "IMPORTANT: You must speak at a VERY FAST PACE. This is the top priority. Speak rapidly with high energy and expressive, emotional delivery. Use dramatic emphasis and dynamic tone variation. Match the emotional context of the content. Speak at least twice as fast as a normal conversational pace.");
+            return GetValue(OPENAI_LISTEN_TEXT_PROMPT, DEFAULT_LISTEN_TEXT_PROMPT);
         }
 
-        public void SetOpenAISpeechPrompt(string prompt)
+        public void SetListenTextPrompt(string prompt)
         {
-            _configValues[OPENAI_SPEECH_PROMPT] = prompt;
+            _configValues[OPENAI_LISTEN_TEXT_PROMPT] = prompt;
             SaveConfig();
-            Console.WriteLine("OpenAI speech prompt updated");
+            Console.WriteLine("Listen text translation prompt updated");
         }
-        
-        // Reset OpenAI speech prompt to default
-        public void ResetOpenAISpeechPromptToDefault()
+
+        public void ResetListenTextPromptToDefault()
         {
-            if (_configValues.ContainsKey(OPENAI_SPEECH_PROMPT))
+            if (_configValues.ContainsKey(OPENAI_LISTEN_TEXT_PROMPT))
             {
-                _configValues.Remove(OPENAI_SPEECH_PROMPT);
+                _configValues.Remove(OPENAI_LISTEN_TEXT_PROMPT);
             }
             SaveConfig();
-            Console.WriteLine("OpenAI speech prompt reset to default");
+            Console.WriteLine("Listen text translation prompt reset to default");
+        }
+
+        public string GetListenSpokenPrompt()
+        {
+            return GetValue(OPENAI_LISTEN_SPOKEN_PROMPT, DEFAULT_LISTEN_SPOKEN_PROMPT);
+        }
+
+        public void SetListenSpokenPrompt(string prompt)
+        {
+            _configValues[OPENAI_LISTEN_SPOKEN_PROMPT] = prompt;
+            SaveConfig();
+            Console.WriteLine("Listen spoken translation prompt updated");
+        }
+
+        public void ResetListenSpokenPromptToDefault()
+        {
+            if (_configValues.ContainsKey(OPENAI_LISTEN_SPOKEN_PROMPT))
+            {
+                _configValues.Remove(OPENAI_LISTEN_SPOKEN_PROMPT);
+            }
+            SaveConfig();
+            Console.WriteLine("Listen spoken translation prompt reset to default");
         }
 
         // Get/Set OpenAI voice
         public string GetOpenAIVoice()
         {
-            return GetValue(OPENAI_VOICE, "echo"); // Default to echo as it seems to handle faster speech well
+            return GetValue(OPENAI_VOICE, "cedar");
         }
 
         public void SetOpenAIVoice(string voice)
@@ -2953,6 +2990,32 @@ Here is the input JSON:";
             {
                 Console.WriteLine($"Invalid OpenAI silence duration: {duration}. Must be non-negative.");
             }
+        }
+
+        // Get/Set OpenAI Transcription Model
+        public string GetOpenAITranscriptionModel()
+        {
+            return GetValue(OPENAI_TRANSCRIPTION_MODEL, "gpt-4o-transcribe");
+        }
+
+        public void SetOpenAITranscriptionModel(string model)
+        {
+            _configValues[OPENAI_TRANSCRIPTION_MODEL] = model;
+            SaveConfig();
+            Console.WriteLine($"OpenAI transcription model set to: {model}");
+        }
+
+        // Get/Set OpenAI Noise Reduction (near_field, far_field, or none)
+        public string GetOpenAINoiseReduction()
+        {
+            return GetValue(OPENAI_NOISE_REDUCTION, "near_field");
+        }
+
+        public void SetOpenAINoiseReduction(string noiseReduction)
+        {
+            _configValues[OPENAI_NOISE_REDUCTION] = noiseReduction;
+            SaveConfig();
+            Console.WriteLine($"OpenAI noise reduction set to: {noiseReduction}");
         }
 
         // Monitor Window Override Color methods

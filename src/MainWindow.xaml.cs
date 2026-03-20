@@ -1329,7 +1329,7 @@ namespace UGTLive
                 if (btn != null)
                 {
                     btn.Content = "Stop";
-                    btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67));
+                    btn.Background = new SolidColorBrush(Color.FromRgb(200, 50, 50));
                 }
                 UpdateCaptureRect();
                 
@@ -2661,7 +2661,8 @@ namespace UGTLive
                     // Update the translation and timestamp
                     entryToUpdate.TranslatedText = newTranslatedText;
                     entryToUpdate.Timestamp = DateTime.Now; // Update timestamp on modification
-                    Console.WriteLine($"Updated translation for entry ID: {id}");
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                        Console.WriteLine($"Updated translation for entry ID: {id}");
 
                     // Refresh the ChatBox UI
                     ChatBoxWindow.Instance?.UpdateChatHistory();
@@ -2725,6 +2726,25 @@ namespace UGTLive
         private bool isListening = false;
         private OpenAIRealtimeAudioServiceWhisper? openAIRealtimeAudioService = null;
 
+        public bool IsListening => isListening;
+
+        public void RestartListenIfActive()
+        {
+            if (!isListening) return;
+
+            Console.WriteLine("Restarting Listen service due to settings change...");
+            openAIRealtimeAudioService?.Stop();
+
+            if (openAIRealtimeAudioService == null)
+                openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
+
+            openAIRealtimeAudioService.StartRealtimeAudioService(
+                OnOpenAITranscriptReceived_Initial,
+                OnOpenAITranslationUpdate_WithId,
+                OnOpenAIPartialTranscript,
+                false);
+        }
+
         public void HandleListenButton()
         {
             var btn = listenButton;
@@ -2744,7 +2764,7 @@ namespace UGTLive
                 if (btn != null)
                 {
                     btn.Content = "Stop Listening";
-                    btn.Background = new SolidColorBrush(Color.FromRgb(46, 160, 67));
+                    btn.Background = new SolidColorBrush(Color.FromRgb(200, 50, 50));
                 }
 
                 var chatBoxWin = ChatBoxWindow.Instance;
@@ -2758,28 +2778,89 @@ namespace UGTLive
                 
                 openAIRealtimeAudioService.StartRealtimeAudioService(
                     OnOpenAITranscriptReceived_Initial, 
-                    OnOpenAITranslationUpdate_WithId, 
+                    OnOpenAITranslationUpdate_WithId,
+                    OnOpenAIPartialTranscript,
                     false); 
             }
         }
 
-        // **** MODIFIED: Renamed, now returns ID ****
         private string OnOpenAITranscriptReceived_Initial(string text, string initialTranslation)
         {
             const string audioPrefix = "🎤 ";
             string idToReturn = string.Empty;
             Dispatcher.Invoke(() =>
             {
-                // Add translation/history with audio icon prefix for easy identification in ChatBox
                 string originalWithIcon = string.IsNullOrWhiteSpace(text) ? string.Empty : audioPrefix + text;
                 string translatedWithIcon = string.IsNullOrWhiteSpace(initialTranslation) ? string.Empty : audioPrefix + initialTranslation;
-                // **** Call modified method that returns ID ****
+
+                // Replace the last partial entry if one exists (streaming partial -> final transition)
+                if (_translationHistory.Count > 0)
+                {
+                    var lastEntry = _translationHistory[_translationHistory.Count - 1];
+                    if (string.IsNullOrEmpty(lastEntry.TranslatedText) &&
+                        lastEntry.OriginalText != null &&
+                        lastEntry.OriginalText.StartsWith(audioPrefix) &&
+                        lastEntry.OriginalText.EndsWith("..."))
+                    {
+                        lastEntry.OriginalText = originalWithIcon;
+                        lastEntry.TranslatedText = translatedWithIcon;
+                        lastEntry.Timestamp = DateTime.Now;
+                        idToReturn = lastEntry.Id;
+                        ChatBoxWindow.Instance?.UpdateChatHistory();
+                        return;
+                    }
+                }
+
                 idToReturn = AddTranslationToHistory(originalWithIcon, translatedWithIcon);
             });
-            return idToReturn; // Return the ID
+            return idToReturn;
         }
         
-        // **** NEW: Callback to handle translation updates via ID ****
+        private void OnOpenAIPartialTranscript(string partialText)
+        {
+            if (string.IsNullOrWhiteSpace(partialText)) return;
+
+            const string audioPrefix = "🎤 ";
+            Dispatcher.Invoke(() =>
+            {
+                string displayText = audioPrefix + partialText + "...";
+                // Update the last entry if it's a partial, or add a new one
+                if (_translationHistory.Count > 0)
+                {
+                    var lastEntry = _translationHistory[_translationHistory.Count - 1];
+                    // Only update if the last entry looks like a partial (empty translation, same prefix)
+                    if (string.IsNullOrEmpty(lastEntry.TranslatedText) &&
+                        lastEntry.OriginalText != null &&
+                        lastEntry.OriginalText.StartsWith(audioPrefix) &&
+                        lastEntry.OriginalText.EndsWith("..."))
+                    {
+                        lastEntry.OriginalText = displayText;
+                        lastEntry.Timestamp = DateTime.Now;
+                        ChatBoxWindow.Instance?.UpdateChatHistory();
+                        return;
+                    }
+                }
+                // Add new partial entry
+                var entry = new TranslationEntry
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    OriginalText = displayText,
+                    TranslatedText = "",
+                    Timestamp = DateTime.Now
+                };
+                _translationHistory.Add(entry);
+
+                int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
+                while (_translationHistory.Count > maxHistorySize)
+                {
+                    _translationHistory.RemoveAt(0);
+                }
+
+                ChatBoxWindow.Instance?.UpdateChatHistory();
+            });
+        }
+
+        // Callback to handle translation updates via ID
         private void OnOpenAITranslationUpdate_WithId(string lineId, string originalText, string translatedText)
         {
             if (string.IsNullOrEmpty(lineId))
