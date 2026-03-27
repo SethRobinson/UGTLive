@@ -269,7 +269,7 @@ if not "!SERVICE_INSTALL_VERSION!"=="" (
 
 echo.
 echo =============================================================
-echo   SUCCESS! Setup complete for !SERVICE_NAME!
+echo   SUCCESS^^! Setup complete for !SERVICE_NAME!
 echo   Environment: !ENV_NAME!
 echo   The service is ready to use.
 echo =============================================================
@@ -312,7 +312,7 @@ if errorlevel 1 (
 
 echo [Step 2/5] Installing PyTorch 2.6 GPU stack (CUDA 11.8)...
 echo [Step 2/5] Installing PyTorch 2.6 (CUDA 11.8)... >> "%LOG_FILE%"
-python -m pip install --extra-index-url !PYTORCH_CHANNEL! torch==!TORCH_VERSION! torchvision==!TORCHVISION_VERSION! torchaudio==!TORCHAUDIO_VERSION! >> "%LOG_FILE%" 2>&1
+python -m pip install --index-url !PYTORCH_CHANNEL! torch==!TORCH_VERSION! torchvision==!TORCHVISION_VERSION! torchaudio==!TORCHAUDIO_VERSION! >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install PyTorch!
     echo ERROR: Failed to install PyTorch >> "%LOG_FILE%"
@@ -348,12 +348,15 @@ echo This may take several minutes on first run...
 echo [Step 5/5] Pre-downloading model... >> "%LOG_FILE%"
 REM Set SSL cert for model downloads
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
-python -c "from faster_qwen3_tts import FasterQwen3TTS; print('faster-qwen3-tts imported successfully')" >> "%LOG_FILE%" 2>&1
+python "%SCRIPT_DIR%download_model.py"
 if errorlevel 1 (
-    echo WARNING: Failed to verify faster-qwen3-tts import
-    echo WARNING: Failed to verify faster-qwen3-tts >> "%LOG_FILE%"
+    echo.
+    echo WARNING: Model download failed. The service will try again when
+    echo started, but it won't be usable until the download succeeds.
+    echo HuggingFace may be having issues -- try running Install again later.
+    echo WARNING: Model pre-download failed >> "%LOG_FILE%"
 ) else (
-    echo faster-qwen3-tts verified successfully >> "%LOG_FILE%"
+    echo Model pre-download successful >> "%LOG_FILE%"
 )
 
 echo.
@@ -440,16 +443,20 @@ if errorlevel 1 (
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
 
-echo [Step 6/6] Verifying faster-qwen3-tts import...
-echo [Step 6/6] Verifying faster-qwen3-tts... >> "%LOG_FILE%"
+echo [Step 6/6] Pre-downloading Qwen3-TTS model...
+echo This may take several minutes on first run...
+echo [Step 6/6] Pre-downloading model... >> "%LOG_FILE%"
 REM Set SSL cert for model downloads
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
-python -c "from faster_qwen3_tts import FasterQwen3TTS; print('faster-qwen3-tts imported successfully')" >> "%LOG_FILE%" 2>&1
+python "%SCRIPT_DIR%download_model.py"
 if errorlevel 1 (
-    echo WARNING: Failed to verify faster-qwen3-tts import
-    echo WARNING: Failed to verify faster-qwen3-tts >> "%LOG_FILE%"
+    echo.
+    echo WARNING: Model download failed. The service will try again when
+    echo started, but it won't be usable until the download succeeds.
+    echo HuggingFace may be having issues -- try running Install again later.
+    echo WARNING: Model pre-download failed >> "%LOG_FILE%"
 ) else (
-    echo faster-qwen3-tts verified successfully >> "%LOG_FILE%"
+    echo Model pre-download successful >> "%LOG_FILE%"
 )
 
 echo.
