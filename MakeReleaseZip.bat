@@ -14,7 +14,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-dotnet publish .\UGTLive.csproj -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false
+dotnet publish .\UGTLive.csproj -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=false
 if errorlevel 1 (
     echo.
     echo ========================================
