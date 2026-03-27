@@ -15,6 +15,8 @@ from typing import Optional
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 import ssl
 import certifi
 ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
@@ -101,8 +103,16 @@ def print_gpu_info():
 
 
 def load_model():
-    """Load the Qwen3-TTS model with CUDA graph acceleration."""
+    """Load the Qwen3-TTS model with CUDA graph acceleration.
+
+    Retries up to MAX_RETRIES times on network errors (common on machines with
+    flaky HuggingFace connectivity).  After all online attempts fail, tries
+    once more in offline mode so a previously-cached model can still be used.
+    """
     global TTS_MODEL
+
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5
 
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -111,17 +121,54 @@ def load_model():
     print(f"  Device: {device}, Dtype: {dtype}")
     print(f"  Engine: faster-qwen3-tts (CUDA graphs)")
 
-    start_time = time.time()
-    TTS_MODEL = FasterQwen3TTS.from_pretrained(
-        DEFAULT_MODEL_ID,
-        device=device,
-        dtype=dtype,
-        attn_implementation="sdpa",
-    )
-    elapsed = time.time() - start_time
-    print(f"  Model loaded in {elapsed:.1f}s")
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            start_time = time.time()
+            TTS_MODEL = FasterQwen3TTS.from_pretrained(
+                DEFAULT_MODEL_ID,
+                device=device,
+                dtype=dtype,
+                attn_implementation="sdpa",
+            )
+            elapsed = time.time() - start_time
+            print(f"  Model loaded in {elapsed:.1f}s")
+            return TTS_MODEL
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            is_network = any(kw in err_str for kw in [
+                "connectionreset", "connection aborted", "protocolerror",
+                "connectionerror", "timeout", "10054", "urlopen",
+            ])
+            if is_network and attempt < MAX_RETRIES:
+                print(f"  Network error on attempt {attempt}/{MAX_RETRIES}: {e}")
+                print(f"  Retrying in {RETRY_DELAY}s...")
+                time.sleep(RETRY_DELAY)
+                continue
+            break
 
-    return TTS_MODEL
+    # All online attempts failed — try offline mode with cached files
+    print(f"  Online loading failed after {MAX_RETRIES} attempts.")
+    print(f"  Last error: {last_error}")
+    print(f"  Trying offline mode (using cached model files)...")
+    try:
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        start_time = time.time()
+        TTS_MODEL = FasterQwen3TTS.from_pretrained(
+            DEFAULT_MODEL_ID,
+            device=device,
+            dtype=dtype,
+            attn_implementation="sdpa",
+        )
+        elapsed = time.time() - start_time
+        print(f"  Model loaded from cache in {elapsed:.1f}s (offline mode)")
+        return TTS_MODEL
+    except Exception as offline_err:
+        print(f"  Offline loading also failed: {offline_err}")
+        raise last_error
+    finally:
+        os.environ.pop("HF_HUB_OFFLINE", None)
 
 
 def warmup_model():

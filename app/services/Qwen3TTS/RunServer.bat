@@ -66,6 +66,8 @@ REM Set SSL certificate file for urllib (fixes certificate errors on some system
 REM -----------------------------------------------------------------
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
 set "SSL_CERT_DIR="
+set HF_HUB_DISABLE_SYMLINKS_WARNING=1
+set KMP_DUPLICATE_LIB_OK=TRUE
 
 echo Starting server...
 echo.
