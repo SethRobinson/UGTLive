@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.08,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Updated services install scripts, they had broken due to changes in dependencies"
+    "latest_version":1.20,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Added Qwen-TTS local voice, minimize button, draggable capture border, improved Listen feature, UI improvements, bugfixes\n\nBackend service changes?: Yes"
 }

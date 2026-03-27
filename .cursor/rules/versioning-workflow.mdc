@@ -10,6 +10,16 @@ alwaysApply: true
 
 When updating the version number for UGTLive, you must update **three files**:
 
+## 0. Write the Change Description FIRST
+
+Before updating any files, run `git log --oneline` to review all commits since the last release. Use the commit messages to write a brief, accurate change description. **Do NOT use placeholder text like "[Description of changes]"** — always write the real description based on the commit log.
+
+The description should:
+- Be brief (one line, matching the style of previous History entries in README.md)
+- Highlight the most notable new features, fixes, and improvements
+- Credit contributors/suggesters where commit messages mention them
+- Be used consistently across both the README history entry and the version checker JSON message
+
 ## 1. Source Code Version
 **File:** `src/SplashManager.cs`
 
@@ -29,7 +39,7 @@ Update TWO locations:
 
 2. **History section** - Add a new entry at the TOP of the History section:
    ```markdown
-   **VX.XX [Month] [Day], [Year]** - [Brief description of changes]
+   **VX.XX [Month] [Day], [Year]** - [Brief description of changes from commit log]
    ```
 
 ## 3. Version Checker JSON
@@ -37,20 +47,22 @@ Update TWO locations:
 
 Update:
 - `latest_version` field to the new version number
-- `message` field with the change description
-- `Backend service changes?` to "Yes" or "No" depending on whether backend reinstall is needed
+- `message` field with the change description (derived from the same commit log summary)
+- `Backend service changes?` to "Yes" or "No" depending on whether new backend services were added or existing ones changed
 
 Example:
 ```json
 {
     "name":"Universal Game Translator Live",
     "latest_version":X.XX,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: [Description]\n\nBackend service changes?: No"
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: [Description from commit log]\n\nBackend service changes?: No"
 }
 ```
 
 ## Checklist
+- [ ] Read `git log --oneline` since the last release to determine changes
+- [ ] Write the change description based on the commit log (no placeholders!)
 - [ ] `src/SplashManager.cs` - Update `CurrentVersion`
 - [ ] `README.md` - Update version badge
-- [ ] `README.md` - Add history entry with date and changes
-- [ ] `media/latest_version_checker.json` - Update version and message
+- [ ] `README.md` - Add history entry with date and real description
+- [ ] `media/latest_version_checker.json` - Update version, message, and backend service changes flag

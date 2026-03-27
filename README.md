@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.08-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.20-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.20 Mar 27th, 2026** - Added Qwen-TTS local voice service, translation completion sound, minimize button (disables hotkeys/auto while minimized), draggable capture border, improved "Listen" feature with latest OpenAI APIs and semantic VAD, UI renames ("ChatBox" → "Transcript"), red border now matches actual capture area, updated AI provider API versions, misc bugfixes and QOL improvements (thanks Narci for many suggestions)
 
 **V1.08 Jan 26th, 2026** - Fixed services installer (including MangaOCR on 50x cards) not working right and made them more resistant to being suddenly broken. (the world of pytorch/gpu/pip/python is very touchy).  I'm using nodeps and pinning in some cases to help with future stability in this area. (thanks to Narci for reporting the issue)
 
