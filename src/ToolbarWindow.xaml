@@ -11,6 +11,7 @@
         ShowActivated="False"
         SizeToContent="WidthAndHeight"
         KeyboardNavigation.TabNavigation="None"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
         Icon="/media/Icon1.ico">
 
     <Window.Resources>
@@ -67,8 +68,7 @@
                         Click="MinimizeAppButton_Click"
                         ToolTip="Minimize (disables global hotkeys)"/>
                 <!-- Drag handle fills remaining space -->
-                <Border x:Name="DragHandle" Background="#40FFFFFF" CornerRadius="2" Cursor="SizeAll"
-                        MouseLeftButtonDown="DragHandle_MouseLeftButtonDown">
+                <Border x:Name="DragHandle" Background="#40FFFFFF" CornerRadius="2" Cursor="SizeAll">
                     <TextBlock Text="· · ·" Foreground="#80FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"
                                FontSize="10" FontWeight="Bold" IsHitTestVisible="False"/>
                 </Border>

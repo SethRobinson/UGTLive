@@ -104,10 +104,26 @@ namespace UGTLive
             }), DispatcherPriority.Input);
         }
 
-        // --- Drag handle ---
+        // --- Window-level drag (anywhere that isn't an interactive control) ---
 
-        private void DragHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private bool isInteractiveElement(DependencyObject? element)
         {
+            while (element != null)
+            {
+                if (element is System.Windows.Controls.Button ||
+                    element is System.Windows.Controls.CheckBox ||
+                    element is System.Windows.Controls.RadioButton)
+                    return true;
+                element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+            }
+            return false;
+        }
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (isInteractiveElement(e.OriginalSource as DependencyObject))
+                return;
+
             if (e.ClickCount == 2)
             {
                 MainWindow.Instance?.ResetToolbarPosition();
