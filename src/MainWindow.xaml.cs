@@ -115,6 +115,7 @@ namespace UGTLive
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
         private bool _wasStartedBeforeMinimize = false;
+        private Rect _restoreBoundsBeforeMaximize;
         private bool _isSnapshotOverlayDisplayed = false;
         private bool _snapshotInProgress = false;
         private bool _logCaptureRectOnce = false; // Debug flag for capture rect logging
@@ -1306,9 +1307,9 @@ namespace UGTLive
 
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Standard header drag functionality
             if (e.ClickCount == 1)
             {
+                _restoreBoundsBeforeMaximize = new Rect(this.Left, this.Top, this.Width, this.Height);
                 this.DragMove();
                 e.Handled = true;
                 UpdateCaptureRect();
@@ -2222,6 +2223,24 @@ namespace UGTLive
 
         private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                // Windows snap/Aero Snap can maximize the window when dragged to screen edge.
+                // A maximized capture frame is useless, so restore to previous size immediately.
+                this.WindowState = WindowState.Normal;
+
+                if (_restoreBoundsBeforeMaximize.Width > 0 && _restoreBoundsBeforeMaximize.Height > 0)
+                {
+                    this.Left = _restoreBoundsBeforeMaximize.Left;
+                    this.Top = _restoreBoundsBeforeMaximize.Top;
+                    this.Width = _restoreBoundsBeforeMaximize.Width;
+                    this.Height = _restoreBoundsBeforeMaximize.Height;
+                }
+
+                Console.WriteLine("Blocked window maximize (snap) - restored to previous size");
+                return;
+            }
+
             if (this.WindowState == WindowState.Minimized)
             {
                 _wasStartedBeforeMinimize = isStarted;
