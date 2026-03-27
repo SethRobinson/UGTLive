@@ -65,10 +65,15 @@ namespace UGTLive
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOACTIVATE = 0x0010;
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOPMOST = 0x00000008;
 
         // ShowWindow commands
         private const int SW_HIDE = 0;
@@ -123,6 +128,9 @@ namespace UGTLive
         private DateTime _translationStartTime;
         private bool _isShowingSettling = false;
         
+        // Periodic timer to re-assert HWND_TOPMOST when the window silently loses it
+        private DispatcherTimer? _topmostGuardTimer;
+
         // Debounce timer for window position/size persistence
         private DispatcherTimer? _windowPersistenceTimer;
         private bool _pendingPositionSave = false;
@@ -420,7 +428,13 @@ namespace UGTLive
             _captureTimer.Interval = TimeSpan.FromSeconds(1 / 60.0f);
             _captureTimer.Tick += OnUpdateTick;
             _captureTimer.Start();
-            
+
+            // Guard timer: re-assert HWND_TOPMOST if the window silently loses it
+            _topmostGuardTimer = new DispatcherTimer();
+            _topmostGuardTimer.Interval = TimeSpan.FromSeconds(2);
+            _topmostGuardTimer.Tick += TopmostGuard_Tick;
+            _topmostGuardTimer.Start();
+
             // Initial update of capture rectangle and setup after window is loaded
             this.Loaded += MainWindow_Loaded;
 
@@ -4276,6 +4290,23 @@ namespace UGTLive
                     BringToFront();
                 }
             }), DispatcherPriority.Input);
+        }
+
+        private void TopmostGuard_Tick(object? sender, EventArgs e)
+        {
+            if (!IsVisible || WindowState == WindowState.Minimized)
+                return;
+
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero)
+                return;
+
+            int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            if ((exStyle & WS_EX_TOPMOST) == 0)
+            {
+                Console.WriteLine("Topmost guard: window lost HWND_TOPMOST, re-asserting");
+                BringToFront();
+            }
         }
 
         public void HandlePassthroughChanged(bool isEnabled)
