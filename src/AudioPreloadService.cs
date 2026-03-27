@@ -207,6 +207,9 @@ namespace UGTLive
                 }
             }
             
+            // Validate voice against the active service to prevent cross-provider voice IDs
+            voice = ValidateVoiceForService(service, voice);
+            
             if (ConfigManager.Instance.GetLogExtraDebugStuff())
             {
                 Console.WriteLine($"AudioPreloadService: Using service={service}, voice={voice}");
@@ -318,6 +321,9 @@ namespace UGTLive
                     }
                 }
             }
+            
+            // Validate voice against the active service to prevent cross-provider voice IDs
+            voice = ValidateVoiceForService(service, voice);
             
             if (ConfigManager.Instance.GetLogExtraDebugStuff())
             {
@@ -795,6 +801,37 @@ namespace UGTLive
             _concurrencyLimiter = new SemaphoreSlim(maxConcurrent, maxConcurrent);
             
             Console.WriteLine($"AudioPreloadService: Updated max concurrent downloads to {maxConcurrent}{(maxConcurrent == int.MaxValue ? " (unlimited)" : "")}");
+        }
+        
+        /// <summary>
+        /// Ensures the voice ID is valid for the given TTS service. When source/target service
+        /// falls through to the main TTS service (e.g. Qwen3-TTS), the persisted voice may still
+        /// be a Google/ElevenLabs ID. This corrects it to the service's default voice.
+        /// </summary>
+        private string ValidateVoiceForService(string service, string voice)
+        {
+            switch (service)
+            {
+                case "Qwen3-TTS":
+                    if (!Qwen3TtsService.AvailableVoices.ContainsValue(voice))
+                    {
+                        string fallback = ConfigManager.Instance.GetQwen3TtsVoice();
+                        Console.WriteLine($"AudioPreloadService: Voice '{voice}' is not valid for Qwen3-TTS, using '{fallback}' instead");
+                        return fallback;
+                    }
+                    break;
+                    
+                case "Google Cloud TTS":
+                    if (!GoogleTTSService.AvailableVoices.ContainsValue(voice))
+                    {
+                        string fallback = ConfigManager.Instance.GetGoogleTtsVoice();
+                        Console.WriteLine($"AudioPreloadService: Voice '{voice}' is not valid for Google Cloud TTS, using '{fallback}' instead");
+                        return fallback;
+                    }
+                    break;
+            }
+            
+            return voice;
         }
     }
 }

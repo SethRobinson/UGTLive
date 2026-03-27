@@ -1804,7 +1804,7 @@ Here is the input JSON:";
         // Get/Set TTS Source Voice
         public string GetTtsSourceVoice()
         {
-            return GetValue(TTS_SOURCE_VOICE, GetGoogleTtsVoice()); // Default to Google TTS voice
+            return GetValue(TTS_SOURCE_VOICE, getDefaultVoiceForService(GetTtsSourceService()));
         }
         
         public void SetTtsSourceVoice(string voiceId)
@@ -1862,7 +1862,7 @@ Here is the input JSON:";
         // Get/Set TTS Target Voice
         public string GetTtsTargetVoice()
         {
-            return GetValue(TTS_TARGET_VOICE, "en-US-Studio-O"); // Default to English Studio voice
+            return GetValue(TTS_TARGET_VOICE, getDefaultVoiceForService(GetTtsTargetService()));
         }
         
         public void SetTtsTargetVoice(string voiceId)
@@ -1899,6 +1899,16 @@ Here is the input JSON:";
             _configValues[TTS_TARGET_CUSTOM_VOICE_ID] = voiceId ?? "";
             SaveConfig();
             Console.WriteLine("TTS target custom voice ID updated");
+        }
+        
+        private string getDefaultVoiceForService(string service)
+        {
+            return service switch
+            {
+                "Qwen3-TTS" => GetQwen3TtsVoice(),
+                "Google Cloud TTS" => GetGoogleTtsVoice(),
+                _ => GetElevenLabsVoice()
+            };
         }
         
         // Get/Set TTS Preload Enabled
