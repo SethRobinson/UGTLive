@@ -310,9 +310,23 @@ namespace UGTLive
                     string[] lines = File.ReadAllLines(HOTKEYS_FILE);
                     
                     // First line is global hotkeys enabled flag
-                    if (lines.Length > 0 && bool.TryParse(lines[0], out bool globalEnabled))
+                    if (lines.Length > 0)
                     {
-                        _globalHotkeysEnabled = globalEnabled;
+                        string firstLine = lines[0].Trim();
+                        
+                        if (firstLine.StartsWith("global_hotkeys_enabled=", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string value = firstLine.Substring("global_hotkeys_enabled=".Length);
+                            if (bool.TryParse(value, out bool globalEnabled))
+                            {
+                                _globalHotkeysEnabled = globalEnabled;
+                            }
+                        }
+                        else if (bool.TryParse(firstLine, out bool legacyGlobalEnabled))
+                        {
+                            // Backward compatibility with old format (bare "True"/"False")
+                            _globalHotkeysEnabled = legacyGlobalEnabled;
+                        }
                     }
                     
                     // Rest of lines are hotkey entries
@@ -356,7 +370,7 @@ namespace UGTLive
                 List<string> lines = new List<string>();
                 
                 // First line is global hotkeys enabled flag
-                lines.Add(_globalHotkeysEnabled.ToString());
+                lines.Add($"global_hotkeys_enabled={_globalHotkeysEnabled}");
                 
                 // Rest of lines are hotkey entries
                 int bindingCount = 0;

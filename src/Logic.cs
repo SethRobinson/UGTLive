@@ -2122,7 +2122,42 @@ namespace UGTLive
                 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Log($"HTTP request failed: {response.StatusCode}");
+                    string errorBody = "";
+                    try
+                    {
+                        errorBody = await response.Content.ReadAsStringAsync();
+                    }
+                    catch { }
+
+                    if (!string.IsNullOrWhiteSpace(errorBody))
+                    {
+                        try
+                        {
+                            using (JsonDocument errorDoc = JsonDocument.Parse(errorBody))
+                            {
+                                var errorRoot = errorDoc.RootElement;
+                                string errorMsg = errorRoot.TryGetProperty("message", out var msgEl)
+                                    ? msgEl.GetString() ?? errorBody
+                                    : errorBody;
+                                string errorType = errorRoot.TryGetProperty("error_type", out var typeEl)
+                                    ? typeEl.GetString() ?? ""
+                                    : "";
+                                string detail = !string.IsNullOrEmpty(errorType)
+                                    ? $"{errorType}: {errorMsg}"
+                                    : errorMsg;
+                                Log($"{serviceName} HTTP {(int)response.StatusCode}: {detail}");
+                            }
+                        }
+                        catch (JsonException)
+                        {
+                            Log($"{serviceName} HTTP {(int)response.StatusCode}: {errorBody}");
+                        }
+                    }
+                    else
+                    {
+                        Log($"{serviceName} HTTP request failed: {response.StatusCode}");
+                    }
+
                     service.MarkAsNotRunning();
                     return null;
                 }
@@ -2313,6 +2348,27 @@ namespace UGTLive
                         if (doc.RootElement.TryGetProperty("color_info", out var colorInfo) && colorInfo.ValueKind != JsonValueKind.Null)
                         {
                             return colorInfo.Clone();
+                        }
+                    }
+                }
+                else
+                {
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        string errorBody = "";
+                        try
+                        {
+                            errorBody = await response.Content.ReadAsStringAsync();
+                        }
+                        catch { }
+
+                        if (!string.IsNullOrWhiteSpace(errorBody))
+                        {
+                            Log($"Color analysis HTTP {(int)response.StatusCode}: {errorBody}");
+                        }
+                        else
+                        {
+                            Log($"Color analysis HTTP request failed: {response.StatusCode}");
                         }
                     }
                 }
