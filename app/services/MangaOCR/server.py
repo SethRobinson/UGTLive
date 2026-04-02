@@ -75,9 +75,14 @@ def initialize_manga_ocr():
         print(f"Initializing Manga OCR engine...")
         start_time = time.time()
 
-        # Import and initialize manga_ocr
+        # Suppress noisy transformers config dump during model load
+        import transformers
+        transformers.logging.set_verbosity_error()
+
         from manga_ocr import MangaOcr
         MANGA_OCR_ENGINE = MangaOcr()
+
+        transformers.logging.set_verbosity_warning()
         
         initialization_time = time.time() - start_time
         print(f"Manga OCR initialization completed in {initialization_time:.2f} seconds")

@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.21-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.22-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.22 April 2nd, 2026** - Fixed locale-dependent decimal formatting in OCR parameters (broken on non-English systems), fixed incorrect service status on HTTP failure
 
 **V1.21 April 2nd, 2026** - Fixed Paddle OCR rescaling issue, app log now shows full service error messages, improved hotkey config format, removed unneeded TTS checkbox, debug mode writes OCR image in snapshot mode
 

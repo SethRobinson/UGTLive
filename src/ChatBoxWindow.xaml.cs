@@ -278,6 +278,11 @@ namespace UGTLive
         
         private void ChatBoxWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (System.Windows.Application.Current?.MainWindow == null)
+            {
+                return;
+            }
+
             // Don't actually close the window, just hide it
             Console.WriteLine("ChatBox window closing intercepted - hiding instead");
             

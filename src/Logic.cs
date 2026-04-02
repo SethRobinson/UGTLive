@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -2101,7 +2102,9 @@ namespace UGTLive
                     int minHeight = ConfigManager.Instance.GetMangaOcrMinRegionHeight();
                     double overlapPercent = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent();
                     double yoloConfidence = ConfigManager.Instance.GetMangaOcrYoloConfidence();
-                    url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapPercent}&yolo_confidence={yoloConfidence}";
+                    string overlapStr = overlapPercent.ToString(CultureInfo.InvariantCulture);
+                    string yoloStr = yoloConfidence.ToString(CultureInfo.InvariantCulture);
+                    url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapStr}&yolo_confidence={yoloStr}";
                 }
                 
                 // Add PaddleOCR-specific parameters
@@ -2158,7 +2161,6 @@ namespace UGTLive
                         Log($"{serviceName} HTTP request failed: {response.StatusCode}");
                     }
 
-                    service.MarkAsNotRunning();
                     return null;
                 }
                 

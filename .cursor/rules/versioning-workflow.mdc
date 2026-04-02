@@ -48,14 +48,13 @@ Update TWO locations:
 Update:
 - `latest_version` field to the new version number
 - `message` field with the change description (derived from the same commit log summary)
-- `Backend service changes?` to "Yes" or "No" depending on whether new backend services were added or existing ones changed
 
 Example:
 ```json
 {
     "name":"Universal Game Translator Live",
     "latest_version":X.XX,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: [Description from commit log]\n\nBackend service changes?: No"
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: [Description from commit log]"
 }
 ```
 
@@ -65,4 +64,4 @@ Example:
 - [ ] `src/SplashManager.cs` - Update `CurrentVersion`
 - [ ] `README.md` - Update version badge
 - [ ] `README.md` - Add history entry with date and real description
-- [ ] `media/latest_version_checker.json` - Update version, message, and backend service changes flag
+- [ ] `media/latest_version_checker.json` - Update version and message

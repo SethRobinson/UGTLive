@@ -338,13 +338,15 @@ namespace UGTLive
                     // Generate a unique title for the window to help us find it later
                     // This is crucial for reliable window finding and hiding
                     string uniqueTitle = $"UGTLive_Service_{ServiceName}_{Port}";
+                    string batchArgs = showWindow ? "" : "nopause";
                     
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
                         FileName = "cmd.exe",
                         // Use /c to run the command and terminate, but the command runs the batch file
                         // We set the title first so we can find the window later
-                        Arguments = $"/c title {uniqueTitle} & \"{batchFile}\" nopause",
+                        // When showWindow is true, omit "nopause" so the window stays open on crash for debugging
+                        Arguments = $"/c title {uniqueTitle} & \"{batchFile}\" {batchArgs}",
                         WorkingDirectory = ServiceDirectory,
                         UseShellExecute = true, // Always use shell execute to get a window we can control
                         WindowStyle = showWindow ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden,

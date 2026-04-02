@@ -138,6 +138,10 @@ namespace UGTLive
             // Set up closing behavior (hide instead of close)
             this.Closing += (s, e) => 
             {
+                if (System.Windows.Application.Current?.MainWindow == null)
+                {
+                    return;
+                }
                 e.Cancel = true;  // Cancel the close
                 MainWindow.Instance?.HandleSettingsButton();
             };

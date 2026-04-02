@@ -197,9 +197,14 @@ namespace UGTLive
             }
         }
         
-        // Handle window closing - hide instead of close
+        // Handle window closing - hide instead of close (unless app is shutting down)
         private void LogWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (System.Windows.Application.Current == null || System.Windows.Application.Current.MainWindow == null)
+            {
+                return;
+            }
+
             e.Cancel = true;
             Hide();
             

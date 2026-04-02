@@ -3029,7 +3029,7 @@ namespace UGTLive
         // Override closing to hide instead
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            if (_isShuttingDown)
+            if (_isShuttingDown || System.Windows.Application.Current?.MainWindow == null)
             {
                 // Allow closing during shutdown
                 Console.WriteLine("Monitor window closing during shutdown");

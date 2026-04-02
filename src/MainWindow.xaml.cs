@@ -2420,6 +2420,7 @@ namespace UGTLive
         
         public void updateLogButtonState(bool isVisible)
         {
+            if (logButton == null) return;
             logButton.Background = isVisible
                 ? new SolidColorBrush(Color.FromRgb(46, 160, 67))
                 : new SolidColorBrush(Color.FromRgb(95, 95, 95));
@@ -2427,6 +2428,7 @@ namespace UGTLive
 
         public void UpdateMonitorButtonState(bool isVisible)
         {
+            if (monitorButton == null) return;
             monitorButton.Background = isVisible
                 ? new SolidColorBrush(Color.FromRgb(46, 160, 67))
                 : new SolidColorBrush(Color.FromRgb(95, 95, 95));
