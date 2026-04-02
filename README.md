@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.20-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.21-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.21 April 2nd, 2026** - Fixed Paddle OCR rescaling issue, app log now shows full service error messages, improved hotkey config format, removed unneeded TTS checkbox, debug mode writes OCR image in snapshot mode
 
 **V1.20 Mar 27th, 2026** - Added Qwen-TTS local voice service, translation completion sound, minimize button (disables hotkeys/auto while minimized), draggable capture border, improved "Listen" feature with latest OpenAI APIs and semantic VAD, UI renames ("ChatBox" → "Transcript"), red border now matches actual capture area, updated AI provider API versions, misc bugfixes and QOL improvements (thanks Narci for many suggestions)
 
@@ -149,7 +151,7 @@ llama-server ^
   --port 8080 ^
   --jinja ^
   -ngl 999 ^
-  -c 8196 ^
+  -c 16392 ^
   --cache-type-k q8_0 ^
   --cache-type-v q8_0
 

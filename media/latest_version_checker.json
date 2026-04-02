@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.20,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Added Qwen-TTS local voice, minimize button, draggable capture border, improved Listen feature, UI improvements, bugfixes\n\nBackend service changes?: Yes"
+    "latest_version":1.21,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Fixed Paddle OCR rescaling issue, app log now shows full service error messages, improved hotkey config format, removed unneeded TTS checkbox, debug mode writes OCR image in snapshot mode"
 }
