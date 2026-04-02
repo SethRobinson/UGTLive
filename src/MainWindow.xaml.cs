@@ -1548,6 +1548,22 @@ namespace UGTLive
                 // Store the current capture coordinates for use with OCR results
                 Logic.Instance.SetCurrentCapturePosition(captureRect.Left, captureRect.Top);
 
+                // Save image for debugging if enabled
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    try
+                    {
+                        string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                        string imagePath = Path.Combine(appDirectory, "image_sent_to_ocr.png");
+                        bitmap.Save(imagePath, ImageFormat.Png);
+                        Console.WriteLine($"[DEBUG] Snapshot image saved: {bitmap.Width}x{bitmap.Height}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving debug image: {ex.Message}");
+                    }
+                }
+
                 try
                 {
                     // Update Monitor window with the copy
@@ -2177,6 +2193,7 @@ namespace UGTLive
                             string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
                             string imagePath = Path.Combine(appDirectory, "image_sent_to_ocr.png");
                             bitmap.Save(imagePath, ImageFormat.Png);
+                            Console.WriteLine($"[DEBUG] Live capture image saved: {bitmap.Width}x{bitmap.Height}");
                         }
                         catch (Exception ex)
                         {

@@ -96,11 +96,14 @@ def initialize_ocr_engine(lang: str = 'japan', use_angle_cls: bool = False):
         # Logging is controlled via environment variables in 3.2.2
         # text_det_limit_side_len: Limit side length for image resizing. 
         # Increased from default 960 to 1600 to prevent resizing artifacts on larger screens (1080p+).
+        # text_det_limit_type: PP-OCRv5 defaults to "min" (scale shortest side UP to limit),
+        # which causes small capture areas to balloon in size. Use "max" to cap the longest side instead.
         # CRITICAL: Disable doc preprocessor to prevent coordinate warping
         OCR_ENGINE = PaddleOCR(
             use_textline_orientation=use_angle_cls, 
             lang=paddle_lang, 
             text_det_limit_side_len=1600,
+            text_det_limit_type='max',
             use_doc_orientation_classify=False,
             use_doc_unwarping=False
         )
