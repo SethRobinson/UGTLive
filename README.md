@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.22-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.23-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.23 April 2nd, 2026** - Fixed locale issue (e.g. German) that could break text formatting; can now repair previously saved config data affected by locale bugs
 
 **V1.22 April 2nd, 2026** - Fixed locale-dependent decimal formatting in OCR parameters (broken on non-English systems), fixed incorrect service status on HTTP failure
 
