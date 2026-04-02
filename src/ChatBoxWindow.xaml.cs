@@ -241,35 +241,24 @@ namespace UGTLive
                     string text = selectedText.Text.Trim();
                     Console.WriteLine($"Speak function called with text: {text.Substring(0, Math.Min(50, text.Length))}...");
                     
-                    // Check if TTS is enabled in config
-                    if (ConfigManager.Instance.IsTtsEnabled())
+                    string ttsService = ConfigManager.Instance.GetTtsService();
+                    
+                    var currentCursor = this.Cursor;
+                    this.Cursor = WinCursors.Wait;
+                    
+                    try
                     {
-                        string ttsService = ConfigManager.Instance.GetTtsService();
+                        bool success = await TtsServiceFactory.CreateService(ttsService).SpeakText(text);
                         
-                        // Show a small notification that we're processing the speech request
-                        var currentCursor = this.Cursor;
-                        this.Cursor = WinCursors.Wait;
-                        
-                        try
+                        if (!success)
                         {
-                            bool success = await TtsServiceFactory.CreateService(ttsService).SpeakText(text);
-                            
-                            if (!success)
-                            {
-                                System.Windows.MessageBox.Show($"Failed to generate speech using {ttsService}. Please check the API key and settings.",
-                                    "Text-to-Speech Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            }
-                        }
-                        finally
-                        {
-                            // Reset cursor back
-                            this.Cursor = currentCursor;
+                            System.Windows.MessageBox.Show($"Failed to generate speech using {ttsService}. Please check the API key and settings.",
+                                "Text-to-Speech Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                         }
                     }
-                    else
+                    finally
                     {
-                        System.Windows.MessageBox.Show("Text-to-Speech is disabled in settings. Please enable it first.",
-                            "TTS Disabled", MessageBoxButton.OK, MessageBoxImage.Information);
+                        this.Cursor = currentCursor;
                     }
                 }
                 else

@@ -156,7 +156,6 @@ namespace UGTLive
         }
         
         // Text-to-Speech configuration keys
-        public const string TTS_ENABLED = "tts_enabled";
         public const string TTS_SERVICE = "tts_service";
         public const string ELEVENLABS_API_KEY = "elevenlabs_api_key";
         public const string ELEVENLABS_VOICE = "elevenlabs_voice";
@@ -482,7 +481,6 @@ namespace UGTLive
             _configValues[TTS_SERVICE] = "Google Cloud TTS";
             _configValues[GOOGLE_TTS_API_KEY] = "<your API key here>";
             _configValues[GOOGLE_TTS_VOICE] = "ja-JP-Neural2-B";
-            _configValues[TTS_ENABLED] = "false";
             
             // TTS Preload defaults (TTS_SOURCE_SERVICE and TTS_TARGET_SERVICE are intentionally
             // not set here so they fall through to GetTtsService() as the dynamic default)
@@ -1616,20 +1614,6 @@ Here is the input JSON:";
         }
         
         // Text-to-Speech methods
-        
-        // Get/Set TTS enabled
-        public bool IsTtsEnabled()
-        {
-            string value = GetValue(TTS_ENABLED, "false");
-            return value.ToLower() == "true";
-        }
-        
-        public void SetTtsEnabled(bool enabled)
-        {
-            _configValues[TTS_ENABLED] = enabled.ToString().ToLower();
-            SaveConfig();
-            Console.WriteLine($"TTS enabled: {enabled}");
-        }
         
         // Get/Set TTS service
         public string GetTtsService()

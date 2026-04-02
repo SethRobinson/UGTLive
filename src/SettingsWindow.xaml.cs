@@ -662,8 +662,6 @@ namespace UGTLive
             // Load TTS settings
             
             // Temporarily remove TTS event handlers
-            ttsEnabledCheckBox.Checked -= TtsEnabledCheckBox_CheckedChanged;
-            ttsEnabledCheckBox.Unchecked -= TtsEnabledCheckBox_CheckedChanged;
             ttsServiceComboBox.SelectionChanged -= TtsServiceComboBox_SelectionChanged;
             elevenLabsVoiceComboBox.SelectionChanged -= ElevenLabsVoiceComboBox_SelectionChanged;
             googleTtsVoiceComboBox.SelectionChanged -= GoogleTtsVoiceComboBox_SelectionChanged;
@@ -676,9 +674,6 @@ namespace UGTLive
             {
                 elevenLabsCustomVoiceIdTextBox.LostFocus -= ElevenLabsCustomVoiceIdTextBox_LostFocus;
             }
-            
-            // Set TTS enabled state
-            ttsEnabledCheckBox.IsChecked = ConfigManager.Instance.IsTtsEnabled();
             
             // Set TTS service
             string ttsService = ConfigManager.Instance.GetTtsService();
@@ -751,8 +746,6 @@ namespace UGTLive
             }
             
             // Re-attach TTS event handlers
-            ttsEnabledCheckBox.Checked += TtsEnabledCheckBox_CheckedChanged;
-            ttsEnabledCheckBox.Unchecked += TtsEnabledCheckBox_CheckedChanged;
             ttsServiceComboBox.SelectionChanged += TtsServiceComboBox_SelectionChanged;
             elevenLabsVoiceComboBox.SelectionChanged += ElevenLabsVoiceComboBox_SelectionChanged;
             googleTtsVoiceComboBox.SelectionChanged += GoogleTtsVoiceComboBox_SelectionChanged;
@@ -3353,24 +3346,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         }
         
         // Text-to-Speech settings handlers
-        
-        private void TtsEnabledCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                bool isEnabled = ttsEnabledCheckBox.IsChecked ?? false;
-                ConfigManager.Instance.SetTtsEnabled(isEnabled);
-                Console.WriteLine($"TTS enabled: {isEnabled}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating TTS enabled state: {ex.Message}");
-            }
-        }
         
         private void TtsServiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
