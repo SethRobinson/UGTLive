@@ -1,0 +1,58 @@
+---
+description: CRITICAL - All number parsing/formatting must use CultureInfo.InvariantCulture to prevent locale bugs
+alwaysApply: true
+---
+
+# Locale-Invariant Number Handling
+
+**CRITICAL**: This app MUST work correctly regardless of the user's Windows region/locale setting (e.g., German uses `,` as decimal separator instead of `.`). Locale-sensitive number formatting has caused serious bugs TWICE in this project. Always use InvariantCulture.
+
+## Rules
+
+### Parsing numbers from strings (config, text boxes, files)
+
+```csharp
+// BAD - uses current locale, breaks under German/French/etc.
+double.TryParse(value, out double result)
+float.TryParse(value, out float result)
+
+// GOOD - always uses '.' as decimal separator
+double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result)
+float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float result)
+```
+
+### Formatting numbers to strings (config persistence, CSS/HTML generation)
+
+```csharp
+// BAD - produces "1,50" under German locale
+value.ToString("F2")
+value.ToString()  // for doubles/floats being saved to config
+
+// GOOD
+value.ToString("F2", CultureInfo.InvariantCulture)
+value.ToString(CultureInfo.InvariantCulture)
+```
+
+### String interpolation with doubles into CSS/HTML
+
+```csharp
+// BAD - produces "font-size: 14,5px" or "rgba(0,0,0,0,700)" under German locale
+$"font-size: {fontSize}px"
+$"rgba({r},{g},{b},{alpha:F3})"
+
+// GOOD - FormattableString.Invariant forces '.' decimals
+FormattableString.Invariant($"font-size: {fontSize}px")
+FormattableString.Invariant($"rgba({r},{g},{b},{alpha:F3})")
+```
+
+## Required import
+
+```csharp
+using System.Globalization;
+```
+
+## Why this matters
+
+- Config values saved with `,` under one locale fail to parse under another
+- CSS/HTML with `,` decimals produces invalid styles (browsers expect `.`)
+- Font sizes, opacity values, and positions all break silently

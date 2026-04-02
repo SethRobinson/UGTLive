@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -23,6 +25,14 @@ public partial class App : Application
     
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Force InvariantCulture so decimal separators are always '.' regardless of OS locale.
+        // Without this, German/French/etc. locales use ',' which breaks config persistence,
+        // CSS generation (rgba values, font-size), and number parsing throughout the app.
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+        Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+        Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
+
         // Set DPI awareness BEFORE any windows are created
         // This prevents Windows from virtualizing DPI when display scale changes
         try

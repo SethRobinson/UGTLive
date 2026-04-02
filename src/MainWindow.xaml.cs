@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -3702,14 +3703,15 @@ namespace UGTLive
                         
                         // Build the div for this text object with box-shadow for semi-transparent background
                         // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
-                        string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
-                        string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
+                        string rgbaString = FormattableString.Invariant($"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})");
+                        string fontFamilyCss = string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""));
+                        string styleAttr = FormattableString.Invariant($"left: {left}px; top: {top}px; width: {width}px; height: {height}px; ") +
                             $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
                             $"background-color: transparent; " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
-                            $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
+                            $"font-family: {fontFamilyCss}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
-                            $"font-size: {initialFontSize}px;";
+                            FormattableString.Invariant($"font-size: {initialFontSize}px;");
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
                         html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -387,6 +388,7 @@ namespace UGTLive
                 }
 
                 applyDeprecatedModelMigrations();
+                migrateLocaleCorruptedValues();
             }
             catch (Exception ex)
             {
@@ -425,6 +427,37 @@ namespace UGTLive
             }
         }
         
+        private void migrateLocaleCorruptedValues()
+        {
+            bool needsSave = false;
+            var numericWithComma = new Regex(@"^-?\d+,\d+$");
+
+            foreach (var key in _configValues.Keys.ToList())
+            {
+                string value = _configValues[key];
+
+                if (numericWithComma.IsMatch(value))
+                {
+                    _configValues[key] = value.Replace(',', '.');
+                    Console.WriteLine($"Config migration: fixed locale-corrupted value for '{key}': '{value}' -> '{_configValues[key]}'");
+                    needsSave = true;
+                }
+
+                if (value == "NaN")
+                {
+                    _configValues.Remove(key);
+                    Console.WriteLine($"Config migration: removed NaN value for '{key}'");
+                    needsSave = true;
+                }
+            }
+
+            if (needsSave)
+            {
+                SaveConfig();
+                Console.WriteLine("Config migration: saved repaired config file");
+            }
+        }
+
         public bool GetGoogleTranslateUseCloudApi()
         {
             return GetBoolValue(GOOGLE_TRANSLATE_USE_CLOUD_API, false);
@@ -1164,7 +1197,7 @@ Here is the input JSON:";
         public double GetChatBoxFontSize()
         {
             string value = GetValue(CHATBOX_FONT_SIZE, "14");
-            if (double.TryParse(value, out double fontSize) && fontSize > 0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double fontSize) && fontSize > 0)
             {
                 return fontSize;
             }
@@ -1243,7 +1276,7 @@ Here is the input JSON:";
         public double GetChatBoxWindowOpacity()
         {
             string value = GetValue(CHATBOX_WINDOW_OPACITY, "1.0"); // Default: 100% opacity
-            if (double.TryParse(value, out double opacity))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double opacity))
             {
                 // Ensure minimum 10% opacity so window never disappears completely
                 return Math.Max(0.1, Math.Min(1.0, opacity));
@@ -1255,7 +1288,7 @@ Here is the input JSON:";
         public double GetChatBoxBackgroundOpacity()
         {
             string value = GetValue(CHATBOX_BACKGROUND_OPACITY, "0.5"); // Default: 50% opacity
-            if (double.TryParse(value, out double opacity) && opacity >= 0 && opacity <= 1)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double opacity) && opacity >= 0 && opacity <= 1)
             {
                 return opacity;
             }
@@ -1442,7 +1475,7 @@ Here is the input JSON:";
         public double GetMinLetterConfidence()
         {
             string value = GetValue(MIN_LETTER_CONFIDENCE, "0.1"); // Default: 0.1 (10%)
-            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
@@ -1472,7 +1505,7 @@ Here is the input JSON:";
             
             string value = GetValue(key, defaultValue);
             
-            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
@@ -1514,7 +1547,7 @@ Here is the input JSON:";
         public double GetMinLineConfidence()
         {
             string value = GetValue(MIN_LINE_CONFIDENCE, "0.2"); // Default: 0.2 (20%)
-            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
@@ -1543,7 +1576,7 @@ Here is the input JSON:";
             
             string value = GetValue(key, defaultValue);
             
-            if (double.TryParse(value, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double minConfidence) && minConfidence >= 0 && minConfidence <= 1)
             {
                 return minConfidence;
             }
@@ -1982,7 +2015,7 @@ Here is the input JSON:";
         public double GetTtsVerticalOverlapThreshold()
         {
             string value = GetValue(TTS_VERTICAL_OVERLAP_THRESHOLD, "120");
-            if (double.TryParse(value, out double threshold))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double threshold))
             {
                 return threshold;
             }
@@ -2197,7 +2230,7 @@ Here is the input JSON:";
         public double GetBlockDetectionScale()
         {
             string value = GetValue(BLOCK_DETECTION_SCALE, "5.0");
-            if (double.TryParse(value, out double scale) && scale > 0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double scale) && scale > 0)
             {
                 return scale;
             }
@@ -2209,7 +2242,7 @@ Here is the input JSON:";
         {
             if (scale > 0)
             {
-                _configValues[BLOCK_DETECTION_SCALE] = scale.ToString("F2");
+                _configValues[BLOCK_DETECTION_SCALE] = scale.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Block detection scale set to: {scale:F2}");
             }
@@ -2219,7 +2252,7 @@ Here is the input JSON:";
         public double GetBlockDetectionSettleTime()
         {
             string value = GetValue(BLOCK_DETECTION_SETTLE_TIME, "0.15");
-            if (double.TryParse(value, out double time) && time >= 0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double time) && time >= 0)
             {
                 return time;
             }
@@ -2231,7 +2264,7 @@ Here is the input JSON:";
         {
             if (seconds >= 0)
             {
-                _configValues[BLOCK_DETECTION_SETTLE_TIME] = seconds.ToString("F2");
+                _configValues[BLOCK_DETECTION_SETTLE_TIME] = seconds.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Block detection settle time set to: {seconds:F2} seconds");
             }
@@ -2241,7 +2274,7 @@ Here is the input JSON:";
         public double GetBlockDetectionMaxSettleTime()
         {
             string value = GetValue(BLOCK_DETECTION_MAX_SETTLE_TIME, "1.00");
-            if (double.TryParse(value, out double time) && time >= 0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double time) && time >= 0)
             {
                 return time;
             }
@@ -2253,7 +2286,7 @@ Here is the input JSON:";
         {
             if (seconds >= 0)
             {
-                _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = seconds.ToString("F2");
+                _configValues[BLOCK_DETECTION_MAX_SETTLE_TIME] = seconds.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Block detection max settle time set to: {seconds:F2} seconds");
             }
@@ -2285,7 +2318,7 @@ Here is the input JSON:";
         public double GetOverlayClearDelaySeconds()
         {
             string value = GetValue(OVERLAY_CLEAR_DELAY_SECONDS, "0.3");
-            if (double.TryParse(value, out double delay) && delay >= 0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double delay) && delay >= 0)
             {
                 return delay;
             }
@@ -2297,7 +2330,7 @@ Here is the input JSON:";
         {
             if (seconds >= 0)
             {
-                _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = seconds.ToString("F2");
+                _configValues[OVERLAY_CLEAR_DELAY_SECONDS] = seconds.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Overlay clear delay set to: {seconds:F2} seconds");
             }
@@ -2373,7 +2406,7 @@ Here is the input JSON:";
         public double GetMangaOcrOverlapAllowedPercent()
         {
             string value = GetValue(MANGA_OCR_OVERLAP_ALLOWED_PERCENT, "90");
-            if (double.TryParse(value, out double percent) && percent >= 0 && percent <= 100)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent) && percent >= 0 && percent <= 100)
             {
                 return percent;
             }
@@ -2384,7 +2417,7 @@ Here is the input JSON:";
         {
             if (percent >= 0 && percent <= 100)
             {
-                _configValues[MANGA_OCR_OVERLAP_ALLOWED_PERCENT] = percent.ToString("F1");
+                _configValues[MANGA_OCR_OVERLAP_ALLOWED_PERCENT] = percent.ToString("F1", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Manga OCR overlap allowed percent set to: {percent:F1}%");
             }
@@ -2398,7 +2431,7 @@ Here is the input JSON:";
         public double GetMangaOcrYoloConfidence()
         {
             string value = GetValue(MANGA_OCR_YOLO_CONFIDENCE, "0.60");
-            if (double.TryParse(value, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
             {
                 return confidence;
             }
@@ -2409,7 +2442,7 @@ Here is the input JSON:";
         {
             if (confidence >= 0.0 && confidence <= 1.0)
             {
-                _configValues[MANGA_OCR_YOLO_CONFIDENCE] = confidence.ToString("F2");
+                _configValues[MANGA_OCR_YOLO_CONFIDENCE] = confidence.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Manga OCR YOLO confidence threshold set to: {confidence:F2}");
             }
@@ -2575,7 +2608,7 @@ Here is the input JSON:";
         public double GetGoogleVisionHorizontalGlue()
         {
             string value = GetValue(GOOGLE_VISION_HORIZONTAL_GLUE, "1.5");
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -2592,7 +2625,7 @@ Here is the input JSON:";
         public double GetGoogleVisionVerticalGlue()
         {
             string value = GetValue(GOOGLE_VISION_VERTICAL_GLUE, "0.5");
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -2633,7 +2666,7 @@ Here is the input JSON:";
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = HORIZONTAL_GLUE_PREFIX + normalizedMethod;
             string value = GetValue(key, "1.0"); // Default: 2.0 character widths
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -2655,7 +2688,7 @@ Here is the input JSON:";
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = VERTICAL_GLUE_PREFIX + normalizedMethod;
             string value = GetValue(key, "1.0"); // Default: 2.0 line heights
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -2677,7 +2710,7 @@ Here is the input JSON:";
             string normalizedMethod = NormalizeOcrMethodName(ocrMethod);
             string key = VERTICAL_GLUE_OVERLAP_PREFIX + normalizedMethod;
             string value = GetValue(key, "20.0"); // Default: 20%
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -2704,7 +2737,7 @@ Here is the input JSON:";
             string defaultValue = normalizedMethod == "windows_ocr" ? "10.0" : "50.0";
             
             string value = GetValue(key, defaultValue);
-            if (double.TryParse(value, out double result))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result))
             {
                 return result;
             }
@@ -3087,7 +3120,7 @@ Here is the input JSON:";
         public double GetMonitorBgOpacity()
         {
             string value = GetValue(MONITOR_BG_OPACITY, "1.0");
-            if (double.TryParse(value, out double opacity) && opacity >= 0.0 && opacity <= 1.0)
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double opacity) && opacity >= 0.0 && opacity <= 1.0)
             {
                 return opacity;
             }
@@ -3098,7 +3131,7 @@ Here is the input JSON:";
         {
             if (opacity >= 0.0 && opacity <= 1.0)
             {
-                _configValues[MONITOR_BG_OPACITY] = opacity.ToString("F2");
+                _configValues[MONITOR_BG_OPACITY] = opacity.ToString("F2", CultureInfo.InvariantCulture);
                 SaveConfig();
                 Console.WriteLine($"Monitor background opacity set to: {opacity:F2}");
             }
@@ -3307,7 +3340,7 @@ Here is the input JSON:";
         public double GetOcrWindowLeft()
         {
             string value = GetValue(OCR_WINDOW_LEFT, "");
-            if (double.TryParse(value, out double left))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double left))
             {
                 return left;
             }
@@ -3323,7 +3356,7 @@ Here is the input JSON:";
         public double GetOcrWindowTop()
         {
             string value = GetValue(OCR_WINDOW_TOP, "");
-            if (double.TryParse(value, out double top))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
             {
                 return top;
             }
@@ -3339,7 +3372,7 @@ Here is the input JSON:";
         public double GetOcrWindowWidth()
         {
             string value = GetValue(OCR_WINDOW_WIDTH, "");
-            if (double.TryParse(value, out double width))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double width))
             {
                 return width;
             }
@@ -3355,7 +3388,7 @@ Here is the input JSON:";
         public double GetOcrWindowHeight()
         {
             string value = GetValue(OCR_WINDOW_HEIGHT, "");
-            if (double.TryParse(value, out double height))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double height))
             {
                 return height;
             }
@@ -3398,13 +3431,13 @@ Here is the input JSON:";
         public double GetToolbarOffsetX()
         {
             string value = GetValue(TOOLBAR_OFFSET_X, "5");
-            return double.TryParse(value, out double x) ? x : 5;
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double x) ? x : 5;
         }
 
         public double GetToolbarOffsetY()
         {
             string value = GetValue(TOOLBAR_OFFSET_Y, "0");
-            return double.TryParse(value, out double y) ? y : 0;
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double y) ? y : 0;
         }
 
         public void SetToolbarOffset(double offsetX, double offsetY)
@@ -3418,7 +3451,7 @@ Here is the input JSON:";
         public double GetChatBoxWindowLeft()
         {
             string value = GetValue(CHATBOX_WINDOW_LEFT, "");
-            if (double.TryParse(value, out double left))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double left))
             {
                 return left;
             }
@@ -3428,7 +3461,7 @@ Here is the input JSON:";
         public double GetChatBoxWindowTop()
         {
             string value = GetValue(CHATBOX_WINDOW_TOP, "");
-            if (double.TryParse(value, out double top))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
             {
                 return top;
             }
@@ -3438,7 +3471,7 @@ Here is the input JSON:";
         public double GetChatBoxWindowWidth()
         {
             string value = GetValue(CHATBOX_WINDOW_WIDTH, "");
-            if (double.TryParse(value, out double width))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double width))
             {
                 return width;
             }
@@ -3448,7 +3481,7 @@ Here is the input JSON:";
         public double GetChatBoxWindowHeight()
         {
             string value = GetValue(CHATBOX_WINDOW_HEIGHT, "");
-            if (double.TryParse(value, out double height))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double height))
             {
                 return height;
             }
@@ -3475,7 +3508,7 @@ Here is the input JSON:";
         public double GetMonitorWindowLeft()
         {
             string value = GetValue(MONITOR_WINDOW_LEFT, "");
-            if (double.TryParse(value, out double left))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double left))
             {
                 return left;
             }
@@ -3485,7 +3518,7 @@ Here is the input JSON:";
         public double GetMonitorWindowTop()
         {
             string value = GetValue(MONITOR_WINDOW_TOP, "");
-            if (double.TryParse(value, out double top))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
             {
                 return top;
             }
@@ -3495,7 +3528,7 @@ Here is the input JSON:";
         public double GetMonitorWindowWidth()
         {
             string value = GetValue(MONITOR_WINDOW_WIDTH, "");
-            if (double.TryParse(value, out double width))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double width))
             {
                 return width;
             }
@@ -3505,7 +3538,7 @@ Here is the input JSON:";
         public double GetMonitorWindowHeight()
         {
             string value = GetValue(MONITOR_WINDOW_HEIGHT, "");
-            if (double.TryParse(value, out double height))
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double height))
             {
                 return height;
             }

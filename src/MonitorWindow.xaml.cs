@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -1076,7 +1077,7 @@ namespace UGTLive
             System.Windows.Point initOffset = imageContainer.TranslatePoint(new System.Windows.Point(0, 0), imageScrollViewer);
             double initOffsetX = initOffset.X / initTextScale;
             double initOffsetY = initOffset.Y / initTextScale;
-            html.AppendLine($"<div id='scroll-container' style='transform: translate({initOffsetX}px, {initOffsetY}px) scale({initScaleFactor:F4})'>");
+            html.AppendLine(FormattableString.Invariant($"<div id='scroll-container' style='transform: translate({initOffsetX}px, {initOffsetY}px) scale({initScaleFactor:F4})'>"));
             
             // Add all text overlays if mode is not Hide
             if (_currentOverlayMode != OverlayMode.Hide && Logic.Instance != null)
@@ -1171,14 +1172,15 @@ namespace UGTLive
                         
                         // Build the inline style string with box-shadow for semi-transparent background
                         // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
-                        string rgbaString = $"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})";
-                        string styleAttr = $"left: {left}px; top: {top}px; width: {width}px; height: {height}px; " +
+                        string rgbaString = FormattableString.Invariant($"rgba({bgColor.R},{bgColor.G},{bgColor.B},{bgColor.A / 255.0:F3})");
+                        string fontFamilyCss = string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""));
+                        string styleAttr = FormattableString.Invariant($"left: {left}px; top: {top}px; width: {width}px; height: {height}px; ") +
                             $"box-shadow: inset 0 0 0 1000px {rgbaString}; " +
                             $"background-color: transparent; " +
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
-                            $"font-family: {string.Join(", ", fontFamily.Split(',').Select(f => $"\"{f.Trim()}\""))}; " +
+                            $"font-family: {fontFamilyCss}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
-                            $"font-size: {initialFontSize}px;";
+                            FormattableString.Invariant($"font-size: {initialFontSize}px;");
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
                         html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");
@@ -2451,11 +2453,11 @@ namespace UGTLive
                         $"data-target-audio=\"{System.Web.HttpUtility.HtmlAttributeEncode(targetAudioPath)}\" " +
                         $"data-source-ready=\"{textObj.SourceAudioReady.ToString().ToLower()}\" " +
                         $"data-target-ready=\"{textObj.TargetAudioReady.ToString().ToLower()}\" " +
-                        $"data-original-font-size=\"{fontSize}\" style=\"");
-                html.AppendLine($"  left: {left}px;");
-                html.AppendLine($"  top: {top}px;");
-                html.AppendLine($"  width: {width}px;");
-                html.AppendLine($"  height: {height}px;");
+                        FormattableString.Invariant($"data-original-font-size=\"{fontSize}\"") + " style=\"");
+                html.AppendLine(FormattableString.Invariant($"  left: {left}px;"));
+                html.AppendLine(FormattableString.Invariant($"  top: {top}px;"));
+                html.AppendLine(FormattableString.Invariant($"  width: {width}px;"));
+                html.AppendLine(FormattableString.Invariant($"  height: {height}px;"));
                 
                 // Use inset box-shadow for semi-transparent background (WebView2 workaround)
                 // WebView2 doesn't support rgba() on background-color, but DOES support it on box-shadow
@@ -2465,7 +2467,7 @@ namespace UGTLive
                 html.AppendLine($"  color: {textColor};");
                 html.AppendLine($"  font-family: '{fontFamily}', sans-serif;");
                 html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
-                html.AppendLine($"  font-size: {fontSize}px;");
+                html.AppendLine(FormattableString.Invariant($"  font-size: {fontSize}px;"));
                     html.AppendLine($"  padding: 0;");
                     html.AppendLine($"  margin: 0;");
                     html.AppendLine($"  line-height: 1.2;");
@@ -2849,7 +2851,7 @@ namespace UGTLive
             // Use rgba() format to support transparency
             // Convert alpha from 0-255 to 0.0-1.0 for CSS
             double alpha = color.A / 255.0;
-            string result = $"rgba({color.R}, {color.G}, {color.B}, {alpha:F3})";
+            string result = FormattableString.Invariant($"rgba({color.R}, {color.G}, {color.B}, {alpha:F3})");
             Console.WriteLine($"ColorToHex: R:{color.R} G:{color.G} B:{color.B} A:{color.A} -> {result}");
             return result;
         }

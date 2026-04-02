@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -303,10 +304,10 @@ namespace UGTLive
         {
             ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_COLOR, ColorToHexString(
                 Color.FromArgb(255, _currentBackgroundColor.R, _currentBackgroundColor.G, _currentBackgroundColor.B)));
-            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_OPACITY, _currentBackgroundOpacity.ToString());
-            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_WINDOW_OPACITY, _currentWindowOpacity.ToString());
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_BACKGROUND_OPACITY, _currentBackgroundOpacity.ToString(CultureInfo.InvariantCulture));
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_WINDOW_OPACITY, _currentWindowOpacity.ToString(CultureInfo.InvariantCulture));
             ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_FAMILY, _currentFontFamily);
-            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, _currentFontSize.ToString());
+            ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, _currentFontSize.ToString(CultureInfo.InvariantCulture));
             ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_ORIGINAL_TEXT_COLOR, ColorToHexString(_currentOriginalTextColor));
             ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_TRANSLATED_TEXT_COLOR, ColorToHexString(_currentTranslatedTextColor));
 

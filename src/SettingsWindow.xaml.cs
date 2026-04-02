@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -590,9 +591,9 @@ namespace UGTLive
             blockDetectionPowerTextBox.Visibility = Visibility.Collapsed; 
             if (blockDetectionPowerLabel != null) blockDetectionPowerLabel.Visibility = Visibility.Collapsed;
             
-            settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
-            maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
-            overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
+            settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2", CultureInfo.InvariantCulture);
+            maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2", CultureInfo.InvariantCulture);
+            overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2", CultureInfo.InvariantCulture);
             cooldownHashCompareLengthTextBox.Text = ConfigManager.Instance.GetCooldownHashCompareLength().ToString();
             
             if (ConfigManager.Instance.GetLogExtraDebugStuff())
@@ -1201,7 +1202,7 @@ namespace UGTLive
                 if (_isInitializing)
                     return;
                     
-                if (double.TryParse(mangaOcrOverlapTextBox.Text, out double percent) && percent >= 0 && percent <= 100)
+                if (double.TryParse(mangaOcrOverlapTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent) && percent >= 0 && percent <= 100)
                 {
                     ConfigManager.Instance.SetMangaOcrOverlapAllowedPercent(percent);
                     Console.WriteLine($"Manga OCR overlap allowed percent set to: {percent:F1}%");
@@ -1215,7 +1216,7 @@ namespace UGTLive
                 else
                 {
                     // Reset to current config value if invalid
-                    mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1");
+                    mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1", CultureInfo.InvariantCulture);
                 }
             }
             catch (Exception ex)
@@ -1232,7 +1233,7 @@ namespace UGTLive
                 if (_isInitializing)
                     return;
                     
-                if (double.TryParse(mangaOcrYoloConfidenceTextBox.Text, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
+                if (double.TryParse(mangaOcrYoloConfidenceTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence) && confidence >= 0.0 && confidence <= 1.0)
                 {
                     ConfigManager.Instance.SetMangaOcrYoloConfidence(confidence);
                     Console.WriteLine($"Manga OCR YOLO confidence threshold set to: {confidence:F2}");
@@ -1246,7 +1247,7 @@ namespace UGTLive
                 else
                 {
                     // Reset to current config value if invalid
-                    mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2");
+                    mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2", CultureInfo.InvariantCulture);
                 }
             }
             catch (Exception ex)
@@ -1402,22 +1403,22 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 {
                     if (googleVisionHeightSimilarityTextBox != null)
                     {
-                        googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(selectedOcr).ToString("F1");
+                        googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(selectedOcr).ToString("F1", CultureInfo.InvariantCulture);
                     }
                     
                     if (googleVisionHorizontalGlueTextBox != null)
                     {
-                        googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(selectedOcr).ToString("F2");
+                        googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(selectedOcr).ToString("F2", CultureInfo.InvariantCulture);
                     }
                     
                     if (googleVisionVerticalGlueTextBox != null)
                     {
-                        googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(selectedOcr).ToString("F2");
+                        googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(selectedOcr).ToString("F2", CultureInfo.InvariantCulture);
                     }
                     
                     if (googleVisionVerticalGlueOverlapTextBox != null)
                     {
-                        googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(selectedOcr).ToString("F1");
+                        googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(selectedOcr).ToString("F1", CultureInfo.InvariantCulture);
                     }
                     
                     if (googleVisionKeepLinefeedsCheckBox != null)
@@ -1453,12 +1454,12 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     
                     if (mangaOcrOverlapTextBox != null)
                     {
-                        mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1");
+                        mangaOcrOverlapTextBox.Text = ConfigManager.Instance.GetMangaOcrOverlapAllowedPercent().ToString("F1", CultureInfo.InvariantCulture);
                     }
                     
                     if (mangaOcrYoloConfidenceTextBox != null)
                     {
-                        mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2");
+                        mangaOcrYoloConfidenceTextBox.Text = ConfigManager.Instance.GetMangaOcrYoloConfidence().ToString("F2", CultureInfo.InvariantCulture);
                     }
                 }
             }
@@ -1572,11 +1573,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Get current OCR method to save settings per-OCR
             string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
             
-            if (double.TryParse(googleVisionHorizontalGlueTextBox.Text, out double value))
+            if (double.TryParse(googleVisionHorizontalGlueTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 // Clamp to range (-2000 to 2000)
                 value = Math.Max(-2000.0, Math.Min(2000.0, value));
-                googleVisionHorizontalGlueTextBox.Text = value.ToString("F2");
+                googleVisionHorizontalGlueTextBox.Text = value.ToString("F2", CultureInfo.InvariantCulture);
                 
                 ConfigManager.Instance.SetHorizontalGlue(currentOcr, value);
                 Console.WriteLine($"{currentOcr} horizontal glue set to {value}");
@@ -1588,7 +1589,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // Reset to current value if invalid
-                googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(currentOcr).ToString("F2");
+                googleVisionHorizontalGlueTextBox.Text = ConfigManager.Instance.GetHorizontalGlue(currentOcr).ToString("F2", CultureInfo.InvariantCulture);
             }
         }
 
@@ -1601,11 +1602,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Get current OCR method to save settings per-OCR
             string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
             
-            if (double.TryParse(googleVisionVerticalGlueTextBox.Text, out double value))
+            if (double.TryParse(googleVisionVerticalGlueTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 // Clamp to range (-2000 to 2000)
                 value = Math.Max(-2000.0, Math.Min(2000.0, value));
-                googleVisionVerticalGlueTextBox.Text = value.ToString("F2");
+                googleVisionVerticalGlueTextBox.Text = value.ToString("F2", CultureInfo.InvariantCulture);
                 
                 ConfigManager.Instance.SetVerticalGlue(currentOcr, value);
                 Console.WriteLine($"{currentOcr} vertical glue set to {value}");
@@ -1617,7 +1618,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // Reset to current value if invalid
-                googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(currentOcr).ToString("F2");
+                googleVisionVerticalGlueTextBox.Text = ConfigManager.Instance.GetVerticalGlue(currentOcr).ToString("F2", CultureInfo.InvariantCulture);
             }
         }
 
@@ -1630,11 +1631,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Get current OCR method to save settings per-OCR
             string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
             
-            if (double.TryParse(googleVisionVerticalGlueOverlapTextBox.Text, out double value))
+            if (double.TryParse(googleVisionVerticalGlueOverlapTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 // Clamp to range (0 to 100)
                 value = Math.Max(0, Math.Min(100.0, value));
-                googleVisionVerticalGlueOverlapTextBox.Text = value.ToString("F1");
+                googleVisionVerticalGlueOverlapTextBox.Text = value.ToString("F1", CultureInfo.InvariantCulture);
                 
                 ConfigManager.Instance.SetVerticalGlueOverlap(currentOcr, value);
                 Console.WriteLine($"{currentOcr} vertical glue overlap set to {value}");
@@ -1646,7 +1647,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // Reset to current value if invalid
-                googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(currentOcr).ToString("F1");
+                googleVisionVerticalGlueOverlapTextBox.Text = ConfigManager.Instance.GetVerticalGlueOverlap(currentOcr).ToString("F1", CultureInfo.InvariantCulture);
             }
         }
 
@@ -1659,11 +1660,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Get current OCR method to save settings per-OCR
             string currentOcr = MainWindow.Instance.GetSelectedOcrMethod();
             
-            if (double.TryParse(googleVisionHeightSimilarityTextBox.Text, out double value))
+            if (double.TryParse(googleVisionHeightSimilarityTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 // Clamp to range (0 to 100)
                 value = Math.Max(0, Math.Min(100.0, value));
-                googleVisionHeightSimilarityTextBox.Text = value.ToString("F1");
+                googleVisionHeightSimilarityTextBox.Text = value.ToString("F1", CultureInfo.InvariantCulture);
                 
                 ConfigManager.Instance.SetHeightSimilarity(currentOcr, value);
                 Console.WriteLine($"{currentOcr} height similarity set to {value}");
@@ -1675,7 +1676,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // Reset to current value if invalid
-                googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(currentOcr).ToString("F1");
+                googleVisionHeightSimilarityTextBox.Text = ConfigManager.Instance.GetHeightSimilarity(currentOcr).ToString("F1", CultureInfo.InvariantCulture);
             }
         }
 
@@ -2023,7 +2024,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // We'll just keep the UI field for now but it does nothing.
             // Or better, we should probably hide it or repurpose it, but user asked to remove the functionality.
             
-            if (double.TryParse(blockDetectionPowerTextBox.Text, out double power))
+            if (double.TryParse(blockDetectionPowerTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double power))
             {
                 // Just update the config if it still exists there, but logic ignores it.
                  ConfigManager.Instance.SetBlockDetectionScale(power);
@@ -2039,7 +2040,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
             
             // Update settle time in ConfigManager
-            if (float.TryParse(settleTimeTextBox.Text, out float settleTime) && settleTime >= 0)
+            if (float.TryParse(settleTimeTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float settleTime) && settleTime >= 0)
             {
                 ConfigManager.Instance.SetBlockDetectionSettleTime(settleTime);
                 Console.WriteLine($"Block detection settle time set to: {settleTime:F2} seconds");
@@ -2050,7 +2051,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // If text is invalid, reset to the current value from ConfigManager
-                settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2");
+                settleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionSettleTime().ToString("F2", CultureInfo.InvariantCulture);
             }
         }
         
@@ -3708,7 +3709,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 
                 string text = ttsVerticalOverlapTextBox.Text;
                 
-                if (double.TryParse(text, out double threshold))
+                if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double threshold))
                 {
                     if (threshold >= 0)
                     {
@@ -4227,7 +4228,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 if (_isInitializing)
                     return;
                     
-                if (double.TryParse(minLetterConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
+                if (double.TryParse(minLetterConfidenceTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence) && confidence >= 0 && confidence <= 1)
                 {
                     string currentOcr = ConfigManager.Instance.GetOcrMethod();
                     ConfigManager.Instance.SetMinLetterConfidence(currentOcr, confidence);
@@ -4260,7 +4261,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 if (_isInitializing)
                     return;
                     
-                if (double.TryParse(minLineConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
+                if (double.TryParse(minLineConfidenceTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence) && confidence >= 0 && confidence <= 1)
                 {
                     string currentOcr = ConfigManager.Instance.GetOcrMethod();
                     ConfigManager.Instance.SetMinLineConfidence(currentOcr, confidence);
@@ -5247,7 +5248,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
 
         private void MaxSettleTimeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (double.TryParse(maxSettleTimeTextBox.Text, out double maxSettleTime) && maxSettleTime >= 0)
+            if (double.TryParse(maxSettleTimeTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double maxSettleTime) && maxSettleTime >= 0)
             {
                 ConfigManager.Instance.SetBlockDetectionMaxSettleTime(maxSettleTime);
                 Console.WriteLine($"Max settle time set to: {maxSettleTime}");
@@ -5255,13 +5256,13 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // If invalid, reset to current value from config
-                maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
+                maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2", CultureInfo.InvariantCulture);
             }
         }
 
         private void OverlayClearDelayTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (double.TryParse(overlayClearDelayTextBox.Text, out double delay) && delay >= 0)
+            if (double.TryParse(overlayClearDelayTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double delay) && delay >= 0)
             {
                 ConfigManager.Instance.SetOverlayClearDelaySeconds(delay);
                 Console.WriteLine($"Overlay clear delay set to: {delay}");
@@ -5269,7 +5270,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             else
             {
                 // If invalid, reset to current value from config
-                overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2");
+                overlayClearDelayTextBox.Text = ConfigManager.Instance.GetOverlayClearDelaySeconds().ToString("F2", CultureInfo.InvariantCulture);
             }
         }
         
