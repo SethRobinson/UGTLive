@@ -63,13 +63,7 @@ Features:
 
 # History
 
-**V1.24 April 3rd, 2026** - Fixed LLM translation prompt that had a backwards example and unsubstituted language placeholders (caused some local models like gemma-4 to return untranslated text); offers to reset prompts to improved defaults on upgrade
-
-**V1.23 April 2nd, 2026** - Fixed locale issue (e.g. German) that could break text formatting; can now repair previously saved config data affected by locale bugs
-
-**V1.22 April 2nd, 2026** - Fixed locale-dependent decimal formatting in OCR parameters (broken on non-English systems), fixed incorrect service status on HTTP failure
-
-**V1.21 April 2nd, 2026** - Fixed Paddle OCR rescaling issue, app log now shows full service error messages, improved hotkey config format, removed unneeded TTS checkbox, debug mode writes OCR image in snapshot mode
+**V1.24 April 3rd, 2026** - Improved Ollama and llama.cpp support (Gemma 4 works well now), thinking mode checkbox works reliably for local models, log shows TPS statistics, fixed locale issues that broke non-English systems (e.g. German), fixed LLM prompt issues that caused some models to return untranslated text, offers to reset prompts to improved defaults on upgrade, fixed Paddle OCR rescaling, misc bugfixes
 
 **V1.20 Mar 27th, 2026** - Added Qwen-TTS local voice service, translation completion sound, minimize button (disables hotkeys/auto while minimized), draggable capture border, improved "Listen" feature with latest OpenAI APIs and semantic VAD, UI renames ("ChatBox" → "Transcript"), red border now matches actual capture area, updated AI provider API versions, misc bugfixes and QOL improvements (thanks Narci for many suggestions)
 
