@@ -631,8 +631,8 @@ namespace UGTLive
             // Initialize API key for Gemini
             geminiApiKeyPasswordBox.Password = ConfigManager.Instance.GetGeminiApiKey();
             
-            // Initialize Gemini thinking checkbox
-            geminiThinkingCheckBox.IsChecked = ConfigManager.Instance.GetGeminiThinkingEnabled();
+            // Initialize unified thinking checkbox
+            thinkingEnabledCheckBox.IsChecked = ConfigManager.Instance.GetThinkingEnabled();
             
             // Initialize Ollama settings
             ollamaUrlTextBox.Text = ConfigManager.Instance.GetOllamaUrl();
@@ -648,15 +648,10 @@ namespace UGTLive
             llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
             llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
             llamacppModelTextBox.Text = ConfigManager.Instance.GetLlamaCppModel();
-            llamacppThinkingModeCheckBox.IsChecked = ConfigManager.Instance.GetLlamaCppThinkingMode();
-            
             // Reattach event handlers
             llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
             llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
             llamacppModelTextBox.TextChanged += LlamacppModelTextBox_TextChanged;
-            
-            // Update thinking mode checkbox visibility based on model name
-            UpdateLlamaCppThinkingModeVisibility();
             
             // Update service-specific settings visibility based on selected service
             UpdateServiceSpecificSettings(currentService);
@@ -1784,6 +1779,24 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             ConfigManager.Instance.SetCompletionSoundEnabled(enabled);
         }
 
+        private void ResetPromptsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "This will reset the LLM translation prompts for all services " +
+                "(Gemini, Ollama, ChatGPT, llama.cpp) to the latest defaults.\n\n" +
+                "Any custom prompt modifications will be lost.\n\nContinue?",
+                "Reset Prompts",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                ConfigManager.Instance.ResetAllPromptsToDefault();
+                MessageBox.Show("All prompts have been reset to defaults.", "Reset Complete",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
         private void SnapshotToggleModeCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
             // Skip if initializing
@@ -2319,8 +2332,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     geminiModelLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (geminiModelGrid != null)
                     geminiModelGrid.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (geminiThinkingCheckBox != null)
-                    geminiThinkingCheckBox.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (thinkingEnabledCheckBox != null)
+                {
+                    bool isGoogleTranslate = string.Equals(selectedService, "Google Translate", StringComparison.OrdinalIgnoreCase);
+                    thinkingEnabledCheckBox.Visibility = isGoogleTranslate ? Visibility.Collapsed : Visibility.Visible;
+                }
                 
                 // Show/hide Ollama-specific settings
                 if (ollamaUrlLabel != null)
@@ -2349,8 +2365,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     chatGptMaxTokensLabel.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (chatGptMaxTokensTextBox != null)
                     chatGptMaxTokensTextBox.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (chatGptThinkingCheckBox != null)
-                    chatGptThinkingCheckBox.Visibility = isChatGptSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide llama.cpp-specific settings
                 if (llamacppUrlLabel != null)
@@ -2365,8 +2379,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     llamacppModelLabel.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
                 if (llamacppModelGrid != null)
                     llamacppModelGrid.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
-                if (llamacppThinkingModeCheckBox != null)
-                    llamacppThinkingModeCheckBox.Visibility = isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Show/hide Google Translate-specific settings
                 if (googleTranslateServiceTypeLabel != null)
@@ -2434,9 +2446,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     // Reattach event handler
                     geminiModelComboBox.SelectionChanged += GeminiModelComboBox_SelectionChanged;
                     
-                    // Set thinking checkbox
-                    if (geminiThinkingCheckBox != null)
-                        geminiThinkingCheckBox.IsChecked = ConfigManager.Instance.GetGeminiThinkingEnabled();
                 }
                 else if (isOllamaSelected)
                 {
@@ -2467,9 +2476,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                     if (chatGptMaxTokensTextBox != null)
                         chatGptMaxTokensTextBox.Text = maxTokens.ToString();
                     
-                    // Set thinking checkbox
-                    if (chatGptThinkingCheckBox != null)
-                        chatGptThinkingCheckBox.IsChecked = ConfigManager.Instance.GetChatGptThinkingEnabled();
                 }
                 else if (isLlamacppSelected)
                 {
@@ -2483,15 +2489,11 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                         llamacppUrlTextBox.Text = ConfigManager.Instance.GetLlamaCppUrl();
                         llamacppPortTextBox.Text = ConfigManager.Instance.GetLlamaCppPort();
                         llamacppModelTextBox.Text = ConfigManager.Instance.GetLlamaCppModel();
-                        llamacppThinkingModeCheckBox.IsChecked = ConfigManager.Instance.GetLlamaCppThinkingMode();
                         
                         // Reattach event handlers
                         llamacppUrlTextBox.TextChanged += LlamacppUrlTextBox_TextChanged;
                         llamacppPortTextBox.TextChanged += LlamacppPortTextBox_TextChanged;
                         llamacppModelTextBox.TextChanged += LlamacppModelTextBox_TextChanged;
-                        
-                        // Update thinking mode checkbox visibility based on model name
-                        UpdateLlamaCppThinkingModeVisibility();
                     }
                 }
                 else if (isGoogleTranslateSelected)
@@ -2767,9 +2769,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             ConfigManager.Instance.SetLlamaCppModel(model);
             Console.WriteLine($"llama.cpp model set to: {model}");
             
-            // Update thinking mode checkbox visibility based on model name
-            UpdateLlamaCppThinkingModeVisibility();
-            
             // Trigger retranslation if the current service is llama.cpp
             if (ConfigManager.Instance.GetCurrentTranslationService() == "llama.cpp")
             {
@@ -2901,38 +2900,22 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
-        // llama.cpp Thinking Mode checkbox changed
-        private void LlamacppThinkingModeCheckBox_Changed(object sender, RoutedEventArgs e)
+        // Unified Thinking Mode checkbox changed
+        private void ThinkingEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             if (_isInitializing)
                 return;
                 
-            bool isChecked = llamacppThinkingModeCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetLlamaCppThinkingMode(isChecked);
-            Console.WriteLine($"llama.cpp thinking mode set to: {isChecked}");
+            bool isChecked = thinkingEnabledCheckBox.IsChecked ?? false;
+            ConfigManager.Instance.SetThinkingEnabled(isChecked);
+            Console.WriteLine($"Thinking mode set to: {isChecked}");
             
-            // Trigger retranslation if the current service is llama.cpp
-            if (ConfigManager.Instance.GetCurrentTranslationService() == "llama.cpp")
+            string currentService = ConfigManager.Instance.GetCurrentTranslationService();
+            if (currentService != "Google Translate")
             {
-                Console.WriteLine("llama.cpp thinking mode changed. Triggering retranslation...");
+                Console.WriteLine("Thinking mode changed. Triggering retranslation...");
                 Logic.Instance.ResetHash();
             }
-        }
-        
-        // Update thinking mode checkbox visibility based on selected service
-        private void UpdateLlamaCppThinkingModeVisibility()
-        {
-            if (llamacppThinkingModeCheckBox == null)
-                return;
-            
-            // Show thinking mode checkbox whenever llama.cpp is selected
-            bool isLlamacppSelected = string.Equals(
-                ConfigManager.Instance.GetCurrentTranslationService(), 
-                "llama.cpp", 
-                StringComparison.OrdinalIgnoreCase);
-            
-            llamacppThinkingModeCheckBox.Visibility = 
-                isLlamacppSelected ? Visibility.Visible : Visibility.Collapsed;
         }
         
         // Model downloader instance
@@ -2941,7 +2924,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         private async void TestModelButton_Click(object sender, RoutedEventArgs e)
         {
             string model = ollamaModelTextBox.Text.Trim();
-            await _modelDownloader.TestAndDownloadModel(model);
+            await _modelDownloader.TestAndDownloadModel(model, this);
         }
         
         private void ViewModelsButton_Click(object sender, RoutedEventArgs e)
@@ -3174,41 +3157,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
-        // Gemini Thinking Mode checkbox changed
-        private void GeminiThinkingCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing)
-                return;
-                
-            bool isChecked = geminiThinkingCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetGeminiThinkingEnabled(isChecked);
-            Console.WriteLine($"Gemini thinking mode set to: {isChecked}");
-            
-            // Trigger retranslation if the current service is Gemini
-            if (ConfigManager.Instance.GetCurrentTranslationService() == "Gemini")
-            {
-                Console.WriteLine("Gemini thinking mode changed. Triggering retranslation...");
-                Logic.Instance.ResetHash();
-            }
-        }
-        
-        // ChatGPT Thinking Mode checkbox changed
-        private void ChatGptThinkingCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing)
-                return;
-                
-            bool isChecked = chatGptThinkingCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetChatGptThinkingEnabled(isChecked);
-            Console.WriteLine($"ChatGPT thinking mode set to: {isChecked}");
-            
-            // Trigger retranslation if the current service is ChatGPT
-            if (ConfigManager.Instance.GetCurrentTranslationService() == "ChatGPT")
-            {
-                Console.WriteLine("ChatGPT thinking mode changed. Triggering retranslation...");
-                Logic.Instance.ResetHash();
-            }
-        }
+        // Legacy handlers removed - now using unified ThinkingEnabledCheckBox_Changed
         
         private void OllamaDownloadLink_Click(object sender, RoutedEventArgs e)
         {

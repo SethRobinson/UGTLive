@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -87,6 +88,14 @@ namespace UGTLive
         // Log LLM request (thread-safe, non-blocking)
         public void LogLlmRequest(string prompt, string jsonData)
         {
+            LogLlmRequest(prompt, jsonData, null, null, null);
+        }
+
+        /// <summary>
+        /// Log LLM request with full HTTP request details. API keys are automatically masked.
+        /// </summary>
+        public void LogLlmRequest(string prompt, string jsonData, string? httpMethod, string? httpUrl, string? httpBody)
+        {
             // Fire-and-forget to avoid blocking
             Task.Run(() =>
             {
@@ -94,8 +103,37 @@ namespace UGTLive
                 {
                     try
                     {
-                        // Combine prompt and JSON data
                         StringBuilder sb = new StringBuilder();
+
+                        // Log the full HTTP request first so it's easy to see
+                        if (!string.IsNullOrEmpty(httpMethod) && !string.IsNullOrEmpty(httpUrl))
+                        {
+                            sb.AppendLine("=== HTTP REQUEST ===");
+                            sb.AppendLine($"{httpMethod} {MaskApiKeys(httpUrl)}");
+                            sb.AppendLine();
+
+                            if (!string.IsNullOrEmpty(httpBody))
+                            {
+                                sb.AppendLine("--- Request Body ---");
+                                string maskedBody = MaskApiKeys(httpBody);
+                                try
+                                {
+                                    using JsonDocument doc = JsonDocument.Parse(maskedBody);
+                                    var options = new JsonSerializerOptions
+                                    {
+                                        WriteIndented = true,
+                                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                                    };
+                                    sb.AppendLine(JsonSerializer.Serialize(doc.RootElement, options));
+                                }
+                                catch
+                                {
+                                    sb.AppendLine(maskedBody);
+                                }
+                                sb.AppendLine();
+                            }
+                        }
+
                         sb.AppendLine("=== LLM PROMPT ===");
                         sb.AppendLine(prompt);
                         sb.AppendLine();
@@ -114,11 +152,9 @@ namespace UGTLive
                         }
                         catch
                         {
-                            // If formatting fails, use the original JSON
                             sb.AppendLine(jsonData);
                         }
                         
-                        // Write to file
                         File.WriteAllText(_llmRequestPath, sb.ToString());
                         if (ConfigManager.Instance.GetLogExtraDebugStuff())
                         {
@@ -127,11 +163,45 @@ namespace UGTLive
                     }
                     catch (Exception ex)
                     {
-                        // Use debug output to avoid potential deadlock with Console.WriteLine
                         System.Diagnostics.Debug.WriteLine($"Error logging LLM request: {ex.Message}");
                     }
                 }
             });
+        }
+
+        /// <summary>
+        /// Mask API keys and tokens in a string. Keeps first 4 and last 4 chars, replaces the middle with ***.
+        /// </summary>
+        private static string MaskApiKeys(string input)
+        {
+            // Mask "key=VALUE" or "key=VALUE" in query strings
+            input = Regex.Replace(input, @"([?&]key=)([^&\s]{9,})", m =>
+            {
+                string key = m.Groups[2].Value;
+                return m.Groups[1].Value + key.Substring(0, 4) + "***" + key.Substring(key.Length - 4);
+            });
+
+            // Mask "api_key":"VALUE" or "apikey":"VALUE" in JSON bodies
+            input = Regex.Replace(input, @"(""(?:api[_-]?key|apikey|authorization|token)""\s*:\s*"")((?:Bearer\s+)?[^""]{9,})("")", m =>
+            {
+                string val = m.Groups[2].Value;
+                string prefix = "";
+                if (val.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    prefix = "Bearer ";
+                    val = val.Substring(7);
+                }
+                return m.Groups[1].Value + prefix + val.Substring(0, 4) + "***" + val.Substring(val.Length - 4) + m.Groups[3].Value;
+            }, RegexOptions.IgnoreCase);
+
+            // Mask Bearer tokens in header-style strings
+            input = Regex.Replace(input, @"(Bearer\s+)([^\s""]{9,})", m =>
+            {
+                string token = m.Groups[2].Value;
+                return m.Groups[1].Value + token.Substring(0, 4) + "***" + token.Substring(token.Length - 4);
+            });
+
+            return input;
         }
         
         // Log LLM reply (thread-safe, non-blocking)

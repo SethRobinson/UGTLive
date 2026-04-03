@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 using ProgressBar = System.Windows.Controls.ProgressBar;
 
@@ -17,8 +18,9 @@ namespace UGTLive
         private TextBlock? _modelStatusText;
         private Window? _modelStatusWindow;
         private bool _isModelDownloading = false;
+        private Window? _ownerWindow;
         
-        public async Task<bool> TestAndDownloadModel(string model)
+        public async Task<bool> TestAndDownloadModel(string model, Window? owner = null)
         {
             if (string.IsNullOrWhiteSpace(model))
             {
@@ -35,6 +37,8 @@ namespace UGTLive
             
             try
             {
+                _ownerWindow = owner;
+                
                 // Create or show the status window
                 ShowModelStatusWindow("Testing model...");
                 
@@ -96,9 +100,13 @@ namespace UGTLive
                     Title = "Ollama Model Status",
                     Width = 400,
                     Height = 150,
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    WindowStartupLocation = _ownerWindow != null 
+                        ? WindowStartupLocation.CenterOwner 
+                        : WindowStartupLocation.CenterScreen,
                     ResizeMode = ResizeMode.NoResize,
-                    WindowStyle = WindowStyle.ToolWindow
+                    WindowStyle = WindowStyle.ToolWindow,
+                    Topmost = true,
+                    Owner = _ownerWindow
                 };
                 
                 var grid = new Grid();
@@ -291,9 +299,13 @@ namespace UGTLive
                 
                 using (var client = new HttpClient())
                 {
-                    client.Timeout = TimeSpan.FromHours(2); // Long timeout for large models
+                    client.Timeout = TimeSpan.FromHours(2);
                     
-                    HttpResponseMessage response = await client.PostAsync(apiUrl, content);
+                    // ResponseHeadersRead lets us stream the response as it arrives
+                    // instead of buffering the entire download before reading
+                    var response = await client.SendAsync(
+                        new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content },
+                        HttpCompletionOption.ResponseHeadersRead);
                     
                     if (response.IsSuccessStatusCode)
                     {                        
@@ -302,6 +314,7 @@ namespace UGTLive
                         {
                             string? line;
                             int lastProgress = 0;
+                            string lastStatus = "";
                             
                             Console.WriteLine("Starting to read response stream...");
                             while ((line = await reader.ReadLineAsync()) != null)
@@ -313,12 +326,10 @@ namespace UGTLive
                                 try {
                                     using JsonDocument doc = JsonDocument.Parse(line);
                                     
-                                    // Extract status information
                                     if (doc.RootElement.TryGetProperty("status", out JsonElement statusElement))
                                     {
                                         string status = statusElement.GetString() ?? "";
                                         
-                                        // Check for download progress
                                         if (doc.RootElement.TryGetProperty("completed", out JsonElement completedElement) &&
                                             doc.RootElement.TryGetProperty("total", out JsonElement totalElement))
                                         {
@@ -329,33 +340,35 @@ namespace UGTLive
                                             {
                                                 int progress = (int)((completed * 100) / total);
                                                 
-                                                // Only update status if progress has changed significantly
-                                                if (progress >= lastProgress + 5 || progress == 100)
+                                                if (progress != lastProgress || status != lastStatus)
                                                 {
                                                     lastProgress = progress;
+                                                    lastStatus = status;
+                                                    string sizeMB = FormattableString.Invariant($"{completed / (1024.0 * 1024.0):F0}");
+                                                    string totalMB = FormattableString.Invariant($"{total / (1024.0 * 1024.0):F0}");
                                                     Console.WriteLine($"Download progress: {progress}%");
-                                                    UpdateModelStatus($"Downloading {model}: {progress}%", progress);
+                                                    Application.Current.Dispatcher.Invoke(() =>
+                                                        UpdateModelStatus($"Downloading {model}: {progress}% ({sizeMB}/{totalMB} MB)", progress));
                                                 }
                                             }
                                         }
-                                        else 
+                                        else if (status != lastStatus)
                                         {
-                                            // Just display the status message
-                                            UpdateModelStatus($"Status: {status}");
+                                            lastStatus = status;
+                                            Application.Current.Dispatcher.Invoke(() =>
+                                                UpdateModelStatus($"Status: {status}"));
                                         }
                                     }
                                     
-                                    // Check for completion
-                                    if (doc.RootElement.TryGetProperty("digest", out JsonElement digestElement))
+                                    if (doc.RootElement.TryGetProperty("status", out JsonElement finalStatus) &&
+                                        finalStatus.GetString() == "success")
                                     {
-                                        // Digest property means download is complete
-                                        UpdateModelStatus($"Model {model} downloaded successfully!", 100);
-                                        break;
+                                        Application.Current.Dispatcher.Invoke(() =>
+                                            UpdateModelStatus($"Model {model} downloaded successfully!", 100));
                                     }
                                 }
                                 catch (JsonException ex) 
                                 {
-                                    // Log and skip invalid JSON lines
                                     Console.WriteLine($"Invalid JSON: {ex.Message}, Line: {line}");
                                     continue;
                                 }

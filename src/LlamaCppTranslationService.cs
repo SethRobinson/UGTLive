@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -12,6 +13,8 @@ namespace UGTLive
     public class LlamaCppTranslationService : ITranslationService
     {
         private static readonly HttpClient _httpClient;
+        private string _lastPartialContent = "";
+        private string _lastPartialThinking = "";
         
         // Static constructor to initialize HttpClient once
         static LlamaCppTranslationService()
@@ -62,14 +65,17 @@ namespace UGTLive
                 
                 // Get model and thinking mode settings
                 string model = ConfigManager.Instance.GetLlamaCppModel();
-                bool thinkingModeEnabled = ConfigManager.Instance.GetLlamaCppThinkingMode();
+                bool thinkingModeEnabled = ConfigManager.Instance.GetThinkingEnabled();
                 
                 // Detect model type for thinking mode parameters
-                bool isGlmModel = !string.IsNullOrEmpty(model) && 
+                bool isGlmModel = !string.IsNullOrEmpty(model) &&
                     model.Contains("glm", StringComparison.OrdinalIgnoreCase);
-                bool isDeepSeekModel = !string.IsNullOrEmpty(model) && 
+                bool isDeepSeekModel = !string.IsNullOrEmpty(model) &&
                     model.Contains("deepseek", StringComparison.OrdinalIgnoreCase);
-                bool isThinkingModel = (isGlmModel || isDeepSeekModel) && thinkingModeEnabled;
+                // Gemma (incl. Gemma 3/4) uses Jinja enable_thinking in llama.cpp; without kwargs it may still reason when the checkbox is off
+                bool isGemmaModel = !string.IsNullOrEmpty(model) &&
+                    model.Contains("gemma", StringComparison.OrdinalIgnoreCase);
+                bool isThinkingModel = (isGlmModel || isDeepSeekModel || isGemmaModel) && thinkingModeEnabled;
                 
                 // Create request body (OpenAI-compatible format) with streaming enabled
                 var requestBody = new Dictionary<string, object>
@@ -120,7 +126,22 @@ namespace UGTLive
                         Console.WriteLine("DeepSeek model: Thinking mode disabled (default)");
                     }
                 }
-                
+                else if (isGemmaModel && !thinkingModeEnabled)
+                {
+                    // llama-server: chat_template_kwargs merges into Jinja; enable_thinking false turns off template-side reasoning.
+                    // thinking_budget_tokens: 0 caps interleaved reasoning when the template exposes thinking tags (server applies when default budget is -1).
+                    requestBody["chat_template_kwargs"] = new Dictionary<string, object>
+                    {
+                        { "enable_thinking", false }
+                    };
+                    requestBody["thinking_budget_tokens"] = 0;
+                    Console.WriteLine("Gemma model: Thinking mode disabled (enable_thinking + thinking_budget_tokens)");
+                }
+                else if (isGemmaModel)
+                {
+                    Console.WriteLine("Gemma model: Thinking mode enabled (template default / user setting)");
+                }
+
                 // Serialize the request body
                 var jsonOptions = new JsonSerializerOptions
                 {
@@ -131,15 +152,19 @@ namespace UGTLive
                 // Set up HTTP request
                 var request = new HttpRequestMessage(HttpMethod.Post, llamaCppEndpoint);
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-                
+
+                LogManager.Instance.LogLlmRequest(prompt, jsonData, "POST", llamaCppEndpoint, requestJson);
+
                 // Start streaming - signal that we're in streaming mode
                 TranslationStatus.StartStreaming(isThinkingModel);
                 
                 // Send request with streaming - read headers immediately, don't wait for full response
+                var stopwatch = Stopwatch.StartNew();
                 var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 
                 if (!response.IsSuccessStatusCode)
                 {
+                    stopwatch.Stop();
                     TranslationStatus.StopStreaming();
                     string errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
                     Console.WriteLine($"Error calling llama.cpp API: {response.StatusCode}");
@@ -165,6 +190,7 @@ namespace UGTLive
                 
                 // Read the streaming response
                 string translatedText = await ReadStreamingResponseAsync(response, isThinkingModel, cancellationToken);
+                stopwatch.Stop();
                 
                 TranslationStatus.StopStreaming();
                 
@@ -174,10 +200,18 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Log the response
-                LogManager.Instance.LogLlmReply(translatedText);
+                int thinkingChars = _lastPartialThinking?.Length ?? 0;
+                int tokenCount = TranslationStatus.TokenCount;
+                double tps = stopwatch.Elapsed.TotalSeconds > 0 ? tokenCount / stopwatch.Elapsed.TotalSeconds : 0;
+                Console.WriteLine($"llama.cpp response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {tokenCount} tokens ({tps:F1} t/s), {translatedText.Length} content chars, {thinkingChars} thinking chars");
+
+                string logText = translatedText;
+                if (!string.IsNullOrEmpty(_lastPartialThinking))
+                {
+                    logText = $"[THINKING]\n{_lastPartialThinking}\n\n[CONTENT]\n{translatedText}";
+                }
+                LogManager.Instance.LogLlmReply(logText);
                 
-                // Log the extracted translation
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
                     if (translatedText.Length > 100)
@@ -197,6 +231,18 @@ namespace UGTLive
             {
                 TranslationStatus.StopStreaming();
                 Console.WriteLine("llama.cpp translation was cancelled");
+
+                if (!string.IsNullOrEmpty(_lastPartialContent))
+                {
+                    string partialLog = _lastPartialContent;
+                    if (!string.IsNullOrEmpty(_lastPartialThinking))
+                    {
+                        partialLog = $"[THINKING]\n{_lastPartialThinking}\n\n[CONTENT]\n{_lastPartialContent}";
+                    }
+                    Console.WriteLine($"Logging partial llama.cpp response ({_lastPartialContent.Length} content chars)");
+                    LogManager.Instance.LogLlmReply($"[CANCELLED - partial response]\n{partialLog}");
+                }
+
                 return null;
             }
             catch (HttpRequestException ex)
@@ -232,142 +278,152 @@ namespace UGTLive
         {
             var contentBuilder = new StringBuilder();
             var thinkingBuilder = new StringBuilder();
-            bool isInThinkingPhase = isThinkingModel; // Start in thinking phase for thinking models
+            bool isInThinkingPhase = isThinkingModel;
+            bool usesReasoningField = false;
             
-            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var reader = new StreamReader(stream);
-            
-            string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var reader = new StreamReader(stream);
                 
-                // SSE format: lines starting with "data: " contain JSON
-                if (line.StartsWith("data: "))
+                string? line;
+                while ((line = await reader.ReadLineAsync()) != null)
                 {
-                    string jsonPart = line.Substring(6); // Remove "data: " prefix
+                    cancellationToken.ThrowIfCancellationRequested();
                     
-                    // Check for stream end marker
-                    if (jsonPart == "[DONE]")
+                    // SSE format: lines starting with "data: " contain JSON
+                    if (line.StartsWith("data: "))
                     {
-                        break;
-                    }
-                    
-                    try
-                    {
-                        using var doc = JsonDocument.Parse(jsonPart);
-                        var root = doc.RootElement;
+                        string jsonPart = line.Substring(6);
                         
-                        // OpenAI-compatible streaming format:
-                        // {"choices":[{"delta":{"content":"text"},"index":0}]}
-                        if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        if (jsonPart == "[DONE]")
                         {
-                            var firstChoice = choices[0];
+                            break;
+                        }
+                        
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(jsonPart);
+                            var root = doc.RootElement;
                             
-                            if (firstChoice.TryGetProperty("delta", out var delta))
+                            if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                             {
-                                // Check for reasoning_content (DeepSeek thinking mode)
-                                if (delta.TryGetProperty("reasoning_content", out var reasoningContent))
+                                var firstChoice = choices[0];
+                                
+                                if (firstChoice.TryGetProperty("delta", out var delta))
                                 {
-                                    string? reasoning = reasoningContent.GetString();
-                                    if (!string.IsNullOrEmpty(reasoning))
+                                    // Check for reasoning_content field (llama.cpp / Gemma 4 style)
+                                    if (delta.TryGetProperty("reasoning_content", out var reasoningContent))
                                     {
-                                        thinkingBuilder.Append(reasoning);
-                                        TranslationStatus.IncrementTokenCount();
-                                        TranslationStatus.IsThinking = true;
+                                        string? reasoning = reasoningContent.GetString();
+                                        if (!string.IsNullOrEmpty(reasoning))
+                                        {
+                                            thinkingBuilder.Append(reasoning);
+                                            TranslationStatus.IncrementTokenCount();
+                                            TranslationStatus.IsThinking = true;
+                                            usesReasoningField = true;
+                                        }
+                                    }
+                                    
+                                    if (delta.TryGetProperty("content", out var content))
+                                    {
+                                        string? text = content.GetString();
+                                        if (!string.IsNullOrEmpty(text))
+                                        {
+                                            if (usesReasoningField)
+                                            {
+                                                // Server uses dedicated reasoning_content field,
+                                                // so all content chunks are actual output.
+                                                contentBuilder.Append(text);
+                                                TranslationStatus.IsThinking = false;
+                                            }
+                                            else if (isThinkingModel && isInThinkingPhase)
+                                            {
+                                                // Fallback: parse <think> tags from content stream
+                                                if (text.Contains("</think>"))
+                                                {
+                                                    int thinkEndIndex = text.IndexOf("</think>");
+                                                    string thinkPart = text.Substring(0, thinkEndIndex);
+                                                    string contentPart = text.Substring(thinkEndIndex + 8);
+                                                    
+                                                    thinkingBuilder.Append(thinkPart);
+                                                    contentBuilder.Append(contentPart);
+                                                    isInThinkingPhase = false;
+                                                    TranslationStatus.IsThinking = false;
+                                                }
+                                                else if (text.Contains("<think>"))
+                                                {
+                                                    int thinkStartIndex = text.IndexOf("<think>");
+                                                    string beforeThink = text.Substring(0, thinkStartIndex);
+                                                    string afterThink = text.Substring(thinkStartIndex + 7);
+                                                    
+                                                    contentBuilder.Append(beforeThink);
+                                                    thinkingBuilder.Append(afterThink);
+                                                    TranslationStatus.IsThinking = true;
+                                                }
+                                                else
+                                                {
+                                                    contentBuilder.Append(text);
+                                                    TranslationStatus.IsThinking = false;
+                                                    isInThinkingPhase = false;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (text.Contains("<think>"))
+                                                {
+                                                    int thinkStartIndex = text.IndexOf("<think>");
+                                                    string beforeThink = text.Substring(0, thinkStartIndex);
+                                                    string afterThink = text.Substring(thinkStartIndex + 7);
+                                                    
+                                                    contentBuilder.Append(beforeThink);
+                                                    thinkingBuilder.Append(afterThink);
+                                                    isInThinkingPhase = true;
+                                                    TranslationStatus.IsThinking = true;
+                                                }
+                                                else
+                                                {
+                                                    contentBuilder.Append(text);
+                                                }
+                                            }
+                                            
+                                            TranslationStatus.IncrementTokenCount();
+                                        }
                                     }
                                 }
                                 
-                                // Check for regular content
-                                if (delta.TryGetProperty("content", out var content))
+                                if (firstChoice.TryGetProperty("finish_reason", out var finishReason) && 
+                                    finishReason.ValueKind != JsonValueKind.Null)
                                 {
-                                    string? text = content.GetString();
-                                    if (!string.IsNullOrEmpty(text))
+                                    string? reason = finishReason.GetString();
+                                    if (reason == "stop" || reason == "length")
                                     {
-                                        // For GLM models, content before </think> is thinking content
-                                        if (isThinkingModel && isInThinkingPhase)
-                                        {
-                                            if (text.Contains("</think>"))
-                                            {
-                                                // Split at </think> - everything before is thinking, after is content
-                                                int thinkEndIndex = text.IndexOf("</think>");
-                                                string thinkPart = text.Substring(0, thinkEndIndex);
-                                                string contentPart = text.Substring(thinkEndIndex + 8); // Skip "</think>"
-                                                
-                                                thinkingBuilder.Append(thinkPart);
-                                                contentBuilder.Append(contentPart);
-                                                isInThinkingPhase = false;
-                                                TranslationStatus.IsThinking = false;
-                                            }
-                                            else if (text.Contains("<think>"))
-                                            {
-                                                // Start of thinking block
-                                                int thinkStartIndex = text.IndexOf("<think>");
-                                                string beforeThink = text.Substring(0, thinkStartIndex);
-                                                string afterThink = text.Substring(thinkStartIndex + 7); // Skip "<think>"
-                                                
-                                                contentBuilder.Append(beforeThink);
-                                                thinkingBuilder.Append(afterThink);
-                                                TranslationStatus.IsThinking = true;
-                                            }
-                                            else
-                                            {
-                                                // Still in thinking phase, but no tags - treat as content
-                                                // (thinking phase only active if we see <think> tag)
-                                                contentBuilder.Append(text);
-                                                TranslationStatus.IsThinking = false;
-                                                isInThinkingPhase = false;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // Check if we're entering a thinking block
-                                            if (text.Contains("<think>"))
-                                            {
-                                                int thinkStartIndex = text.IndexOf("<think>");
-                                                string beforeThink = text.Substring(0, thinkStartIndex);
-                                                string afterThink = text.Substring(thinkStartIndex + 7);
-                                                
-                                                contentBuilder.Append(beforeThink);
-                                                thinkingBuilder.Append(afterThink);
-                                                isInThinkingPhase = true;
-                                                TranslationStatus.IsThinking = true;
-                                            }
-                                            else
-                                            {
-                                                contentBuilder.Append(text);
-                                            }
-                                        }
-                                        
-                                        TranslationStatus.IncrementTokenCount();
+                                        break;
                                     }
                                 }
                             }
-                            
-                            // Check finish_reason to know when we're done
-                            if (firstChoice.TryGetProperty("finish_reason", out var finishReason) && 
-                                finishReason.ValueKind != JsonValueKind.Null)
-                            {
-                                string? reason = finishReason.GetString();
-                                if (reason == "stop" || reason == "length")
-                                {
-                                    break;
-                                }
-                            }
                         }
-                    }
-                    catch (JsonException ex)
-                    {
-                        // Skip malformed JSON chunks
-                        Console.WriteLine($"Failed to parse streaming chunk: {ex.Message}");
+                        catch (JsonException ex)
+                        {
+                            Console.WriteLine($"Failed to parse streaming chunk: {ex.Message}");
+                        }
                     }
                 }
             }
-            
-            // Log thinking content if any
-            if (thinkingBuilder.Length > 0 && ConfigManager.Instance.GetLogExtraDebugStuff())
+            catch (OperationCanceledException)
             {
-                Console.WriteLine($"llama.cpp thinking content ({thinkingBuilder.Length} chars): {thinkingBuilder.ToString().Substring(0, Math.Min(200, thinkingBuilder.Length))}...");
+                Console.WriteLine($"llama.cpp streaming cancelled after {contentBuilder.Length} content chars, {thinkingBuilder.Length} thinking chars");
+                throw;
+            }
+            finally
+            {
+                if (thinkingBuilder.Length > 0 && ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    Console.WriteLine($"llama.cpp thinking content ({thinkingBuilder.Length} chars): {thinkingBuilder.ToString().Substring(0, Math.Min(200, thinkingBuilder.Length))}...");
+                }
+
+                _lastPartialContent = contentBuilder.ToString();
+                _lastPartialThinking = thinkingBuilder.ToString();
             }
             
             return contentBuilder.ToString();

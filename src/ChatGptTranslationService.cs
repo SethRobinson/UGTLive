@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -133,7 +134,7 @@ namespace UGTLive
                 
                 // Get max completion tokens from config
                 int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
-                bool thinkingEnabled = ConfigManager.Instance.GetChatGptThinkingEnabled();
+                bool thinkingEnabled = ConfigManager.Instance.GetThinkingEnabled();
                 
                 // Get the appropriate reasoning effort based on model and thinking setting
                 // Returns null for models that don't support reasoning effort (GPT-4.1 and older)
@@ -214,14 +215,42 @@ namespace UGTLive
                 var request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint);
                 request.Headers.Add("Authorization", $"Bearer {apiKey}");
                 request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-                
+
+                LogManager.Instance.LogLlmRequest(prompt, jsonData, "POST", apiEndpoint, requestJson);
+
+                Console.WriteLine($"Sending request to ChatGPT API ({model})");
+                var stopwatch = Stopwatch.StartNew();
+
                 // Send request to OpenAI API
                 var response = await _httpClient.SendAsync(request, cancellationToken);
                 string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                stopwatch.Stop();
                 
                 // Check if request was successful
                 if (response.IsSuccessStatusCode)
                 {
+                    int outputTokens = 0;
+                    try
+                    {
+                        using var respDoc = JsonDocument.Parse(responseContent);
+                        if (respDoc.RootElement.TryGetProperty("usage", out var usage) &&
+                            usage.TryGetProperty("completion_tokens", out var tokCount))
+                        {
+                            outputTokens = tokCount.GetInt32();
+                        }
+                    }
+                    catch { }
+
+                    if (outputTokens > 0)
+                    {
+                        double tps = stopwatch.Elapsed.TotalSeconds > 0 ? outputTokens / stopwatch.Elapsed.TotalSeconds : 0;
+                        Console.WriteLine($"ChatGPT response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {outputTokens} tokens ({tps:F1} t/s), {responseContent.Length} chars");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"ChatGPT response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {responseContent.Length} chars");
+                    }
+
                     // Log raw response before any processing
                     LogManager.Instance.LogLlmReply(responseContent);
                     

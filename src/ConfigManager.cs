@@ -34,6 +34,8 @@ namespace UGTLive
         public const string OLLAMA_URL = "ollama_url";
         public const string OLLAMA_PORT = "ollama_port";
         public const string OLLAMA_MODEL = "ollama_model";
+        public const string OLLAMA_THINKING_MODE = "ollama_thinking_mode"; // Legacy, migrated to THINKING_ENABLED
+        public const string THINKING_ENABLED = "thinking_enabled";
         public const string LLAMACPP_URL = "llamacpp_url";
         public const string LLAMACPP_PORT = "llamacpp_port";
         public const string LLAMACPP_MODEL = "llamacpp_model";
@@ -815,6 +817,32 @@ namespace UGTLive
             }
         }
         
+        // Get/Set Ollama Thinking Mode
+        public bool GetOllamaThinkingMode()
+        {
+            string value = GetValue(OLLAMA_THINKING_MODE, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetOllamaThinkingMode(bool enabled)
+        {
+            _configValues[OLLAMA_THINKING_MODE] = enabled ? "true" : "false";
+            SaveConfig();
+        }
+        
+        // Unified thinking enabled for all services
+        public bool GetThinkingEnabled()
+        {
+            string value = GetValue(THINKING_ENABLED, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        
+        public void SetThinkingEnabled(bool enabled)
+        {
+            _configValues[THINKING_ENABLED] = enabled ? "true" : "false";
+            SaveConfig();
+        }
+        
         // Get the full Ollama API endpoint
         public string GetOllamaApiEndpoint()
         {
@@ -827,7 +855,7 @@ namespace UGTLive
                 url = url.Substring(0, url.Length - 1);
             }
             
-            return $"{url}:{port}/api/generate";
+            return $"{url}:{port}/api/chat";
         }
         
         // Get/Set llama.cpp URL

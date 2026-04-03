@@ -3187,11 +3187,6 @@ namespace UGTLive
                 string targetLanguageName = GetLanguageName(GetTargetLanguage());
                 prompt = prompt.Replace("{SOURCE_LANG}", sourceLanguageName);
                 prompt = prompt.Replace("{TARGET_LANG}", targetLanguageName);
-               
-               
-                // Log the LLM request
-                LogManager.Instance.LogLlmRequest(prompt, jsonToTranslate);
-
                 _translationStopwatch.Restart();
 
                 // Note: SetWaitingForTranslationToFinish(true) is now called at the start of this method

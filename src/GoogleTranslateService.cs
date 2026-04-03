@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -35,6 +36,12 @@ namespace UGTLive
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                string serviceType = _useCloudApi ? "Cloud Translation API" : "Free Translation Service";
+                Console.WriteLine($"Sending request to Google Translate ({serviceType})");
+                var stopwatch = Stopwatch.StartNew();
+                LogManager.Instance.LogLlmRequest(prompt, jsonData, "POST", $"Google Translate ({serviceType})", null);
+
                 // Phân tích JSON đầu vào
                 using JsonDocument doc = JsonDocument.Parse(jsonData);
                 JsonElement root = doc.RootElement;
@@ -126,9 +133,10 @@ namespace UGTLive
                 outputJson.WriteEndArray();
                 outputJson.WriteEndObject();
                 
-                // Chuyển đổi thành chuỗi và trả về
                 outputJson.Flush();
+                stopwatch.Stop();
                 string result = Encoding.UTF8.GetString(memoryStream.ToArray());
+                Console.WriteLine($"Google Translate response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {result.Length} chars");
                 
                 // Ghi log kết quả cuối cùng
                 if (ConfigManager.Instance.GetLogExtraDebugStuff())

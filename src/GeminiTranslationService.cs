@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -52,7 +53,7 @@ namespace UGTLive
 
                 // Get model from config
                 string model = ConfigManager.Instance.GetGeminiModel();
-                bool thinkingEnabled = ConfigManager.Instance.GetGeminiThinkingEnabled();
+                bool thinkingEnabled = ConfigManager.Instance.GetThinkingEnabled();
                 
                 // Build the generationConfig
                 var generationConfig = new Dictionary<string, object>
@@ -108,12 +109,40 @@ namespace UGTLive
                 string requestJson = JsonSerializer.Serialize(requestContent, jsonOptions);
                 var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+
+                LogManager.Instance.LogLlmRequest(prompt, jsonData, "POST", url, requestJson);
+
+                Console.WriteLine($"Sending request to Gemini API ({model})");
+                var stopwatch = Stopwatch.StartNew();
                 HttpResponseMessage response = await _httpClient.PostAsync(url, content, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
-                    
+                    stopwatch.Stop();
+
+                    int outputTokens = 0;
+                    try
+                    {
+                        using var respDoc = JsonDocument.Parse(jsonResponse);
+                        if (respDoc.RootElement.TryGetProperty("usageMetadata", out var usage) &&
+                            usage.TryGetProperty("candidatesTokenCount", out var tokCount))
+                        {
+                            outputTokens = tokCount.GetInt32();
+                        }
+                    }
+                    catch { }
+
+                    if (outputTokens > 0)
+                    {
+                        double tps = stopwatch.Elapsed.TotalSeconds > 0 ? outputTokens / stopwatch.Elapsed.TotalSeconds : 0;
+                        Console.WriteLine($"Gemini response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {outputTokens} tokens ({tps:F1} t/s), {jsonResponse.Length} chars");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Gemini response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {jsonResponse.Length} chars");
+                    }
+
                     // Log the raw Gemini response before returning it
                     LogManager.Instance.LogLlmReply(jsonResponse);
                     
@@ -121,6 +150,7 @@ namespace UGTLive
                 }
                 else
                 {
+                    stopwatch.Stop();
                     string errorMessage = await response.Content.ReadAsStringAsync();
                     Console.WriteLine($"Gemini API error: {response.StatusCode}, {errorMessage}");
                     

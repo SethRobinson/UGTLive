@@ -1,242 +1,361 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 
 namespace UGTLive
 {
     public class OllamaTranslationService : ITranslationService
     {
-        /// <summary>
-        /// Translate text using the Ollama API
-        /// </summary>
-        /// <param name="jsonData">The JSON data to translate</param>
-        /// <param name="prompt">The prompt to guide the translation</param>
-        /// <param name="cancellationToken">Cancellation token to cancel the translation</param>
-        /// <returns>The translation result formatted to match Gemini's response structure</returns>
+        private static readonly HttpClient _httpClient;
+        private string _lastPartialContent = "";
+        private string _lastPartialThinking = "";
+
+        static OllamaTranslationService()
+        {
+            _httpClient = new HttpClient();
+            _httpClient.Timeout = TimeSpan.FromMinutes(5);
+        }
+
         public async Task<string?> TranslateAsync(string jsonData, string prompt, CancellationToken cancellationToken = default)
         {
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
-                // Get the Ollama API endpoint and model from config
+
+                TranslationStatus.Reset();
+
                 string ollamaEndpoint = ConfigManager.Instance.GetOllamaApiEndpoint();
                 string ollamaModel = ConfigManager.Instance.GetOllamaModel();
-                
-                // Create Ollama API request
-                var requestContent = new
+                bool thinkingModeEnabled = ConfigManager.Instance.GetThinkingEnabled();
+
+                Console.WriteLine($"Sending request to Ollama API at: {ollamaEndpoint}");
+
+                var messages = new List<Dictionary<string, string>>();
+
+                if (thinkingModeEnabled)
                 {
-                    model = ollamaModel, // Use model from config
-                    prompt = $"{prompt}\n{jsonData}",
-                    stream = false,
-                    options = new
+                    // When thinking is enabled, move the full instructions into the user
+                    // message. A verbose system prompt causes Gemma 4 (and likely other
+                    // Ollama models) to skip their thinking phase entirely.
+                    messages.Add(new Dictionary<string, string>
                     {
-                        temperature = 0.1, // Lower temperature for more deterministic output
-                        top_p = 0.9
-                    },
-                    format = "json" // Request JSON formatted response
+                        { "role", "system" },
+                        { "content", "You are a translator." }
+                    });
+                    messages.Add(new Dictionary<string, string>
+                    {
+                        { "role", "user" },
+                        { "content", prompt + "\n\nHere is the input JSON:\n\n" + jsonData }
+                    });
+                }
+                else
+                {
+                    messages.Add(new Dictionary<string, string>
+                    {
+                        { "role", "system" },
+                        { "content", prompt }
+                    });
+                    messages.Add(new Dictionary<string, string>
+                    {
+                        { "role", "user" },
+                        { "content", "Here is the input JSON:\n\n" + jsonData }
+                    });
+                }
+
+                var requestBody = new Dictionary<string, object>
+                {
+                    { "model", ollamaModel },
+                    { "messages", messages },
+                    { "stream", true },
+                    { "think", thinkingModeEnabled }
                 };
-                
+
                 var jsonOptions = new JsonSerializerOptions
                 {
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 };
-                string requestJson = JsonSerializer.Serialize(requestContent, jsonOptions);
-                var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-                
-                Console.WriteLine($"Sending request to Ollama API at: {ollamaEndpoint}");
-                
-                // Create a new HttpClient with a longer timeout
-                using (var client = new HttpClient())
-                {
-                    client.Timeout = TimeSpan.FromMinutes(2); // 2 minute timeout
-                    
-                    HttpResponseMessage response = await client.PostAsync(ollamaEndpoint, content, cancellationToken);
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
-                        
-                        // Log the raw Ollama response before any processing
-                        
-                        // Parse the Ollama response which has a different format from Gemini
-                        try
-                        {
-                            using JsonDocument doc = JsonDocument.Parse(jsonResponse);
-                            string responseText = doc.RootElement.GetProperty("response").GetString() ?? "";
-                            LogManager.Instance.LogLlmReply(responseText); //we could log this earlier, but it
-                            //has all this "context" # crap that Ollama returns that we don't want to log
+                string requestJson = JsonSerializer.Serialize(requestBody, jsonOptions);
 
-                            // Check if the response contains nested JSON
-                            try
-                            {
-                                // Trim possible markdown code blocks or extra text
-                                responseText = responseText.Trim();
-                                if (responseText.StartsWith("```json"))
-                                {
-                                    int endIndex = responseText.IndexOf("```", 7);
-                                    if (endIndex > 0)
-                                    {
-                                        responseText = responseText.Substring(7, endIndex - 7).Trim();
-                                    }
-                                }
-                                
-                                // If the response doesn't start with '{', look for JSON within the text
-                                if (!responseText.StartsWith("{"))
-                                {
-                                    int jsonStart = responseText.IndexOf('{');
-                                    int jsonEnd = responseText.LastIndexOf('}');
-                                    
-                                    if (jsonStart >= 0 && jsonEnd > jsonStart)
-                                    {
-                                        responseText = responseText.Substring(jsonStart, jsonEnd - jsonStart + 1);
-                                    }
-                                }
-                                
-                                Console.WriteLine($"Attempting to parse nested JSON: {responseText}");
-                                
-                                using JsonDocument nestedDoc = JsonDocument.Parse(responseText);
-                                
-                                // Try to find text_blocks array which contains translations
-                                if (nestedDoc.RootElement.TryGetProperty("text_blocks", out JsonElement textBlocks) && 
-                                    textBlocks.ValueKind == JsonValueKind.Array)
-                                {
-                                    // Don't extract just the text - we want to keep the entire JSON structure
-                                    // This ensures Logic.cs gets the complete JSON with text_blocks
-                                    Console.WriteLine("Found structured JSON with text_blocks - keeping entire JSON structure");
-                                    
-                                    // Ensure the responseText is the entire JSON object
-                                    // responseText is already set to the entire JSON
-                                }
-                                else
-                                {
-                                    // If we don't have the structured JSON we expect, try to extract text
-                                    // Extract text from the first text block or combine all blocks
-                                    StringBuilder combinedText = new StringBuilder();
-                                    
-                                    // Nested blocks may vary, so try to handle different structures
-                                    
-                                    // Try to find any text property at the root level
-                                    if (nestedDoc.RootElement.TryGetProperty("text", out JsonElement rootTextProp))
-                                    {
-                                        combinedText.AppendLine(rootTextProp.GetString());
-                                    }
-                                    
-                                    if (combinedText.Length > 0)
-                                    {
-                                        responseText = combinedText.ToString().Trim();
-                                    }
-                                    else
-                                    {
-                                        // Just use the entire cleaned JSON object as is - Logic.cs can handle it
-                                        // Keep the responseText as the cleaned JSON
-                                        Console.WriteLine("Using the entire JSON object as responseText");
-                                    }
-                                }
-                            }
-                            catch (JsonException ex)
-                            {
-                                // If nested parsing fails, use the original response text
-                                Console.WriteLine($"Could not parse nested JSON, using raw response: {ex.Message}");
-                            }
-                            
-                            // Process the response to match what Logic.cs expects from Gemini
-                            var formattedResponse = new
-                            {
-                                candidates = new[]
-                                {
-                                    new
-                                    {
-                                        content = new
-                                        {
-                                            parts = new[]
-                                            {
-                                                new
-                                                {
-                                                    text = responseText
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            };
-                            
-                            return JsonSerializer.Serialize(formattedResponse, jsonOptions);
-                        }
-                        catch (JsonException jex)
+                var request = new HttpRequestMessage(HttpMethod.Post, ollamaEndpoint);
+                request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+
+                LogManager.Instance.LogLlmRequest(prompt, jsonData, "POST", ollamaEndpoint, requestJson);
+
+                TranslationStatus.StartStreaming(thinkingModeEnabled);
+
+                var stopwatch = Stopwatch.StartNew();
+                var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    stopwatch.Stop();
+                    TranslationStatus.StopStreaming();
+                    string errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                    Console.WriteLine($"Ollama API error: {response.StatusCode}, {errorContent}");
+
+                    try
+                    {
+                        using JsonDocument errorDoc = JsonDocument.Parse(errorContent);
+                        if (errorDoc.RootElement.TryGetProperty("error", out JsonElement errorElement))
                         {
-                            Console.WriteLine($"Error parsing Ollama response: {jex.Message}");
-                            Console.WriteLine($"Raw response: {jsonResponse}");
+                            string detailedError = errorElement.GetString() ?? errorContent;
+                            ErrorPopupManager.ShowError(
+                                $"Ollama error: {detailedError}\n\nPlease check your model name and Ollama settings.",
+                                "Ollama Translation Error");
                             return null;
                         }
                     }
-                    else
+                    catch (JsonException)
                     {
-                        string errorMessage = await response.Content.ReadAsStringAsync(cancellationToken);
-                        Console.WriteLine($"Ollama API error: {response.StatusCode}, {errorMessage}");
-                        
-                        // Try to parse the error message from JSON if possible
-                        try
+                    }
+
+                    ErrorPopupManager.ShowError(
+                        $"Ollama API error: {response.StatusCode}\n{errorContent}\n\nPlease check your settings.",
+                        "Ollama Translation Error");
+                    return null;
+                }
+
+                string responseText = await ReadStreamingResponseAsync(response, cancellationToken);
+                stopwatch.Stop();
+
+                TranslationStatus.StopStreaming();
+
+                if (string.IsNullOrEmpty(responseText))
+                {
+                    Console.WriteLine("Ollama returned empty response");
+                    return null;
+                }
+
+                int thinkingChars = _lastPartialThinking?.Length ?? 0;
+                int tokenCount = TranslationStatus.TokenCount;
+                double tps = stopwatch.Elapsed.TotalSeconds > 0 ? tokenCount / stopwatch.Elapsed.TotalSeconds : 0;
+                Console.WriteLine($"Ollama response complete: {stopwatch.Elapsed.TotalSeconds:F1}s, {tokenCount} tokens ({tps:F1} t/s), {responseText.Length} content chars, {thinkingChars} thinking chars");
+
+                string logText = responseText;
+                if (!string.IsNullOrEmpty(_lastPartialThinking))
+                {
+                    logText = $"[THINKING]\n{_lastPartialThinking}\n\n[CONTENT]\n{responseText}";
+                }
+                LogManager.Instance.LogLlmReply(logText);
+
+                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                {
+                    string preview = responseText.Length > 100
+                        ? responseText.Substring(0, 100) + "..."
+                        : responseText;
+                    Console.WriteLine($"Ollama translation extracted: {preview}");
+                }
+
+                return FormatResponse(responseText, jsonOptions);
+            }
+            catch (OperationCanceledException)
+            {
+                TranslationStatus.StopStreaming();
+                Console.WriteLine("Ollama translation was cancelled");
+
+                if (!string.IsNullOrEmpty(_lastPartialContent))
+                {
+                    string partialLog = _lastPartialContent;
+                    if (!string.IsNullOrEmpty(_lastPartialThinking))
+                    {
+                        partialLog = $"[THINKING]\n{_lastPartialThinking}\n\n[CONTENT]\n{_lastPartialContent}";
+                    }
+                    Console.WriteLine($"Logging partial Ollama response ({_lastPartialContent.Length} content chars)");
+                    LogManager.Instance.LogLlmReply($"[CANCELLED - partial response]\n{partialLog}");
+                }
+
+                return null;
+            }
+            catch (HttpRequestException ex)
+            {
+                TranslationStatus.StopStreaming();
+                Console.WriteLine($"Error connecting to Ollama server: {ex.Message}");
+
+                ErrorPopupManager.ShowError(
+                    $"Failed to connect to Ollama server.\n\nError: {ex.Message}\n\nPlease check:\n" +
+                    "1. Ollama is running\n" +
+                    "2. The server URL in settings is correct\n" +
+                    "3. Your firewall/antivirus isn't blocking the connection",
+                    "Ollama Connection Error");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                TranslationStatus.StopStreaming();
+                Console.WriteLine($"Ollama API error: {ex.Message}");
+
+                ErrorPopupManager.ShowError(
+                    $"Ollama API error: {ex.Message}\n\nPlease check your network connection and Ollama settings.",
+                    "Ollama Translation Error");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Read Ollama's newline-delimited JSON streaming response and accumulate content
+        /// </summary>
+        private async Task<string> ReadStreamingResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+        {
+            var contentBuilder = new StringBuilder();
+            var thinkingBuilder = new StringBuilder();
+
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var reader = new StreamReader(stream);
+
+                string? line;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(line);
+                        var root = doc.RootElement;
+
+                        if (root.TryGetProperty("message", out var message))
                         {
-                            using JsonDocument errorDoc = JsonDocument.Parse(errorMessage);
-                            if (errorDoc.RootElement.TryGetProperty("error", out JsonElement errorElement))
+                            if (message.TryGetProperty("thinking", out var thinking))
                             {
-                                string detailedError = errorElement.GetString() ?? errorMessage;
-                                
-                                // Show error message to user
-                                ErrorPopupManager.ShowError(
-                                    $"Ollama error: {detailedError}\n\nPlease check your model name and Ollama settings.",
-                                    "Ollama Translation Error");
-                                
-                                return null;
+                                string? thinkText = thinking.GetString();
+                                if (!string.IsNullOrEmpty(thinkText))
+                                {
+                                    thinkingBuilder.Append(thinkText);
+                                    TranslationStatus.IncrementTokenCount();
+                                    TranslationStatus.IsThinking = true;
+                                }
+                            }
+
+                            if (message.TryGetProperty("content", out var content))
+                            {
+                                string? text = content.GetString();
+                                if (!string.IsNullOrEmpty(text))
+                                {
+                                    contentBuilder.Append(text);
+                                    TranslationStatus.IncrementTokenCount();
+                                    TranslationStatus.IsThinking = false;
+                                }
                             }
                         }
-                        catch (JsonException)
-                        {
-                            // If we can't parse as JSON, just use the raw message
-                        }
-                        
-                        // Show general error if JSON parsing failed
-                        ErrorPopupManager.ShowError(
-                            $"Ollama API error: {response.StatusCode}\n{errorMessage}\n\nPlease check your settings.",
-                            "Ollama Translation Error");
-                        
-                        return null;
+
+                        if (root.TryGetProperty("done", out var done) && done.GetBoolean())
+                            break;
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"Failed to parse Ollama streaming chunk: {ex.Message}");
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("Ollama translation was cancelled");
-                return null;
+                Console.WriteLine($"Ollama streaming cancelled after {contentBuilder.Length} content chars, {thinkingBuilder.Length} thinking chars");
+                throw;
             }
-            catch (Exception ex)
+            finally
             {
-                Console.WriteLine($"Ollama API error: {ex.Message}");
-                
-                // Show error message to user for other exceptions
-                string errorMessage = $"Ollama API error: {ex.Message}";
-                
-                if (ex is HttpRequestException)
+                if (thinkingBuilder.Length > 0 && ConfigManager.Instance.GetLogExtraDebugStuff())
                 {
-                    errorMessage += "\n\nFailed to connect to Ollama server.\n\nPlease check:\n" +
-                        "1. Ollama is running\n" +
-                        "2. The server URL in settings is correct\n" +
-                        "3. Your firewall/antivirus isn't blocking the connection";
+                    string preview = thinkingBuilder.Length > 200
+                        ? thinkingBuilder.ToString().Substring(0, 200) + "..."
+                        : thinkingBuilder.ToString();
+                    Console.WriteLine($"Ollama thinking content ({thinkingBuilder.Length} chars): {preview}");
                 }
-                else
-                {
-                    errorMessage += "\n\nPlease check your network connection and Ollama settings.";
-                }
-                
-                ErrorPopupManager.ShowError(errorMessage, "Ollama Translation Error");
-                
-                return null;
+
+                _lastPartialContent = contentBuilder.ToString();
+                _lastPartialThinking = thinkingBuilder.ToString();
             }
+
+            return contentBuilder.ToString();
         }
+
+        /// <summary>
+        /// Format the streamed response into the Gemini-compatible structure that Logic.cs expects
+        /// </summary>
+        private string? FormatResponse(string responseText, JsonSerializerOptions jsonOptions)
+        {
+            responseText = responseText.Trim();
+
+            if (responseText.StartsWith("```json"))
+            {
+                int endIndex = responseText.IndexOf("```", 7);
+                if (endIndex > 0)
+                {
+                    responseText = responseText.Substring(7, endIndex - 7).Trim();
+                }
+            }
+            else if (responseText.StartsWith("```"))
+            {
+                responseText = responseText.Substring(3);
+                if (responseText.EndsWith("```"))
+                {
+                    responseText = responseText.Substring(0, responseText.Length - 3);
+                }
+                responseText = responseText.Trim();
+            }
+
+            if (responseText.EndsWith("```"))
+            {
+                responseText = responseText.Substring(0, responseText.Length - 3).Trim();
+            }
+
+            if (!responseText.StartsWith("{"))
+            {
+                int jsonStart = responseText.IndexOf('{');
+                int jsonEnd = responseText.LastIndexOf('}');
+
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    responseText = responseText.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                }
+            }
+
+            if (responseText.StartsWith("{") && responseText.EndsWith("}"))
+            {
+                try
+                {
+                    var tempJson = JsonSerializer.Deserialize<object>(responseText);
+                    var compactOptions = new JsonSerializerOptions { WriteIndented = false };
+                    responseText = JsonSerializer.Serialize(tempJson, compactOptions);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to normalize JSON format: {ex.Message}");
+                }
+            }
+
+            var formattedResponse = new
+            {
+                candidates = new[]
+                {
+                    new
+                    {
+                        content = new
+                        {
+                            parts = new[]
+                            {
+                                new
+                                {
+                                    text = responseText
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            return JsonSerializer.Serialize(formattedResponse, jsonOptions);
+        }
+
     }
 }

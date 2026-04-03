@@ -4060,8 +4060,9 @@ namespace UGTLive
         {
             TimeSpan elapsed = DateTime.Now - _translationStartTime;
             string service = ConfigManager.Instance.GetCurrentTranslationService();
+            string elapsedStr = $"{elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
             
-            // Build status text with optional token count
+            // Build status text with optional token count (llama.cpp streaming updates tokens; other services are non-streaming)
             string statusText;
             
             if (TranslationStatus.IsStreaming)
@@ -4070,20 +4071,22 @@ namespace UGTLive
                 
                 if (TranslationStatus.IsThinking)
                 {
-                    statusText = $"LLM thinking... (tokens: {tokenCount})";
+                    statusText = tokenCount > 0
+                        ? $"LLM thinking... {elapsedStr} (tokens: {tokenCount})"
+                        : $"LLM thinking... {elapsedStr}";
                 }
                 else if (tokenCount > 0)
                 {
-                    statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2} (tokens: {tokenCount})";
+                    statusText = $"Waiting for {service}... {elapsedStr} (tokens: {tokenCount})";
                 }
                 else
                 {
-                    statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                    statusText = $"Waiting for {service}... {elapsedStr}";
                 }
             }
             else
             {
-                statusText = $"Waiting for {service}... {elapsed.Minutes:D1}:{elapsed.Seconds:D2}";
+                statusText = $"Waiting for {service}... {elapsedStr}";
             }
             
             // Broadcast to all windows

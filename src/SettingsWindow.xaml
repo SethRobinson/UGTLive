@@ -119,6 +119,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Log Extra Debug Stuff Checkbox -->
@@ -152,6 +153,14 @@
                                          Unchecked="PlayCompletionSoundCheckBox_CheckedChanged"
                                          Content="Play a sound when translation completes (translation_complete.wav)"
                                          ToolTip="Play a gentle notification sound when a translation finishes. Useful when using slow local LLMs so you can look away and return when done."/>
+                                
+                                <!-- Reset Prompts Button -->
+                                <Button x:Name="resetPromptsButton" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                       Margin="0,10,0,0" Padding="8,4"
+                                       HorizontalAlignment="Left"
+                                       Click="ResetPromptsButton_Click"
+                                       Content="Reset all LLM prompts to default (recommended)"
+                                       ToolTip="Resets the translation prompts for all services (Gemini, Ollama, ChatGPT, llama.cpp) to the latest defaults. Useful if prompts were corrupted or you want to pick up improvements."/>
                             </Grid>
                         </GroupBox>
                         
@@ -624,12 +633,12 @@
                                            ToolTip="Open Gemini models documentation in browser"/>
                                 </Grid>
                                 
-                                <!-- Gemini Thinking Mode - Only visible when Gemini is selected -->
-                                <CheckBox x:Name="geminiThinkingCheckBox" Grid.Row="4" Grid.Column="1"
-                                         Content="Enable Thinking Mode (Slower)" Margin="0,5" Visibility="Collapsed"
-                                         Checked="GeminiThinkingCheckBox_Changed"
-                                         Unchecked="GeminiThinkingCheckBox_Changed"
-                                         ToolTip="Enables extended reasoning for Gemini 2.5 and 3.x models. When disabled, thinking is minimized to reduce latency and cost."/>
+                                <!-- Thinking Mode - Shared across all LLM services -->
+                                <CheckBox x:Name="thinkingEnabledCheckBox" Grid.Row="5" Grid.Column="1"
+                                         Content="Enable Thinking Mode if available (Slower)" Margin="0,5"
+                                         Checked="ThinkingEnabledCheckBox_Changed"
+                                         Unchecked="ThinkingEnabledCheckBox_Changed"
+                                         ToolTip="Enables extended reasoning for models that support it. When disabled, thinking is minimized or turned off. Applies to all LLM services."/>
                                 
                                 <!-- Ollama URL - Only visible when Ollama is selected -->
                                 <TextBlock x:Name="ollamaUrlLabel" Text="Ollama URL:" Grid.Row="1" Grid.Column="0" 
@@ -679,6 +688,7 @@
                                                ToolTip="Open Ollama models gallery in browser"/>
                                     </StackPanel>
                                 </Grid>
+
                                 
                                 <!-- ChatGPT API Key - Only visible when ChatGPT is selected -->
                                 <TextBlock x:Name="chatGptApiKeyLabel" Text="ChatGPT API Key:" Grid.Row="1" Grid.Column="0" 
@@ -727,13 +737,6 @@
                                         Margin="0,5" Visibility="Collapsed"
                                         TextChanged="ChatGptMaxTokensTextBox_TextChanged"
                                         ToolTip="Maximum number of tokens in the completion response (default: 32768)"/>
-                                
-                                <!-- ChatGPT Thinking Mode - Only visible when ChatGPT is selected -->
-                                <CheckBox x:Name="chatGptThinkingCheckBox" Grid.Row="5" Grid.Column="1"
-                                         Content="Enable Thinking Mode (Slower)" Margin="0,5" Visibility="Collapsed"
-                                         Checked="ChatGptThinkingCheckBox_Changed"
-                                         Unchecked="ChatGptThinkingCheckBox_Changed"
-                                         ToolTip="Enables extended reasoning for GPT-5 series models. When disabled, reasoning effort is set to 'none' for faster responses."/>
                                 
                                 <!-- llama.cpp URL - Only visible when llama.cpp is selected -->
                                 <TextBlock x:Name="llamacppUrlLabel" Text="llama.cpp URL:" Grid.Row="1" Grid.Column="0" 
@@ -786,13 +789,6 @@
                                     <TextBlock Grid.Row="1" Text="Optional - only available when server runs in router mode"
                                               FontSize="11" Foreground="Gray" Margin="0,2,0,0"/>
                                 </Grid>
-                                
-                                <!-- llama.cpp Thinking Mode - Only visible when llama.cpp is selected -->
-                                <CheckBox x:Name="llamacppThinkingModeCheckBox" Grid.Row="4" Grid.Column="1"
-                                         Content="Use Thinking Mode (GLM/DeepSeek)" Margin="0,5" Visibility="Collapsed"
-                                         Checked="LlamacppThinkingModeCheckBox_Changed"
-                                         Unchecked="LlamacppThinkingModeCheckBox_Changed"
-                                         ToolTip="Enables extended reasoning for GLM and DeepSeek models. Only applies when using compatible models."/>
                                 
                                 <!-- Google Translate API Key - Only visible when Google Translate is selected -->
                                 <TextBlock x:Name="googleTranslateApiKeyLabel" Text="Google Cloud API Key:" Grid.Row="1" Grid.Column="0" 
