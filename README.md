@@ -135,7 +135,7 @@ UGTLive will automatically check for updates when you start it. If a new version
  
  * Download the one that looks similar to Windows x64 (CUDA 13) from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.  From a command prompt, go into that dir and type "llama-server --list-devices" and see if your GPU is listed, if not, download the "CUDA 13 dlls" zip and put them in that dir and try again.  It should show the GPU.
  
- * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM)
+ * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM) Or try Gemma4 26b, that works with most languages, including Japanese.  With thinking off, it can do translations in like 3 seconds on a 5090.
 
  Create a text file called run_server.bat in that directory, cut and paste this as the contents:
 
@@ -172,6 +172,8 @@ It should now be able to do both OCR and translation of anything, completely loc
 * Second, click the "Log" button.  It will show any errors, especially useful to figure out why a cloud service is rejected your requests.
 * Try deleting the config.txt and hotkeys.txt to reset settings to default.  Something could be broken with that when upgrading.
 * Try re-installing the backend by clicking the "Install/Reinstall Backend" button. (especially if something has changed with the version or your video card)
+* First make sure OCR is working right, and it's able to overlay the source text it finds.  Only after that's working right should you enable translation or text to speech and play with that next level of stuff.
+* Keep in mind some OCR systems don't work with certain things, like MangaOCR is the only one that can do vertical Japanese, and it can't do horizontal.
 
 Still won't work? Open an issue on [here](https://github.com/SethRobinson/UGTLive/issues) or post in this project's [discussions](https://github.com/SethRobinson/UGTLive/discussions) area.
 
