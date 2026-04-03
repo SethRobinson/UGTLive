@@ -23,6 +23,7 @@ namespace UGTLive
         private readonly string _llamacppConfigFilePath;
         private readonly Dictionary<string, string> _configValues;
         private string _currentTranslationService = "Google Translate"; // Default to Google Translate
+        private bool _isNewConfig = false;
 
         // Config keys
         public const string GEMINI_API_KEY = "gemini_api_key";
@@ -262,6 +263,9 @@ namespace UGTLive
         public const string LESSON_PROMPT_TEMPLATE = "lesson_prompt_template";
         public const string LESSON_URL_TEMPLATE = "lesson_url_template";
         
+        // Prompt upgrade tracking
+        public const string LAST_PROMPT_UPGRADE_VERSION = "last_prompt_upgrade_version";
+        
         // Debug logging settings
         public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";
 
@@ -339,6 +343,9 @@ namespace UGTLive
             
             // Create service-specific config files if they don't exist
             EnsureServiceConfigFilesExist();
+            
+            // Offer to reset prompts if they've been improved since last upgrade
+            MigratePromptsIfNeeded(SplashManager.CurrentVersion);
         }
 
         // Get a boolean configuration value
@@ -373,6 +380,7 @@ namespace UGTLive
                 if (!File.Exists(_configFilePath))
                 {
                     Console.WriteLine("Configuration file not found. Creating default configuration.");
+                    _isNewConfig = true;
                     CreateDefaultConfig();
                 }
                 else
@@ -1000,6 +1008,67 @@ namespace UGTLive
             }
         }
         
+        public void ResetAllPromptsToDefault()
+        {
+            string defaultPrompt = GetDefaultPrompt("");
+            
+            string[] services = { "Gemini", "Ollama", "ChatGPT", "llama.cpp" };
+            foreach (string service in services)
+            {
+                SaveServicePrompt(service, defaultPrompt);
+                Console.WriteLine($"Reset {service} prompt to default");
+            }
+        }
+        
+        public void MigratePromptsIfNeeded(double currentAppVersion)
+        {
+            string lastVersion = GetValue(LAST_PROMPT_UPGRADE_VERSION, "0");
+            if (!double.TryParse(lastVersion, NumberStyles.Float, 
+                CultureInfo.InvariantCulture, out double lastPromptVersion))
+            {
+                lastPromptVersion = 0;
+            }
+            
+            if (lastPromptVersion >= currentAppVersion)
+            {
+                return;
+            }
+            
+            if (_isNewConfig)
+            {
+                // Fresh install — prompts are already the latest defaults, just stamp the version
+                SetValue(LAST_PROMPT_UPGRADE_VERSION, 
+                    currentAppVersion.ToString(CultureInfo.InvariantCulture));
+                SaveConfig();
+                return;
+            }
+            
+            var result = MessageBox.Show(
+                "The default LLM translation prompts have been improved in this version " +
+                "(fixed a backwards example and unsubstituted language placeholders that caused " +
+                "some models to return untranslated text).\n\n" +
+                "Would you like to reset ALL service prompts to the new defaults?\n\n" +
+                "Choose 'Yes' if you haven't customized your prompts (recommended).\n" +
+                "Choose 'No' to keep your current prompts.",
+                "Prompt Update Available",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                ResetAllPromptsToDefault();
+                Console.WriteLine("User chose to reset all prompts to defaults");
+            }
+            else
+            {
+                Console.WriteLine("User chose to keep existing prompts");
+            }
+            
+            SetValue(LAST_PROMPT_UPGRADE_VERSION, 
+                currentAppVersion.ToString(CultureInfo.InvariantCulture));
+            SaveConfig();
+        }
+        
         // Get LLM Prompt from the current translation service
         public string GetLlmPrompt()
         {
@@ -1072,22 +1141,23 @@ namespace UGTLive
             }
             
             // All services use the same default prompt
-            return @"Your task is to translate the source_language text in the following JSON data to target_language and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
+            // NOTE: {SOURCE_LANG} and {TARGET_LANG} are replaced at runtime by Logic.cs with actual language names
+            return @"Your task is to translate the {SOURCE_LANG} text in the following JSON data to {TARGET_LANG} and output a new JSON in a specific format.  This is text from OCR of a screenshot from a video game, so please try to infer the context and which parts are menu or dialog. It might also be a webpage or manga, so just do your best.
 
 CRITICAL OUTPUT FORMAT REQUIREMENTS:
 
 * Output ONLY the resulting JSON data with NO extra text, explanations, markdown code blocks, or formatting.
-* The output JSON must have the exact same structure as the input JSON: source_language, target_language, and a text_blocks array.
+* The output JSON must have the exact same structure as the input JSON: a source_language, target_language, and a text_blocks array.
 * Each element in the text_blocks array must include: id, text (TRANSLATED), and rect (the bounding box).
-* The ""text"" field in the OUTPUT must contain the TRANSLATED text in the target_language. Do NOT create new fields like ""english_text"", ""japanese_text"", ""translated_text"", etc.
+* The ""text"" field in the OUTPUT must contain the TRANSLATED text in {TARGET_LANG}. Do NOT create new fields like ""english_text"", ""japanese_text"", ""translated_text"", etc.
 * Keep the same field names as the input - just replace the text content with its translation.
 * If ""previous_context"" data exists in the input JSON, use it to better understand context, but do NOT include it in your output.
 * Do NOT return the ""previous_context"" or ""game_info"" parameters in your output - those are input-only.
 * If the text looks like multiple options for the player to choose from, add a newline after each one so they aren't mushed together.
 
 EXAMPLE:
-Input text_block: {""id"": ""text_0"", ""text"": ""Hello"", ""rect"": {...}}
-Output text_block: {""id"": ""text_0"", ""text"": ""こんにちは"", ""rect"": {...}}
+Input text_block: {""id"": ""text_0"", ""text"": ""<some text in {SOURCE_LANG}>"", ""rect"": {...}}
+Output text_block: {""id"": ""text_0"", ""text"": ""<translated text in {TARGET_LANG}>"", ""rect"": {...}}
 
 Here is the input JSON:";
         }

@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.23,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Fixed locale issue (e.g. German) that could break text formatting; can now repair previously saved config data affected by locale bugs"
+    "latest_version":1.24,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Fixed LLM translation prompt that caused some local models (e.g. gemma-4) to return untranslated text; offers to reset prompts to improved defaults on upgrade"
 }

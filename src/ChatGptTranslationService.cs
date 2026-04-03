@@ -131,9 +131,6 @@ namespace UGTLive
                 // Parse the input JSON
                 JsonElement inputJson = JsonSerializer.Deserialize<JsonElement>(jsonData);
                 
-                // Get custom prompt from config
-                string customPrompt = ConfigManager.Instance.GetServicePrompt("ChatGPT");
-                
                 // Get max completion tokens from config
                 int maxCompletionTokens = ConfigManager.Instance.GetChatGptMaxCompletionTokens();
                 bool thinkingEnabled = ConfigManager.Instance.GetChatGptThinkingEnabled();
@@ -154,12 +151,7 @@ namespace UGTLive
                     apiEndpoint = "https://api.openai.com/v1/responses";
                     
                     // Build input text combining prompt and data
-                    string inputText = "";
-                    if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
-                    {
-                        inputText = customPrompt + "\n\n";
-                    }
-                    inputText += "Here is the input JSON:\n\n" + jsonData;
+                    string inputText = prompt + "\n\n" + jsonData;
                     
                     // Create Responses API request body
                     var requestBody = new Dictionary<string, object>
@@ -186,19 +178,11 @@ namespace UGTLive
                     // Build messages array for ChatGPT API
                     var messages = new List<Dictionary<string, string>>();
                     
-                    // Use the exact prompt format as specified
-                    StringBuilder systemPrompt = new StringBuilder();
-         
-                    // Add any custom instructions from the config file
-                    if (!string.IsNullOrWhiteSpace(customPrompt) && !customPrompt.Contains("translator"))
-                    {
-                         systemPrompt.AppendLine(customPrompt);
-                    }
-                    
+                    // Add system message with the prompt (already has language placeholders substituted)
                     messages.Add(new Dictionary<string, string> 
                     {
                         { "role", "system" },
-                        { "content", systemPrompt.ToString() }
+                        { "content", prompt }
                     });
                     
                     // Add the text to translate as the user message

@@ -43,17 +43,14 @@ namespace UGTLive
                 // Parse the input JSON
                 JsonElement inputJson = JsonSerializer.Deserialize<JsonElement>(jsonData);
                 
-                // Get custom prompt from config
-                string customPrompt = ConfigManager.Instance.GetServicePrompt("llama.cpp");
-                
                 // Build messages array for OpenAI-compatible API
                 var messages = new List<Dictionary<string, string>>();
                 
-                // Add system message with the prompt
+                // Add system message with the prompt (already has language placeholders substituted)
                 messages.Add(new Dictionary<string, string> 
                 {
                     { "role", "system" },
-                    { "content", customPrompt }
+                    { "content", prompt }
                 });
                 
                 // Add the text to translate as the user message
@@ -78,9 +75,7 @@ namespace UGTLive
                 var requestBody = new Dictionary<string, object>
                 {
                     { "messages", messages },
-                    { "temperature", 0.1 },  // Low temperature for more deterministic output
-                    { "max_tokens", 2048 },  // Reasonable limit for translation
-                    { "stream", true }       // Enable streaming for progress updates
+                    { "stream", true }
                 };
                 
                 // Add model if specified (required in router mode)

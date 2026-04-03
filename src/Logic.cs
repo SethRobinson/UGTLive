@@ -3185,8 +3185,8 @@ namespace UGTLive
                 // Replace language placeholders in prompt with actual language names
                 string sourceLanguageName = GetLanguageName(GetSourceLanguage() ?? "en");
                 string targetLanguageName = GetLanguageName(GetTargetLanguage());
-                prompt = prompt.Replace("source_language", sourceLanguageName);
-                prompt = prompt.Replace("target_language", targetLanguageName);
+                prompt = prompt.Replace("{SOURCE_LANG}", sourceLanguageName);
+                prompt = prompt.Replace("{TARGET_LANG}", targetLanguageName);
                
                
                 // Log the LLM request
