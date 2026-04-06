@@ -26,7 +26,8 @@ namespace UGTLive
         private Queue<double> _ocrFrameTimes = new Queue<double>();
         private const int MAX_FPS_SAMPLES = 10;
 
-        // Filter results array to remove objects that should be ignored based on ignore phrases
+        internal JsonElement FilterIgnoredPhrasesStatic(JsonElement resultsElement) => FilterIgnoredPhrases(resultsElement);
+
         private JsonElement FilterIgnoredPhrases(JsonElement resultsElement)
         {
             if (resultsElement.ValueKind != JsonValueKind.Array)
@@ -180,6 +181,8 @@ namespace UGTLive
         /// - Word-level (Windows OCR, Google Vision, docTR): Use letter/word confidence threshold
         /// - Block-level (MangaOCR): No filtering (confidence is null)
         /// </summary>
+        internal JsonElement FilterLowConfidenceCharactersStatic(JsonElement resultsElement, string ocrProvider = "") => FilterLowConfidenceCharacters(resultsElement, ocrProvider);
+
         private JsonElement FilterLowConfidenceCharacters(JsonElement resultsElement, string ocrProvider = "")
         {
             if (resultsElement.ValueKind != JsonValueKind.Array)

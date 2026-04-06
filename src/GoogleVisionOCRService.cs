@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using Application = System.Windows.Application;
@@ -108,7 +109,12 @@ namespace UGTLive
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 string url = $"https://vision.googleapis.com/v1/images:annotate?key={apiKey}";
-                var response = await _httpClient.PostAsync(url, content);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.PostAsync(url, content, ct),
+                    CancellationToken.None,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[GoogleVision] Retry {attempt} after HTTP {(int)status}"));
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -525,91 +531,67 @@ namespace UGTLive
             }
         }
 
-        // Process OCR results and send to the main logic
+        /// <summary>
+        /// Formats TextObjects into OCR JSON string without any side effects.
+        /// Reusable by both the live pipeline and the batch converter.
+        /// </summary>
+        public string FormatResultsToJson(List<TextObject> textObjects)
+        {
+            var results = textObjects.Select(obj => 
+            {
+                object? backgroundColor = null;
+                object? foregroundColor = null;
+                
+                if (obj.ColorAnalysisData.HasValue)
+                {
+                    if (obj.ColorAnalysisData.Value.TryGetProperty("background_color", out var bg)) 
+                        backgroundColor = bg;
+                    if (obj.ColorAnalysisData.Value.TryGetProperty("foreground_color", out var fg)) 
+                        foregroundColor = fg;
+                }
+
+                return new
+                {
+                    text = obj.Text,
+                    confidence = obj.Confidence,
+                    rect = new[] {
+                        new[] { obj.X, obj.Y },
+                        new[] { obj.X + obj.Width, obj.Y },
+                        new[] { obj.X + obj.Width, obj.Y + obj.Height },
+                        new[] { obj.X, obj.Y + obj.Height }
+                    },
+                    is_character = false,
+                    background_color = backgroundColor,
+                    foreground_color = foregroundColor
+                };
+            }).ToList();
+
+            var response = new
+            {
+                status = "success",
+                results = results,
+                processing_time_seconds = 0.1,
+                char_level = false,
+                skip_block_detection = false
+            };
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            return JsonSerializer.Serialize(response, jsonOptions);
+        }
+
+        /// <summary>
+        /// Formats results and dispatches to Logic for live processing.
+        /// </summary>
         public async Task ProcessGoogleVisionResults(List<TextObject> textObjects, System.Drawing.Bitmap? bitmap = null)
         {
             try
             {
-                // Perform color analysis later in Logic.DisplayOcrResults (after hash check)
-                /*
-                if (ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled() && textObjects.Count > 0 && bitmap != null)
-                {
-                    foreach (var textObj in textObjects)
-                    {
-                        try
-                        {
-                            // Crop the text object from the original bitmap
-                            int x = Math.Max(0, (int)textObj.X);
-                            int y = Math.Max(0, (int)textObj.Y);
-                            int w = Math.Min((int)textObj.Width, bitmap.Width - x);
-                            int h = Math.Min((int)textObj.Height, bitmap.Height - y);
+                string jsonResponse = FormatResultsToJson(textObjects);
 
-                            if (w > 0 && h > 0)
-                            {
-                                using (var crop = bitmap.Clone(new System.Drawing.Rectangle(x, y, w, h), bitmap.PixelFormat))
-                                {
-                                    textObj.ColorAnalysisData = await Logic.Instance.GetColorAnalysisAsync(crop);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Color correction failed for text object: {ex.Message}");
-                        }
-                    }
-                }
-                */
-
-                // Convert TextObjects to the JSON format expected by ProcessReceivedTextJsonData
-                var results = textObjects.Select(obj => 
-                {
-                    object? backgroundColor = null;
-                    object? foregroundColor = null;
-                    
-                    if (obj.ColorAnalysisData.HasValue)
-                    {
-                        // We need to convert JsonElement to object/dictionary to be serialized correctly again
-                        // or just use the JsonElement directly as it serializes fine usually
-                        if (obj.ColorAnalysisData.Value.TryGetProperty("background_color", out var bg)) 
-                            backgroundColor = bg;
-                        if (obj.ColorAnalysisData.Value.TryGetProperty("foreground_color", out var fg)) 
-                            foregroundColor = fg;
-                    }
-
-                    return new
-                    {
-                        text = obj.Text,
-                        confidence = obj.Confidence,
-                        rect = new[] {
-                            new[] { obj.X, obj.Y },
-                            new[] { obj.X + obj.Width, obj.Y },
-                            new[] { obj.X + obj.Width, obj.Y + obj.Height },
-                            new[] { obj.X, obj.Y + obj.Height }
-                        },
-                        is_character = false, // Google Vision returns words/blocks, not characters
-                        background_color = backgroundColor,
-                        foreground_color = foregroundColor
-                    };
-                }).ToList();
-
-                var response = new
-                {
-                    status = "success",
-                    results = results,
-                    processing_time_seconds = 0.1,
-                    char_level = false,
-                    skip_block_detection = false // Let universal detector handle it
-                };
-
-                // Convert to JSON
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                string jsonResponse = JsonSerializer.Serialize(response, jsonOptions);
-
-                // Process on UI thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Logic.Instance.ProcessReceivedTextJsonData(jsonResponse);

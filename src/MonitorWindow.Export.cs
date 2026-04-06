@@ -890,6 +890,241 @@ namespace UGTLive
             return html.ToString();
         }
         
+        /// <summary>
+        /// Static overload that generates screenshot HTML using a provided list of TextObjects
+        /// instead of reading from Logic.Instance. Used by the batch converter.
+        /// </summary>
+        public static string GenerateScreenshotHtmlForTextObjects(
+            string base64ImageSrc, int width, int height, double cssScale,
+            List<TextObject> textObjects)
+        {
+            StringBuilder html = new StringBuilder();
+
+            double cw = width / cssScale;
+            double ch = height / cssScale;
+
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset=\"UTF-8\">");
+            html.AppendLine("<style>");
+            html.AppendLine("html, body { margin: 0; padding: 0; overflow: hidden; background: transparent; }");
+            html.AppendLine(FormattableString.Invariant($".container {{ position: relative; display: inline-block; }}"));
+            html.AppendLine(FormattableString.Invariant($".monitor-image {{ display: block; width: {cw:F1}px; height: {ch:F1}px; }}"));
+            int borderRadius = ConfigManager.Instance.GetMonitorTextOverlayBorderRadius();
+            html.AppendLine($".text-overlay {{ position: absolute; box-sizing: border-box; overflow: visible; display: flex; align-items: center; justify-content: flex-start; padding: 2px; border-radius: {borderRadius}px; }}");
+            html.AppendLine(".text-content { flex: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }");
+            html.AppendLine("</style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            html.AppendLine("<div class=\"container\">");
+            html.AppendLine($"<img class=\"monitor-image\" src=\"{base64ImageSrc}\">");
+
+            appendOverlayDivsStatic(html, 1.0 / cssScale, textObjects);
+
+            html.AppendLine("</div>");
+            html.AppendLine("<script>");
+            appendFitTextJavaScriptStatic(html);
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage('screenshotReady');");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            appendFitTextInitJavaScriptStatic(html);
+            html.AppendLine("</script>");
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+
+            return html.ToString();
+        }
+
+        private static void appendOverlayDivsStatic(StringBuilder html, double scale, List<TextObject> textObjects)
+        {
+            string defaultHAlign = ConfigManager.Instance.GetTextOverlayHorizontalAlignment();
+            string defaultVAlign = ConfigManager.Instance.GetTextOverlayVerticalAlignment();
+
+            foreach (var textObj in textObjects)
+            {
+                if (textObj == null) continue;
+
+                double left = (textObj.X + textObj.OffsetX) * scale;
+                double top = (textObj.Y + textObj.OffsetY) * scale;
+                double width = (textObj.Width > 0 ? textObj.Width : 200) * scale;
+                double height = (textObj.Height > 0 ? textObj.Height : 100) * scale;
+
+                Color bgC;
+                if (ConfigManager.Instance.IsMonitorOverrideBgColorEnabled())
+                    bgC = ConfigManager.Instance.GetMonitorOverrideBgColor();
+                else
+                    bgC = textObj.BackgroundColor?.Color ?? Colors.Black;
+
+                double bgOpacity = ConfigManager.Instance.GetMonitorBgOpacity();
+                byte alphaValue = (byte)(bgOpacity * 255);
+                bgC = Color.FromArgb(alphaValue, bgC.R, bgC.G, bgC.B);
+
+                Color textC;
+                if (ConfigManager.Instance.IsMonitorOverrideFontColorEnabled())
+                    textC = ConfigManager.Instance.GetMonitorOverrideFontColor();
+                else
+                    textC = textObj.TextColor?.Color ?? Colors.White;
+
+                string bgColor = ColorToHexStatic(bgC);
+                string textColor = ColorToHexStatic(textC);
+
+                bool isTranslated = !string.IsNullOrEmpty(textObj.TextTranslated);
+                string fontFamily = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontFamily()
+                    : ConfigManager.Instance.GetSourceLanguageFontFamily();
+                bool isBold = isTranslated
+                    ? ConfigManager.Instance.GetTargetLanguageFontBold()
+                    : ConfigManager.Instance.GetSourceLanguageFontBold();
+
+                string translatedText = textObj.TextTranslated;
+                string sourceText = textObj.Text;
+                string escapedTranslatedText = System.Web.HttpUtility.HtmlEncode(translatedText).Replace("\n", "<br>");
+                string escapedSourceText = System.Web.HttpUtility.HtmlEncode(sourceText).Replace("\n", "<br>");
+
+                string displayText = !string.IsNullOrEmpty(translatedText) ? escapedTranslatedText : escapedSourceText;
+
+                double fontSize = 24 * scale;
+                string fontSizeOverrideAttr = "";
+                if (textObj.FontSizeOverride.HasValue)
+                {
+                    double overrideSize = textObj.FontSizeOverride.Value * scale;
+                    fontSizeOverrideAttr = FormattableString.Invariant($" data-font-size-override=\"{overrideSize}\"");
+                    fontSize = overrideSize;
+                }
+
+                string initialOrientation = textObj.TextOrientation;
+                if (!string.IsNullOrEmpty(textObj.TextTranslated) && textObj.TextOrientation == "vertical")
+                {
+                    string targetLang = ConfigManager.Instance.GetTargetLanguage().ToLower();
+                    if (!IsVerticalSupportedLanguage(targetLang))
+                        initialOrientation = "horizontal";
+                }
+
+                string bubbleVAlign = textObj.VerticalAlignmentOverride ?? defaultVAlign;
+                string bubbleHAlign = textObj.HorizontalAlignmentOverride ?? defaultHAlign;
+                string bubbleVAlignCss = bubbleVAlign == "top" ? "flex-start" : bubbleVAlign == "bottom" ? "flex-end" : "center";
+                string bubbleHAlignFlex = bubbleHAlign == "left" ? "flex-start" : bubbleHAlign == "right" ? "flex-end" : "center";
+                string fontFamilyCss = string.Join(", ", fontFamily.Split(',').Select(f => $"'{f.Trim()}'")) + ", sans-serif";
+
+                html.AppendLine($"<div class=\"text-overlay\" id=\"overlay-{textObj.ID}\" " +
+                    $"data-source-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(sourceText)}\" " +
+                    $"data-translated-text=\"{System.Web.HttpUtility.HtmlAttributeEncode(translatedText)}\" " +
+                    FormattableString.Invariant($"data-original-font-size=\"{fontSize}\"") + fontSizeOverrideAttr +
+                    $" data-orientation=\"{textObj.TextOrientation}\"" +
+                    " style=\"");
+                html.AppendLine(FormattableString.Invariant($"  left: {left:F1}px;"));
+                html.AppendLine(FormattableString.Invariant($"  top: {top:F1}px;"));
+                html.AppendLine(FormattableString.Invariant($"  width: {width:F1}px;"));
+                html.AppendLine(FormattableString.Invariant($"  height: {height:F1}px;"));
+                html.AppendLine($"  box-shadow: inset 0 0 0 1000px {bgColor};");
+                html.AppendLine($"  background-color: transparent;");
+                html.AppendLine($"  color: {textColor};");
+                html.AppendLine($"  font-family: {fontFamilyCss};");
+                html.AppendLine($"  font-weight: {(isBold ? "bold" : "normal")};");
+                html.AppendLine(FormattableString.Invariant($"  font-size: {fontSize:F1}px;"));
+                html.AppendLine($"  padding: 0;");
+                html.AppendLine($"  margin: 0;");
+                html.AppendLine($"  line-height: 1.2;");
+                html.AppendLine($"  display: flex;");
+                html.AppendLine($"  align-items: {bubbleVAlignCss};");
+                html.AppendLine("\">");
+
+                html.AppendLine($"<span class=\"text-content\" style=\"");
+                html.AppendLine($"  flex: 1;");
+                html.AppendLine($"  display: flex;");
+                html.AppendLine($"  align-items: {bubbleVAlignCss};");
+                html.AppendLine($"  justify-content: {bubbleHAlignFlex};");
+                html.AppendLine($"  text-align: {bubbleHAlign};");
+                html.AppendLine($"  width: 100%;");
+                html.AppendLine($"  height: 100%;");
+                if (initialOrientation == "vertical")
+                {
+                    html.AppendLine($"  writing-mode: vertical-rl;");
+                    html.AppendLine($"  text-orientation: upright;");
+                }
+                html.AppendLine($"\">{displayText}</span>");
+                html.AppendLine("</div>");
+            }
+        }
+
+        private static string ColorToHexStatic(Color color)
+        {
+            double alpha = color.A / 255.0;
+            return FormattableString.Invariant($"rgba({color.R}, {color.G}, {color.B}, {alpha:F3})");
+        }
+
+        private static void appendFitTextJavaScriptStatic(StringBuilder html)
+        {
+            html.AppendLine("function fitTextToContainer(element, container) {");
+            html.AppendLine("  try {");
+            html.AppendLine("    const sizeRef = container || element;");
+            html.AppendLine("    const minSize = 8;");
+            html.AppendLine("    const maxSize = 128;");
+            html.AppendLine("    const computedStyle = window.getComputedStyle(sizeRef);");
+            html.AppendLine("    const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
+            html.AppendLine("    const origAlignItems = element.style.alignItems;");
+            html.AppendLine("    const origJustifyContent = element.style.justifyContent;");
+            html.AppendLine("    element.style.alignItems = 'flex-start';");
+            html.AppendLine("    element.style.justifyContent = 'flex-start';");
+            html.AppendLine("    const boxHeight = sizeRef.clientHeight;");
+            html.AppendLine("    const boxWidth = sizeRef.clientWidth;");
+            html.AppendLine("    let estimatedSize;");
+            html.AppendLine("    if (isVertical) { estimatedSize = Math.floor(boxWidth * 0.7); }");
+            html.AppendLine("    else { estimatedSize = Math.floor(boxHeight * 0.7); }");
+            html.AppendLine("    estimatedSize = Math.max(minSize, Math.min(maxSize, estimatedSize));");
+            html.AppendLine("    let bestSize = minSize;");
+            html.AppendLine("    let low = minSize, high = maxSize;");
+            html.AppendLine("    while (high - low > 0.5) {");
+            html.AppendLine("      const mid = (low + high) / 2;");
+            html.AppendLine("      element.style.fontSize = mid + 'px';");
+            html.AppendLine("      const fitsHeight = element.scrollHeight <= element.clientHeight;");
+            html.AppendLine("      const fitsWidth = element.scrollWidth <= element.clientWidth;");
+            html.AppendLine("      if (fitsHeight && fitsWidth) { bestSize = mid; low = mid; }");
+            html.AppendLine("      else { high = mid; }");
+            html.AppendLine("    }");
+            html.AppendLine("    element.style.fontSize = bestSize + 'px';");
+            html.AppendLine("    element.style.alignItems = origAlignItems;");
+            html.AppendLine("    element.style.justifyContent = origJustifyContent;");
+            html.AppendLine("  } catch(e) { console.error('Error fitting text:', e); }");
+            html.AppendLine("}");
+            html.AppendLine("");
+            html.AppendLine("function fitAllText() {");
+            html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
+            html.AppendLine("  for (let overlay of overlays) {");
+            html.AppendLine("    if (overlay.hasAttribute('data-font-size-override')) {");
+            html.AppendLine("      const overrideSize = parseFloat(overlay.getAttribute('data-font-size-override'));");
+            html.AppendLine("      const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("      if (textContent) textContent.style.fontSize = overrideSize + 'px';");
+            html.AppendLine("    } else {");
+            html.AppendLine("      const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("      if (textContent) fitTextToContainer(textContent, overlay);");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+        }
+
+        private static void appendFitTextInitJavaScriptStatic(StringBuilder html)
+        {
+            html.AppendLine("function initializeTextFitting() {");
+            html.AppendLine("  const img = document.querySelector('.monitor-image');");
+            html.AppendLine("  function doFit() {");
+            html.AppendLine("    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fitAllText); }");
+            html.AppendLine("    else { setTimeout(fitAllText, 200); }");
+            html.AppendLine("  }");
+            html.AppendLine("  if (img && !img.complete) {");
+            html.AppendLine("    img.addEventListener('load', function() { setTimeout(doFit, 50); }, {once:true});");
+            html.AppendLine("  } else {");
+            html.AppendLine("    setTimeout(doFit, 50);");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("if (document.readyState === 'loading') {");
+            html.AppendLine("  document.addEventListener('DOMContentLoaded', initializeTextFitting);");
+            html.AppendLine("} else {");
+            html.AppendLine("  initializeTextFitting();");
+            html.AppendLine("}");
+        }
+
         private string ColorToHex(Color color)
         {
             // Use rgba() format to support transparency

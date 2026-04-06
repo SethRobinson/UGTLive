@@ -187,10 +187,13 @@ namespace UGTLive
                 string jsonRequest = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
                 
-                // Send the request
-                var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.PostAsync(url, content, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[GoogleTranslate Cloud] Retry {attempt} after HTTP {(int)status}"));
                 
-                // Check if the request was successful
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -250,10 +253,13 @@ namespace UGTLive
                     Console.WriteLine($"Translating with free service: {logText}");
                 }
                 
-                // Send the request
-                var response = await _httpClient.GetAsync(url, cancellationToken);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.GetAsync(url, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[GoogleTranslate Free] Retry {attempt} after HTTP {(int)status}"));
                 
-                // Check if the request was successful
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync(cancellationToken);

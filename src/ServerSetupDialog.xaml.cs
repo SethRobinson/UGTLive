@@ -25,6 +25,11 @@ namespace UGTLive
         private static ServerSetupDialog? _instance;
         private bool _isRunningDiagnostics = false;
         private bool _fromSettings = false;
+        
+        /// <summary>
+        /// When true, the dialog auto-continues once services are ready (for --batch command line).
+        /// </summary>
+        public static bool BatchMode { get; set; }
         private bool _normalClose = false;
         private ObservableCollection<ServiceItemViewModel> _serviceViewModels = new ObservableCollection<ServiceItemViewModel>();
         private Dictionary<string, ServiceItemViewModel> _serviceViewModelMap = new Dictionary<string, ServiceItemViewModel>();
@@ -301,6 +306,12 @@ namespace UGTLive
                 {
                     statusLabel.Text = "Services ready. Click Continue.";
                     statusLabel.Foreground = new SolidColorBrush(Colors.Green);
+                    
+                    if (BatchMode)
+                    {
+                        Console.WriteLine("[BatchMode] Services ready, auto-continuing...");
+                        Dispatcher.InvokeAsync(() => ContinueButton_Click(continueButton, new RoutedEventArgs()));
+                    }
                     return;
                 }
                 

@@ -253,9 +253,11 @@ namespace UGTLive
      
         
         /// <summary>
-        /// Process image using HTTP Python service
+        /// Process image using HTTP Python service.
+        /// Internal so BatchConverterService can call it directly.
         /// </summary>
-        private async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language)
+        /// <param name="suppressErrorUI">When true, suppresses ErrorPopupManager dialogs (used by batch converter).</param>
+        internal async Task<string?> ProcessImageWithHttpServiceAsync(byte[] imageBytes, string serviceName, string language, bool suppressErrorUI = false)
         {
             try
             {
@@ -267,8 +269,6 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Only check if service is running if not already marked as running
-                // This avoids the /info endpoint check on every OCR request
                 if (!service.IsRunning)
                 {
                     bool isRunning = await service.CheckIsRunningAsync();
@@ -277,31 +277,28 @@ namespace UGTLive
                     {
                         Log($"Service {serviceName} is not running");
                         
-                        // Show error dialog offering to start the service (if not already showing)
-                        bool openManager = ErrorPopupManager.ShowServiceWarning(
-                            $"The {serviceName} service is not running.\n\nWould you like to open the GPU Service Console to start it?",
-                            "Service Not Available");
-                        
-                        if (openManager)
+                        if (!suppressErrorUI)
                         {
-                            Application.Current.Dispatcher.Invoke(() =>
+                            bool openManager = ErrorPopupManager.ShowServiceWarning(
+                                $"The {serviceName} service is not running.\n\nWould you like to open the GPU Service Console to start it?",
+                                "Service Not Available");
+                            
+                            if (openManager)
                             {
-                                ServerSetupDialog.ShowDialogSafe(fromSettings: true);
-                            });
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    ServerSetupDialog.ShowDialogSafe(fromSettings: true);
+                                });
+                            }
                         }
                         
                         return null;
                     }
                 }
                 
-                // Build query parameters
                 string langParam = MapLanguageForService(language);
-                // Note: OCR Processing Mode (char_level) removed; all services now default to natural units (Lines/Words).
-                // UniversalBlockDetector handles the rest.
-                
                 string url = $"{service.ServerUrl}:{service.Port}/process?lang={langParam}";
                 
-                // Add MangaOCR-specific parameters
                 if (serviceName == "MangaOCR")
                 {
                     int minWidth = ConfigManager.Instance.GetMangaOcrMinRegionWidth();
@@ -313,21 +310,26 @@ namespace UGTLive
                     url += $"&min_region_width={minWidth}&min_region_height={minHeight}&overlap_allowed_percent={overlapStr}&yolo_confidence={yoloStr}";
                 }
                 
-                // Add PaddleOCR-specific parameters
                 if (serviceName == "PaddleOCR")
                 {
                     bool useAngleCls = ConfigManager.Instance.GetPaddleOcrUseAngleCls();
                     url += $"&use_angle_cls={useAngleCls}";
                 }
                 
-                // Send HTTP request with keep-alive
-                var content = new ByteArrayContent(imageBytes);
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                
-                using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = content;
-                request.Headers.ConnectionClose = false;
-                var response = await _httpClient.SendAsync(request);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct =>
+                    {
+                        var content = new ByteArrayContent(imageBytes);
+                        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                        var request = new HttpRequestMessage(HttpMethod.Post, url);
+                        request.Content = content;
+                        request.Headers.ConnectionClose = false;
+                        return _httpClient.SendAsync(request, ct);
+                    },
+                    CancellationToken.None,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Log($"[{serviceName}] Retry {attempt} after HTTP {(int)status}"));
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -370,10 +372,8 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Get JSON response and return it directly
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 
-                // Quick validation that we got valid JSON with expected structure
                 try
                 {
                     using (JsonDocument doc = JsonDocument.Parse(jsonResponse))
@@ -390,7 +390,6 @@ namespace UGTLive
                         
                         if (status == "success")
                         {
-                            // Check for texts property
                             if (root.TryGetProperty("texts", out var textsArray))
                             {
                                 int count = textsArray.GetArrayLength();
@@ -421,14 +420,12 @@ namespace UGTLive
                     return null;
                 }
                 
-                // Return the JSON response to be processed by ProcessReceivedTextJsonData
                 return jsonResponse;
             }
             catch (Exception ex)
             {
                 Log($"Error processing image with HTTP service: {ex.Message}");
                 
-                // Mark service as not running if we get a connection error
                 var service = PythonServicesManager.Instance.GetServiceByName(serviceName);
                 if (service != null)
                 {

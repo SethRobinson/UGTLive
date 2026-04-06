@@ -68,12 +68,30 @@ public partial class App : Application
             // MainWindow will initialize LogWindow after setting up the console
             _mainWindow = new MainWindow();
             
-            // We'll attach the keyboard handlers when the windows are loaded
-            // Each window now has its own Application_KeyDown method attached to PreviewKeyDown
+            // Parse command-line arguments for batch mode
+            _batchPaths = new List<string>();
+            var args = e.Args;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "--batch" && i + 1 < args.Length)
+                {
+                    _batchPaths.Add(args[++i]);
+                }
+                else if (args[i] == "--batch-quit")
+                {
+                    _batchQuit = true;
+                }
+            }
+            
+            if (_batchPaths.Count > 0)
+                ServerSetupDialog.BatchMode = true;
             
             // Show ServerSetupDialog as the startup/splash screen
             ShowServerSetupDialogAsStartup();
         }
+        
+        private List<string> _batchPaths = new();
+        private bool _batchQuit;
         
         private void ShowServerSetupDialogAsStartup()
         {
@@ -96,6 +114,15 @@ public partial class App : Application
                             
                             // Attach key handler to other windows once main window is shown
                             AttachKeyHandlersToAllWindows();
+                            
+                            // If batch mode requested via command line, open the dialog
+                            if (_batchPaths.Count > 0)
+                            {
+                                var batchDialog = new BatchConverterDialog();
+                                batchDialog.Owner = _mainWindow;
+                                batchDialog.SetupCommandLine(_batchPaths, _batchQuit);
+                                batchDialog.Show();
+                            }
                         }
                     }
                     catch (InvalidOperationException)

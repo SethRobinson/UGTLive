@@ -197,109 +197,70 @@ namespace UGTLive
             }
         }
 
-        // Process Windows OCR results
+        /// <summary>
+        /// Formats OCR line results into JSON string without any side effects.
+        /// Reusable by both the live pipeline and the batch converter.
+        /// </summary>
+        public string FormatOcrLinesToJson(List<Windows.Media.Ocr.OcrLine> textLines)
+        {
+            var results = new List<object>();
+            
+            foreach (var line in textLines)
+            {
+                if (line.Words.Count == 0 || string.IsNullOrWhiteSpace(line.Text))
+                    continue;
+
+                foreach (var word in line.Words)
+                {
+                    string wordText = word.Text;
+                    if (string.IsNullOrWhiteSpace(wordText))
+                        continue;
+                    
+                    var wordRect = word.BoundingRect;
+                    var box = new[] {
+                        new[] { (double)wordRect.X, (double)wordRect.Y },
+                        new[] { (double)(wordRect.X + wordRect.Width), (double)wordRect.Y },
+                        new[] { (double)(wordRect.X + wordRect.Width), (double)(wordRect.Y + wordRect.Height) },
+                        new[] { (double)wordRect.X, (double)(wordRect.Y + wordRect.Height) }
+                    };
+                    
+                    results.Add(new
+                    {
+                        text = wordText,
+                        confidence = 0.9,
+                        rect = box,
+                        is_character = false,
+                        background_color = (object?)null,
+                        foreground_color = (object?)null
+                    });
+                }
+            }
+
+            var response = new
+            {
+                status = "success",
+                results = results,
+                processing_time_seconds = 0.1,
+                char_level = false
+            };
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            return JsonSerializer.Serialize(response, jsonOptions);
+        }
+
+        /// <summary>
+        /// Formats OCR results and dispatches to Logic for live processing.
+        /// </summary>
         public async Task ProcessWindowsOcrResults(List<Windows.Media.Ocr.OcrLine> textLines, System.Drawing.Bitmap bitmap, string languageCode = "en")
         {
             try
             {
-                // Create a JSON response similar to what EasyOCR would return
-                var results = new List<object>();
-                
-                foreach (var line in textLines)
-                {
-                    // Skip empty lines
-                    if (line.Words.Count == 0 || string.IsNullOrWhiteSpace(line.Text))
-                    {
-                        continue;
-                    }
+                string jsonResponse = FormatOcrLinesToJson(textLines);
 
-                    foreach (var word in line.Words)
-                    {
-                        string wordText = word.Text;
-                        
-                        // Skip empty words
-                        if (string.IsNullOrWhiteSpace(wordText))
-                            continue;
-                        
-                        var wordRect = word.BoundingRect;
-                        
-                        // Calculate box coordinates (polygon points)
-                        var box = new[] {
-                            new[] { (double)wordRect.X, (double)wordRect.Y },
-                            new[] { (double)(wordRect.X + wordRect.Width), (double)wordRect.Y },
-                            new[] { (double)(wordRect.X + wordRect.Width), (double)(wordRect.Y + wordRect.Height) },
-                            new[] { (double)wordRect.X, (double)(wordRect.Y + wordRect.Height) }
-                        };
-                        
-                        object? backgroundColor = null;
-                        object? foregroundColor = null;
-
-                        // Perform color correction later in Logic.DisplayOcrResults
-                        /*
-                        if (colorCorrectionEnabled)
-                        {
-                            try
-                            {
-                                // Crop the word from the original bitmap
-                                // Ensure coordinates are within bounds
-                                int x = Math.Max(0, (int)wordRect.X);
-                                int y = Math.Max(0, (int)wordRect.Y);
-                                int w = Math.Min((int)wordRect.Width, bitmap.Width - x);
-                                int h = Math.Min((int)wordRect.Height, bitmap.Height - y);
-
-                                if (w > 0 && h > 0)
-                                {
-                                    using (var crop = bitmap.Clone(new System.Drawing.Rectangle(x, y, w, h), bitmap.PixelFormat))
-                                    {
-                                        var colorInfo = await Logic.Instance.GetColorAnalysisAsync(crop);
-                                        if (colorInfo.HasValue)
-                                        {
-                                            if (colorInfo.Value.TryGetProperty("background_color", out var bgProp))
-                                                backgroundColor = bgProp;
-                                            if (colorInfo.Value.TryGetProperty("foreground_color", out var fgProp))
-                                                foregroundColor = fgProp;
-                                        }
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Color correction failed for word '{wordText}': {ex.Message}");
-                            }
-                        }
-                        */
-                        
-                        // Add the word to results
-                        results.Add(new
-                        {
-                            text = wordText,
-                            confidence = 0.9, // Windows OCR doesn't provide confidence
-                            rect = box,
-                            is_character = false,
-                            background_color = backgroundColor,
-                            foreground_color = foregroundColor
-                        });
-                    }
-                }
-
-                // Create a JSON response
-                var response = new
-                {
-                    status = "success",
-                    results = results,
-                    processing_time_seconds = 0.1,
-                    char_level = false // Indicate this is NOT character-level data
-                };
-
-                // Convert to JSON
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                string jsonResponse = JsonSerializer.Serialize(response, jsonOptions);
-
-                // Process the JSON response on the UI thread to handle STA requirements
                 Application.Current.Dispatcher.Invoke((Action)(() => {
                     Logic.Instance.ProcessReceivedTextJsonData(jsonResponse);
                 }));

@@ -160,7 +160,12 @@ namespace UGTLive
                 
                 // Send request with streaming - read headers immediately, don't wait for full response
                 var stopwatch = Stopwatch.StartNew();
-                var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[llama.cpp] Retry {attempt} after HTTP {(int)status}"));
                 
                 if (!response.IsSuccessStatusCode)
                 {

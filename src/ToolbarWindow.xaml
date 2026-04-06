@@ -106,6 +106,8 @@
                     <ContextMenu x:Name="utilitiesMenu">
                         <MenuItem x:Name="saveScreenshotMenuItem" Header="Save Screenshot"
                                   Click="SaveScreenshotMenuItem_Click"/>
+                        <MenuItem x:Name="batchConvertMenuItem" Header="Batch Converter..."
+                                  Click="BatchConvertMenuItem_Click"/>
                     </ContextMenu>
                 </Button.ContextMenu>
             </Button>

@@ -221,8 +221,12 @@ namespace UGTLive
                 Console.WriteLine($"Sending request to ChatGPT API ({model})");
                 var stopwatch = Stopwatch.StartNew();
 
-                // Send request to OpenAI API
-                var response = await _httpClient.SendAsync(request, cancellationToken);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.SendAsync(request, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[ChatGPT] Retry {attempt} after HTTP {(int)status}"));
                 string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 stopwatch.Stop();
                 

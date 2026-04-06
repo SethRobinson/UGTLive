@@ -90,7 +90,12 @@ namespace UGTLive
                 TranslationStatus.StartStreaming(thinkingModeEnabled);
 
                 var stopwatch = Stopwatch.StartNew();
-                var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                var response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[Ollama] Retry {attempt} after HTTP {(int)status}"));
 
                 if (!response.IsSuccessStatusCode)
                 {

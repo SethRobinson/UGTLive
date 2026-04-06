@@ -114,7 +114,12 @@ namespace UGTLive
 
                 Console.WriteLine($"Sending request to Gemini API ({model})");
                 var stopwatch = Stopwatch.StartNew();
-                HttpResponseMessage response = await _httpClient.PostAsync(url, content, cancellationToken);
+                HttpResponseMessage response = await RetryHelper.SendWithRetryAsync(
+                    ct => _httpClient.PostAsync(url, content, ct),
+                    cancellationToken,
+                    maxRetries: 3,
+                    baseDelayMs: 10000,
+                    onRetry: (attempt, status) => Console.WriteLine($"[Gemini] Retry {attempt} after HTTP {(int)status}"));
 
                 if (response.IsSuccessStatusCode)
                 {

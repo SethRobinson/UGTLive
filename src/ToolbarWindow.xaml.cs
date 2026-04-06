@@ -168,6 +168,11 @@ namespace UGTLive
             MainWindow.Instance?.HandleSaveScreenshot();
         }
 
+        private void BatchConvertMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow.Instance?.HandleBatchConvert();
+        }
+
         private void MonitorButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance?.HandleMonitorButton();

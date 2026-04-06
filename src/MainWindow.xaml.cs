@@ -1519,15 +1519,18 @@ namespace UGTLive
             // Cancel the close for now
             e.Cancel = true;
 
-            // Ask the user to confirm before shutting down
-            var result = System.Windows.MessageBox.Show(
-                "Are you sure you want to quit UGT Live?",
-                "Confirm Exit",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            // Skip confirm dialog in batch mode
+            if (!ServerSetupDialog.BatchMode)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    "Are you sure you want to quit UGT Live?",
+                    "Confirm Exit",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
-            if (result != MessageBoxResult.Yes)
-                return;
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
 
             // Save ChatBox and Monitor window state before closing (if persistence is enabled)
             if (ConfigManager.Instance.IsPersistWindowSizeEnabled())
@@ -2435,6 +2438,13 @@ namespace UGTLive
         public void HandleSaveScreenshot()
         {
             ScreenshotManager.Instance.SaveScreenshot();
+        }
+
+        public void HandleBatchConvert()
+        {
+            var dialog = new BatchConverterDialog();
+            dialog.Owner = this;
+            dialog.Show();
         }
 
         public void BringToFront()
