@@ -202,10 +202,6 @@ namespace UGTLive
         {
             try
             {
-                // Disable immediate color correction here - moved to Logic.DisplayOcrResults
-                // Check if color correction is enabled
-                // bool colorCorrectionEnabled = ConfigManager.Instance.IsCloudOcrColorCorrectionEnabled();
-
                 // Create a JSON response similar to what EasyOCR would return
                 var results = new List<object>();
                 

@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -2568,8 +2567,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                         googleTranslateServiceTypeComboBox.SelectionChanged += GoogleTranslateServiceTypeComboBox_SelectionChanged;
                     }
                     
-                    // Set API key if using Cloud API
-                   // if (useCloudApi)
                     if (googleTranslateApiKeyPasswordBox != null)
                     {
                         googleTranslateApiKeyPasswordBox.Password = ConfigManager.Instance.GetGoogleTranslateApiKey();
@@ -5742,50 +5739,12 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         
         private void SettingsWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
-            SetExcludeFromCapture();
-        }
-        
-        private void SetExcludeFromCapture()
-        {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                var helper = new WindowInteropHelper(this);
-                IntPtr hwnd = helper.Handle;
-                
-                if (hwnd != IntPtr.Zero)
-                {
-                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
-                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
-                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
-                    
-                    if (success)
-                    {
-                        Console.WriteLine($"Settings window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Failed to set Settings window capture mode. Last error: {Marshal.GetLastWin32Error()}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Settings window HWND is null, cannot set capture mode");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting Settings window capture mode: {ex.Message}");
-            }
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Settings");
         }
         
         public void UpdateCaptureExclusion()
         {
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Settings");
         }
         
         #endregion
@@ -5801,73 +5760,10 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         
         private void OnToolTipOpening(object sender, RoutedEventArgs e)
         {
-            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                ExcludeTooltipFromCapture();
+                WindowCaptureHelper.ExcludeTooltipFromCapture(fullEnumeration: true);
             }), System.Windows.Threading.DispatcherPriority.Background);
-        }
-        
-        private void ExcludeTooltipFromCapture()
-        {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                // If visible in screenshots, don't exclude
-                if (visibleInScreenshots)
-                {
-                    return;
-                }
-                
-                // Find all tooltip windows and exclude them
-                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
-                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
-                
-                foreach (var window in tooltipWindows)
-                {
-                    var helper = new System.Windows.Interop.WindowInteropHelper(window);
-                    IntPtr hwnd = helper.Handle;
-                    
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-                    }
-                }
-                
-                // Also try to find popup windows via interop
-                // WPF tooltips are displayed in Popup windows which are top-level HWND windows
-                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
-                foreach (System.Diagnostics.ProcessThread thread in currentProcess.Threads)
-                {
-                    try
-                    {
-                        EnumThreadWindows((uint)thread.Id, (hWnd, lParam) =>
-                        {
-                            var className = new System.Text.StringBuilder(256);
-                            GetClassName(hWnd, className, className.Capacity);
-                            string cls = className.ToString();
-                            
-                            // WPF tooltip windows typically have these class names
-                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls.Contains("HwndWrapper"))
-                            {
-                                SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
-                            }
-                            
-                            return true; // Continue enumeration
-                        }, IntPtr.Zero);
-                    }
-                    catch
-                    {
-                        // Thread may have terminated, ignore
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
-            }
         }
         
         // Lesson Settings event handlers
@@ -5916,20 +5812,6 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             Console.WriteLine("Lesson settings reset to defaults");
         }
         
-        // Windows API for excluding windows from screen capture
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
-        
-        [DllImport("user32.dll")]
-        private static extern bool EnumThreadWindows(uint dwThreadId, EnumThreadDelegate lpfn, IntPtr lParam);
-        
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-        
-        private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
-        
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
-        private const uint WDA_NONE = 0x00000000;
         
         #endregion
 

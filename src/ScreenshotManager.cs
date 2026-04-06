@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
@@ -16,9 +15,6 @@ namespace UGTLive
 {
     public class ScreenshotManager
     {
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 
         private static ScreenshotManager? _instance;
 
@@ -127,9 +123,7 @@ namespace UGTLive
             };
             _offscreenWindow.Show();
 
-            var hwnd = new WindowInteropHelper(_offscreenWindow).Handle;
-            if (hwnd != IntPtr.Zero)
-                SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+            WindowCaptureHelper.ExcludeFromCaptureByHandle(new WindowInteropHelper(_offscreenWindow).Handle);
 
             _offscreenWebView = new WebView2();
             _offscreenWebView.DefaultBackgroundColor = System.Drawing.Color.Transparent;
@@ -177,7 +171,7 @@ namespace UGTLive
                 // The WebView2 device pixel ratio = dpiScale * textScale.
                 // CSS pixels in the HTML must be divided by this so the content
                 // fits exactly into the device-pixel viewport.
-                double textScale = getWindowsTextScaleFactor();
+                double textScale = DisplayHelper.GetWindowsTextScaleFactor();
                 double cssScale = dpiScale * textScale;
 
                 // Generate the self-contained HTML
@@ -298,20 +292,5 @@ namespace UGTLive
             }
         }
 
-        private double getWindowsTextScaleFactor()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Accessibility");
-                if (key != null)
-                {
-                    var value = key.GetValue("TextScaleFactor");
-                    if (value is int intValue)
-                        return intValue / 100.0;
-                }
-            }
-            catch { }
-            return 1.0;
-        }
     }
 }

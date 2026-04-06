@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Web;
 using System.Windows;
@@ -30,12 +29,6 @@ namespace UGTLive
         // Constants
         private const int MAX_CONTEXT_HISTORY_SIZE = 100; // Max entries to keep for context purposes
         
-        // Win32 API for WDA_EXCLUDEFROMCAPTURE
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-        
-        private const uint WDA_NONE = 0x00000000;
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
         
         // We'll use MainWindow.Instance.translationHistory instead of maintaining our own
         private int _maxHistorySize; // Display history size from config
@@ -436,8 +429,7 @@ namespace UGTLive
 
         private void ChatBoxWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "ChatBox");
         }
         
         private void ChatBoxWindow_Loaded(object sender, RoutedEventArgs e)
@@ -457,46 +449,9 @@ namespace UGTLive
             this.SizeChanged += ChatBoxWindow_SizeChanged;
         }
         
-        private void SetExcludeFromCapture()
-        {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                var helper = new WindowInteropHelper(this);
-                IntPtr hwnd = helper.Handle;
-                
-                if (hwnd != IntPtr.Zero)
-                {
-                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
-                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
-                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
-                    
-                    if (success)
-                    {
-                        Console.WriteLine($"ChatBox window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Failed to set ChatBox capture mode. Last error: {Marshal.GetLastWin32Error()}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("ChatBox window HWND is null, cannot set capture mode");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting ChatBox capture mode: {ex.Message}");
-            }
-        }
-        
         public void UpdateCaptureExclusion()
         {
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "ChatBox");
         }
         
         // Handler for application-level keyboard shortcuts
@@ -1026,36 +981,10 @@ namespace UGTLive
         
         private void OnToolTipOpening(object sender, RoutedEventArgs e)
         {
-            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                ExcludeTooltipFromCapture();
+                WindowCaptureHelper.ExcludeTooltipFromCapture(fullEnumeration: false);
             }), DispatcherPriority.Background);
-        }
-        
-        private void ExcludeTooltipFromCapture()
-        {
-            try
-            {
-                // Find all tooltip windows and exclude them
-                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
-                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
-                
-                foreach (var window in tooltipWindows)
-                {
-                    var helper = new WindowInteropHelper(window);
-                    IntPtr hwnd = helper.Handle;
-                    
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
-            }
         }
     }
 

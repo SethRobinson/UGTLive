@@ -59,15 +59,6 @@ namespace UGTLive
         // Flag to allow proper closing during shutdown
         private bool _isShuttingDown = false;
         
-        // DPI/Text Scale APIs for proper overlay positioning
-        [DllImport("user32.dll")]
-        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
-        
-        [DllImport("shcore.dll")]
-        private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
-        
-        private const uint MONITOR_DEFAULTTONEAREST = 2;
-        private const int MDT_EFFECTIVE_DPI = 0;
         
         public void ForceClose()
         {
@@ -440,8 +431,7 @@ namespace UGTLive
         
         private void MonitorWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            // Apply WDA_EXCLUDEFROMCAPTURE as early as possible (right after HWND creation)
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Monitor");
         }
         
         private void ImageScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -457,7 +447,7 @@ namespace UGTLive
             
             try
             {
-                double textScale = GetWindowsTextScaleFactor();
+                double textScale = DisplayHelper.GetWindowsTextScaleFactor();
                 double scaleFactor = currentZoom / textScale;
 
                 System.Windows.Point imageOffset = imageContainer.TranslatePoint(new System.Windows.Point(0, 0), imageScrollViewer);
@@ -490,54 +480,13 @@ namespace UGTLive
             }
         }
         
-        private void SetExcludeFromCapture()
-        {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                var helper = new WindowInteropHelper(this);
-                IntPtr hwnd = helper.Handle;
-                
-                if (hwnd != IntPtr.Zero)
-                {
-                    // If visibleInScreenshots is true, set to WDA_NONE (include in capture)
-                    // If visibleInScreenshots is false, set to WDA_EXCLUDEFROMCAPTURE (exclude from capture)
-                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
-                    
-                    if (success)
-                    {
-                        Console.WriteLine($"Monitor window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture successfully (HWND: {hwnd})");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Failed to set Monitor window capture mode. Last error: {Marshal.GetLastWin32Error()}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("Monitor window HWND is null, cannot set capture mode");
-                }
-                
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting Monitor window capture mode: {ex.Message}");
-            }
-        }
-        
         public void UpdateCaptureExclusion()
         {
-            // Update the main window
-            SetExcludeFromCapture();
-            
-            // Update WebView2 child windows
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Monitor");
+
             if (_overlayWebViewInitialized && textOverlayWebView?.CoreWebView2 != null)
             {
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                SetWebView2ExcludeFromCapture(visibleInScreenshots);
+                WindowCaptureHelper.SetWebView2ExcludeFromCapture(textOverlayWebView, "Monitor");
             }
         }
         
@@ -633,55 +582,6 @@ namespace UGTLive
             }
         }
         
-        private void SetWebView2ExcludeFromCapture(bool visibleInScreenshots)
-        {
-            try
-            {
-                if (textOverlayWebView?.CoreWebView2 != null)
-                {
-                    // WebView2 is based on Chromium and doesn't create traditional Win32 child windows
-                    // Instead, we need to get the WebView2 control's HWND using HwndSource
-                    var presentationSource = PresentationSource.FromVisual(textOverlayWebView);
-                    if (presentationSource is HwndSource hwndSource)
-                    {
-                        IntPtr webViewHwnd = hwndSource.Handle;
-                        
-                        if (webViewHwnd != IntPtr.Zero)
-                        {
-                            uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                            bool success = SetWindowDisplayAffinity(webViewHwnd, affinity);
-                            
-                            if (success)
-                            {
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Failed to set Monitor WebView2 capture mode. Last error: {Marshal.GetLastWin32Error()}");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Monitor WebView2 HWND is null");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Monitor WebView2: Could not get HwndSource, WebView2 may share parent window HWND");
-                        // WebView2 shares the parent window's HWND, so the main window exclusion covers it
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting Monitor WebView2 capture mode: {ex.Message}");
-            }
-        }
-        
-        // Win32 API for enumerating child windows
-        [DllImport("user32.dll")]
-        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
-        
-        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
         
         private bool _overlayWebViewInitialized = false;
         
@@ -717,14 +617,11 @@ namespace UGTLive
                     // Initial empty render
                     UpdateOverlayWebView();
                     
-                    // Apply WDA_EXCLUDEFROMCAPTURE to WebView2 child windows
-                    // Use a longer delay to ensure child windows are fully created
                     _ = Task.Delay(1500).ContinueWith(_ =>
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                            SetWebView2ExcludeFromCapture(visibleInScreenshots);
+                            WindowCaptureHelper.SetWebView2ExcludeFromCapture(textOverlayWebView, "Monitor");
                         });
                     });
                     
@@ -1294,7 +1191,7 @@ namespace UGTLive
             html.AppendLine("</head>");
             html.AppendLine("<body>");
             
-            double initTextScale = GetWindowsTextScaleFactor();
+            double initTextScale = DisplayHelper.GetWindowsTextScaleFactor();
             double initScaleFactor = currentZoom / initTextScale;
             System.Windows.Point initOffset = imageContainer.TranslatePoint(new System.Windows.Point(0, 0), imageScrollViewer);
             double initOffsetX = initOffset.X / initTextScale;
@@ -2300,7 +2197,7 @@ namespace UGTLive
         }
         
         // P/Invoke call needed for proper HBitmap cleanup
-        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
         
         // Update the monitor with a new screenshot from file
@@ -2377,9 +2274,6 @@ namespace UGTLive
                     Console.WriteLine($"Error loading image: {ex.Message}");
                 }
                 
-                // Clear existing overlay elements
-                //textOverlayCanvas.Children.Clear();
-                
                 // Ensure UI updates happen on the UI thread
                 if (!Dispatcher.CheckAccess())
                 {
@@ -2408,8 +2302,6 @@ namespace UGTLive
                     UpdateScrollViewerSettings();
                 }
                 
-                //UpdateStatus($"Screenshot updated: {Path.GetFileName(imagePath)}");
-                //Console.WriteLine($"Monitor window updated with screenshot: {Path.GetFileName(imagePath)}");
             }
             catch (Exception ex)
             {
@@ -2827,7 +2719,7 @@ namespace UGTLive
             // Container with image
             // Compensate for DPI and text scale (WebView2 CSS pixels are scaled by both)
             double dpiScale = GetActualDpiScale();
-            double textScale = GetWindowsTextScaleFactor();
+            double textScale = DisplayHelper.GetWindowsTextScaleFactor();
             double combinedScale = dpiScale * textScale;
             
             html.AppendLine("<div class=\"container\">");
@@ -3375,10 +3267,10 @@ namespace UGTLive
                 var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (hwnd != IntPtr.Zero)
                 {
-                    IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                    IntPtr monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
                     if (monitor != IntPtr.Zero)
                     {
-                        if (GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY) == 0 && dpiX > 0)
+                        if (NativeMethods.GetDpiForMonitor(monitor, NativeMethods.MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY) == 0 && dpiX > 0)
                         {
                             return dpiX / 96.0;
                         }
@@ -3395,24 +3287,6 @@ namespace UGTLive
             return 1.0;
         }
         
-        // Get Windows Text Size scaling factor from registry
-        private double GetWindowsTextScaleFactor()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Accessibility");
-                if (key != null)
-                {
-                    var value = key.GetValue("TextScaleFactor");
-                    if (value is int intValue)
-                    {
-                        return intValue / 100.0;
-                    }
-                }
-            }
-            catch { }
-            return 1.0;
-        }
         
         private void ApplyZoom(System.Windows.Point? mousePosition = null)
         {
@@ -3827,37 +3701,31 @@ namespace UGTLive
         private const int WH_MOUSE_LL = 14;
         private const int WM_MOUSEWHEEL_LL = 0x020A;
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern short GetKeyState(int nVirtKey);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool UnhookWindowsHookEx(IntPtr hhk);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
-        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern IntPtr WindowFromPoint(POINT Point);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern IntPtr GetParent(IntPtr hWnd);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
         
-        // Win32 API for WDA_EXCLUDEFROMCAPTURE
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-        
-        private const uint WDA_NONE = 0x00000000;
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
         
         // Win32 API for GetSystemMetrics - used for scrollbar and titlebar dimensions
         [DllImport("user32.dll")]
@@ -3867,14 +3735,14 @@ namespace UGTLive
         private const int SM_CYHSCROLL = 3;  // Height of horizontal scrollbar
         private const int SM_CYCAPTION = 4;  // Height of window caption/titlebar
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct POINT
         {
             public int x;
             public int y;
         }
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct MSLLHOOKSTRUCT
         {
             public POINT pt;
@@ -4066,36 +3934,10 @@ namespace UGTLive
         
         private void OnToolTipOpening(object sender, RoutedEventArgs e)
         {
-            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                ExcludeTooltipFromCapture();
+                WindowCaptureHelper.ExcludeTooltipFromCapture(fullEnumeration: false);
             }), DispatcherPriority.Background);
-        }
-        
-        private void ExcludeTooltipFromCapture()
-        {
-            try
-            {
-                // Find all tooltip windows and exclude them
-                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
-                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
-                
-                foreach (var window in tooltipWindows)
-                {
-                    var helper = new WindowInteropHelper(window);
-                    IntPtr hwnd = helper.Handle;
-                    
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
-            }
         }
        
     }

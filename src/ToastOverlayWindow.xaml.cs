@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
@@ -9,11 +8,6 @@ namespace UGTLive
 {
     public partial class ToastOverlayWindow : Window
     {
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
-
         private DispatcherTimer? _dismissTimer;
 
         public ToastOverlayWindow()
@@ -24,12 +18,7 @@ namespace UGTLive
 
         private void ToastOverlayWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            var helper = new WindowInteropHelper(this);
-            IntPtr hwnd = helper.Handle;
-            if (hwnd != IntPtr.Zero)
-            {
-                SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-            }
+            WindowCaptureHelper.ExcludeFromCaptureByHandle(new WindowInteropHelper(this).Handle);
         }
 
         private void startDismissTimer(double seconds)

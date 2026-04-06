@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,20 +9,6 @@ namespace UGTLive
 {
     public partial class ToolbarWindow : Window
     {
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOACTIVATE = 0x0010;
-
-        private const uint WDA_NONE = 0x00000000;
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
-
         public static ToolbarWindow? Instance { get; private set; }
 
         private bool _isInitialized = false;
@@ -41,7 +26,7 @@ namespace UGTLive
 
         private void ToolbarWindow_SourceInitialized(object? sender, EventArgs e)
         {
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Toolbar");
         }
 
         private void ToolbarWindow_Loaded(object sender, RoutedEventArgs e)
@@ -71,32 +56,9 @@ namespace UGTLive
             }
         }
 
-        // --- Capture exclusion ---
-
-        private void SetExcludeFromCapture()
-        {
-            try
-            {
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                var helper = new WindowInteropHelper(this);
-                IntPtr hwnd = helper.Handle;
-
-                if (hwnd != IntPtr.Zero)
-                {
-                    uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                    bool success = SetWindowDisplayAffinity(hwnd, affinity);
-                    Console.WriteLine($"Toolbar window {(visibleInScreenshots ? "included in" : "excluded from")} screen capture (HWND: {hwnd}, success: {success})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting toolbar capture exclusion: {ex.Message}");
-            }
-        }
-
         public void UpdateCaptureExclusion()
         {
-            SetExcludeFromCapture();
+            WindowCaptureHelper.SetExcludeFromCapture(this, "Toolbar");
         }
 
         public void BringToFront()
@@ -105,7 +67,7 @@ namespace UGTLive
             IntPtr hwnd = helper.Handle;
             if (hwnd != IntPtr.Zero)
             {
-                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0, NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
             }
         }
 

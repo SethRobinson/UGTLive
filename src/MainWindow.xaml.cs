@@ -32,14 +32,6 @@ namespace UGTLive
         [DllImport("user32.dll")]
         private static extern bool ClientToScreen(IntPtr hWnd, ref System.Drawing.Point lpPoint);
         
-        [DllImport("user32.dll")]
-        private static extern int ShowCursor(bool bShow);
-        
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetConsoleWindow();
-        
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         
         // DWM API for getting actual window bounds without shadows
         [DllImport("dwmapi.dll")]
@@ -51,28 +43,9 @@ namespace UGTLive
         [DllImport("user32.dll")]
         private static extern uint GetDpiForWindow(IntPtr hwnd);
         
-        // Get monitor from window
-        [DllImport("user32.dll")]
-        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
-        
-        // Get actual monitor DPI (not virtualized)
-        [DllImport("shcore.dll")]
-        private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
-        
-        private const uint MONITOR_DEFAULTTONEAREST = 2;
-        private const int MDT_EFFECTIVE_DPI = 0;
-        
-        // For keeping window on top via Win32 (more reliable than WPF Topmost for transparent windows)
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
         [DllImport("user32.dll")]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOACTIVATE = 0x0010;
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TOPMOST = 0x00000008;
 
@@ -418,9 +391,9 @@ namespace UGTLive
             _ = LogWindow.Instance;
             
             // Hide the console window initially
-            consoleWindow = GetConsoleWindow();
+            consoleWindow = NativeMethods.GetConsoleWindow();
             KeyboardShortcuts.SetConsoleWindowHandle(consoleWindow);
-            ShowWindow(consoleWindow, SW_HIDE);
+            NativeMethods.ShowWindow(consoleWindow, SW_HIDE);
 
             // Initialize helper
             helper = new WindowInteropHelper(this);
@@ -570,79 +543,11 @@ namespace UGTLive
         
         private void OnToolTipOpening(object sender, RoutedEventArgs e)
         {
-            // Schedule exclusion check on next UI thread cycle (tooltip window needs to be created first)
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                ExcludeTooltipFromCapture();
+                WindowCaptureHelper.ExcludeTooltipFromCapture(fullEnumeration: true);
             }), DispatcherPriority.Background);
         }
-        
-        private void ExcludeTooltipFromCapture()
-        {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                // If visible in screenshots, don't exclude
-                if (visibleInScreenshots)
-                {
-                    return;
-                }
-                
-                // Find all tooltip windows and exclude them
-                var tooltipWindows = System.Windows.Application.Current.Windows.OfType<Window>()
-                    .Where(w => w.GetType().Name.Contains("ToolTip") || w.GetType().Name.Contains("Popup"));
-                
-                foreach (var window in tooltipWindows)
-                {
-                    var helper = new WindowInteropHelper(window);
-                    IntPtr hwnd = helper.Handle;
-                    
-                    if (hwnd != IntPtr.Zero)
-                    {
-                        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
-                    }
-                }
-                
-                // Also try to find popup windows via interop
-                // WPF tooltips are displayed in Popup windows which are top-level HWND windows
-                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
-                foreach (System.Diagnostics.ProcessThread thread in currentProcess.Threads)
-                {
-                    try
-                    {
-                        EnumThreadWindows((uint)thread.Id, (hWnd, lParam) =>
-                        {
-                            var className = new StringBuilder(256);
-                            GetClassName(hWnd, className, className.Capacity);
-                            string cls = className.ToString();
-                            
-                            // WPF tooltip windows typically have these class names
-                            if (cls.Contains("Popup") || cls.Contains("ToolTip") || cls.Contains("HwndWrapper"))
-                            {
-                                SetWindowDisplayAffinity(hWnd, WDA_EXCLUDEFROMCAPTURE);
-                            }
-                            
-                            return true; // Continue enumeration
-                        }, IntPtr.Zero);
-                    }
-                    catch
-                    {
-                        // Thread may have terminated, ignore
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error excluding tooltip from capture: {ex.Message}");
-            }
-        }
-        
-        [DllImport("user32.dll")]
-        private static extern bool EnumThreadWindows(uint dwThreadId, EnumThreadDelegate lpfn, IntPtr lParam);
-        
-        private delegate bool EnumThreadDelegate(IntPtr hWnd, IntPtr lParam);
         
        
         private void ToggleMainWindowVisibility()
@@ -824,7 +729,7 @@ namespace UGTLive
                     {
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            ExcludeTooltipFromCapture();
+                            WindowCaptureHelper.ExcludeTooltipFromCapture(fullEnumeration: true);
                         }), DispatcherPriority.Background);
                     };
                 }
@@ -1149,7 +1054,7 @@ namespace UGTLive
                     if (_logCaptureRectOnce && ConfigManager.Instance.GetLogExtraDebugStuff())
                     {
                         _logCaptureRectOnce = false;
-                        double textScale = GetWindowsTextScaleFactor();
+                        double textScale = DisplayHelper.GetWindowsTextScaleFactor();
                         Console.WriteLine($"[DEBUG] Window rect: L={windowRect.Left}, T={windowRect.Top}, W={windowRect.Width}, H={windowRect.Height}");
                         Console.WriteLine($"[DEBUG] WebView in window (DIPs): X={webViewInWindow.X:F1}, Y={webViewInWindow.Y:F1}");
                         Console.WriteLine($"[DEBUG] WebView actual size (DIPs): {textOverlayWebView.ActualWidth:F0}x{textOverlayWebView.ActualHeight:F0}");
@@ -1234,10 +1139,10 @@ namespace UGTLive
                 if (hwnd != IntPtr.Zero)
                 {
                     // Get the actual monitor DPI (not virtualized)
-                    IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                    IntPtr monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
                     if (monitor != IntPtr.Zero)
                     {
-                        int hr = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY);
+                        int hr = NativeMethods.GetDpiForMonitor(monitor, NativeMethods.MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY);
                         if (hr == 0 && dpiX > 0)
                         {
                             return dpiX / 96.0; // 96 DPI = 100% = scale factor 1.0
@@ -1291,30 +1196,6 @@ namespace UGTLive
             return 1.0;
         }
 
-        // Get Windows Text Size scaling factor from registry (Accessibility > Text size setting)
-        // Returns 1.0 for 100%, 1.25 for 125%, etc.
-        private double GetWindowsTextScaleFactor()
-        {
-            try
-            {
-                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Accessibility"))
-                {
-                    if (key != null)
-                    {
-                        var value = key.GetValue("TextScaleFactor");
-                        if (value is int textScale)
-                        {
-                            return textScale / 100.0;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore registry errors, return default
-            }
-            return 1.0; // Default to 100%
-        }
 
         //!Main loop
 
@@ -1845,7 +1726,7 @@ namespace UGTLive
                 // Make sure the console is closed
                 if (consoleWindow != IntPtr.Zero)
                 {
-                    ShowWindow(consoleWindow, SW_HIDE);
+                    NativeMethods.ShowWindow(consoleWindow, SW_HIDE);
                 }
                 
                 // Close shutdown dialog
@@ -2400,12 +2281,6 @@ namespace UGTLive
             _lastOverlayHtml = string.Empty;
         }
         
-        // Win32 API for WDA_EXCLUDEFROMCAPTURE
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint dwAffinity);
-        
-        private const uint WDA_NONE = 0x00000000;
-        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
        
         // Toggle the monitor window
         public void HandleMonitorButton()
@@ -3096,51 +2971,7 @@ namespace UGTLive
         
         private void SetWebViewExcludeFromCapture()
         {
-            try
-            {
-                // Check if user wants windows visible in screenshots
-                bool visibleInScreenshots = ConfigManager.Instance.GetWindowsVisibleInScreenshots();
-                
-                if (textOverlayWebView?.CoreWebView2 != null)
-                {
-                    // WebView2 is based on Chromium and doesn't create traditional Win32 child windows
-                    // Instead, we need to get the WebView2 control's HWND using HwndSource
-                    var presentationSource = PresentationSource.FromVisual(textOverlayWebView);
-                    if (presentationSource is HwndSource hwndSource)
-                    {
-                        IntPtr webViewHwnd = hwndSource.Handle;
-                        
-                        if (webViewHwnd != IntPtr.Zero)
-                        {
-                            uint affinity = visibleInScreenshots ? WDA_NONE : WDA_EXCLUDEFROMCAPTURE;
-                            bool success = SetWindowDisplayAffinity(webViewHwnd, affinity);
-                            
-                            if (success)
-                            {
-                                Console.WriteLine($"MainWindow WebView2 excluded from screen capture successfully (HWND: {webViewHwnd})");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Failed to set MainWindow WebView2 capture mode. Last error: {Marshal.GetLastWin32Error()}");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("MainWindow WebView2 HWND is null");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("MainWindow WebView2: Could not get HwndSource, WebView2 may share parent window HWND");
-                        // WebView2 shares the parent window's HWND, so we don't need to do anything special
-                        // The translucent/transparent parts won't be captured anyway
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error setting MainWindow WebView2 capture mode: {ex.Message}");
-            }
+            WindowCaptureHelper.SetWebView2ExcludeFromCapture(textOverlayWebView, "MainWindow");
         }
         
         private void ExcludeContextMenuFromCapture(System.Windows.Controls.ContextMenu contextMenu)
@@ -3164,7 +2995,7 @@ namespace UGTLive
                             
                             if (popupHwnd != IntPtr.Zero)
                             {
-                                bool success = SetWindowDisplayAffinity(popupHwnd, WDA_EXCLUDEFROMCAPTURE);
+                                bool success = NativeMethods.SetWindowDisplayAffinity(popupHwnd, NativeMethods.WDA_EXCLUDEFROMCAPTURE);
                                 
                                 if (success)
                                 {
@@ -3211,7 +3042,7 @@ namespace UGTLive
                             var source = PresentationSource.FromVisual(popup.Child);
                             if (source is HwndSource hwndSource && hwndSource.Handle != IntPtr.Zero)
                             {
-                                bool success = SetWindowDisplayAffinity(hwndSource.Handle, WDA_EXCLUDEFROMCAPTURE);
+                                bool success = NativeMethods.SetWindowDisplayAffinity(hwndSource.Handle, NativeMethods.WDA_EXCLUDEFROMCAPTURE);
                                 Console.WriteLine(success
                                     ? $"Submenu popup excluded from capture (HWND: {hwndSource.Handle})"
                                     : $"Failed to exclude submenu popup. Error: {Marshal.GetLastWin32Error()}");
@@ -3249,10 +3080,10 @@ namespace UGTLive
                 IntPtr foundPopup = IntPtr.Zero;
                 
                 // Look for popup windows by checking child windows
-                EnumChildWindows(mainHwnd, (hWnd, lParam) =>
+                NativeMethods.EnumChildWindows(mainHwnd, (hWnd, lParam) =>
                 {
                     StringBuilder className = new StringBuilder(256);
-                    GetClassName(hWnd, className, className.Capacity);
+                    NativeMethods.GetClassName(hWnd, className, className.Capacity);
                     
                     // WPF popup windows might have class names like "#32768" (menu class) or other popup classes
                     string classNameStr = className.ToString();
@@ -3267,7 +3098,7 @@ namespace UGTLive
                 
                 if (foundPopup != IntPtr.Zero)
                 {
-                    bool success = SetWindowDisplayAffinity(foundPopup, WDA_EXCLUDEFROMCAPTURE);
+                    bool success = NativeMethods.SetWindowDisplayAffinity(foundPopup, NativeMethods.WDA_EXCLUDEFROMCAPTURE);
                     if (success)
                     {
                         Console.WriteLine($"Context menu popup found and excluded from screen capture (HWND: {foundPopup})");
@@ -3280,21 +3111,6 @@ namespace UGTLive
             }
         }
         
-        // Win32 API for finding popup windows
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-        
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-        
-        private const uint GW_CHILD = 5;
-        private const uint GW_HWNDNEXT = 2;
-        
-        // Win32 API for enumerating child windows
-        [DllImport("user32.dll")]
-        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
-        
-        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
         
         public void UpdateCaptureExclusion()
         {
@@ -3950,7 +3766,7 @@ namespace UGTLive
                         // So: CSS * virtualDpi * textScale * (actual/virtualized) = actual physical
                         // Simplifies to: CSS * actual * textScale = actual physical
                         // Therefore: CSS = actual_physical / (actual_dpi * textScale)
-                        double textScale = GetWindowsTextScaleFactor();
+                        double textScale = DisplayHelper.GetWindowsTextScaleFactor();
                         double actualDpiScale = GetActualDpiScale();
                         double combinedScale = textScale * actualDpiScale;
                         double left = (textObj.X + textObj.OffsetX) / combinedScale;
@@ -4609,7 +4425,7 @@ namespace UGTLive
             IntPtr hwnd = helper.Handle;
             if (hwnd != IntPtr.Zero)
             {
-                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, 0, 0, 0, 0, NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
             }
             _toolbarWindow?.BringToFront();
         }
@@ -4783,7 +4599,7 @@ namespace UGTLive
                         TextObject? textObj = GetMainWindowTextObjectById(textObjectId);
                         if (textObj != null)
                         {
-                            double textScl = GetWindowsTextScaleFactor();
+                            double textScl = DisplayHelper.GetWindowsTextScaleFactor();
                             double actualDpi = GetActualDpiScale();
                             double scale = textScl * actualDpi;
                             textObj.OffsetX += deltaX * scale;
@@ -4803,7 +4619,7 @@ namespace UGTLive
                         TextObject? textObj = GetMainWindowTextObjectById(textObjectId);
                         if (textObj != null)
                         {
-                            double textScl = GetWindowsTextScaleFactor();
+                            double textScl = DisplayHelper.GetWindowsTextScaleFactor();
                             double actualDpi = GetActualDpiScale();
                             double scale = textScl * actualDpi;
                             textObj.OffsetX += deltaX * scale;
@@ -4826,7 +4642,7 @@ namespace UGTLive
                         TextObject? textObj = GetMainWindowTextObjectById(textObjectId);
                         if (textObj != null && fontSize > 0)
                         {
-                            double textScl = GetWindowsTextScaleFactor();
+                            double textScl = DisplayHelper.GetWindowsTextScaleFactor();
                             double actualDpi = GetActualDpiScale();
                             textObj.LastAutoFitSize = fontSize * textScl * actualDpi;
                         }

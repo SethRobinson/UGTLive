@@ -196,7 +196,7 @@ namespace UGTLive
                                     Console.WriteLine($"Audio saved to {audioFile}, playing...");
                                     
                                     // Play the audio file
-                                    PlayAudioFile(audioFile);
+                                    AudioHelper.PlayAndDeleteTempFile(audioFile);
                                     
                                     return true;
                                 }
@@ -411,88 +411,5 @@ namespace UGTLive
             }
         }
         
-        private void PlayAudioFile(string filePath)
-        {
-            try
-            {
-                // Use a separate thread for audio playback to not block the UI
-                Task.Run(() =>
-                {
-                    IWavePlayer? wavePlayer = null;
-                    AudioFileReader? audioFile = null;
-                    ManualResetEvent playbackFinished = new ManualResetEvent(false);
-
-                    try
-                    {
-                        // Create a WaveOut device
-                        wavePlayer = new WaveOutEvent();
-                        wavePlayer.PlaybackStopped += (sender, args) =>
-                        {
-                            playbackFinished.Set(); // Signal when playback ends
-                        };
-
-                        // Open the audio file
-                        audioFile = new AudioFileReader(filePath);
-                        
-                        // Hook up the audio file to the WaveOut device
-                        wavePlayer.Init(audioFile);
-                        
-                        // Start playback
-                        Console.WriteLine($"Starting audio playback of file: {filePath}");
-                        wavePlayer.Play();
-                        
-                        // Wait for playback to complete
-                        playbackFinished.WaitOne();
-                        
-                        // Close resources properly
-                        wavePlayer.Stop();
-                        
-                        Console.WriteLine("Audio playback completed successfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error playing audio file: {ex.Message}");
-                        
-                        // Show a message to the user
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            MessageBox.Show($"Error playing audio: {ex.Message}",
-                                "Audio Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        });
-                    }
-                    finally
-                    {
-                        // Clean up resources
-                        if (wavePlayer != null)
-                        {
-                            wavePlayer.Dispose();
-                        }
-                        
-                        if (audioFile != null)
-                        {
-                            audioFile.Dispose();
-                        }
-                        
-                        // Delete the temp file
-                        try
-                        {
-                            if (File.Exists(filePath))
-                            {
-                                File.Delete(filePath);
-                                Console.WriteLine($"Temp audio file deleted: {filePath}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Failed to delete temp audio file: {ex.Message}");
-                        }
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error starting audio playback thread: {ex.Message}");
-            }
-        }
     }
 }

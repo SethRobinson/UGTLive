@@ -13,7 +13,7 @@
     <OutputPath>app</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <RootNamespace>WPFScreenCapture</RootNamespace>
+    <RootNamespace>UGTLive</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>media\Icon1.ico</ApplicationIcon>
