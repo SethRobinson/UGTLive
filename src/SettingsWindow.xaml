@@ -7,8 +7,8 @@
     xmlns:local="clr-namespace:UGTLive"
     mc:Ignorable="d"
     Title="Settings"
-    Height="560"
-    Width="870"
+    Height="620"
+    Width="920"
     WindowStyle="SingleBorderWindow"
     ResizeMode="CanResizeWithGrip"
     Icon="/media/Icon1.ico">
@@ -1001,6 +1001,9 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Override BG Color Checkbox -->
@@ -1135,6 +1138,32 @@
                                 <TextBox x:Name="textOverlayBorderRadiusTextBox" Grid.Row="13" Grid.Column="1" 
                                         Margin="0,5" Text="8" LostFocus="TextOverlayBorderRadiusTextBox_LostFocus"
                                         ToolTip="Border radius for text overlay backgrounds. Higher values create more rounded corners, better for speech bubbles."/>
+                                
+                                <!-- Text Alignment Header -->
+                                <TextBlock Text="Default Text Alignment" Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
+                                          FontWeight="Bold" Margin="0,10,0,5"/>
+                                
+                                <!-- Horizontal Alignment -->
+                                <TextBlock Text="Horizontal:" Grid.Row="15" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Default horizontal text alignment within overlay boxes"/>
+                                <ComboBox x:Name="textOverlayHAlignComboBox" Grid.Row="15" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="TextOverlayHAlignComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Left" Tag="left"/>
+                                    <ComboBoxItem Content="Center" Tag="center"/>
+                                    <ComboBoxItem Content="Right" Tag="right"/>
+                                </ComboBox>
+                                
+                                <!-- Vertical Alignment -->
+                                <TextBlock Text="Vertical:" Grid.Row="16" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Default vertical text alignment within overlay boxes"/>
+                                <ComboBox x:Name="textOverlayVAlignComboBox" Grid.Row="16" Grid.Column="1" 
+                                         Margin="0,5" SelectionChanged="TextOverlayVAlignComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Top" Tag="top"/>
+                                    <ComboBoxItem Content="Center" Tag="center"/>
+                                    <ComboBoxItem Content="Bottom" Tag="bottom"/>
+                                </ComboBox>
                             </Grid>
                         </GroupBox>
                     </StackPanel>
@@ -1664,22 +1693,22 @@
                                             </ListView>
                                             
                                             <!-- Buttons -->
-                                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <WrapPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,10,0,0">
                                                 <Button x:Name="addKeyboardBindingButton" Content="Add Keyboard Binding" 
-                                                       Margin="0,0,5,0" Padding="10,5" Click="AddKeyboardBindingButton_Click"/>
+                                                       Margin="0,0,5,5" Padding="10,5" Click="AddKeyboardBindingButton_Click"/>
                                                 <Button x:Name="addGamepadBindingButton" Content="Add Gamepad Binding" 
-                                                       Margin="0,0,5,0" Padding="10,5" Click="AddGamepadBindingButton_Click"/>
+                                                       Margin="0,0,5,5" Padding="10,5" Click="AddGamepadBindingButton_Click"/>
                                                 <Button x:Name="removeBindingButton" Content="Remove Binding" 
-                                                       Margin="0,0,0,0" Padding="10,5" Click="RemoveBindingButton_Click"/>
-                                            </StackPanel>
+                                                       Margin="0,0,0,5" Padding="10,5" Click="RemoveBindingButton_Click"/>
+                                            </WrapPanel>
                                         </Grid>
                                     </GroupBox>
                                 </Grid>
                                 
                                 <!-- Reset button -->
-                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,10,0">
                                     <Button x:Name="resetHotkeysButton" Content="Reset All to Defaults" 
-                                           Padding="10,5" Width="150" Click="ResetHotkeysButton_Click"/>
+                                           Padding="10,5" Width="180" Click="ResetHotkeysButton_Click"/>
                                 </StackPanel>
                             </Grid>
                         </GroupBox>

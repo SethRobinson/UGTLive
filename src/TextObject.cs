@@ -26,6 +26,14 @@ namespace UGTLive
         public double CaptureX { get; set; }
         public double CaptureY { get; set; }
         
+        // Edit mode properties: per-bubble overrides (null = use global default)
+        public double? FontSizeOverride { get; set; }
+        public double LastAutoFitSize { get; set; }
+        public string? HorizontalAlignmentOverride { get; set; }
+        public string? VerticalAlignmentOverride { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+
         // Audio properties for TTS preloading
         public string? SourceAudioFilePath { get; set; }
         public string? TargetAudioFilePath { get; set; }

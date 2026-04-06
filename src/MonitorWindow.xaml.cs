@@ -141,6 +141,7 @@ namespace UGTLive
                 
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
+            this.PreviewKeyUp += Application_KeyUp;
             
             // Subscribe to centralized status updates
             TranslationStatus.StatusChanged += OnStatusChanged;
@@ -263,6 +264,8 @@ namespace UGTLive
             // Make sure keyboard shortcuts work from this window too
             PreviewKeyDown -= Application_KeyDown;
             PreviewKeyDown += Application_KeyDown;
+            PreviewKeyUp -= Application_KeyUp;
+            PreviewKeyUp += Application_KeyUp;
             
             // Hook into Windows messages to intercept WM_MOUSEWHEEL before WebView2 handles it
             HwndSource source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
@@ -799,7 +802,11 @@ namespace UGTLive
             html.AppendLine("  margin: 0;");
             html.AppendLine("  line-height: 1.1;"); // Slightly increase line height for better readability
             html.AppendLine("  display: flex;");
-            html.AppendLine("  align-items: center;");
+            
+            // Apply default vertical alignment from config
+            string defaultVAlign = ConfigManager.Instance.GetTextOverlayVerticalAlignment();
+            string vAlignCss = defaultVAlign == "top" ? "flex-start" : defaultVAlign == "bottom" ? "flex-end" : "center";
+            html.AppendLine($"  align-items: {vAlignCss};");
             html.AppendLine("  justify-content: flex-start;");
             html.AppendLine("  pointer-events: auto;");
             html.AppendLine("  user-select: text;");
@@ -815,11 +822,61 @@ namespace UGTLive
             html.AppendLine(".text-content {");
             html.AppendLine("  flex: 1;"); // Take up all available space
             html.AppendLine("  display: flex;");
-            html.AppendLine("  align-items: center;");
-            html.AppendLine("  justify-content: center;");
+            html.AppendLine("  align-items: inherit;");
+            
+            // Apply default horizontal alignment from config
+            string defaultHAlign = ConfigManager.Instance.GetTextOverlayHorizontalAlignment();
+            string hAlignFlex = defaultHAlign == "left" ? "flex-start" : defaultHAlign == "right" ? "flex-end" : "center";
+            html.AppendLine($"  justify-content: {hAlignFlex};");
+            html.AppendLine($"  text-align: {defaultHAlign};");
             html.AppendLine("  width: 100%;");
             html.AppendLine("  height: 100%;");
+            html.AppendLine("  outline: none;");
             html.AppendLine("}");
+            
+            // Edit mode styles - always emit so Ctrl-drag works even when edit mode is off
+            bool editMode = ConfigManager.Instance.GetEditModeEnabled();
+            {
+                html.AppendLine(".text-overlay.edit-mode {");
+                html.AppendLine("  border: 1px dashed rgba(255, 255, 0, 0.7);");
+                html.AppendLine("}");
+                html.AppendLine(".text-overlay.edit-mode.drag-active {");
+                html.AppendLine("  cursor: move;");
+                html.AppendLine("  user-select: none;");
+                html.AppendLine("}");
+                html.AppendLine(".text-overlay.edit-mode.drag-active .text-content {");
+                html.AppendLine("  pointer-events: none;");
+                html.AppendLine("}");
+                html.AppendLine(".text-overlay.edit-mode:hover {");
+                html.AppendLine("  border-color: rgba(255, 255, 0, 1.0);");
+                html.AppendLine("}");
+                html.AppendLine(".text-overlay.edit-mode.dragging {");
+                html.AppendLine("  opacity: 0.8;");
+                html.AppendLine("  z-index: 9999;");
+                html.AppendLine("}");
+                html.AppendLine(".resize-handle {");
+                html.AppendLine("  position: absolute;");
+                html.AppendLine("  width: 8px;");
+                html.AppendLine("  height: 8px;");
+                html.AppendLine("  background: rgba(255, 255, 0, 0.9);");
+                html.AppendLine("  border: 1px solid rgba(0, 0, 0, 0.5);");
+                html.AppendLine("  z-index: 10;");
+                html.AppendLine("  pointer-events: none;");
+                html.AppendLine("  display: none;");
+                html.AppendLine("}");
+                html.AppendLine(".edit-mode .resize-handle {");
+                html.AppendLine("  display: block;");
+                html.AppendLine("  pointer-events: auto;");
+                html.AppendLine("}");
+                html.AppendLine(".resize-handle.nw { top: -4px; left: -4px; cursor: nw-resize; }");
+                html.AppendLine(".resize-handle.ne { top: -4px; right: -4px; cursor: ne-resize; }");
+                html.AppendLine(".resize-handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }");
+                html.AppendLine(".resize-handle.se { bottom: -4px; right: -4px; cursor: se-resize; }");
+                html.AppendLine(".text-overlay.edit-mode.focused {");
+                html.AppendLine("  border-color: rgba(0, 200, 255, 1.0);");
+                html.AppendLine("  box-shadow: 0 0 6px rgba(0, 200, 255, 0.6);");
+                html.AppendLine("}");
+            }
             html.AppendLine(".audio-icon {");
             html.AppendLine("  position: absolute;");
             html.AppendLine("  top: 0px;"); // Align with top of text box
@@ -887,6 +944,14 @@ namespace UGTLive
             html.AppendLine("  const computedStyle = window.getComputedStyle(sizeRef);");
             html.AppendLine("  const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
             html.AppendLine("  ");
+            html.AppendLine("  // Temporarily force align-items to flex-start during measurement.");
+            html.AppendLine("  // When align-items is flex-end/center, overflow goes in the negative");
+            html.AppendLine("  // direction and scrollHeight doesn't detect it, breaking the binary search.");
+            html.AppendLine("  const origAlignItems = element.style.alignItems;");
+            html.AppendLine("  const origJustifyContent = element.style.justifyContent;");
+            html.AppendLine("  element.style.alignItems = 'flex-start';");
+            html.AppendLine("  element.style.justifyContent = 'flex-start';");
+            html.AppendLine("  ");
             html.AppendLine("  // Calculate initial font size based on box dimensions");
             html.AppendLine("  // Use height for horizontal text, width for vertical text");
             html.AppendLine("  const boxHeight = sizeRef.clientHeight;");
@@ -921,16 +986,33 @@ namespace UGTLive
             html.AppendLine("    }");
             html.AppendLine("  }");
             html.AppendLine("  ");
-            html.AppendLine("  // Apply the best size found");
+            html.AppendLine("  // Apply the best size found and restore alignment");
             html.AppendLine("  element.style.fontSize = bestSize + 'px';");
+            html.AppendLine("  element.style.alignItems = origAlignItems;");
+            html.AppendLine("  element.style.justifyContent = origJustifyContent;");
             html.AppendLine("}");
             html.AppendLine("");
             html.AppendLine("window.addEventListener('load', function() {");
             html.AppendLine("  const overlays = document.querySelectorAll('.text-overlay');");
             html.AppendLine("  overlays.forEach(overlay => {");
             html.AppendLine("    const textContent = overlay.querySelector('.text-content');");
-            html.AppendLine("    if (textContent) fitTextToBox(textContent, overlay);");
-            html.AppendLine("    else fitTextToBox(overlay); // Fallback for overlays without text-content wrapper");
+            html.AppendLine("    if (overlay.hasAttribute('data-font-size-override')) {");
+            html.AppendLine("      const overrideSize = parseFloat(overlay.getAttribute('data-font-size-override'));");
+            html.AppendLine("      if (textContent) textContent.style.fontSize = overrideSize + 'px';");
+            html.AppendLine("      else overlay.style.fontSize = overrideSize + 'px';");
+            html.AppendLine("    } else {");
+            html.AppendLine("      if (textContent) fitTextToBox(textContent, overlay);");
+            html.AppendLine("      else fitTextToBox(overlay);");
+            html.AppendLine("      const el = textContent || overlay;");
+            html.AppendLine("      const computedSize = parseFloat(window.getComputedStyle(el).fontSize);");
+            html.AppendLine("      if (computedSize && window.chrome && window.chrome.webview) {");
+            html.AppendLine("        window.chrome.webview.postMessage(JSON.stringify({");
+            html.AppendLine("          kind: 'autoFitSize',");
+            html.AppendLine("          textObjectId: overlay.id.replace('overlay-', ''),");
+            html.AppendLine("          fontSize: computedSize");
+            html.AppendLine("        }));");
+            html.AppendLine("      }");
+            html.AppendLine("    }");
             html.AppendLine("  });");
             html.AppendLine("});");
             html.AppendLine("");
@@ -1036,6 +1118,146 @@ namespace UGTLive
             html.AppendLine("  icon.setAttribute('onclick', 'handleAudioIconClick(\"' + textObjectId + '\", ' + isSourceForClick + ')');");
             html.AppendLine("}");
             html.AppendLine("");
+            
+            // Editable text: on blur, send updated text back to C#
+            html.AppendLine("document.addEventListener('blur', function(event) {");
+            html.AppendLine("  if (!event.target.classList.contains('text-content') || !event.target.isContentEditable) return;");
+            html.AppendLine("  let overlay = event.target.closest('.text-overlay');");
+            html.AppendLine("  if (!overlay) return;");
+            html.AppendLine("  const message = {");
+            html.AppendLine("    kind: 'editText',");
+            html.AppendLine("    textObjectId: overlay.id.replace('overlay-', ''),");
+            html.AppendLine("    newText: event.target.innerText");
+            html.AppendLine("  };");
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("  }");
+            html.AppendLine("}, true);");
+            html.AppendLine("");
+            
+            // Intercept Tab key to always cycle overlay mode instead of focus-cycling contenteditable elements
+            html.AppendLine("document.addEventListener('keydown', function(e) {");
+            html.AppendLine("  if (e.key === 'Tab') {");
+            html.AppendLine("    e.preventDefault();");
+            html.AppendLine("    e.stopPropagation();");
+            html.AppendLine("    if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify({ kind: 'tabKey' }));");
+            html.AppendLine("    }");
+            html.AppendLine("  }");
+            html.AppendLine("}, true);");
+            
+            // Focus tracking: when a text overlay gets focus (click/tap), notify C# and highlight it
+            html.AppendLine("document.addEventListener('mousedown', function(event) {");
+            html.AppendLine("  let overlay = event.target.closest('.text-overlay');");
+            html.AppendLine("  document.querySelectorAll('.text-overlay.focused').forEach(el => el.classList.remove('focused'));");
+            html.AppendLine("  if (overlay) {");
+            html.AppendLine("    overlay.classList.add('focused');");
+            html.AppendLine("    const message = { kind: 'focusOverlay', textObjectId: overlay.id.replace('overlay-', '') };");
+            html.AppendLine("    if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(JSON.stringify(message));");
+            html.AppendLine("  }");
+            html.AppendLine("});");
+            html.AppendLine("");
+            // Ctrl+drag to move, corner handles to resize, normal click to edit text
+            // Always emitted: when edit mode is off, holding Ctrl temporarily enables drag
+            {
+                html.AppendLine($"let persistentEditMode = {(editMode ? "true" : "false")};");
+                html.AppendLine("let ctrlHeld = false;");
+                html.AppendLine("document.addEventListener('keydown', function(e) {");
+                html.AppendLine("  if (e.key === 'Control' && !ctrlHeld) {");
+                html.AppendLine("    ctrlHeld = true;");
+                html.AppendLine("    if (!e._synthetic && window.chrome && window.chrome.webview)");
+                html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify({ kind: 'ctrlKey', down: true }));");
+                html.AppendLine("    if (!persistentEditMode) {");
+                html.AppendLine("      document.querySelectorAll('.text-overlay').forEach(el => el.classList.add('edit-mode'));");
+                html.AppendLine("    }");
+                html.AppendLine("    document.querySelectorAll('.text-overlay.edit-mode').forEach(el => el.classList.add('drag-active'));");
+                html.AppendLine("  }");
+                html.AppendLine("});");
+                html.AppendLine("document.addEventListener('keyup', function(e) {");
+                html.AppendLine("  if (e.key === 'Control') {");
+                html.AppendLine("    ctrlHeld = false;");
+                html.AppendLine("    if (!e._synthetic && window.chrome && window.chrome.webview)");
+                html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify({ kind: 'ctrlKey', down: false }));");
+                html.AppendLine("    if (!dragState) {");
+                html.AppendLine("      document.querySelectorAll('.text-overlay.edit-mode').forEach(el => el.classList.remove('drag-active'));");
+                html.AppendLine("      if (!persistentEditMode) {");
+                html.AppendLine("        document.querySelectorAll('.text-overlay').forEach(el => el.classList.remove('edit-mode'));");
+                html.AppendLine("      }");
+                html.AppendLine("    }");
+                html.AppendLine("  }");
+                html.AppendLine("});");
+                html.AppendLine("let dragState = null;");
+                html.AppendLine("document.addEventListener('mousedown', function(event) {");
+                html.AppendLine("  const handle = event.target.closest('.resize-handle');");
+                html.AppendLine("  const overlay = event.target.closest('.text-overlay.edit-mode');");
+                html.AppendLine("  if (!overlay) return;");
+                html.AppendLine("  if (!handle && !ctrlHeld) return;");
+                html.AppendLine("  event.preventDefault();");
+                html.AppendLine("  event.stopPropagation();");
+                html.AppendLine("  const container = document.getElementById('scroll-container');");
+                html.AppendLine("  const scale = container ? parseFloat(container.style.transform.match(/scale\\(([^)]+)\\)/)?.[1] || 1) : 1;");
+                html.AppendLine("  dragState = {");
+                html.AppendLine("    el: overlay,");
+                html.AppendLine("    scale: scale,");
+                html.AppendLine("    startX: event.clientX,");
+                html.AppendLine("    startY: event.clientY,");
+                html.AppendLine("    origLeft: parseFloat(overlay.style.left),");
+                html.AppendLine("    origTop: parseFloat(overlay.style.top),");
+                html.AppendLine("    origWidth: parseFloat(overlay.style.width),");
+                html.AppendLine("    origHeight: parseFloat(overlay.style.height),");
+                html.AppendLine("    mode: handle ? handle.dataset.dir : 'move'");
+                html.AppendLine("  };");
+                html.AppendLine("  overlay.classList.add('dragging');");
+                html.AppendLine("});");
+                html.AppendLine("document.addEventListener('mousemove', function(event) {");
+                html.AppendLine("  if (!dragState) return;");
+                html.AppendLine("  const dx = (event.clientX - dragState.startX) / dragState.scale;");
+                html.AppendLine("  const dy = (event.clientY - dragState.startY) / dragState.scale;");
+                html.AppendLine("  const m = dragState.mode;");
+                html.AppendLine("  if (m === 'move') {");
+                html.AppendLine("    dragState.el.style.left = (dragState.origLeft + dx) + 'px';");
+                html.AppendLine("    dragState.el.style.top = (dragState.origTop + dy) + 'px';");
+                html.AppendLine("  } else {");
+                html.AppendLine("    let l = dragState.origLeft, t = dragState.origTop, w = dragState.origWidth, h = dragState.origHeight;");
+                html.AppendLine("    if (m.includes('e')) w = Math.max(20, w + dx);");
+                html.AppendLine("    if (m.includes('s')) h = Math.max(20, h + dy);");
+                html.AppendLine("    if (m.includes('w')) { l += dx; w = Math.max(20, w - dx); }");
+                html.AppendLine("    if (m.includes('n')) { t += dy; h = Math.max(20, h - dy); }");
+                html.AppendLine("    dragState.el.style.left = l + 'px'; dragState.el.style.top = t + 'px';");
+                html.AppendLine("    dragState.el.style.width = w + 'px'; dragState.el.style.height = h + 'px';");
+                html.AppendLine("  }");
+                html.AppendLine("});");
+                html.AppendLine("document.addEventListener('mouseup', function(event) {");
+                html.AppendLine("  if (!dragState) return;");
+                html.AppendLine("  dragState.el.classList.remove('dragging');");
+                html.AppendLine("  if (!ctrlHeld) {");
+                html.AppendLine("    document.querySelectorAll('.text-overlay.edit-mode').forEach(el => el.classList.remove('drag-active'));");
+                html.AppendLine("    if (!persistentEditMode) {");
+                html.AppendLine("      document.querySelectorAll('.text-overlay').forEach(el => el.classList.remove('edit-mode'));");
+                html.AppendLine("    }");
+                html.AppendLine("  }");
+                html.AppendLine("  const newLeft = parseFloat(dragState.el.style.left);");
+                html.AppendLine("  const newTop = parseFloat(dragState.el.style.top);");
+                html.AppendLine("  const newW = parseFloat(dragState.el.style.width);");
+                html.AppendLine("  const newH = parseFloat(dragState.el.style.height);");
+                html.AppendLine("  const dxPos = newLeft - dragState.origLeft;");
+                html.AppendLine("  const dyPos = newTop - dragState.origTop;");
+                html.AppendLine("  const dw = newW - dragState.origWidth;");
+                html.AppendLine("  const dh = newH - dragState.origHeight;");
+                html.AppendLine("  if (Math.abs(dxPos) > 1 || Math.abs(dyPos) > 1 || Math.abs(dw) > 1 || Math.abs(dh) > 1) {");
+                html.AppendLine("    const message = {");
+                html.AppendLine("      kind: dragState.mode === 'move' ? 'dragMove' : 'dragResize',");
+                html.AppendLine("      textObjectId: dragState.el.id.replace('overlay-', ''),");
+                html.AppendLine("      deltaX: dxPos, deltaY: dyPos, deltaW: dw, deltaH: dh");
+                html.AppendLine("    };");
+                html.AppendLine("    if (window.chrome && window.chrome.webview) {");
+                html.AppendLine("      window.chrome.webview.postMessage(JSON.stringify(message));");
+                html.AppendLine("    }");
+                html.AppendLine("  }");
+                html.AppendLine("  dragState = null;");
+                html.AppendLine("});");
+            }
+            
             html.AppendLine("document.addEventListener('contextmenu', function(event) {");
             html.AppendLine("  try {");
             html.AppendLine("    // Find which text overlay was clicked");
@@ -1161,14 +1383,20 @@ namespace UGTLive
                         
                         // Position overlays in raw image-pixel coordinates;
                         // zoom + DPI/text-scale mapping is handled by the scroll-container CSS transform
-                        double left = textObj.X;
-                        double top = textObj.Y;
+                        double left = textObj.X + textObj.OffsetX;
+                        double top = textObj.Y + textObj.OffsetY;
                         double width = textObj.Width;
                         double height = textObj.Height;
                         
                         // Calculate initial font size based on box height (will be refined by JavaScript)
                         // Use 70% of height as a starting point, ensuring it's reasonable
                         double initialFontSize = Math.Max(8, Math.Min(128, height * 0.7));
+                        
+                        // Per-bubble alignment overrides
+                        string bubbleVAlign = textObj.VerticalAlignmentOverride ?? defaultVAlign;
+                        string bubbleHAlign = textObj.HorizontalAlignmentOverride ?? defaultHAlign;
+                        string bubbleVAlignCss = bubbleVAlign == "top" ? "flex-start" : bubbleVAlign == "bottom" ? "flex-end" : "center";
+                        string bubbleHAlignFlex = bubbleHAlign == "left" ? "flex-start" : bubbleHAlign == "right" ? "flex-end" : "center";
                         
                         // Build the inline style string with box-shadow for semi-transparent background
                         // (WebView2 doesn't support rgba() on background-color, but DOES on box-shadow)
@@ -1180,14 +1408,24 @@ namespace UGTLive
                             $"color: rgb({textColor.R},{textColor.G},{textColor.B}); " +
                             $"font-family: {fontFamilyCss}; " +
                             $"font-weight: {(isBold ? "bold" : "normal")}; " +
+                            $"align-items: {bubbleVAlignCss}; " +
                             FormattableString.Invariant($"font-size: {initialFontSize}px;");
                         
                         string cssClass = displayOrientation == "vertical" ? "text-overlay vertical-text" : "text-overlay";
+                        if (editMode)
+                        {
+                            cssClass += " edit-mode";
+                        }
                         html.Append($"<div id='overlay-{textObj.ID}' class='{cssClass}' style='{styleAttr}' ");
                         html.Append($"data-source-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.SourceAudioFilePath ?? "")}' ");
                         html.Append($"data-target-audio='{System.Web.HttpUtility.HtmlAttributeEncode(textObj.TargetAudioFilePath ?? "")}' ");
                         html.Append($"data-source-ready='{textObj.SourceAudioReady.ToString().ToLower()}' ");
-                        html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'>");
+                        html.Append($"data-target-ready='{textObj.TargetAudioReady.ToString().ToLower()}'");
+                        if (textObj.FontSizeOverride.HasValue)
+                        {
+                            html.Append(FormattableString.Invariant($" data-font-size-override='{textObj.FontSizeOverride.Value}'"));
+                        }
+                        html.Append(">");
                         
                         // Add speaker icon - show if preload is enabled
                         bool isTtsPreloadEnabled = ConfigManager.Instance.IsTtsPreloadEnabled();
@@ -1235,8 +1473,16 @@ namespace UGTLive
                             }
                         }
                         
-                        // Wrap text in span to isolate it from audio icon in flex layout
-                        html.Append($"<span class='text-content'>{encodedText}</span>");
+                        // Wrap text in span with per-bubble alignment and contenteditable
+                        string contentEditableAttr = " contenteditable='true'";
+                        string spanStyle = $"justify-content: {bubbleHAlignFlex}; text-align: {bubbleHAlign};";
+                        html.Append($"<span class='text-content' style='{spanStyle}'{contentEditableAttr}>{encodedText}</span>");
+                        
+                        // Resize handles - always in DOM, shown/hidden via CSS based on .edit-mode class
+                        html.Append("<div class='resize-handle nw' data-dir='nw'></div>");
+                        html.Append("<div class='resize-handle ne' data-dir='ne'></div>");
+                        html.Append("<div class='resize-handle sw' data-dir='sw'></div>");
+                        html.Append("<div class='resize-handle se' data-dir='se'></div>");
                         html.AppendLine("</div>");
                     }
                 }
@@ -1251,6 +1497,7 @@ namespace UGTLive
         
         private string? _currentContextMenuTextObjectId;
         private string? _currentContextMenuSelection;
+        private string? _focusedTextObjectId;
         
         private void OverlayWebView_WebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
         {
@@ -1304,6 +1551,93 @@ namespace UGTLive
                         {
                             UpdateAudioIconInWebView(textObjectId, false);
                         }
+                    }
+                    else if (kind == "editText")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idEl)
+                            ? idEl.GetString() ?? string.Empty : string.Empty;
+                        string newText = root.TryGetProperty("newText", out System.Text.Json.JsonElement textEl)
+                            ? textEl.GetString() ?? string.Empty : string.Empty;
+                        
+                        TextObject? textObj = GetTextObjectById(textObjectId);
+                        if (textObj != null && !string.IsNullOrEmpty(newText))
+                        {
+                            if (_currentOverlayMode == OverlayMode.Translated && !string.IsNullOrEmpty(textObj.TextTranslated))
+                            {
+                                textObj.TextTranslated = newText.Trim();
+                            }
+                            else
+                            {
+                                textObj.Text = newText.Trim();
+                            }
+                            MainWindow.Instance?.RefreshMainWindowOverlays();
+                        }
+                    }
+                    else if (kind == "dragMove")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idEl2)
+                            ? idEl2.GetString() ?? string.Empty : string.Empty;
+                        double deltaX = root.TryGetProperty("deltaX", out System.Text.Json.JsonElement dxEl) ? dxEl.GetDouble() : 0;
+                        double deltaY = root.TryGetProperty("deltaY", out System.Text.Json.JsonElement dyEl) ? dyEl.GetDouble() : 0;
+                        
+                        TextObject? textObj = GetTextObjectById(textObjectId);
+                        if (textObj != null)
+                        {
+                            textObj.OffsetX += deltaX;
+                            textObj.OffsetY += deltaY;
+                            MainWindow.Instance?.RefreshMainWindowOverlays();
+                        }
+                    }
+                    else if (kind == "dragResize")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idEl3)
+                            ? idEl3.GetString() ?? string.Empty : string.Empty;
+                        double deltaX = root.TryGetProperty("deltaX", out System.Text.Json.JsonElement dxEl2) ? dxEl2.GetDouble() : 0;
+                        double deltaY = root.TryGetProperty("deltaY", out System.Text.Json.JsonElement dyEl2) ? dyEl2.GetDouble() : 0;
+                        double deltaW = root.TryGetProperty("deltaW", out System.Text.Json.JsonElement dwEl) ? dwEl.GetDouble() : 0;
+                        double deltaH = root.TryGetProperty("deltaH", out System.Text.Json.JsonElement dhEl) ? dhEl.GetDouble() : 0;
+                        
+                        TextObject? textObj = GetTextObjectById(textObjectId);
+                        if (textObj != null)
+                        {
+                            textObj.OffsetX += deltaX;
+                            textObj.OffsetY += deltaY;
+                            textObj.Width = Math.Max(20, textObj.Width + deltaW);
+                            textObj.Height = Math.Max(20, textObj.Height + deltaH);
+                            textObj.FontSizeOverride = null;
+                            textObj.LastAutoFitSize = 0;
+                            _lastOverlayHtml = null;
+                            RefreshOverlays();
+                            MainWindow.Instance?.RefreshMainWindowOverlays();
+                        }
+                    }
+                    else if (kind == "autoFitSize")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idEl3)
+                            ? idEl3.GetString() ?? string.Empty : string.Empty;
+                        double fontSize = root.TryGetProperty("fontSize", out System.Text.Json.JsonElement fsEl) ? fsEl.GetDouble() : 0;
+                        
+                        TextObject? textObj = GetTextObjectById(textObjectId);
+                        if (textObj != null && fontSize > 0)
+                        {
+                            textObj.LastAutoFitSize = fontSize;
+                        }
+                    }
+                    else if (kind == "focusOverlay")
+                    {
+                        string textObjectId = root.TryGetProperty("textObjectId", out System.Text.Json.JsonElement idEl4)
+                            ? idEl4.GetString() ?? string.Empty : string.Empty;
+                        _focusedTextObjectId = textObjectId;
+                        MainWindow.Instance?.SetFocusedTextObjectId(textObjectId);
+                    }
+                    else if (kind == "tabKey")
+                    {
+                        HotkeyManager.Instance.TriggerAction("toggle_overlay_mode");
+                    }
+                    else if (kind == "ctrlKey")
+                    {
+                        bool down = root.TryGetProperty("down", out System.Text.Json.JsonElement downEl) && downEl.GetBoolean();
+                        MainWindow.Instance?.SendCtrlKeyToWebView(down);
                     }
                 }
             }
@@ -1490,6 +1824,85 @@ namespace UGTLive
             // Separator
             contextMenu.Items.Add(new Separator());
             
+            // Font Size submenu
+            MenuItem fontSizeMenu = new MenuItem();
+            fontSizeMenu.Header = "Font Size";
+            
+            MenuItem fontSizeUp = new MenuItem();
+            fontSizeUp.Header = "Increase (+)";
+            fontSizeUp.Click += (s, e) => adjustFontSizeForTextObject(_currentContextMenuTextObjectId, 1.10);
+            fontSizeMenu.Items.Add(fontSizeUp);
+            
+            MenuItem fontSizeDown = new MenuItem();
+            fontSizeDown.Header = "Decrease (-)";
+            fontSizeDown.Click += (s, e) => adjustFontSizeForTextObject(_currentContextMenuTextObjectId, 0.90);
+            fontSizeMenu.Items.Add(fontSizeDown);
+            
+            MenuItem fontSizeReset = new MenuItem();
+            fontSizeReset.Header = "Reset (Auto)";
+            fontSizeReset.Click += (s, e) => resetFontSizeForTextObject(_currentContextMenuTextObjectId);
+            fontSizeMenu.Items.Add(fontSizeReset);
+            
+            contextMenu.Items.Add(fontSizeMenu);
+            
+            // Align submenu
+            MenuItem alignMenu = new MenuItem();
+            alignMenu.Header = "Align";
+            
+            MenuItem alignHLeft = new MenuItem();
+            alignHLeft.Header = "H: Left";
+            alignHLeft.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, "left", null);
+            alignMenu.Items.Add(alignHLeft);
+            
+            MenuItem alignHCenter = new MenuItem();
+            alignHCenter.Header = "H: Center";
+            alignHCenter.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, "center", null);
+            alignMenu.Items.Add(alignHCenter);
+            
+            MenuItem alignHRight = new MenuItem();
+            alignHRight.Header = "H: Right";
+            alignHRight.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, "right", null);
+            alignMenu.Items.Add(alignHRight);
+            
+            alignMenu.Items.Add(new Separator());
+            
+            MenuItem alignVTop = new MenuItem();
+            alignVTop.Header = "V: Top";
+            alignVTop.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, null, "top");
+            alignMenu.Items.Add(alignVTop);
+            
+            MenuItem alignVCenter = new MenuItem();
+            alignVCenter.Header = "V: Center";
+            alignVCenter.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, null, "center");
+            alignMenu.Items.Add(alignVCenter);
+            
+            MenuItem alignVBottom = new MenuItem();
+            alignVBottom.Header = "V: Bottom";
+            alignVBottom.Click += (s, e) => setAlignmentForTextObject(_currentContextMenuTextObjectId, null, "bottom");
+            alignMenu.Items.Add(alignVBottom);
+            
+            alignMenu.Items.Add(new Separator());
+            
+            MenuItem alignReset = new MenuItem();
+            alignReset.Header = "Reset to Default";
+            alignReset.Click += (s, e) =>
+            {
+                TextObject? textObj = GetTextObjectById(_currentContextMenuTextObjectId);
+                if (textObj != null)
+                {
+                    textObj.HorizontalAlignmentOverride = null;
+                    textObj.VerticalAlignmentOverride = null;
+                    RefreshOverlays();
+                    MainWindow.Instance?.RefreshMainWindowOverlays();
+                }
+            };
+            alignMenu.Items.Add(alignReset);
+            
+            contextMenu.Items.Add(alignMenu);
+            
+            // Separator
+            contextMenu.Items.Add(new Separator());
+            
             // Lesson menu item (ChatGPT)
             MenuItem lessonMenuItem = new MenuItem();
             lessonMenuItem.Header = "Lesson";
@@ -1544,6 +1957,51 @@ namespace UGTLive
             
             var textObjects = Logic.Instance.GetTextObjects();
             return textObjects?.FirstOrDefault(t => t.ID == id);
+        }
+        
+        private void adjustFontSizeForTextObject(string? textObjectId, double multiplier)
+        {
+            TextObject? textObj = GetTextObjectById(textObjectId);
+            if (textObj == null) return;
+            
+            double currentSize = textObj.FontSizeOverride 
+                ?? (textObj.LastAutoFitSize > 0 ? textObj.LastAutoFitSize : Math.Max(8, Math.Min(128, textObj.Height * 0.7)));
+            textObj.FontSizeOverride = Math.Max(4, Math.Min(200, currentSize * multiplier));
+            RefreshOverlays();
+            MainWindow.Instance?.RefreshMainWindowOverlays();
+        }
+        
+        private void resetFontSizeForTextObject(string? textObjectId)
+        {
+            TextObject? textObj = GetTextObjectById(textObjectId);
+            if (textObj == null) return;
+            
+            textObj.FontSizeOverride = null;
+            _lastOverlayHtml = null;
+            RefreshOverlays();
+            MainWindow.Instance?.RefreshMainWindowOverlays();
+        }
+        
+        public void AdjustFocusedFontSize(double multiplier)
+        {
+            adjustFontSizeForTextObject(_focusedTextObjectId, multiplier);
+        }
+        
+        public void SetFocusedTextObjectId(string? id)
+        {
+            _focusedTextObjectId = id;
+        }
+        
+        private void setAlignmentForTextObject(string? textObjectId, string? hAlign, string? vAlign)
+
+        {
+            TextObject? textObj = GetTextObjectById(textObjectId);
+            if (textObj == null) return;
+            
+            if (hAlign != null) textObj.HorizontalAlignmentOverride = hAlign;
+            if (vAlign != null) textObj.VerticalAlignmentOverride = vAlign;
+            RefreshOverlays();
+            MainWindow.Instance?.RefreshMainWindowOverlays();
         }
         
         private void OverlayContextMenu_Copy_Click(object sender, RoutedEventArgs e)
@@ -1655,10 +2113,26 @@ namespace UGTLive
             }
         }
         
+        public void SendCtrlKeyToWebView(bool isDown)
+        {
+            if (_overlayWebViewInitialized && textOverlayWebView?.CoreWebView2 != null)
+            {
+                string eventType = isDown ? "keydown" : "keyup";
+                _ = textOverlayWebView.CoreWebView2.ExecuteScriptAsync(
+                    $"(function() {{ var e = new KeyboardEvent('{eventType}', {{ key: 'Control', bubbles: true }}); e._synthetic = true; document.dispatchEvent(e); }})();");
+            }
+        }
+        
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            
+            if (e.Key == System.Windows.Input.Key.LeftCtrl || e.Key == System.Windows.Input.Key.RightCtrl)
+            {
+                SendCtrlKeyToWebView(true);
+                MainWindow.Instance?.SendCtrlKeyToWebView(true);
+            }
             
             if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
             {
@@ -1675,6 +2149,15 @@ namespace UGTLive
                 {
                     e.Handled = true;
                 }
+            }
+        }
+        
+        private void Application_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.LeftCtrl || e.Key == System.Windows.Input.Key.RightCtrl)
+            {
+                SendCtrlKeyToWebView(false);
+                MainWindow.Instance?.SendCtrlKeyToWebView(false);
             }
         }
         
@@ -2347,8 +2830,8 @@ namespace UGTLive
                     if (textObj == null) continue;
                     
                     // Get position with zoom applied (using dpiScale/textScale/combinedScale from outer scope)
-                    double left = (textObj.X * currentZoom) / combinedScale;
-                    double top = (textObj.Y * currentZoom) / combinedScale;
+                    double left = ((textObj.X + textObj.OffsetX) * currentZoom) / combinedScale;
+                    double top = ((textObj.Y + textObj.OffsetY) * currentZoom) / combinedScale;
                     
                     // Use TextObject dimensions with zoom
                     double width = textObj.Width > 0 
@@ -2423,6 +2906,15 @@ namespace UGTLive
                     // Calculate font size with zoom (also compensate for DPI/text scale)
                     double fontSize = (24 * currentZoom) / combinedScale; // Default font size with zoom
                     
+                    // Check for font size override
+                    string fontSizeOverrideAttr = "";
+                    if (textObj.FontSizeOverride.HasValue)
+                    {
+                        double overrideSize = (textObj.FontSizeOverride.Value * currentZoom) / combinedScale;
+                        fontSizeOverrideAttr = FormattableString.Invariant($" data-font-size-override=\"{overrideSize}\"");
+                        fontSize = overrideSize;
+                    }
+                    
                     // Get relative audio file paths for export
                     string sourceAudioPath = "";
                     string targetAudioPath = "";
@@ -2445,7 +2937,7 @@ namespace UGTLive
                         $"data-target-audio=\"{System.Web.HttpUtility.HtmlAttributeEncode(targetAudioPath)}\" " +
                         $"data-source-ready=\"{textObj.SourceAudioReady.ToString().ToLower()}\" " +
                         $"data-target-ready=\"{textObj.TargetAudioReady.ToString().ToLower()}\" " +
-                        FormattableString.Invariant($"data-original-font-size=\"{fontSize}\"") + " style=\"");
+                        FormattableString.Invariant($"data-original-font-size=\"{fontSize}\"") + fontSizeOverrideAttr + " style=\"");
                 html.AppendLine(FormattableString.Invariant($"  left: {left}px;"));
                 html.AppendLine(FormattableString.Invariant($"  top: {top}px;"));
                 html.AppendLine(FormattableString.Invariant($"  width: {width}px;"));
@@ -2530,11 +3022,20 @@ namespace UGTLive
                         }
                     }
                     
+                    // Per-bubble alignment overrides
+                    string defaultHAlign = ConfigManager.Instance.GetTextOverlayHorizontalAlignment();
+                    string defaultVAlign = ConfigManager.Instance.GetTextOverlayVerticalAlignment();
+                    string bubbleVAlign = textObj.VerticalAlignmentOverride ?? defaultVAlign;
+                    string bubbleHAlign = textObj.HorizontalAlignmentOverride ?? defaultHAlign;
+                    string bubbleVAlignCss = bubbleVAlign == "top" ? "flex-start" : bubbleVAlign == "bottom" ? "flex-end" : "center";
+                    string bubbleHAlignFlex = bubbleHAlign == "left" ? "flex-start" : bubbleHAlign == "right" ? "flex-end" : "center";
+                    
                     html.AppendLine($"<span class=\"text-content\" style=\"");
                     html.AppendLine($"  flex: 1;");
                     html.AppendLine($"  display: flex;");
-                    html.AppendLine($"  align-items: center;");
-                    html.AppendLine($"  justify-content: center;");
+                    html.AppendLine($"  align-items: {bubbleVAlignCss};");
+                    html.AppendLine($"  justify-content: {bubbleHAlignFlex};");
+                    html.AppendLine($"  text-align: {bubbleHAlign};");
                     html.AppendLine($"  width: 100%;");
                     html.AppendLine($"  height: 100%;");
                     if (initialOrientation == "vertical")
@@ -2738,6 +3239,14 @@ namespace UGTLive
             html.AppendLine("    const computedStyle = window.getComputedStyle(sizeRef);");
             html.AppendLine("    const isVertical = computedStyle.writingMode === 'vertical-rl' || computedStyle.writingMode === 'vertical-lr';");
             html.AppendLine("    ");
+            html.AppendLine("    // Temporarily force align-items to flex-start during measurement.");
+            html.AppendLine("    // When align-items is flex-end/center, overflow goes in the negative");
+            html.AppendLine("    // direction and scrollHeight doesn't detect it, breaking the binary search.");
+            html.AppendLine("    const origAlignItems = element.style.alignItems;");
+            html.AppendLine("    const origJustifyContent = element.style.justifyContent;");
+            html.AppendLine("    element.style.alignItems = 'flex-start';");
+            html.AppendLine("    element.style.justifyContent = 'flex-start';");
+            html.AppendLine("    ");
             html.AppendLine("    // Calculate initial font size based on box dimensions");
             html.AppendLine("    const boxHeight = sizeRef.clientHeight;");
             html.AppendLine("    const boxWidth = sizeRef.clientWidth;");
@@ -2771,6 +3280,8 @@ namespace UGTLive
             html.AppendLine("    }");
             html.AppendLine("    ");
             html.AppendLine("    element.style.fontSize = bestSize + 'px';");
+            html.AppendLine("    element.style.alignItems = origAlignItems;");
+            html.AppendLine("    element.style.justifyContent = origJustifyContent;");
             html.AppendLine("  } catch (e) {");
             html.AppendLine("    console.error('Error fitting text:', e);");
             html.AppendLine("  }");
@@ -2780,6 +3291,14 @@ namespace UGTLive
             html.AppendLine("function fitAllText() {");
             html.AppendLine("  const overlays = document.getElementsByClassName('text-overlay');");
             html.AppendLine("  for (let overlay of overlays) {");
+            html.AppendLine("    // Skip overlays with a font size override - use the override directly");
+            html.AppendLine("    if (overlay.hasAttribute('data-font-size-override')) {");
+            html.AppendLine("      const overrideSize = parseFloat(overlay.getAttribute('data-font-size-override'));");
+            html.AppendLine("      const textContent = overlay.querySelector('.text-content');");
+            html.AppendLine("      if (textContent) textContent.style.fontSize = overrideSize + 'px';");
+            html.AppendLine("      else overlay.style.fontSize = overrideSize + 'px';");
+            html.AppendLine("      continue;");
+            html.AppendLine("    }");
             html.AppendLine("    // Only fit if overlay has dimensions");
             html.AppendLine("    if (overlay.offsetWidth > 0 && overlay.offsetHeight > 0) {");
             html.AppendLine("      const textContent = overlay.querySelector('.text-content');");

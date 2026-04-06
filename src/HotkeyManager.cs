@@ -50,6 +50,9 @@ namespace UGTLive
         public event EventHandler? ViewInBrowserRequested;
         public event EventHandler? PlayAllAudioRequested;
         public event EventHandler? SnapshotRequested;
+        public event EventHandler? EditModeToggleRequested;
+        public event EventHandler? FontSizeIncreaseRequested;
+        public event EventHandler? FontSizeDecreaseRequested;
         
         private HotkeyManager()
         {
@@ -271,7 +274,7 @@ namespace UGTLive
         }
         
         // Trigger an action by ID
-        private void TriggerAction(string actionId)
+        public void TriggerAction(string actionId)
         {
             // Check debounce - prevent triggering the same action too quickly
             if (_lastActionTime.TryGetValue(actionId, out DateTime lastTime))
@@ -334,6 +337,15 @@ namespace UGTLive
                 case "snapshot":
                     SnapshotRequested?.Invoke(this, EventArgs.Empty);
                     break;
+                case "toggle_edit_mode":
+                    EditModeToggleRequested?.Invoke(this, EventArgs.Empty);
+                    break;
+                case "font_size_increase":
+                    FontSizeIncreaseRequested?.Invoke(this, EventArgs.Empty);
+                    break;
+                case "font_size_decrease":
+                    FontSizeDecreaseRequested?.Invoke(this, EventArgs.Empty);
+                    break;
             }
         }
         
@@ -346,7 +358,7 @@ namespace UGTLive
         
         // One-time migration: offer to reset hotkeys when defaults have changed significantly.
         // LAST_HOTKEY_CHANGE_VERSION: bump this only when the default hotkeys actually change.
-        private const double LAST_HOTKEY_CHANGE_VERSION = 1.25;
+        private const double LAST_HOTKEY_CHANGE_VERSION = 1.26;
         
         private void MigrateHotkeysIfNeeded()
         {
@@ -371,9 +383,9 @@ namespace UGTLive
             }
             
             var result = System.Windows.MessageBox.Show(
-                "Default hotkeys have changed quite a bit to prevent accidental triggers " +
-                "during normal typing (Shift+letter changed to Ctrl+Shift+letter, and hotkeys " +
-                "now support per-binding global/local scope).\n\n" +
+                "Default hotkeys have been updated: Start/Stop Auto is now Ctrl+Alt+A, " +
+                "Edit Mode toggle (Ctrl+Shift+E) has been added, and Toggle Settings " +
+                "no longer has a default hotkey.\n\n" +
                 "Would you like to reset your hotkeys to the new defaults?\n\n" +
                 "Choose 'Yes' to use the improved defaults (recommended).\n" +
                 "Choose 'No' to keep your current hotkeys.",
@@ -492,17 +504,67 @@ namespace UGTLive
             }
         }
         
+        // Add default bindings for any actions that don't exist in the loaded file.
+        // This ensures newly added actions get their defaults without requiring a full reset.
+        private void addMissingDefaultActions()
+        {
+            bool changed = false;
+            
+            if (!_actionBindings.ContainsKey("toggle_edit_mode"))
+            {
+                var entry = new HotkeyEntry("toggle_edit_mode", "Toggle Edit Mode");
+                entry.KeyboardKey = Key.E;
+                entry.UseCtrl = true;
+                entry.UseShift = true;
+                _actionBindings["toggle_edit_mode"] = new List<HotkeyEntry> { entry };
+                changed = true;
+            }
+            
+            if (!_actionBindings.ContainsKey("font_size_increase"))
+            {
+                var entry = new HotkeyEntry("font_size_increase", "Font Size Increase");
+                entry.KeyboardKey = Key.OemPlus;
+                entry.UseCtrl = true;
+                entry.IsGlobal = false;
+                _actionBindings["font_size_increase"] = new List<HotkeyEntry> { entry };
+                changed = true;
+            }
+            
+            if (!_actionBindings.ContainsKey("font_size_decrease"))
+            {
+                var entry = new HotkeyEntry("font_size_decrease", "Font Size Decrease");
+                entry.KeyboardKey = Key.OemMinus;
+                entry.UseCtrl = true;
+                entry.IsGlobal = false;
+                _actionBindings["font_size_decrease"] = new List<HotkeyEntry> { entry };
+                changed = true;
+            }
+            
+            if (!_actionBindings.ContainsKey("play_all_audio"))
+            {
+                var entry = new HotkeyEntry("play_all_audio", "Play All Audio Toggle");
+                _actionBindings["play_all_audio"] = new List<HotkeyEntry> { entry };
+                changed = true;
+            }
+            
+            if (changed)
+            {
+                SaveHotkeys();
+                Console.WriteLine("Added missing default hotkey actions");
+            }
+        }
+        
         // Create default hotkeys
         private void CreateDefaultHotkeys()
         {
             _actionBindings.Clear();
             _globalHotkeysEnabled = true;
             
-            // Start/Stop - Ctrl+Shift+S (Global)
-            var startStop = new HotkeyEntry("start_stop", "Start/Stop Live OCR");
-            startStop.KeyboardKey = Key.S;
-            startStop.UseShift = true;
+            // Start/Stop - Ctrl+Alt+A (Global)
+            var startStop = new HotkeyEntry("start_stop", "Start/Stop Auto");
+            startStop.KeyboardKey = Key.A;
             startStop.UseCtrl = true;
+            startStop.UseAlt = true;
             _actionBindings["start_stop"] = new List<HotkeyEntry> { startStop };
             
             // Toggle Monitor - Ctrl+Shift+M (Global)
@@ -519,11 +581,8 @@ namespace UGTLive
             toggleChatBox.UseCtrl = true;
             _actionBindings["toggle_chatbox"] = new List<HotkeyEntry> { toggleChatBox };
             
-            // Toggle Settings - Ctrl+Shift+E (Global)
+            // Toggle Settings - No default key
             var toggleSettings = new HotkeyEntry("toggle_settings", "Toggle Settings");
-            toggleSettings.KeyboardKey = Key.E;
-            toggleSettings.UseShift = true;
-            toggleSettings.UseCtrl = true;
             _actionBindings["toggle_settings"] = new List<HotkeyEntry> { toggleSettings };
             
             // Toggle Log - Ctrl+Shift+L (Global)
@@ -589,6 +648,27 @@ namespace UGTLive
             snapshot.UseShift = true;
             snapshot.UseCtrl = true;
             _actionBindings["snapshot"] = new List<HotkeyEntry> { snapshot };
+            
+            // Toggle Edit Mode - Ctrl+Shift+E (Global)
+            var toggleEditMode = new HotkeyEntry("toggle_edit_mode", "Toggle Edit Mode");
+            toggleEditMode.KeyboardKey = Key.E;
+            toggleEditMode.UseCtrl = true;
+            toggleEditMode.UseShift = true;
+            _actionBindings["toggle_edit_mode"] = new List<HotkeyEntry> { toggleEditMode };
+            
+            // Font Size Increase - Ctrl+Plus (Local)
+            var fontSizeIncrease = new HotkeyEntry("font_size_increase", "Font Size Increase");
+            fontSizeIncrease.KeyboardKey = Key.OemPlus;
+            fontSizeIncrease.UseCtrl = true;
+            fontSizeIncrease.IsGlobal = false;
+            _actionBindings["font_size_increase"] = new List<HotkeyEntry> { fontSizeIncrease };
+            
+            // Font Size Decrease - Ctrl+Minus (Local)
+            var fontSizeDecrease = new HotkeyEntry("font_size_decrease", "Font Size Decrease");
+            fontSizeDecrease.KeyboardKey = Key.OemMinus;
+            fontSizeDecrease.UseCtrl = true;
+            fontSizeDecrease.IsGlobal = false;
+            _actionBindings["font_size_decrease"] = new List<HotkeyEntry> { fontSizeDecrease };
             
             SaveHotkeys();
             Console.WriteLine("Created default hotkeys");

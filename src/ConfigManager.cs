@@ -249,6 +249,13 @@ namespace UGTLive
         public const string MAIN_WINDOW_MOUSE_PASSTHROUGH = "main_window_mouse_passthrough";
         public const string WINDOWS_VISIBLE_IN_SCREENSHOTS = "windows_visible_in_screenshots";
 
+        // Text overlay alignment defaults
+        public const string TEXT_OVERLAY_HORIZONTAL_ALIGNMENT = "text_overlay_horizontal_alignment";
+        public const string TEXT_OVERLAY_VERTICAL_ALIGNMENT = "text_overlay_vertical_alignment";
+
+        // Edit mode
+        public const string EDIT_MODE_ENABLED = "edit_mode_enabled";
+
         // Floating toolbar position (offset from main window's top-right corner)
         public const string TOOLBAR_OFFSET_X = "toolbar_offset_x";
         public const string TOOLBAR_OFFSET_Y = "toolbar_offset_y";
@@ -3413,6 +3420,39 @@ Here is the input JSON:";
             _configValues[WINDOWS_VISIBLE_IN_SCREENSHOTS] = visible.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Windows visible in screenshots set to: {visible}");
+        }
+
+        public string GetTextOverlayHorizontalAlignment()
+        {
+            return GetValue(TEXT_OVERLAY_HORIZONTAL_ALIGNMENT, "center");
+        }
+
+        public void SetTextOverlayHorizontalAlignment(string alignment)
+        {
+            _configValues[TEXT_OVERLAY_HORIZONTAL_ALIGNMENT] = alignment.ToLower();
+            SaveConfig();
+        }
+
+        public string GetTextOverlayVerticalAlignment()
+        {
+            return GetValue(TEXT_OVERLAY_VERTICAL_ALIGNMENT, "center");
+        }
+
+        public void SetTextOverlayVerticalAlignment(string alignment)
+        {
+            _configValues[TEXT_OVERLAY_VERTICAL_ALIGNMENT] = alignment.ToLower();
+            SaveConfig();
+        }
+
+        public bool GetEditModeEnabled()
+        {
+            string value = GetValue(EDIT_MODE_ENABLED, "false");
+            return value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public void SetEditModeEnabled(bool enabled)
+        {
+            _configValues[EDIT_MODE_ENABLED] = enabled.ToString().ToLower();
         }
 
         // Check if persist window size is enabled

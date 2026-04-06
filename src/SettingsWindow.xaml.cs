@@ -571,6 +571,34 @@ namespace UGTLive
             textAreaExpansionHeightTextBox.LostFocus += TextAreaExpansionHeightTextBox_LostFocus;
             textOverlayBorderRadiusTextBox.LostFocus += TextOverlayBorderRadiusTextBox_LostFocus;
             
+            // Load Text Alignment settings
+            string hAlign = ConfigManager.Instance.GetTextOverlayHorizontalAlignment();
+            string vAlign = ConfigManager.Instance.GetTextOverlayVerticalAlignment();
+            
+            textOverlayHAlignComboBox.SelectionChanged -= TextOverlayHAlignComboBox_SelectionChanged;
+            textOverlayVAlignComboBox.SelectionChanged -= TextOverlayVAlignComboBox_SelectionChanged;
+            
+            foreach (ComboBoxItem item in textOverlayHAlignComboBox.Items)
+            {
+                if (item.Tag is string tag && tag == hAlign)
+                {
+                    textOverlayHAlignComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+            
+            foreach (ComboBoxItem item in textOverlayVAlignComboBox.Items)
+            {
+                if (item.Tag is string tag && tag == vAlign)
+                {
+                    textOverlayVAlignComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+            
+            textOverlayHAlignComboBox.SelectionChanged += TextOverlayHAlignComboBox_SelectionChanged;
+            textOverlayVAlignComboBox.SelectionChanged += TextOverlayVAlignComboBox_SelectionChanged;
+            
             // Load Font Settings
             LoadFontSettings();
             
@@ -4324,6 +4352,30 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             }
         }
         
+        private void TextOverlayHAlignComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            if (textOverlayHAlignComboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                ConfigManager.Instance.SetTextOverlayHorizontalAlignment(tag);
+                MonitorWindow.Instance?.RefreshOverlays();
+                MainWindow.Instance?.RefreshMainWindowOverlays();
+            }
+        }
+        
+        private void TextOverlayVAlignComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            
+            if (textOverlayVAlignComboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                ConfigManager.Instance.SetTextOverlayVerticalAlignment(tag);
+                MonitorWindow.Instance?.RefreshOverlays();
+                MainWindow.Instance?.RefreshMainWindowOverlays();
+            }
+        }
+        
         // Handle Clear Context button click
         private void ClearContextButton_Click(object sender, RoutedEventArgs e)
         {
@@ -5307,7 +5359,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             // Define all available actions
             var actions = new List<ActionDisplayItem>
             {
-                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop Live OCR" },
+                new ActionDisplayItem { ActionId = "start_stop", ActionName = "Start/Stop Auto" },
                 new ActionDisplayItem { ActionId = "snapshot", ActionName = "Snapshot OCR" },
                 new ActionDisplayItem { ActionId = "toggle_monitor", ActionName = "Toggle Monitor Window" },
                 new ActionDisplayItem { ActionId = "toggle_chatbox", ActionName = "Toggle Transcript" },
@@ -5320,7 +5372,10 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 new ActionDisplayItem { ActionId = "toggle_passthrough", ActionName = "Toggle Passthrough" },
                 new ActionDisplayItem { ActionId = "toggle_overlay_mode", ActionName = "Next Overlay Mode" },
                 new ActionDisplayItem { ActionId = "prev_overlay_mode", ActionName = "Previous Overlay Mode" },
-                new ActionDisplayItem { ActionId = "play_all_audio", ActionName = "Play All Audio Toggle" }
+                new ActionDisplayItem { ActionId = "play_all_audio", ActionName = "Play All Audio Toggle" },
+                new ActionDisplayItem { ActionId = "toggle_edit_mode", ActionName = "Toggle Edit Mode" },
+                new ActionDisplayItem { ActionId = "font_size_increase", ActionName = "Font Size Increase" },
+                new ActionDisplayItem { ActionId = "font_size_decrease", ActionName = "Font Size Decrease" }
             };
             
             actionsListBox.ItemsSource = actions;

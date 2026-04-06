@@ -235,7 +235,17 @@ namespace UGTLive
         private void MousePassthroughCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             if (!_isInitialized) return;
-            MainWindow.Instance?.HandlePassthroughChanged(mousePassthroughCheckBox.IsChecked ?? false);
+            bool isOn = mousePassthroughCheckBox.IsChecked ?? false;
+            mousePassthroughCheckBox.Foreground = isOn ? System.Windows.Media.Brushes.Yellow : System.Windows.Media.Brushes.White;
+            MainWindow.Instance?.HandlePassthroughChanged(isOn);
+        }
+
+        private void EditModeCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_isInitialized) return;
+            bool isOn = editModeCheckBox.IsChecked ?? false;
+            editModeCheckBox.Foreground = isOn ? System.Windows.Media.Brushes.Yellow : System.Windows.Media.Brushes.White;
+            MainWindow.Instance?.HandleEditModeChanged(isOn);
         }
 
         // --- Sync state from MainWindow ---
@@ -262,6 +272,15 @@ namespace UGTLive
         {
             _isInitialized = false;
             mousePassthroughCheckBox.IsChecked = enabled;
+            mousePassthroughCheckBox.Foreground = enabled ? System.Windows.Media.Brushes.Yellow : System.Windows.Media.Brushes.White;
+            _isInitialized = true;
+        }
+
+        public void SyncEditMode(bool enabled)
+        {
+            _isInitialized = false;
+            editModeCheckBox.IsChecked = enabled;
+            editModeCheckBox.Foreground = enabled ? System.Windows.Media.Brushes.Yellow : System.Windows.Media.Brushes.White;
             _isInitialized = true;
         }
     }

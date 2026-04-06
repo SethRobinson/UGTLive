@@ -115,6 +115,12 @@
             <CheckBox x:Name="mousePassthroughCheckBox" Content="Passthrough" Foreground="White"
                       Margin="4,2" FontSize="11"
                       Checked="MousePassthroughCheckBox_Changed" Unchecked="MousePassthroughCheckBox_Changed"/>
+            
+            <!-- Edit Mode -->
+            <CheckBox x:Name="editModeCheckBox" Content="Edit Mode" Foreground="White"
+                      Margin="4,2" FontSize="11"
+                      Checked="EditModeCheckBox_Changed" Unchecked="EditModeCheckBox_Changed"
+                      ToolTip="Enable editing: drag overlays and edit text areas. (Hold Control for temporary editing)"/>
 
             <!-- Separator -->
             <Rectangle Height="1" Fill="#40FFFFFF" Margin="4,3"/>
