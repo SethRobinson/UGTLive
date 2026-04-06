@@ -1812,6 +1812,7 @@ namespace UGTLive
             // Copy menu item
             MenuItem copyMenuItem = new MenuItem();
             copyMenuItem.Header = "Copy";
+            copyMenuItem.InputGestureText = "Ctrl+C";
             copyMenuItem.Click += OverlayContextMenu_Copy_Click;
             contextMenu.Items.Add(copyMenuItem);
             
@@ -1830,11 +1831,13 @@ namespace UGTLive
             
             MenuItem fontSizeUp = new MenuItem();
             fontSizeUp.Header = "Increase (+)";
+            fontSizeUp.InputGestureText = HotkeyManager.Instance.GetKeyboardComboForAction("font_size_increase");
             fontSizeUp.Click += (s, e) => adjustFontSizeForTextObject(_currentContextMenuTextObjectId, 1.10);
             fontSizeMenu.Items.Add(fontSizeUp);
             
             MenuItem fontSizeDown = new MenuItem();
             fontSizeDown.Header = "Decrease (-)";
+            fontSizeDown.InputGestureText = HotkeyManager.Instance.GetKeyboardComboForAction("font_size_decrease");
             fontSizeDown.Click += (s, e) => adjustFontSizeForTextObject(_currentContextMenuTextObjectId, 0.90);
             fontSizeMenu.Items.Add(fontSizeDown);
             

@@ -11,17 +11,18 @@ namespace UGTLive
     // Manages all hotkeys for the application
     public class HotkeyManager
     {
-        private static HotkeyManager? _instance;
+        // --- Editable constants ---
         private const string HOTKEYS_FILE = "hotkeys.txt";
+        private const int DEBOUNCE_MS = 100; // prevents double-triggers from gamepad while staying responsive
+        private const double LAST_HOTKEY_CHANGE_VERSION = 1.25; // bump when default hotkeys change
         
+        private static HotkeyManager? _instance;
         private Dictionary<string, List<HotkeyEntry>> _actionBindings = new Dictionary<string, List<HotkeyEntry>>();
         private bool _globalHotkeysEnabled = true;
         private bool _isEnabled = true;
         private bool _isNewHotkeyFile = false;
         
-        // Debouncing for actions to prevent double-triggers
         private Dictionary<string, DateTime> _lastActionTime = new Dictionary<string, DateTime>();
-        private const int DEBOUNCE_MS = 100; // 100ms debounce window (prevents double-triggers from gamepad while staying responsive)
         
         public static HotkeyManager Instance
         {
@@ -108,6 +109,39 @@ namespace UGTLive
             return new List<HotkeyEntry>();
         }
         
+        // Get a human-readable hotkey string for an action, e.g. " (Ctrl+OemPlus (Local))"
+        // Returns empty string if no bindings exist. Used by tooltips and context menus.
+        public string GetHotkeyDisplayString(string actionId)
+        {
+            var bindings = GetBindings(actionId);
+            if (bindings.Count == 0)
+                return "";
+
+            List<string> parts = new List<string>();
+            foreach (var binding in bindings)
+            {
+                if (binding.HasKeyboardHotkey())
+                    parts.Add(binding.GetKeyboardHotkeyString());
+                if (binding.HasGamepadHotkey())
+                    parts.Add($"Gamepad: {binding.GetGamepadHotkeyString()}");
+            }
+
+            return parts.Count > 0 ? $" ({string.Join(" or ", parts)})" : "";
+        }
+
+        // Get just the keyboard combo string for an action, e.g. "Ctrl+OemPlus"
+        // Returns empty string if no keyboard binding exists. Used by context menu InputGestureText.
+        public string GetKeyboardComboForAction(string actionId)
+        {
+            var bindings = GetBindings(actionId);
+            foreach (var binding in bindings)
+            {
+                if (binding.HasKeyboardHotkey())
+                    return binding.GetKeyboardComboString();
+            }
+            return "";
+        }
+
         // Get all actions with their bindings (for UI display)
         public Dictionary<string, List<HotkeyEntry>> GetAllBindings()
         {
@@ -355,10 +389,6 @@ namespace UGTLive
             CreateDefaultHotkeys();
             Console.WriteLine("Hotkeys reset to defaults");
         }
-        
-        // One-time migration: offer to reset hotkeys when defaults have changed significantly.
-        // LAST_HOTKEY_CHANGE_VERSION: bump this only when the default hotkeys actually change.
-        private const double LAST_HOTKEY_CHANGE_VERSION = 1.26;
         
         private void MigrateHotkeysIfNeeded()
         {

@@ -754,62 +754,43 @@ namespace UGTLive
         
         private void UpdateHotkeyTooltips()
         {
-            // Helper function to get hotkey string for an action
-            string GetHotkeyString(string actionId)
-            {
-                var bindings = HotkeyManager.Instance.GetBindings(actionId);
-                if (bindings.Count == 0)
-                    return "";
-                    
-                List<string> parts = new List<string>();
-                foreach (var binding in bindings)
-                {
-                    if (binding.HasKeyboardHotkey())
-                        parts.Add(binding.GetKeyboardHotkeyString());
-                    if (binding.HasGamepadHotkey())
-                        parts.Add($"Gamepad: {binding.GetGamepadHotkeyString()}");
-                }
-                    
-                return parts.Count > 0 ? $" ({string.Join(" or ", parts)})" : "";
-            }
-            
             // Force close any currently open tooltips so they refresh with new content
             ToolTipService.SetIsEnabled(this, false);
             ToolTipService.SetIsEnabled(this, true);
             
             // Update button tooltips
             if (toggleButton != null)
-                toggleButton.ToolTip = $"Auto Mode: Continuous OCR + Translation{GetHotkeyString("start_stop")}";
+                toggleButton.ToolTip = $"Auto Mode: Continuous OCR + Translation{HotkeyManager.Instance.GetHotkeyDisplayString("start_stop")}";
                 
             if (monitorButton != null)
-                monitorButton.ToolTip = $"Toggle Monitor Window{GetHotkeyString("toggle_monitor")}";
+                monitorButton.ToolTip = $"Toggle Monitor Window{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_monitor")}";
                 
             if (chatBoxButton != null)
-                chatBoxButton.ToolTip = $"Toggle Transcript{GetHotkeyString("toggle_chatbox")}";
+                chatBoxButton.ToolTip = $"Toggle Transcript{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_chatbox")}";
                 
             if (settingsButton != null)
-                settingsButton.ToolTip = $"Toggle Settings{GetHotkeyString("toggle_settings")}";
+                settingsButton.ToolTip = $"Toggle Settings{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_settings")}";
                 
             if (logButton != null)
-                logButton.ToolTip = $"Toggle Log Console{GetHotkeyString("toggle_log")}";
+                logButton.ToolTip = $"Toggle Log Console{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_log")}";
                 
             if (listenButton != null)
-                listenButton.ToolTip = $"Toggle voice listening{GetHotkeyString("toggle_listen")}";
+                listenButton.ToolTip = $"Toggle voice listening{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_listen")}";
                 
             if (exportButton != null)
-                exportButton.ToolTip = $"View current capture in browser{GetHotkeyString("view_in_browser")}";
+                exportButton.ToolTip = $"View current capture in browser{HotkeyManager.Instance.GetHotkeyDisplayString("view_in_browser")}";
                 
             if (hideButton != null)
-                hideButton.ToolTip = $"Toggle red border visibility{GetHotkeyString("toggle_main_window")}";
+                hideButton.ToolTip = $"Toggle red border visibility{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_main_window")}";
                 
             if (mousePassthroughCheckBox != null)
-                mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{GetHotkeyString("toggle_passthrough")}";
+                mousePassthroughCheckBox.ToolTip = $"Toggle mouse passthrough mode{HotkeyManager.Instance.GetHotkeyDisplayString("toggle_passthrough")}";
             
             if (snapshotButton != null)
-                snapshotButton.ToolTip = $"Snap: Single OCR capture{GetHotkeyString("snapshot")}";
+                snapshotButton.ToolTip = $"Snap: Single OCR capture{HotkeyManager.Instance.GetHotkeyDisplayString("snapshot")}";
             
             // Update overlay radio buttons
-            string overlayHotkey = GetHotkeyString("toggle_overlay_mode");
+            string overlayHotkey = HotkeyManager.Instance.GetHotkeyDisplayString("toggle_overlay_mode");
             if (overlayHideRadio != null)
                 overlayHideRadio.ToolTip = $"Hide overlay{overlayHotkey}";
             if (overlaySourceRadio != null)
@@ -4960,6 +4941,7 @@ namespace UGTLive
             // Copy menu item
             System.Windows.Controls.MenuItem copyMenuItem = new System.Windows.Controls.MenuItem();
             copyMenuItem.Header = "Copy";
+            copyMenuItem.InputGestureText = "Ctrl+C";
             copyMenuItem.Click += MainWindowOverlayContextMenu_Copy_Click;
             contextMenu.Items.Add(copyMenuItem);
             
@@ -4978,11 +4960,13 @@ namespace UGTLive
             
             System.Windows.Controls.MenuItem fontSizeUp = new System.Windows.Controls.MenuItem();
             fontSizeUp.Header = "Increase (+)";
+            fontSizeUp.InputGestureText = HotkeyManager.Instance.GetKeyboardComboForAction("font_size_increase");
             fontSizeUp.Click += (s, e) => mainWindowAdjustFontSize(_currentMainWindowContextMenuTextObjectId, 1.10);
             fontSizeMenu.Items.Add(fontSizeUp);
             
             System.Windows.Controls.MenuItem fontSizeDown = new System.Windows.Controls.MenuItem();
             fontSizeDown.Header = "Decrease (-)";
+            fontSizeDown.InputGestureText = HotkeyManager.Instance.GetKeyboardComboForAction("font_size_decrease");
             fontSizeDown.Click += (s, e) => mainWindowAdjustFontSize(_currentMainWindowContextMenuTextObjectId, 0.90);
             fontSizeMenu.Items.Add(fontSizeDown);
             
