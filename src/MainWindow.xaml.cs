@@ -549,6 +549,7 @@ namespace UGTLive
             {
                 AdjustFocusedFontSize(0.90);
             };
+            HotkeyManager.Instance.SaveScreenshotRequested += (s, e) => HandleSaveScreenshot();
             
             // Start gamepad manager
             GamepadManager.Instance.Start();
@@ -797,6 +798,9 @@ namespace UGTLive
                 overlaySourceRadio.ToolTip = $"Show source text{overlayHotkey}";
             if (overlayTranslatedRadio != null)
                 overlayTranslatedRadio.ToolTip = $"Show translated text{overlayHotkey}";
+            
+            // Update Utilities menu hotkey labels
+            _toolbarWindow?.UpdateUtilitiesMenuHotkeys();
             
             // Setup individual tooltip opened handlers for each control
             SetupIndividualTooltipHandlers();
@@ -4560,6 +4564,11 @@ namespace UGTLive
                 MessageBox.Show($"Error exporting to HTML: {ex.Message}", "Export Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        public void HandleSaveScreenshot()
+        {
+            ScreenshotManager.Instance.SaveScreenshot();
         }
 
         public void HandleOverlayRadioChanged(object sender)

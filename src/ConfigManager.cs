@@ -279,6 +279,11 @@ namespace UGTLive
         // Hotkey upgrade tracking
         public const string LAST_HOTKEY_UPGRADE_VERSION = "last_hotkey_upgrade_version";
         
+        // Screenshot saving settings
+        public const string SCREENSHOT_FILENAME = "screenshot_filename";
+        public const string SCREENSHOT_FOLDER = "screenshot_folder";
+        public const string SCREENSHOT_TYPE = "screenshot_type";
+
         // Debug logging settings
         public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";
 
@@ -3871,6 +3876,40 @@ Here is the input JSON:";
         {
             string key = $"service_{serviceName}_autostart";
             _configValues[key] = autoStart ? "true" : "false";
+            SaveConfig();
+        }
+
+        // Screenshot saving settings
+        public string GetScreenshotFilename()
+        {
+            return GetValue(SCREENSHOT_FILENAME, "{DATE}_{TIME}_screenshot_");
+        }
+
+        public void SetScreenshotFilename(string filename)
+        {
+            _configValues[SCREENSHOT_FILENAME] = filename;
+            SaveConfig();
+        }
+
+        public string GetScreenshotFolder()
+        {
+            return GetValue(SCREENSHOT_FOLDER, "output/screenshots");
+        }
+
+        public void SetScreenshotFolder(string folder)
+        {
+            _configValues[SCREENSHOT_FOLDER] = folder;
+            SaveConfig();
+        }
+
+        public string GetScreenshotType()
+        {
+            return GetValue(SCREENSHOT_TYPE, "Both");
+        }
+
+        public void SetScreenshotType(string type)
+        {
+            _configValues[SCREENSHOT_TYPE] = type;
             SaveConfig();
         }
     }

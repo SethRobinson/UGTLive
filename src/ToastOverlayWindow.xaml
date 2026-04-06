@@ -1,0 +1,29 @@
+<Window x:Class="UGTLive.ToastOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Toast"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        SizeToContent="WidthAndHeight"
+        Icon="/media/Icon1.ico">
+
+    <Border x:Name="ToastBorder"
+            Background="#DD1A1A2E"
+            BorderBrush="#80888888"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16,10"
+            Margin="8"
+            MaxWidth="500">
+        <TextBlock x:Name="ToastText"
+                   Foreground="White"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"/>
+    </Border>
+</Window>

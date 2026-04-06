@@ -933,6 +933,28 @@ namespace UGTLive
                 }
                 noiseReductionComboBox.SelectionChanged += NoiseReductionComboBox_SelectionChanged;
             }
+
+            // Load Screenshot settings
+            screenshotFilenameTextBox.TextChanged -= ScreenshotFilenameTextBox_TextChanged;
+            screenshotFolderTextBox.TextChanged -= ScreenshotFolderTextBox_TextChanged;
+            screenshotTypeComboBox.SelectionChanged -= ScreenshotTypeComboBox_SelectionChanged;
+
+            screenshotFilenameTextBox.Text = ConfigManager.Instance.GetScreenshotFilename();
+            screenshotFolderTextBox.Text = ConfigManager.Instance.GetScreenshotFolder();
+
+            string savedScreenshotType = ConfigManager.Instance.GetScreenshotType();
+            foreach (ComboBoxItem item in screenshotTypeComboBox.Items)
+            {
+                if (string.Equals(item.Content?.ToString(), savedScreenshotType, StringComparison.OrdinalIgnoreCase))
+                {
+                    screenshotTypeComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+
+            screenshotFilenameTextBox.TextChanged += ScreenshotFilenameTextBox_TextChanged;
+            screenshotFolderTextBox.TextChanged += ScreenshotFolderTextBox_TextChanged;
+            screenshotTypeComboBox.SelectionChanged += ScreenshotTypeComboBox_SelectionChanged;
         }
         
         // Language settings
@@ -5375,7 +5397,8 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 new ActionDisplayItem { ActionId = "play_all_audio", ActionName = "Play All Audio Toggle" },
                 new ActionDisplayItem { ActionId = "toggle_edit_mode", ActionName = "Toggle Edit Mode" },
                 new ActionDisplayItem { ActionId = "font_size_increase", ActionName = "Font Size Increase" },
-                new ActionDisplayItem { ActionId = "font_size_decrease", ActionName = "Font Size Decrease" }
+                new ActionDisplayItem { ActionId = "font_size_decrease", ActionName = "Font Size Decrease" },
+                new ActionDisplayItem { ActionId = "save_screenshot", ActionName = "Save Screenshot" }
             };
             
             actionsListBox.ItemsSource = actions;
@@ -5908,6 +5931,76 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
         private const uint WDA_NONE = 0x00000000;
         
+        #endregion
+
+        #region Screenshot Settings
+
+        private void ScreenshotFilenameTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            ConfigManager.Instance.SetScreenshotFilename(screenshotFilenameTextBox.Text);
+        }
+
+        private void ScreenshotFolderTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            ConfigManager.Instance.SetScreenshotFolder(screenshotFolderTextBox.Text);
+        }
+
+        private void ScreenshotTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            if (screenshotTypeComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string type = selectedItem.Content?.ToString() ?? "Both";
+                ConfigManager.Instance.SetScreenshotType(type);
+            }
+        }
+
+        private void ScreenshotFolderBrowse_Click(object sender, RoutedEventArgs e)
+        {
+            using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+            {
+                dialog.Description = "Select screenshot save folder";
+                string currentFolder = screenshotFolderTextBox.Text;
+                if (!string.IsNullOrWhiteSpace(currentFolder))
+                {
+                    string fullPath = System.IO.Path.IsPathRooted(currentFolder)
+                        ? currentFolder
+                        : System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, currentFolder);
+                    if (System.IO.Directory.Exists(fullPath))
+                    {
+                        dialog.SelectedPath = fullPath;
+                    }
+                }
+
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    screenshotFolderTextBox.Text = dialog.SelectedPath;
+                }
+            }
+        }
+
+        private void ScreenshotFolderOpen_Click(object sender, RoutedEventArgs e)
+        {
+            string folder = screenshotFolderTextBox.Text;
+            if (!System.IO.Path.IsPathRooted(folder))
+            {
+                folder = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, folder);
+            }
+
+            if (!System.IO.Directory.Exists(folder))
+            {
+                System.IO.Directory.CreateDirectory(folder);
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = folder,
+                UseShellExecute = true
+            });
+        }
+
         #endregion
     }
 }

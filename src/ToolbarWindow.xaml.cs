@@ -191,6 +191,21 @@ namespace UGTLive
             MainWindow.Instance?.HandleSnapshotButton();
         }
 
+        private void UtilitiesButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
+            {
+                btn.ContextMenu.PlacementTarget = btn;
+                btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                btn.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void SaveScreenshotMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow.Instance?.HandleSaveScreenshot();
+        }
+
         private void MonitorButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance?.HandleMonitorButton();
@@ -274,6 +289,12 @@ namespace UGTLive
             mousePassthroughCheckBox.IsChecked = enabled;
             mousePassthroughCheckBox.Foreground = enabled ? System.Windows.Media.Brushes.Yellow : System.Windows.Media.Brushes.White;
             _isInitialized = true;
+        }
+
+        public void UpdateUtilitiesMenuHotkeys()
+        {
+            string hotkeyStr = HotkeyManager.Instance.GetHotkeyDisplayString("save_screenshot");
+            saveScreenshotMenuItem.Header = "Save Screenshot" + (string.IsNullOrEmpty(hotkeyStr) ? "" : hotkeyStr);
         }
 
         public void SyncEditMode(bool enabled)

@@ -47,6 +47,7 @@ namespace UGTLive
         
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
         private const int WM_SYSKEYDOWN = 0x0104;
         
         private static LowLevelKeyboardProc _proc = HookCallback;
@@ -113,36 +114,64 @@ namespace UGTLive
                     return CallNextHookEx(_hookID, nCode, (int)wParam, lParam);
                 }
 
-                if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
+                if (nCode >= 0)
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
-                    
-                    // Convert the virtual key code to a Key
                     Key key = KeyInterop.KeyFromVirtualKey(vkCode);
-                    
-                    // Determine which modifiers are currently pressed
-                    Keys formsModifiers = Control.ModifierKeys;
-                    ModifierKeys modifiers = ModifierKeys.None;
-                    
-                    if ((formsModifiers & Keys.Shift) == Keys.Shift)
-                        modifiers |= ModifierKeys.Shift;
-                    if ((formsModifiers & Keys.Control) == Keys.Control)
-                        modifiers |= ModifierKeys.Control;
-                    if ((formsModifiers & Keys.Alt) == Keys.Alt)
-                        modifiers |= ModifierKeys.Alt;
-                    
-                    // Also ignore if either Windows key is held down
-                    bool isWinPressed = Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin);
-                    
-                    if (!isWinPressed)
+                    bool isKeyDown = (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN);
+                    bool isKeyUp = (wParam == (IntPtr)WM_KEYUP);
+
+                    // Forward Ctrl press/release to WebViews so edit grabbers
+                    // work even when a non-WebView UGT window has focus.
+                    if ((key == Key.LeftCtrl || key == Key.RightCtrl) && IsOurApplicationActive())
                     {
-                        // Only process hotkeys from global hook if global hotkeys are enabled
-                        // If disabled, let window-level PreviewKeyDown handlers deal with it
-                        if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+                        if (isKeyDown)
                         {
-                            // Forward to HotkeyManager for processing
-                            bool handled = HotkeyManager.Instance.HandleKeyDown(key, modifiers);
-                            // Do NOT block the key from other global hooks or applications
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                            {
+                                MainWindow.Instance?.SendCtrlKeyToWebView(true);
+                                MonitorWindow.Instance?.SendCtrlKeyToWebView(true);
+                            });
+                        }
+                        else if (isKeyUp)
+                        {
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                            {
+                                MainWindow.Instance?.SendCtrlKeyToWebView(false);
+                                MonitorWindow.Instance?.SendCtrlKeyToWebView(false);
+                            });
+                        }
+                    }
+
+                    if (isKeyDown)
+                    {
+                        Keys formsModifiers = Control.ModifierKeys;
+                        ModifierKeys modifiers = ModifierKeys.None;
+
+                        if ((formsModifiers & Keys.Shift) == Keys.Shift)
+                            modifiers |= ModifierKeys.Shift;
+                        if ((formsModifiers & Keys.Control) == Keys.Control)
+                            modifiers |= ModifierKeys.Control;
+                        if ((formsModifiers & Keys.Alt) == Keys.Alt)
+                            modifiers |= ModifierKeys.Alt;
+
+                        bool isWinPressed = Keyboard.IsKeyDown(Key.LWin) || Keyboard.IsKeyDown(Key.RWin);
+
+                        if (!isWinPressed)
+                        {
+                            if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+                            {
+                                bool handled = HotkeyManager.Instance.HandleKeyDown(key, modifiers);
+
+                                // Also fire local bindings when our app is in the foreground.
+                                // WebView2 uses its own HWND so WPF PreviewKeyDown never sees
+                                // keystrokes when the WebView has focus; the low-level hook is
+                                // the only reliable path for local hotkeys in that case.
+                                if (!handled && IsOurApplicationActive())
+                                {
+                                    HotkeyManager.Instance.HandleKeyDownLocal(key, modifiers);
+                                }
+                            }
                         }
                     }
                 }

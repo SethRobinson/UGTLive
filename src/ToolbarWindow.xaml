@@ -100,6 +100,16 @@
             <Button x:Name="logButton" Content="Log" Style="{StaticResource ToolbarButtonStyle}"
                     Click="LogButton_Click"/>
 
+            <Button x:Name="utilitiesButton" Content="Utilities ▾" Style="{StaticResource ToolbarButtonStyle}"
+                    Click="UtilitiesButton_Click">
+                <Button.ContextMenu>
+                    <ContextMenu x:Name="utilitiesMenu">
+                        <MenuItem x:Name="saveScreenshotMenuItem" Header="Save Screenshot"
+                                  Click="SaveScreenshotMenuItem_Click"/>
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+
             <Button x:Name="settingsButton" Content="Settings" Style="{StaticResource ToolbarButtonStyle}"
                     Click="SettingsButton_Click"/>
 

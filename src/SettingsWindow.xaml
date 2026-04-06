@@ -1170,6 +1170,61 @@
                 </ScrollViewer>
             </TabItem>
             
+            <!-- File Tab -->
+            <TabItem Header="File">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <GroupBox Header="Screenshot Saving" Margin="0,0,0,10" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <Label Grid.Row="0" Grid.Column="0" Content="Filename pattern:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <TextBox x:Name="screenshotFilenameTextBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+                                         Margin="0,0,0,5" VerticalAlignment="Center"
+                                         TextChanged="ScreenshotFilenameTextBox_TextChanged"/>
+
+                                <Label Grid.Row="1" Grid.Column="0" Content="Save folder:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <TextBox x:Name="screenshotFolderTextBox" Grid.Row="1" Grid.Column="1"
+                                         Margin="0,0,5,5" VerticalAlignment="Center"
+                                         TextChanged="ScreenshotFolderTextBox_TextChanged"/>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
+                                    <Button Content="Browse..."
+                                            Padding="8,2" Margin="0,0,4,5"
+                                            Click="ScreenshotFolderBrowse_Click"/>
+                                    <Button Content="Open Folder"
+                                            Padding="8,2" Margin="0,0,0,5"
+                                            Click="ScreenshotFolderOpen_Click"/>
+                                </StackPanel>
+
+                                <Label Grid.Row="2" Grid.Column="0" Content="Save type:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <ComboBox x:Name="screenshotTypeComboBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                          Margin="0,0,0,5" VerticalAlignment="Center"
+                                          SelectionChanged="ScreenshotTypeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Source"/>
+                                    <ComboBoxItem Content="Target"/>
+                                    <ComboBoxItem Content="Both"/>
+                                </ComboBox>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                                           Text="Use {DATE} for the current date (e.g. 2026_04_06) and {TIME} for the current time (e.g. 21_34_05_123). Files auto-increment to avoid overwriting."
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,5,0,0"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
             <!-- Audio Tab -->
             <TabItem Header="Audio">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

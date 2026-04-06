@@ -14,7 +14,7 @@ namespace UGTLive
         // --- Editable constants ---
         private const string HOTKEYS_FILE = "hotkeys.txt";
         private const int DEBOUNCE_MS = 100; // prevents double-triggers from gamepad while staying responsive
-        private const double LAST_HOTKEY_CHANGE_VERSION = 1.25; // bump when default hotkeys change
+        private const double LAST_HOTKEY_CHANGE_VERSION = 1.26; // bump when default hotkeys change
         
         private static HotkeyManager? _instance;
         private Dictionary<string, List<HotkeyEntry>> _actionBindings = new Dictionary<string, List<HotkeyEntry>>();
@@ -54,6 +54,7 @@ namespace UGTLive
         public event EventHandler? EditModeToggleRequested;
         public event EventHandler? FontSizeIncreaseRequested;
         public event EventHandler? FontSizeDecreaseRequested;
+        public event EventHandler? SaveScreenshotRequested;
         
         private HotkeyManager()
         {
@@ -380,6 +381,9 @@ namespace UGTLive
                 case "font_size_decrease":
                     FontSizeDecreaseRequested?.Invoke(this, EventArgs.Empty);
                     break;
+                case "save_screenshot":
+                    SaveScreenshotRequested?.Invoke(this, EventArgs.Empty);
+                    break;
             }
         }
         
@@ -699,6 +703,17 @@ namespace UGTLive
             fontSizeDecrease.UseCtrl = true;
             fontSizeDecrease.IsGlobal = false;
             _actionBindings["font_size_decrease"] = new List<HotkeyEntry> { fontSizeDecrease };
+            
+            // Save Screenshot - F10 (Local) + Ctrl+Shift+F10 (Global)
+            var saveScreenshotGlobal = new HotkeyEntry("save_screenshot", "Save Screenshot");
+            saveScreenshotGlobal.KeyboardKey = Key.F10;
+            saveScreenshotGlobal.UseCtrl = true;
+            saveScreenshotGlobal.UseShift = true;
+            saveScreenshotGlobal.IsGlobal = true;
+            var saveScreenshotLocal = new HotkeyEntry("save_screenshot", "Save Screenshot");
+            saveScreenshotLocal.KeyboardKey = Key.F10;
+            saveScreenshotLocal.IsGlobal = false;
+            _actionBindings["save_screenshot"] = new List<HotkeyEntry> { saveScreenshotGlobal, saveScreenshotLocal };
             
             SaveHotkeys();
             Console.WriteLine("Created default hotkeys");
