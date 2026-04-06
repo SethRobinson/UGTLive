@@ -237,13 +237,19 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Only process hotkeys at window level if global hotkeys are disabled
-            // (When global hotkeys are enabled, the global hook handles them)
-            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            
+            if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
             {
-                var modifiers = System.Windows.Input.Keyboard.Modifiers;
-                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
-                
+                bool handled = HotkeyManager.Instance.HandleKeyDownLocal(e.Key, modifiers);
+                if (handled)
+                {
+                    e.Handled = true;
+                }
+            }
+            else
+            {
+                bool handled = HotkeyManager.Instance.HandleKeyDownAll(e.Key, modifiers);
                 if (handled)
                 {
                     e.Handled = true;
@@ -5253,11 +5259,28 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
         }
         
         // Display item for bindings list
-        public class BindingDisplayItem
+        public class BindingDisplayItem : System.ComponentModel.INotifyPropertyChanged
         {
             public HotkeyEntry Binding { get; set; }
             public string BindingType { get; set; } = "";
             public string BindingString { get; set; } = "";
+            
+            public bool IsGlobal
+            {
+                get => Binding.IsGlobal;
+                set
+                {
+                    Binding.IsGlobal = value;
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsGlobal)));
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(ScopeLabel)));
+                    BindingString = Binding.HasKeyboardHotkey() ? Binding.GetKeyboardComboString() : Binding.GetGamepadHotkeyString();
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BindingString)));
+                }
+            }
+            
+            public string ScopeLabel => IsGlobal ? "Global" : "Local";
+            
+            public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
             
             public BindingDisplayItem(HotkeyEntry entry)
             {
@@ -5266,7 +5289,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 if (entry.HasKeyboardHotkey())
                 {
                     BindingType = "Keyboard";
-                    BindingString = entry.GetKeyboardHotkeyString();
+                    BindingString = entry.GetKeyboardComboString();
                 }
                 else if (entry.HasGamepadHotkey())
                 {
@@ -5360,21 +5383,35 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             {
                 Title = "Press Key Combination",
                 Width = 400,
-                Height = 150,
+                Height = 180,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = this,
                 ResizeMode = ResizeMode.NoResize
+            };
+            
+            var stackPanel = new System.Windows.Controls.StackPanel
+            {
+                Margin = new Thickness(20)
             };
             
             var textBox = new System.Windows.Controls.TextBox
             {
                 Text = "Press a key combination...",
                 IsReadOnly = true,
-                Margin = new Thickness(20),
                 VerticalAlignment = System.Windows.VerticalAlignment.Center,
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
                 FontSize = 14
             };
+            
+            var globalCheckBox = new System.Windows.Controls.CheckBox
+            {
+                Content = "Global (works system-wide, even when app is not focused)",
+                IsChecked = true,
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            
+            stackPanel.Children.Add(textBox);
+            stackPanel.Children.Add(globalCheckBox);
             
             HotkeyEntry? capturedBinding = null;
             
@@ -5419,6 +5456,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 capturedBinding.UseShift = shift;
                 capturedBinding.UseCtrl = ctrl;
                 capturedBinding.UseAlt = alt;
+                capturedBinding.IsGlobal = globalCheckBox.IsChecked ?? true;
                 
                 textBox.Text = capturedBinding.GetKeyboardHotkeyString();
                 
@@ -5433,7 +5471,7 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
                 closeTimer.Start();
             };
             
-            dialog.Content = textBox;
+            dialog.Content = stackPanel;
             textBox.Focus();
             
             dialog.ShowDialog();
@@ -5608,6 +5646,16 @@ googleVisionKeepLinefeedsCheckBox.Visibility = glueVisibility;
             HotkeyManager.Instance.SaveHotkeys();
             
             Console.WriteLine($"Global hotkeys {(enabled ? "enabled" : "disabled")}");
+        }
+        
+        // Per-binding global/local checkbox changed
+        private void BindingGlobalCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing)
+                return;
+            
+            HotkeyManager.Instance.SaveHotkeys();
+            MainWindow.Instance.UpdateTooltips();
         }
         
         #endregion

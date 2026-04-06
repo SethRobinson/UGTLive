@@ -1003,33 +1003,22 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Prevent Tab from cycling through UI elements
-            if (e.Key == System.Windows.Input.Key.Tab)
-            {
-                // If Global Hotkeys are enabled, the global hook should have already fired.
-                // We don't want to fire the action twice.
-                // However, we DO want to suppress the Tab key from navigation.
-                if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
-                {
-                     // Global hotkeys disabled, so we handle it here manually
-                     var modifiers = System.Windows.Input.Keyboard.Modifiers;
-                     HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
-                }
-                
-                // Always suppress default Tab navigation on Main Window
-                e.Handled = true;
-                return;
-            }
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
             
-            // Only process hotkeys at window level if global hotkeys are disabled
-            // (When global hotkeys are enabled, the global hook handles them)
-            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
             {
-                // Forward to the HotkeyManager
-                var modifiers = System.Windows.Input.Keyboard.Modifiers;
-                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
-                
-                if (handled)
+                // Global hook handles global bindings; we handle local-only bindings here
+                bool handled = HotkeyManager.Instance.HandleKeyDownLocal(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
+                {
+                    e.Handled = true;
+                }
+            }
+            else
+            {
+                // Master switch off: all bindings fire from window handler
+                bool handled = HotkeyManager.Instance.HandleKeyDownAll(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
                 {
                     e.Handled = true;
                 }

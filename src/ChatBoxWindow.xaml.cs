@@ -502,28 +502,20 @@ namespace UGTLive
         // Handler for application-level keyboard shortcuts
         private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // Prevent Tab from cycling through UI elements when used as a hotkey
-            if (e.Key == System.Windows.Input.Key.Tab)
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            
+            if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
             {
-                // Always prevent default Tab behavior and let HotkeyManager handle it
-                var modifiers = System.Windows.Input.Keyboard.Modifiers;
-                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
-                
-                if (handled)
+                bool handled = HotkeyManager.Instance.HandleKeyDownLocal(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
                 {
                     e.Handled = true;
                 }
-                return;
             }
-            
-            // Only process hotkeys at window level if global hotkeys are disabled
-            // (When global hotkeys are enabled, the global hook handles them)
-            if (!HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            else
             {
-                var modifiers = System.Windows.Input.Keyboard.Modifiers;
-                bool handled = HotkeyManager.Instance.HandleKeyDown(e.Key, modifiers);
-                
-                if (handled)
+                bool handled = HotkeyManager.Instance.HandleKeyDownAll(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
                 {
                     e.Handled = true;
                 }

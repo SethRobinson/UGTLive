@@ -36,6 +36,7 @@ namespace UGTLive
 
             this.SourceInitialized += ToolbarWindow_SourceInitialized;
             this.Loaded += ToolbarWindow_Loaded;
+            this.PreviewKeyDown += Application_KeyDown;
         }
 
         private void ToolbarWindow_SourceInitialized(object? sender, EventArgs e)
@@ -46,6 +47,28 @@ namespace UGTLive
         private void ToolbarWindow_Loaded(object sender, RoutedEventArgs e)
         {
             _isInitialized = true;
+        }
+
+        private void Application_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            
+            if (HotkeyManager.Instance.GetGlobalHotkeysEnabled())
+            {
+                bool handled = HotkeyManager.Instance.HandleKeyDownLocal(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
+                {
+                    e.Handled = true;
+                }
+            }
+            else
+            {
+                bool handled = HotkeyManager.Instance.HandleKeyDownAll(e.Key, modifiers);
+                if (handled || e.Key == System.Windows.Input.Key.Tab)
+                {
+                    e.Handled = true;
+                }
+            }
         }
 
         // --- Capture exclusion ---

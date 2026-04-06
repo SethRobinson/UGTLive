@@ -20,6 +20,9 @@ namespace UGTLive
         // Gamepad hotkey
         public List<string> GamepadButtons { get; set; } = new List<string>();
         
+        // Whether this binding fires system-wide (true) or only when app is focused (false)
+        public bool IsGlobal { get; set; } = true;
+        
         public HotkeyEntry()
         {
         }
@@ -42,8 +45,18 @@ namespace UGTLive
             return GamepadButtons.Count > 0;
         }
         
-        // Get keyboard hotkey as string
+        // Get keyboard hotkey as string (with scope label for display in tooltips etc.)
         public string GetKeyboardHotkeyString()
+        {
+            if (KeyboardKey == Key.None)
+                return "None";
+                
+            string combo = GetKeyboardComboString();
+            return combo + (IsGlobal ? " (Global)" : " (Local)");
+        }
+        
+        // Get just the key combo without scope label (for use in Settings grid where scope has its own column)
+        public string GetKeyboardComboString()
         {
             if (KeyboardKey == Key.None)
                 return "None";
@@ -103,6 +116,9 @@ namespace UGTLive
             // Gamepad hotkey
             parts.Add(GamepadButtons.Count > 0 ? string.Join(",", GamepadButtons) : "");
             
+            // Global scope flag
+            parts.Add(IsGlobal ? "1" : "0");
+            
             return string.Join("|", parts);
         }
         
@@ -135,6 +151,12 @@ namespace UGTLive
                 if (!string.IsNullOrWhiteSpace(parts[6]))
                 {
                     entry.GamepadButtons = parts[6].Split(',').ToList();
+                }
+                
+                // Parse global scope flag (defaults to true for backward compat with old files)
+                if (parts.Length > 7)
+                {
+                    entry.IsGlobal = parts[7] != "0";
                 }
                 
                 return entry;

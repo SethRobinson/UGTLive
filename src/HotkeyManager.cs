@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -16,6 +17,7 @@ namespace UGTLive
         private Dictionary<string, List<HotkeyEntry>> _actionBindings = new Dictionary<string, List<HotkeyEntry>>();
         private bool _globalHotkeysEnabled = true;
         private bool _isEnabled = true;
+        private bool _isNewHotkeyFile = false;
         
         // Debouncing for actions to prevent double-triggers
         private Dictionary<string, DateTime> _lastActionTime = new Dictionary<string, DateTime>();
@@ -52,6 +54,9 @@ namespace UGTLive
         private HotkeyManager()
         {
             LoadHotkeys();
+            
+            // Offer to reset hotkeys if defaults have improved since last upgrade
+            MigrateHotkeysIfNeeded();
             
             // Subscribe to gamepad events
             GamepadManager.Instance.ButtonsPressed += GamepadManager_ButtonsPressed;
@@ -168,13 +173,54 @@ namespace UGTLive
             SaveHotkeys();
         }
         
-        // Handle keyboard input
+        // Handle keyboard input from global hook (only fires IsGlobal bindings)
         public bool HandleKeyDown(Key key, ModifierKeys modifiers)
         {
             if (!_isEnabled)
                 return false;
                 
-            // Check all bindings for all actions
+            foreach (var kvp in _actionBindings)
+            {
+                foreach (var binding in kvp.Value)
+                {
+                    if (binding.IsGlobal && binding.KeyboardKey == key && binding.MatchesKeyboardModifiers(modifiers))
+                    {
+                        TriggerAction(kvp.Key);
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        // Handle keyboard input from window-level PreviewKeyDown (only fires local/non-global bindings)
+        public bool HandleKeyDownLocal(Key key, ModifierKeys modifiers)
+        {
+            if (!_isEnabled)
+                return false;
+                
+            foreach (var kvp in _actionBindings)
+            {
+                foreach (var binding in kvp.Value)
+                {
+                    if (!binding.IsGlobal && binding.KeyboardKey == key && binding.MatchesKeyboardModifiers(modifiers))
+                    {
+                        TriggerAction(kvp.Key);
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        // Handle keyboard input when master global switch is off (fires ALL bindings regardless of scope)
+        public bool HandleKeyDownAll(Key key, ModifierKeys modifiers)
+        {
+            if (!_isEnabled)
+                return false;
+                
             foreach (var kvp in _actionBindings)
             {
                 foreach (var binding in kvp.Value)
@@ -298,6 +344,58 @@ namespace UGTLive
             Console.WriteLine("Hotkeys reset to defaults");
         }
         
+        // One-time migration: offer to reset hotkeys when defaults have changed significantly.
+        // LAST_HOTKEY_CHANGE_VERSION: bump this only when the default hotkeys actually change.
+        private const double LAST_HOTKEY_CHANGE_VERSION = 1.25;
+        
+        private void MigrateHotkeysIfNeeded()
+        {
+            string lastVersion = ConfigManager.Instance.GetValue(ConfigManager.LAST_HOTKEY_UPGRADE_VERSION, "0");
+            if (!double.TryParse(lastVersion, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out double lastHotkeyVersion))
+            {
+                lastHotkeyVersion = 0;
+            }
+            
+            if (lastHotkeyVersion >= LAST_HOTKEY_CHANGE_VERSION)
+            {
+                return;
+            }
+            
+            if (_isNewHotkeyFile || ConfigManager.Instance.IsNewConfig)
+            {
+                ConfigManager.Instance.SetValue(ConfigManager.LAST_HOTKEY_UPGRADE_VERSION,
+                    LAST_HOTKEY_CHANGE_VERSION.ToString(CultureInfo.InvariantCulture));
+                ConfigManager.Instance.SaveConfig();
+                return;
+            }
+            
+            var result = System.Windows.MessageBox.Show(
+                "Default hotkeys have changed quite a bit to prevent accidental triggers " +
+                "during normal typing (Shift+letter changed to Ctrl+Shift+letter, and hotkeys " +
+                "now support per-binding global/local scope).\n\n" +
+                "Would you like to reset your hotkeys to the new defaults?\n\n" +
+                "Choose 'Yes' to use the improved defaults (recommended).\n" +
+                "Choose 'No' to keep your current hotkeys.",
+                "Hotkey Defaults Updated",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                ResetToDefaults();
+                Console.WriteLine("User chose to reset hotkeys to new defaults");
+            }
+            else
+            {
+                Console.WriteLine("User chose to keep existing hotkeys");
+            }
+            
+            ConfigManager.Instance.SetValue(ConfigManager.LAST_HOTKEY_UPGRADE_VERSION,
+                LAST_HOTKEY_CHANGE_VERSION.ToString(CultureInfo.InvariantCulture));
+            ConfigManager.Instance.SaveConfig();
+        }
+        
         // Load hotkeys from file
         private void LoadHotkeys()
         {
@@ -353,11 +451,13 @@ namespace UGTLive
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error loading hotkeys: {ex.Message}");
+                    _isNewHotkeyFile = true;
                     CreateDefaultHotkeys();
                 }
             }
             else
             {
+                _isNewHotkeyFile = true;
                 CreateDefaultHotkeys();
             }
         }
@@ -398,78 +498,96 @@ namespace UGTLive
             _actionBindings.Clear();
             _globalHotkeysEnabled = true;
             
-            // Start/Stop - Shift+S
+            // Start/Stop - Ctrl+Shift+S (Global)
             var startStop = new HotkeyEntry("start_stop", "Start/Stop Live OCR");
             startStop.KeyboardKey = Key.S;
             startStop.UseShift = true;
+            startStop.UseCtrl = true;
             _actionBindings["start_stop"] = new List<HotkeyEntry> { startStop };
             
-            // Toggle Monitor - Shift+M
+            // Toggle Monitor - Ctrl+Shift+M (Global)
             var toggleMonitor = new HotkeyEntry("toggle_monitor", "Toggle Monitor Window");
             toggleMonitor.KeyboardKey = Key.M;
             toggleMonitor.UseShift = true;
+            toggleMonitor.UseCtrl = true;
             _actionBindings["toggle_monitor"] = new List<HotkeyEntry> { toggleMonitor };
             
-            // Toggle ChatBox - Shift+C
+            // Toggle ChatBox - Ctrl+Shift+C (Global)
             var toggleChatBox = new HotkeyEntry("toggle_chatbox", "Toggle Transcript");
             toggleChatBox.KeyboardKey = Key.C;
             toggleChatBox.UseShift = true;
+            toggleChatBox.UseCtrl = true;
             _actionBindings["toggle_chatbox"] = new List<HotkeyEntry> { toggleChatBox };
             
-            // Toggle Settings - Shift+E (changed from P since P is now Passthrough)
+            // Toggle Settings - Ctrl+Shift+E (Global)
             var toggleSettings = new HotkeyEntry("toggle_settings", "Toggle Settings");
             toggleSettings.KeyboardKey = Key.E;
             toggleSettings.UseShift = true;
+            toggleSettings.UseCtrl = true;
             _actionBindings["toggle_settings"] = new List<HotkeyEntry> { toggleSettings };
             
-            // Toggle Log - Shift+L
+            // Toggle Log - Ctrl+Shift+L (Global)
             var toggleLog = new HotkeyEntry("toggle_log", "Toggle Log");
             toggleLog.KeyboardKey = Key.L;
             toggleLog.UseShift = true;
+            toggleLog.UseCtrl = true;
             _actionBindings["toggle_log"] = new List<HotkeyEntry> { toggleLog };
             
-            // Toggle Main Window - Shift+H
+            // Toggle Main Window - Ctrl+Shift+H (Global)
             var toggleMainWindow = new HotkeyEntry("toggle_main_window", "Toggle Main Window");
             toggleMainWindow.KeyboardKey = Key.H;
             toggleMainWindow.UseShift = true;
+            toggleMainWindow.UseCtrl = true;
             _actionBindings["toggle_main_window"] = new List<HotkeyEntry> { toggleMainWindow };
             
-            // Clear Overlays - Shift+X
+            // Clear Overlays - Ctrl+Shift+X (Global)
             var clearOverlays = new HotkeyEntry("clear_overlays", "Clear Overlays");
             clearOverlays.KeyboardKey = Key.X;
             clearOverlays.UseShift = true;
+            clearOverlays.UseCtrl = true;
             _actionBindings["clear_overlays"] = new List<HotkeyEntry> { clearOverlays };
             
-            // Toggle Passthrough - Shift+P
+            // Toggle Passthrough - Ctrl+Shift+P (Global)
             var togglePassthrough = new HotkeyEntry("toggle_passthrough", "Toggle Passthrough");
             togglePassthrough.KeyboardKey = Key.P;
             togglePassthrough.UseShift = true;
+            togglePassthrough.UseCtrl = true;
             _actionBindings["toggle_passthrough"] = new List<HotkeyEntry> { togglePassthrough };
             
-            // Next Overlay Mode - Tab
-            var toggleOverlayMode = new HotkeyEntry("toggle_overlay_mode", "Next Overlay Mode");
-            toggleOverlayMode.KeyboardKey = Key.Tab;
-            toggleOverlayMode.UseShift = false;
-            _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { toggleOverlayMode };
+            // Next Overlay Mode - Ctrl+Shift+Tab (Global) + Tab (Local)
+            var overlayModeGlobal = new HotkeyEntry("toggle_overlay_mode", "Next Overlay Mode");
+            overlayModeGlobal.KeyboardKey = Key.Tab;
+            overlayModeGlobal.UseShift = true;
+            overlayModeGlobal.UseCtrl = true;
+            overlayModeGlobal.IsGlobal = true;
+            var overlayModeLocal = new HotkeyEntry("toggle_overlay_mode", "Next Overlay Mode");
+            overlayModeLocal.KeyboardKey = Key.Tab;
+            overlayModeLocal.IsGlobal = false;
+            _actionBindings["toggle_overlay_mode"] = new List<HotkeyEntry> { overlayModeGlobal, overlayModeLocal };
             
-            // Previous Overlay Mode - No default key
+            // Previous Overlay Mode - Shift+Tab (Local)
             var prevOverlayMode = new HotkeyEntry("prev_overlay_mode", "Previous Overlay Mode");
+            prevOverlayMode.KeyboardKey = Key.Tab;
+            prevOverlayMode.UseShift = true;
+            prevOverlayMode.IsGlobal = false;
             _actionBindings["prev_overlay_mode"] = new List<HotkeyEntry> { prevOverlayMode };
             
             // Toggle Listen - No default key
             var toggleListen = new HotkeyEntry("toggle_listen", "Toggle Listen");
             _actionBindings["toggle_listen"] = new List<HotkeyEntry> { toggleListen };
             
-            // View in Browser - Shift+B
+            // View in Browser - Ctrl+Shift+B (Global)
             var viewInBrowser = new HotkeyEntry("view_in_browser", "View in Browser");
             viewInBrowser.KeyboardKey = Key.B;
             viewInBrowser.UseShift = true;
+            viewInBrowser.UseCtrl = true;
             _actionBindings["view_in_browser"] = new List<HotkeyEntry> { viewInBrowser };
             
-            // Snapshot - Shift+Z
+            // Snapshot - Ctrl+Shift+Z (Global)
             var snapshot = new HotkeyEntry("snapshot", "Snapshot OCR");
             snapshot.KeyboardKey = Key.Z;
             snapshot.UseShift = true;
+            snapshot.UseCtrl = true;
             _actionBindings["snapshot"] = new List<HotkeyEntry> { snapshot };
             
             SaveHotkeys();

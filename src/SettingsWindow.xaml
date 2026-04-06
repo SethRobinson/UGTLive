@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     Title="Settings"
     Height="560"
-    Width="800"
+    Width="870"
     WindowStyle="SingleBorderWindow"
     ResizeMode="CanResizeWithGrip"
     Icon="/media/Icon1.ico">
@@ -1647,8 +1647,18 @@
                                                      SelectionChanged="BindingsListView_SelectionChanged">
                                                 <ListView.View>
                                                     <GridView>
-                                                        <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding BindingType}"/>
-                                                        <GridViewColumn Header="Binding" Width="250" DisplayMemberBinding="{Binding BindingString}"/>
+                                                        <GridViewColumn Header="Type" Width="90" DisplayMemberBinding="{Binding BindingType}"/>
+                                                        <GridViewColumn Header="Binding" Width="180" DisplayMemberBinding="{Binding BindingString}"/>
+                                                        <GridViewColumn Header="Scope" Width="100">
+                                                            <GridViewColumn.CellTemplate>
+                                                                <DataTemplate>
+                                                                    <CheckBox IsChecked="{Binding IsGlobal, Mode=TwoWay}" 
+                                                                             Content="{Binding ScopeLabel}"
+                                                                             Checked="BindingGlobalCheckBox_Changed"
+                                                                             Unchecked="BindingGlobalCheckBox_Changed"/>
+                                                                </DataTemplate>
+                                                            </GridViewColumn.CellTemplate>
+                                                        </GridViewColumn>
                                                     </GridView>
                                                 </ListView.View>
                                             </ListView>

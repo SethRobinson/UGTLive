@@ -24,6 +24,7 @@ namespace UGTLive
         private readonly Dictionary<string, string> _configValues;
         private string _currentTranslationService = "Google Translate"; // Default to Google Translate
         private bool _isNewConfig = false;
+        public bool IsNewConfig => _isNewConfig;
 
         // Config keys
         public const string GEMINI_API_KEY = "gemini_api_key";
@@ -268,6 +269,9 @@ namespace UGTLive
         // Prompt upgrade tracking
         public const string LAST_PROMPT_UPGRADE_VERSION = "last_prompt_upgrade_version";
         
+        // Hotkey upgrade tracking
+        public const string LAST_HOTKEY_UPGRADE_VERSION = "last_hotkey_upgrade_version";
+        
         // Debug logging settings
         public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";
 
@@ -347,7 +351,7 @@ namespace UGTLive
             EnsureServiceConfigFilesExist();
             
             // Offer to reset prompts if they've been improved since last upgrade
-            MigratePromptsIfNeeded(SplashManager.CurrentVersion);
+            MigratePromptsIfNeeded();
         }
 
         // Get a boolean configuration value
@@ -1048,7 +1052,10 @@ namespace UGTLive
             }
         }
         
-        public void MigratePromptsIfNeeded(double currentAppVersion)
+        // LAST_PROMPT_CHANGE_VERSION: bump this only when the default prompts actually change.
+        private const double LAST_PROMPT_CHANGE_VERSION = 1.24;
+        
+        public void MigratePromptsIfNeeded()
         {
             string lastVersion = GetValue(LAST_PROMPT_UPGRADE_VERSION, "0");
             if (!double.TryParse(lastVersion, NumberStyles.Float, 
@@ -1057,7 +1064,7 @@ namespace UGTLive
                 lastPromptVersion = 0;
             }
             
-            if (lastPromptVersion >= currentAppVersion)
+            if (lastPromptVersion >= LAST_PROMPT_CHANGE_VERSION)
             {
                 return;
             }
@@ -1066,7 +1073,7 @@ namespace UGTLive
             {
                 // Fresh install — prompts are already the latest defaults, just stamp the version
                 SetValue(LAST_PROMPT_UPGRADE_VERSION, 
-                    currentAppVersion.ToString(CultureInfo.InvariantCulture));
+                    LAST_PROMPT_CHANGE_VERSION.ToString(CultureInfo.InvariantCulture));
                 SaveConfig();
                 return;
             }
@@ -1093,7 +1100,7 @@ namespace UGTLive
             }
             
             SetValue(LAST_PROMPT_UPGRADE_VERSION, 
-                currentAppVersion.ToString(CultureInfo.InvariantCulture));
+                LAST_PROMPT_CHANGE_VERSION.ToString(CultureInfo.InvariantCulture));
             SaveConfig();
         }
         
