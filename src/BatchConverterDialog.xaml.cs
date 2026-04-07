@@ -24,7 +24,8 @@ namespace UGTLive
 
         private static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif" };
         private static readonly string[] PdfExtensions = { ".pdf" };
-        private static readonly string[] AllExtensions = ImageExtensions.Concat(PdfExtensions).ToArray();
+        private static readonly string[] CbzExtensions = { ".cbz" };
+        private static readonly string[] AllExtensions = ImageExtensions.Concat(PdfExtensions).Concat(CbzExtensions).ToArray();
 
         private bool _autoStart;
         private bool _autoQuit;
@@ -33,6 +34,9 @@ namespace UGTLive
         {
             InitializeComponent();
             fileListBox.ItemsSource = _items;
+            jpegQualitySlider.Value = ConfigManager.Instance.GetBatchJpegQuality();
+            jpegQualityLabel.Text = ((int)jpegQualitySlider.Value).ToString();
+            jpegQualitySlider.ValueChanged += JpegQualitySlider_ValueChanged;
             refreshSettingsDisplay();
             updateFileCount();
         }
@@ -81,13 +85,19 @@ namespace UGTLive
             settingsTargetLang.Text = $"Target: {Logic.GetLanguageName(tgt)}";
             settingsOcrMethod.Text = $"OCR: {ocr}";
             settingsTransService.Text = $"Translation: {trans}";
+
+            int maxCtx = ConfigManager.Instance.GetMaxContextPieces();
+            settingsContext.Text = maxCtx > 0
+                ? $"Context: last {maxCtx}"
+                : "Context: off";
         }
 
         private void updateFileCount()
         {
             int files = _items.Count;
-            int pages = _items.Sum(i => i.IsPdf ? i.PageCount : 1);
+            int pages = _items.Sum(i => i.IsMultiPage ? i.PageCount : 1);
             fileCountText.Text = files == 0 ? "No files" : $"{files} file(s), ~{pages} page(s)";
+            dragDropHint.Visibility = files == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void AddFilesButton_Click(object sender, RoutedEventArgs e)
@@ -95,8 +105,8 @@ namespace UGTLive
             var dlg = new OpenFileDialog
             {
                 Multiselect = true,
-                Filter = "Images and PDFs|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif;*.pdf|Images|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif|PDF Files|*.pdf|All Files|*.*",
-                Title = "Select images or PDFs to convert"
+                Filter = "Supported Files|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif;*.pdf;*.cbz|Images|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif|PDF Files|*.pdf|CBZ Files|*.cbz|All Files|*.*",
+                Title = "Select images, PDFs, or CBZ files to convert"
             };
 
             if (dlg.ShowDialog() == true)
@@ -110,7 +120,7 @@ namespace UGTLive
         {
             using var dlg = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "Select folder containing images/PDFs"
+                Description = "Select folder containing images, PDFs, or CBZ files"
             };
 
             if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
@@ -134,6 +144,11 @@ namespace UGTLive
             if (item.IsPdf)
             {
                 int pages = await BatchConverterService.GetPdfPageCountAsync(filePath);
+                item.PageCount = pages > 0 ? pages : 1;
+            }
+            else if (item.IsCbz)
+            {
+                int pages = BatchConverterService.GetCbzPageCount(filePath);
                 item.PageCount = pages > 0 ? pages : 1;
             }
 
@@ -216,10 +231,23 @@ namespace UGTLive
                 item.Status = "Pending";
             fileListBox.Items.Refresh();
 
+            int pageLimit = 0;
+            if (pageLimitCheckBox.IsChecked == true &&
+                int.TryParse(pageLimitTextBox.Text, out int limit) && limit > 0)
+            {
+                pageLimit = limit;
+            }
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
             try
             {
-                var (succeeded, failed) = await _service.ConvertFilesAsync(_items.ToList(), _cts.Token);
-                statusText.Text = $"Complete! {succeeded} succeeded, {failed} failed.";
+                var (succeeded, failed) = await _service.ConvertFilesAsync(_items.ToList(), _cts.Token, pageLimit);
+                stopwatch.Stop();
+                string elapsed = stopwatch.Elapsed.TotalMinutes >= 1
+                    ? $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s"
+                    : $"{stopwatch.Elapsed.TotalSeconds:F1}s";
+                statusText.Text = $"Complete! {succeeded} succeeded, {failed} failed. ({elapsed})";
                 progressBar.Value = 100;
 
                 if (succeeded > 0 && _items.Count > 0)
@@ -278,6 +306,15 @@ namespace UGTLive
             }
         }
 
+        private void OpenTempFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            string? tempFolder = _service?.CurrentTempFolder;
+            if (!string.IsNullOrEmpty(tempFolder) && Directory.Exists(tempFolder))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", tempFolder);
+            }
+        }
+
         private void setProcessingState(bool processing)
         {
             _isProcessing = processing;
@@ -288,12 +325,21 @@ namespace UGTLive
                 btn.Visibility = processing ? Visibility.Collapsed : Visibility.Visible;
 
             cancelButton.Content = processing ? "Cancel" : "Close";
+            openTempFolderButton.Visibility = processing ? Visibility.Visible : Visibility.Collapsed;
 
             if (processing)
             {
                 openFolderButton.Visibility = Visibility.Collapsed;
                 logTextBox.Text = "";
             }
+        }
+
+        private void JpegQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            int quality = (int)e.NewValue;
+            if (jpegQualityLabel != null)
+                jpegQualityLabel.Text = quality.ToString();
+            ConfigManager.Instance.SetBatchJpegQuality(quality);
         }
 
         private void onProgress(object? sender, BatchProgressEventArgs e)

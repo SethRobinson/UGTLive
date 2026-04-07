@@ -29,8 +29,28 @@
                     <TextBlock x:Name="settingsSourceLang" Margin="0,0,16,0" Foreground="#CCC"/>
                     <TextBlock x:Name="settingsTargetLang" Margin="0,0,16,0" Foreground="#CCC"/>
                     <TextBlock x:Name="settingsOcrMethod" Margin="0,0,16,0" Foreground="#CCC"/>
-                    <TextBlock x:Name="settingsTransService" Foreground="#CCC"/>
+                    <TextBlock x:Name="settingsTransService" Margin="0,0,16,0" Foreground="#CCC"/>
+                    <TextBlock x:Name="settingsContext" Foreground="#CCC"/>
                 </WrapPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock Foreground="#CCC" VerticalAlignment="Center" Margin="0,0,8,0">JPEG Quality:</TextBlock>
+                    <Slider x:Name="jpegQualitySlider" Width="140" Minimum="50" Maximum="100"
+                            TickFrequency="5" IsSnapToTickEnabled="True"
+                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="jpegQualityLabel" Foreground="#CCC" VerticalAlignment="Center" Width="28"/>
+                    <TextBlock Foreground="#777" VerticalAlignment="Center" FontSize="11"
+                               Margin="4,0,0,0">(for CBZ/PDF output — lower = smaller file)</TextBlock>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <CheckBox x:Name="pageLimitCheckBox" Foreground="#CCC" VerticalAlignment="Center"
+                              Margin="0,0,8,0" Content="Limit PDF/CBZ to first"/>
+                    <TextBox x:Name="pageLimitTextBox" Width="40" Text="5" Foreground="White"
+                             Background="#3C3C3C" BorderBrush="#555" Padding="4,2"
+                             VerticalAlignment="Center" HorizontalContentAlignment="Center"/>
+                    <TextBlock Foreground="#CCC" VerticalAlignment="Center" Margin="8,0,0,0">pages</TextBlock>
+                    <TextBlock Foreground="#777" VerticalAlignment="Center" FontSize="11"
+                               Margin="8,0,0,0">(useful for testing settings)</TextBlock>
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -48,19 +68,25 @@
         </StackPanel>
 
         <!-- Row 2: File list (supports drag-and-drop) -->
-        <ListBox x:Name="fileListBox" Grid.Row="2" Background="#252526" Foreground="White"
-                 BorderBrush="#3C3C3C" SelectionMode="Extended"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                 AllowDrop="True" Drop="FileListBox_Drop" DragOver="FileListBox_DragOver">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Status}" Width="80" Foreground="#888" Margin="0,0,8,0"/>
-                        <TextBlock Text="{Binding DisplayText}" />
-                    </StackPanel>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <Grid Grid.Row="2">
+            <ListBox x:Name="fileListBox" Background="#252526" Foreground="White"
+                     BorderBrush="#3C3C3C" SelectionMode="Extended"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     AllowDrop="True" Drop="FileListBox_Drop" DragOver="FileListBox_DragOver">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Status}" Width="80" Foreground="#888" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding DisplayText}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="dragDropHint" Text="Drag and drop files or folders here"
+                       Foreground="#555" FontSize="14" FontStyle="Italic"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsHitTestVisible="False"/>
+        </Grid>
 
         <!-- Row 3: Status text (selectable) -->
         <TextBox x:Name="statusText" Grid.Row="3" Margin="0,8,0,4" Foreground="#90CAF9" FontSize="13"
@@ -95,6 +121,9 @@
             <Button x:Name="openFolderButton" Content="Open Output Folder" Padding="16,8" Margin="0,0,8,0"
                     Background="#3C3C3C" Foreground="White" BorderBrush="#555"
                     Visibility="Collapsed" Click="OpenFolderButton_Click"/>
+            <Button x:Name="openTempFolderButton" Content="Open Temp Folder" Padding="16,8" Margin="0,0,8,0"
+                    Background="#3C3C3C" Foreground="White" BorderBrush="#555"
+                    Visibility="Collapsed" Click="OpenTempFolderButton_Click"/>
             <Button x:Name="startButton" Content="Start" Padding="24,8" Margin="0,0,8,0"
                     Background="#4CAF50" Foreground="White" BorderBrush="#4CAF50"
                     FontWeight="Bold" FontSize="14" Click="StartButton_Click"/>

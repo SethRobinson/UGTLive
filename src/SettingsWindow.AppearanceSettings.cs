@@ -228,6 +228,40 @@ namespace UGTLive
                 Console.WriteLine($"Error updating min context size: {ex.Message}");
             }
         }
+
+        private void MaxTranslationRetriesTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            applyMaxTranslationRetries();
+        }
+
+        private void MaxTranslationRetriesTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+                applyMaxTranslationRetries();
+        }
+
+        private void applyMaxTranslationRetries()
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                if (int.TryParse(maxTranslationRetriesTextBox.Text, out int retries) && retries >= 0)
+                {
+                    ConfigManager.Instance.SetMaxTranslationRetries(retries);
+                    Console.WriteLine($"Max translation retries set to: {retries}");
+                }
+                else
+                {
+                    maxTranslationRetriesTextBox.Text = ConfigManager.Instance.GetMaxTranslationRetries().ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating max translation retries: {ex.Message}");
+            }
+        }
         
         private void MinChatBoxTextSizeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {

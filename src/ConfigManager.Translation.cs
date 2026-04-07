@@ -465,6 +465,23 @@ Here is the input JSON:";
             }
         }
         
+        public int GetMaxTranslationRetries()
+        {
+            string value = GetValue(MAX_TRANSLATION_RETRIES, "5");
+            if (int.TryParse(value, out int retries) && retries >= 0)
+                return retries;
+            return 5;
+        }
+
+        public void SetMaxTranslationRetries(int value)
+        {
+            if (value >= 0)
+            {
+                _configValues[MAX_TRANSLATION_RETRIES] = value.ToString();
+                SaveConfig();
+            }
+        }
+
         // Get/Set game info
         public string GetGameInfo()
         {

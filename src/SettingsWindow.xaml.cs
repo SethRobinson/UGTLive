@@ -401,6 +401,7 @@ namespace UGTLive
             // Remove focus event handlers
             maxContextPiecesTextBox.LostFocus -= MaxContextPiecesTextBox_LostFocus;
             minContextSizeTextBox.LostFocus -= MinContextSizeTextBox_LostFocus;
+            maxTranslationRetriesTextBox.LostFocus -= MaxTranslationRetriesTextBox_LostFocus;
             minChatBoxTextSizeTextBox.LostFocus -= MinChatBoxTextSizeTextBox_LostFocus;
             gameInfoTextBox.TextChanged -= GameInfoTextBox_TextChanged;
             minTextFragmentSizeTextBox.LostFocus -= MinTextFragmentSizeTextBox_LostFocus;
@@ -414,6 +415,7 @@ namespace UGTLive
             // Set context settings
             maxContextPiecesTextBox.Text = ConfigManager.Instance.GetMaxContextPieces().ToString();
             minContextSizeTextBox.Text = ConfigManager.Instance.GetMinContextSize().ToString();
+            maxTranslationRetriesTextBox.Text = ConfigManager.Instance.GetMaxTranslationRetries().ToString();
             minChatBoxTextSizeTextBox.Text = ConfigManager.Instance.GetChatBoxMinTextSize().ToString();
             gameInfoTextBox.Text = ConfigManager.Instance.GetGameInfo();
             minTextFragmentSizeTextBox.Text = ConfigManager.Instance.GetMinTextFragmentSize().ToString();
@@ -423,6 +425,7 @@ namespace UGTLive
             // Reattach focus event handlers
             maxContextPiecesTextBox.LostFocus += MaxContextPiecesTextBox_LostFocus;
             minContextSizeTextBox.LostFocus += MinContextSizeTextBox_LostFocus;
+            maxTranslationRetriesTextBox.LostFocus += MaxTranslationRetriesTextBox_LostFocus;
             minChatBoxTextSizeTextBox.LostFocus += MinChatBoxTextSizeTextBox_LostFocus;
             gameInfoTextBox.TextChanged += GameInfoTextBox_TextChanged;
             minTextFragmentSizeTextBox.LostFocus += MinTextFragmentSizeTextBox_LostFocus;

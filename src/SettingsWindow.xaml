@@ -879,6 +879,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 
                                 <!-- Context Settings -->
@@ -911,11 +912,19 @@
                                         ToolTip="Information about the game being played to help the LLM translate more accurately."
                                         AcceptsReturn="True" TextWrapping="Wrap" Height="60" VerticalScrollBarVisibility="Auto"/>
                                 
+                                <TextBlock Text="Max Translation Retries:" Grid.Row="4" Grid.Column="0" 
+                                          VerticalAlignment="Center" Margin="0,0,10,0"
+                                          ToolTip="Auto-retry translation when the LLM returns malformed JSON. Set to 0 to disable retries."/>
+                                <TextBox x:Name="maxTranslationRetriesTextBox" Grid.Row="4" Grid.Column="1" 
+                                        Margin="0,5" Text="5" LostFocus="MaxTranslationRetriesTextBox_LostFocus"
+                                        KeyDown="MaxTranslationRetriesTextBox_KeyDown"
+                                        ToolTip="Auto-retry translation when the LLM returns malformed JSON. Set to 0 to disable retries. Press Enter to apply."/>
+
                                 <!-- Clear Context Button -->
-                                <TextBlock Text="Clear Translation Context:" Grid.Row="4" Grid.Column="0" 
+                                <TextBlock Text="Clear Translation Context:" Grid.Row="5" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,8,10,0"
                                           ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
-                                <Button x:Name="clearContextButton" Content="Clear Context" Grid.Row="4" Grid.Column="1"
+                                <Button x:Name="clearContextButton" Content="Clear Context" Grid.Row="5" Grid.Column="1"
                                        HorizontalAlignment="Left" Width="120" Margin="0,8,0,10" Padding="5,3" Click="ClearContextButton_Click"
                                        ToolTip="Clear all translation history and context. Forces new translation on next capture."/>
                             </Grid>

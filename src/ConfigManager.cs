@@ -580,6 +580,19 @@ namespace UGTLive
             }
         }
         
+        public int GetBatchJpegQuality()
+        {
+            string value = GetValue(BATCH_JPEG_QUALITY, "90");
+            if (int.TryParse(value, out int quality) && quality >= 1 && quality <= 100)
+                return quality;
+            return 90;
+        }
+
+        public void SetBatchJpegQuality(int quality)
+        {
+            SetValue(BATCH_JPEG_QUALITY, Math.Clamp(quality, 1, 100).ToString());
+        }
+
         // Get current OCR method
         public string GetOcrMethod()
         {

@@ -117,35 +117,51 @@ namespace UGTLive
                 // Create translation service based on current configuration
                 ITranslationService translationService = TranslationServiceFactory.CreateService();
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
-                
-                // Call the translation API with the modified prompt if context exists
-                string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt, cancellationToken);
-                
-                // Check if translation was cancelled
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    Log("Translation was cancelled");
-                    return;
-                }
-                
-                if (string.IsNullOrEmpty(translationResponse))
-                {
-                    Log($"Translation failed with {currentService} - empty response");
-                    OnFinishedThings(true);
-                    return;
-                }
+                int maxRetries = ConfigManager.Instance.GetMaxTranslationRetries() + 1;
 
-                _translationStopwatch.Stop();
-                if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
-                    Log($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                    // Call the translation API with the modified prompt if context exists
+                    string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt, cancellationToken);
+                    
+                    // Check if translation was cancelled
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        Log("Translation was cancelled");
+                        return;
+                    }
+                    
+                    if (string.IsNullOrEmpty(translationResponse))
+                    {
+                        if (attempt < maxRetries)
+                        {
+                            Log($"Translation returned empty response. Retrying (attempt {attempt + 1}/{maxRetries})...");
+                            continue;
+                        }
+                        Log($"Translation failed with {currentService} - empty response");
+                        OnFinishedThings(true);
+                        return;
+                    }
+
+                    _translationStopwatch.Stop();
+                    if (ConfigManager.Instance.GetLogExtraDebugStuff())
+                    {
+                        Log($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+                    }
+
+                    if (ProcessTranslatedJSON(translationResponse))
+                        break;
+
+                    if (attempt < maxRetries)
+                    {
+                        Log($"Translation produced unusable response. Retrying (attempt {attempt + 1}/{maxRetries})...");
+                        _translationStopwatch.Restart();
+                    }
+                    else if (maxRetries > 1)
+                    {
+                        Log($"Translation failed after {maxRetries} attempts.");
+                    }
                 }
-
-                // We've already logged the raw LLM response in the respective service
-                // This would log the post-processed response, which we don't need
-                // LogManager.Instance.LogLlmReply(translationResponse);
-
-                ProcessTranslatedJSON(translationResponse);
                 
                 // Record when translation completed for cooldown mechanism
                 _lastTranslationTime = DateTime.Now;
@@ -189,7 +205,7 @@ namespace UGTLive
         }
 
         //!Process the finished translation into text blocks and the chatbox
-        void ProcessTranslatedJSON(string translationResponse)
+        bool ProcessTranslatedJSON(string translationResponse)
         {
             try
             {
@@ -234,7 +250,7 @@ namespace UGTLive
                                 
                                 // Process directly with this JSON
                                 ProcessStructuredJsonTranslation(textToProcess);
-                                return;
+                                return true;
                             }
                             catch (Exception ex)
                             {
@@ -289,7 +305,7 @@ namespace UGTLive
                                             
                                             // Now update the text objects with the translation
                                             ProcessStructuredJsonTranslation(translatedRoot);
-                                            return; // Bỏ qua xử lý tiếp theo
+                                            return true;
                                         }
                                         catch (JsonException ex)
                                         {
@@ -313,15 +329,15 @@ namespace UGTLive
                             Log("Google Translate response detected");
                         }
                         ProcessGoogleTranslateJson(doc.RootElement);
-                        return; // Bỏ qua xử lý tiếp theo
+                        return true;
                     }
                 }
             }
             catch (Exception ex)
             {
                 Log($"Error in ProcessTranslatedJSON: {ex.Message}");
-                OnFinishedThings(true);
             }
+            return false;
         }
 
         //! Process structured JSON translation from ChatGPT or other services

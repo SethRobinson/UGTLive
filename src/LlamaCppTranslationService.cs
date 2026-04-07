@@ -128,8 +128,6 @@ namespace UGTLive
                 }
                 else if (isGemmaModel && !thinkingModeEnabled)
                 {
-                    // llama-server: chat_template_kwargs merges into Jinja; enable_thinking false turns off template-side reasoning.
-                    // thinking_budget_tokens: 0 caps interleaved reasoning when the template exposes thinking tags (server applies when default budget is -1).
                     requestBody["chat_template_kwargs"] = new Dictionary<string, object>
                     {
                         { "enable_thinking", false }
@@ -139,7 +137,11 @@ namespace UGTLive
                 }
                 else if (isGemmaModel)
                 {
-                    Console.WriteLine("Gemma model: Thinking mode enabled (template default / user setting)");
+                    requestBody["chat_template_kwargs"] = new Dictionary<string, object>
+                    {
+                        { "enable_thinking", true }
+                    };
+                    Console.WriteLine("Gemma model: Thinking mode enabled (explicit enable_thinking)");
                 }
 
                 // Serialize the request body

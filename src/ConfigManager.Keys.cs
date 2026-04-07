@@ -59,6 +59,7 @@ namespace UGTLive
         // Translation context keys
         public const string MAX_CONTEXT_PIECES = "max_context_pieces";
         public const string MIN_CONTEXT_SIZE = "min_context_size";
+        public const string MAX_TRANSLATION_RETRIES = "max_translation_retries";
         public const string GAME_INFO = "game_info";
         
         // OCR configuration keys
@@ -232,6 +233,9 @@ namespace UGTLive
         public const string SCREENSHOT_FILENAME = "screenshot_filename";
         public const string SCREENSHOT_FOLDER = "screenshot_folder";
         public const string SCREENSHOT_TYPE = "screenshot_type";
+
+        // Batch converter settings
+        public const string BATCH_JPEG_QUALITY = "batch_jpeg_quality";
 
         // Debug logging settings
         public const string LOG_EXTRA_DEBUG_STUFF = "log_extra_debug_stuff";

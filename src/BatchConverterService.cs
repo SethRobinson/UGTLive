@@ -4,9 +4,11 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -26,6 +28,8 @@ namespace UGTLive
     {
         public string FilePath { get; set; } = "";
         public bool IsPdf => FilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+        public bool IsCbz => FilePath.EndsWith(".cbz", StringComparison.OrdinalIgnoreCase);
+        public bool IsMultiPage => IsPdf || IsCbz;
         public int PageCount { get; set; } = 1;
         public string Status { get; set; } = "Pending";
         public string DisplayText
@@ -33,7 +37,7 @@ namespace UGTLive
             get
             {
                 string name = System.IO.Path.GetFileName(FilePath);
-                return IsPdf ? $"{name}  ({PageCount} pages)" : name;
+                return IsMultiPage ? $"{name}  ({PageCount} pages)" : name;
             }
         }
     }
@@ -54,17 +58,22 @@ namespace UGTLive
         public event EventHandler<BatchProgressEventArgs>? ProgressChanged;
         public event EventHandler<string>? LogMessage;
 
+        private static int getMaxTranslationAttempts() => ConfigManager.Instance.GetMaxTranslationRetries() + 1;
+
         private Window? _offscreenWindow;
         private WebView2? _offscreenWebView;
         private bool _offscreenReady;
 
+        public string? CurrentTempFolder { get; private set; }
+
         public async Task<(int succeeded, int failed)> ConvertFilesAsync(
             List<BatchConvertItem> items,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            int maxPagesPerFile = 0)
         {
             int succeeded = 0;
             int failed = 0;
-            int totalUnits = items.Sum(i => i.IsPdf ? i.PageCount : 1);
+            int totalUnits = items.Sum(i => i.IsMultiPage ? i.PageCount : 1);
             int completedUnits = 0;
 
             await initOffscreenWebViewAsync();
@@ -79,7 +88,13 @@ namespace UGTLive
                     if (item.IsPdf)
                     {
                         reportProgress(fileIdx, items.Count, 0, item.PageCount, $"Opening PDF: {Path.GetFileName(item.FilePath)}", null, completedUnits, totalUnits);
-                        await convertPdfAsync(item, fileIdx, items.Count, completedUnits, totalUnits, cancellationToken);
+                        await convertPdfAsync(item, fileIdx, items.Count, completedUnits, totalUnits, cancellationToken, maxPagesPerFile);
+                        completedUnits += item.PageCount;
+                    }
+                    else if (item.IsCbz)
+                    {
+                        reportProgress(fileIdx, items.Count, 0, item.PageCount, $"Opening CBZ: {Path.GetFileName(item.FilePath)}", null, completedUnits, totalUnits);
+                        await convertCbzAsync(item, fileIdx, items.Count, completedUnits, totalUnits, cancellationToken, maxPagesPerFile);
                         completedUnits += item.PageCount;
                     }
                     else
@@ -111,7 +126,7 @@ namespace UGTLive
         {
             using var bitmap = new Bitmap(imagePath);
             log($"Loaded image: {bitmap.Width}x{bitmap.Height} - {Path.GetFileName(imagePath)}");
-            var translated = await processImageAsync(bitmap, ct);
+            var translated = await processImageAsync(bitmap, ct, imagePath);
 
             if (translated == null)
             {
@@ -131,7 +146,7 @@ namespace UGTLive
             log($"Saved: {outPath}");
         }
 
-        private async Task convertPdfAsync(BatchConvertItem item, int fileIdx, int totalFiles, int completedUnits, int totalUnits, CancellationToken ct)
+        private async Task convertPdfAsync(BatchConvertItem item, int fileIdx, int totalFiles, int completedUnits, int totalUnits, CancellationToken ct, int maxPages = 0)
         {
             string targetLang = ConfigManager.Instance.GetTargetLanguage();
             string dir = Path.GetDirectoryName(item.FilePath) ?? ".";
@@ -140,15 +155,22 @@ namespace UGTLive
 
             var storageFile = await Windows.Storage.StorageFile.GetFileFromPathAsync(item.FilePath);
             var pdfDoc = await Windows.Data.Pdf.PdfDocument.LoadFromFileAsync(storageFile);
-            item.PageCount = (int)pdfDoc.PageCount;
+            int totalPdfPages = (int)pdfDoc.PageCount;
+            int pagesToProcess = (maxPages > 0) ? Math.Min(maxPages, totalPdfPages) : totalPdfPages;
+            item.PageCount = pagesToProcess;
+            if (maxPages > 0 && maxPages < totalPdfPages)
+                log($"Page limit active: processing {pagesToProcess} of {totalPdfPages} pages.");
 
             var translatedPages = new List<(string tempPath, double widthPt, double heightPt)>();
             string tempDir = Path.Combine(Path.GetTempPath(), "UGTLive_BatchConvert_" + Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(tempDir);
+            CurrentTempFolder = tempDir;
+            var previousContext = new List<string>();
+            int jpegQuality = ConfigManager.Instance.GetBatchJpegQuality();
 
             try
             {
-                for (int page = 0; page < pdfDoc.PageCount; page++)
+                for (int page = 0; page < pagesToProcess; page++)
                 {
                     ct.ThrowIfCancellationRequested();
                     reportProgress(fileIdx, totalFiles, page, item.PageCount,
@@ -175,19 +197,30 @@ namespace UGTLive
                     using var netStream = stream.AsStreamForRead();
                     using var bitmap = new Bitmap(netStream);
 
-                    var translated = await processImageAsync(bitmap, ct);
-                    string tempFile = Path.Combine(tempDir, $"page_{page}.png");
+                    var (translated, pageTexts) = await processImageWithContextAsync(bitmap, previousContext, ct, item.FilePath, page + 1);
+                    string tempFile = Path.Combine(tempDir, $"page_{page}.jpg");
+
+                    if (pageTexts.Count > 0)
+                        previousContext.Add(string.Join(" / ", pageTexts));
+                    int maxCtx = ConfigManager.Instance.GetMaxContextPieces();
+                    if (maxCtx > 0 && previousContext.Count > maxCtx)
+                        previousContext.RemoveRange(0, previousContext.Count - maxCtx);
+                    if (previousContext.Count > 0)
+                    {
+                        int totalChars = previousContext.Sum(c => c.Length);
+                        log($"Context: {previousContext.Count}/{maxCtx} entries ({totalChars} chars) sent with next page.");
+                    }
 
                     if (translated != null)
                     {
                         reportProgress(fileIdx, totalFiles, page, item.PageCount,
                             $"Saving page {page + 1}/{item.PageCount}: {Path.GetFileName(item.FilePath)}",
                             translated, completedUnits + page, totalUnits);
-                        saveBitmapSourceAsPng(translated, tempFile);
+                        saveBitmapSourceAsJpeg(translated, tempFile, jpegQuality);
                     }
                     else
                     {
-                        saveBitmapAsPng(bitmap, tempFile);
+                        saveBitmapAsJpeg(bitmap, tempFile, jpegQuality);
                     }
 
                     translatedPages.Add((tempFile, widthPt, heightPt));
@@ -201,11 +234,12 @@ namespace UGTLive
             }
             finally
             {
+                CurrentTempFolder = null;
                 try { Directory.Delete(tempDir, true); } catch { }
             }
         }
 
-        private async Task<BitmapSource?> processImageAsync(Bitmap bitmap, CancellationToken ct)
+        private async Task<BitmapSource?> processImageAsync(Bitmap bitmap, CancellationToken ct, string sourceFile = "", int pageNumber = 0)
         {
             string ocrJson = await runOcrAsync(bitmap, ct);
             if (string.IsNullOrEmpty(ocrJson))
@@ -220,28 +254,123 @@ namespace UGTLive
                 log("OCR found no text blocks.");
                 return null;
             }
+
+            string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+            textObjects = AudioPlaybackManager.SortTextObjectsByPlayOrder(textObjects, playOrder);
             log($"OCR found {textObjects.Count} text block(s).");
 
             await applyColorDetectionAsync(bitmap, textObjects);
 
-            string? translatedJson = await runTranslationAsync(textObjects, ct);
-            if (string.IsNullOrEmpty(translatedJson))
+            int maxAttempts = getMaxTranslationAttempts();
+            string? lastResponse = null;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                log("Translation returned empty response.");
-                return null;
+                string? translatedJson = await runTranslationAsync(textObjects, ct);
+                lastResponse = translatedJson;
+                if (string.IsNullOrEmpty(translatedJson))
+                {
+                    log("Translation returned empty response.");
+                    if (attempt < maxAttempts)
+                    {
+                        log($"Retrying translation (attempt {attempt + 1}/{maxAttempts})...");
+                        continue;
+                    }
+                    return null;
+                }
+
+                foreach (var t in textObjects) t.TextTranslated = "";
+                applyTranslation(textObjects, translatedJson);
+
+                int translatedCount = textObjects.Count(t => !string.IsNullOrEmpty(t.TextTranslated));
+                if (translatedCount > 0)
+                {
+                    log($"Translated {translatedCount}/{textObjects.Count} text block(s). Rendering overlay...");
+                    return await renderOverlayAsync(bitmap, textObjects);
+                }
+
+                if (attempt < maxAttempts)
+                    log($"Translation produced no usable blocks. Retrying (attempt {attempt + 1}/{maxAttempts})...");
             }
 
-            applyTranslation(textObjects, translatedJson);
-
-            int translatedCount = textObjects.Count(t => !string.IsNullOrEmpty(t.TextTranslated));
-            if (translatedCount == 0)
-            {
+            if (maxAttempts > 1)
+                log($"Translation failed after {maxAttempts} attempts.");
+            else
                 log("Translation produced no translated text blocks.");
-                return null;
-            }
-            log($"Translated {translatedCount}/{textObjects.Count} text block(s). Rendering overlay...");
+            if (!string.IsNullOrEmpty(sourceFile))
+                LogManager.Instance.LogTranslationError(sourceFile, pageNumber, ocrJson, lastResponse ?? "(empty)");
+            return null;
+        }
 
-            return await renderOverlayAsync(bitmap, textObjects);
+        private async Task<(BitmapSource? overlay, List<string> pageTexts)> processImageWithContextAsync(
+            Bitmap bitmap, List<string> previousContext, CancellationToken ct, string sourceFile = "", int pageNumber = 0)
+        {
+            if (previousContext.Count > 0)
+                log($"Translating with {previousContext.Count} context entr{(previousContext.Count == 1 ? "y" : "ies")} from prior pages.");
+
+            string ocrJson = await runOcrAsync(bitmap, ct);
+            if (string.IsNullOrEmpty(ocrJson))
+            {
+                log("OCR returned no results.");
+                return (null, new List<string>());
+            }
+
+            var textObjects = OcrResultParser.ParseOcrJsonToTextObjects(ocrJson);
+            if (textObjects.Count == 0)
+            {
+                log("OCR found no text blocks.");
+                return (null, new List<string>());
+            }
+
+            string playOrder = ConfigManager.Instance.GetTtsPlayOrder();
+            textObjects = AudioPlaybackManager.SortTextObjectsByPlayOrder(textObjects, playOrder);
+            log($"OCR found {textObjects.Count} text block(s).");
+
+            var pageTexts = textObjects
+                .Where(t => !string.IsNullOrWhiteSpace(t.Text))
+                .Select(t => t.Text)
+                .ToList();
+
+            await applyColorDetectionAsync(bitmap, textObjects);
+
+            int maxAttempts = getMaxTranslationAttempts();
+            string? lastResponse = null;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                string? translatedJson = await runTranslationAsync(textObjects, ct, previousContext);
+                lastResponse = translatedJson;
+                if (string.IsNullOrEmpty(translatedJson))
+                {
+                    log("Translation returned empty response.");
+                    if (attempt < maxAttempts)
+                    {
+                        log($"Retrying translation (attempt {attempt + 1}/{maxAttempts})...");
+                        continue;
+                    }
+                    return (null, pageTexts);
+                }
+
+                foreach (var t in textObjects) t.TextTranslated = "";
+                applyTranslation(textObjects, translatedJson);
+
+                int translatedCount = textObjects.Count(t => !string.IsNullOrEmpty(t.TextTranslated));
+                if (translatedCount > 0)
+                {
+                    log($"Translated {translatedCount}/{textObjects.Count} text block(s). Rendering overlay...");
+                    var overlay = await renderOverlayAsync(bitmap, textObjects);
+                    return (overlay, pageTexts);
+                }
+
+                if (attempt < maxAttempts)
+                    log($"Translation produced no usable blocks. Retrying (attempt {attempt + 1}/{maxAttempts})...");
+            }
+
+            if (maxAttempts > 1)
+                log($"Translation failed after {maxAttempts} attempts.");
+            else
+                log("Translation produced no translated text blocks.");
+            if (!string.IsNullOrEmpty(sourceFile))
+                LogManager.Instance.LogTranslationError(sourceFile, pageNumber, ocrJson, lastResponse ?? "(empty)");
+            return (null, pageTexts);
         }
 
         private async Task<string> runOcrAsync(Bitmap bitmap, CancellationToken ct)
@@ -285,7 +414,7 @@ namespace UGTLive
             }
         }
 
-        private async Task<string?> runTranslationAsync(List<TextObject> textObjects, CancellationToken ct)
+        private async Task<string?> runTranslationAsync(List<TextObject> textObjects, CancellationToken ct, List<string>? previousContext = null)
         {
             var textsToTranslate = new List<object>();
             for (int i = 0; i < textObjects.Count; i++)
@@ -308,7 +437,7 @@ namespace UGTLive
                 source_language = sourceLanguage,
                 target_language = targetLanguage,
                 text_blocks = textsToTranslate,
-                previous_context = new List<string>(),
+                previous_context = previousContext ?? new List<string>(),
                 game_info = gameInfo
             };
 
@@ -659,6 +788,22 @@ namespace UGTLive
             encoder.Save(fs);
         }
 
+        private void saveBitmapSourceAsJpeg(BitmapSource source, string path, int quality = 90)
+        {
+            var encoder = new JpegBitmapEncoder { QualityLevel = quality };
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            using var fs = new FileStream(path, FileMode.Create);
+            encoder.Save(fs);
+        }
+
+        private void saveBitmapAsJpeg(Bitmap bitmap, string path, int quality = 90)
+        {
+            var jpegCodec = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
+            var encoderParams = new EncoderParameters(1);
+            encoderParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)quality);
+            bitmap.Save(path, jpegCodec, encoderParams);
+        }
+
         private void saveBitmapAsPng(Bitmap bitmap, string path)
         {
             bitmap.Save(path, ImageFormat.Png);
@@ -696,6 +841,123 @@ namespace UGTLive
             }
         }
 
+        private async Task convertCbzAsync(BatchConvertItem item, int fileIdx, int totalFiles, int completedUnits, int totalUnits, CancellationToken ct, int maxPages = 0)
+        {
+            string targetLang = ConfigManager.Instance.GetTargetLanguage();
+            string dir = Path.GetDirectoryName(item.FilePath) ?? ".";
+            string baseName = Path.GetFileNameWithoutExtension(item.FilePath);
+            string outPath = Path.Combine(dir, $"{baseName}_converted_{targetLang}.cbz");
+
+            string tempExtract = Path.Combine(Path.GetTempPath(), "UGTLive_CBZ_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            ZipFile.ExtractToDirectory(item.FilePath, tempExtract);
+
+            var imageFiles = Directory.GetFiles(tempExtract, "*.*", SearchOption.AllDirectories)
+                .Where(f => isImageFile(f))
+                .OrderBy(f => f, NaturalStringComparer.Instance)
+                .ToList();
+
+            int totalCbzPages = imageFiles.Count;
+            if (maxPages > 0 && maxPages < totalCbzPages)
+            {
+                log($"CBZ contains {totalCbzPages} page(s). Page limit active: processing first {maxPages}.");
+                imageFiles = imageFiles.Take(maxPages).ToList();
+            }
+            else
+            {
+                log($"CBZ contains {totalCbzPages} page(s).");
+            }
+            item.PageCount = imageFiles.Count;
+
+            string tempOutput = Path.Combine(Path.GetTempPath(), "UGTLive_CBZ_Out_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(tempOutput);
+            CurrentTempFolder = tempOutput;
+            var previousContext = new List<string>();
+            int jpegQuality = ConfigManager.Instance.GetBatchJpegQuality();
+            log($"Output JPEG quality: {jpegQuality}%");
+
+            try
+            {
+                for (int page = 0; page < imageFiles.Count; page++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    reportProgress(fileIdx, totalFiles, page, item.PageCount,
+                        $"Processing: {Path.GetFileName(item.FilePath)} - Page {page + 1}/{item.PageCount}",
+                        null, completedUnits + page, totalUnits);
+
+                    using var bitmap = new Bitmap(imageFiles[page]);
+                    log($"Page {page + 1}: {bitmap.Width}x{bitmap.Height}px - {Path.GetFileName(imageFiles[page])}");
+
+                    var (translated, pageTexts) = await processImageWithContextAsync(bitmap, previousContext, ct, item.FilePath, page + 1);
+
+                    if (pageTexts.Count > 0)
+                        previousContext.Add(string.Join(" / ", pageTexts));
+                    int maxCtx = ConfigManager.Instance.GetMaxContextPieces();
+                    if (maxCtx > 0 && previousContext.Count > maxCtx)
+                        previousContext.RemoveRange(0, previousContext.Count - maxCtx);
+                    if (previousContext.Count > 0)
+                    {
+                        int totalChars = previousContext.Sum(c => c.Length);
+                        log($"Context: {previousContext.Count}/{maxCtx} entries ({totalChars} chars) sent with next page.");
+                    }
+
+                    string outFile = Path.Combine(tempOutput, $"{page:D4}.jpg");
+                    if (translated != null)
+                    {
+                        reportProgress(fileIdx, totalFiles, page, item.PageCount,
+                            $"Saving page {page + 1}/{item.PageCount}: {Path.GetFileName(item.FilePath)}",
+                            translated, completedUnits + page, totalUnits);
+                        saveBitmapSourceAsJpeg(translated, outFile, jpegQuality);
+                    }
+                    else
+                    {
+                        saveBitmapAsJpeg(bitmap, outFile, jpegQuality);
+                    }
+                }
+
+                reportProgress(fileIdx, totalFiles, item.PageCount, item.PageCount,
+                    $"Assembling CBZ: {Path.GetFileName(outPath)}", null, completedUnits + item.PageCount, totalUnits);
+
+                assembleCbz(tempOutput, outPath);
+                log($"Saved: {outPath}");
+            }
+            finally
+            {
+                CurrentTempFolder = null;
+                try { Directory.Delete(tempExtract, true); } catch { }
+                try { Directory.Delete(tempOutput, true); } catch { }
+            }
+        }
+
+        private void assembleCbz(string sourceDir, string outputPath)
+        {
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+            ZipFile.CreateFromDirectory(sourceDir, outputPath, CompressionLevel.Optimal, false);
+        }
+
+        public static int GetCbzPageCount(string filePath)
+        {
+            try
+            {
+                using var zip = ZipFile.OpenRead(filePath);
+                return zip.Entries.Count(e => isImageFile(e.FullName));
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static readonly HashSet<string> _imageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"
+        };
+
+        private static bool isImageFile(string path)
+        {
+            return _imageExtensions.Contains(Path.GetExtension(path));
+        }
+
         private void reportProgress(int fileIdx, int totalFiles, int page, int totalPages, string status, BitmapSource? preview, int completedUnits, int totalUnits)
         {
             double overall = totalUnits > 0 ? (double)completedUnits / totalUnits * 100.0 : 0;
@@ -715,6 +977,37 @@ namespace UGTLive
         {
             Console.WriteLine($"[BatchConverter] {message}");
             LogMessage?.Invoke(this, message);
+        }
+    }
+
+    internal class NaturalStringComparer : IComparer<string>
+    {
+        public static readonly NaturalStringComparer Instance = new();
+
+        private static readonly Regex _splitPattern = new(@"(\d+)", RegexOptions.Compiled);
+
+        public int Compare(string? x, string? y)
+        {
+            if (x == null && y == null) return 0;
+            if (x == null) return -1;
+            if (y == null) return 1;
+
+            string[] partsX = _splitPattern.Split(x);
+            string[] partsY = _splitPattern.Split(y);
+
+            int len = Math.Min(partsX.Length, partsY.Length);
+            for (int i = 0; i < len; i++)
+            {
+                int cmp;
+                if (long.TryParse(partsX[i], out long numX) && long.TryParse(partsY[i], out long numY))
+                    cmp = numX.CompareTo(numY);
+                else
+                    cmp = string.Compare(partsX[i], partsY[i], StringComparison.OrdinalIgnoreCase);
+
+                if (cmp != 0) return cmp;
+            }
+
+            return partsX.Length.CompareTo(partsY.Length);
         }
     }
 }

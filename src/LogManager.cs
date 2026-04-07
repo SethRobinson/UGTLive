@@ -204,6 +204,58 @@ namespace UGTLive
             return input;
         }
         
+        public void LogTranslationError(string sourceFile, int pageNumber, string request, string response)
+        {
+            Task.Run(() =>
+            {
+                lock (_fileLock)
+                {
+                    try
+                    {
+                        string errorDir = Path.Combine(_logDirectory, "output", "errors");
+                        Directory.CreateDirectory(errorDir);
+
+                        string safeName = Path.GetFileNameWithoutExtension(sourceFile);
+                        foreach (char c in Path.GetInvalidFileNameChars())
+                            safeName = safeName.Replace(c, '_');
+
+                        string timestamp = DateTime.Now.ToString("HHmmss");
+                        string baseName = $"{safeName}_page{pageNumber}_{timestamp}";
+
+                        string requestPath = Path.Combine(errorDir, $"{baseName}_request.txt");
+                        string responsePath = Path.Combine(errorDir, $"{baseName}_response.txt");
+
+                        File.WriteAllText(requestPath, formatJsonSafe(request));
+                        File.WriteAllText(responsePath, formatJsonSafe(response));
+
+                        Console.WriteLine($"[BatchConverter] Translation error logged to: {errorDir}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error logging translation error: {ex.Message}");
+                    }
+                }
+            });
+        }
+
+        private string formatJsonSafe(string text)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(text);
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                return JsonSerializer.Serialize(doc.RootElement, options);
+            }
+            catch
+            {
+                return text;
+            }
+        }
+
         // Log LLM reply (thread-safe, non-blocking)
         public void LogLlmReply(string jsonResponse)
         {
