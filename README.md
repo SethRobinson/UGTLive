@@ -26,7 +26,7 @@ Video showing live game translation (old version)
 
 ## Description 
 
-An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.
+An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.  Also can do voices and pdf/cbz translations completely locally with a nice video card.  With the "Listen" feature, using an OpenAI API key you can also do realtime subtitling and speech translations.
 
 Requires **Windows** and an **NVidia RTX 20/30/40/50** series card with 8+ GB VRAM.  (In theory others would work, but you'd need to edit the the services' Install.bat files, I don't have AMD/Intel cards so I haven't tried)
 
@@ -37,15 +37,15 @@ Features:
 * "Snapshot" feature for non-live use as well
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
 * Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, Paddle OCR, docTR, Windows OCR, Google Cloud Vision)
-* Optional features (translation, speech) enabled with API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech, and Google Translate (which does have a free mode)
+* Optional features (translation, speech) enabled locally with llama.cpp, Ollama and Qwen-TTS support.  Or go higher quality using API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech and Google Translate
 * Audio "Page Reading" feature (including a mode for top down, right to left for manga)
-* "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that
+* "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that.
 * Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
 * Robust global hotkey system that allow allows gamepad buttons to be used
 * New "GPU Service Console" feature, makes it easy to install the GPU backend services you want
 * (fairly) accurate color detection system replaces existing text in realtime, works with all OCR modes
 * Some extra stuff for Japanese learners, like single clicks for Jisho lookup and lessons for any text
-* Batch Converter can translate images, PDF and CBZ format
+* Built-in batch converter can translate images as well as PDF and CBZ formats
 
 ## License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
