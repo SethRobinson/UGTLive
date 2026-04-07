@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.24-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.25-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -45,6 +45,7 @@ Features:
 * New "GPU Service Console" feature, makes it easy to install the GPU backend services you want
 * (fairly) accurate color detection system replaces existing text in realtime, works with all OCR modes
 * Some extra stuff for Japanese learners, like single clicks for Jisho lookup and lessons for any text
+* Batch Converter can translate images, PDF and CBZ format
 
 ## License:  BSD-style attribution, see [LICENSE.md](LICENSE.md)
 
@@ -62,6 +63,8 @@ Features:
 </table>
 
 # History
+
+**V1.25 April 7th, 2026** - New Batch Converter feature (supports images, PDF, CBZ format), screenshot capture, editable/repositionable text overlays, dynamic hotkey shortcuts in right-click menu, improved hotkey defaults with per-hotkey global toggle, code refactoring
 
 **V1.24 April 3rd, 2026** - Improved Ollama and llama.cpp support (Gemma 4 works well now), thinking mode checkbox works reliably for local models, log shows TPS statistics, fixed locale issues that broke non-English systems (e.g. German), fixed LLM prompt issues that caused some models to return untranslated text, offers to reset prompts to improved defaults on upgrade, fixed Paddle OCR rescaling, misc bugfixes
 
