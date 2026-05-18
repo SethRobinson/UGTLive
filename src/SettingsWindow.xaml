@@ -1504,8 +1504,8 @@
                                 
                                 <!-- Model version info -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                                         Text="Models: Transcription via gpt-realtime, Translation via gpt-realtime-1.5"
-                                         Foreground="Gray" FontSize="11" Margin="0,0,0,8"/>
+                                         Text="Models: Transcription via gpt-realtime-whisper, Translation via gpt-realtime-translate (streaming speech translation)"
+                                         Foreground="Gray" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
                                 
                                 <!-- OpenAI API Key -->
                                 <TextBlock Text="OpenAI API Key:" Grid.Row="1" Grid.Column="0" 
@@ -1525,24 +1525,25 @@
                                     </TextBlock>
                                 </Grid>
                                 
-                                <!-- Audio Input Device -->
-                                <TextBlock Text="Audio Input Device:" Grid.Row="2" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Select the microphone or audio input device to use"/>
-                                <ComboBox x:Name="inputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
-                                         Margin="0,5" SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
+                                <!-- Audio Source -->
+                                <TextBlock Text="Audio Source:" Grid.Row="2" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0"
+                                          ToolTip="Where Listen captures audio. Loopback captures a playback device's audio digitally (best for translating video/news on this PC) with no mic or echo."/>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,3">
+                                    <ComboBox x:Name="listenCaptureModeComboBox" Margin="0,2"
+                                             SelectionChanged="ListenCaptureModeComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Microphone / input device" Tag="microphone"/>
+                                        <ComboBoxItem Content="System audio (loopback of an output device)" Tag="loopback"/>
+                                    </ComboBox>
+                                    <ComboBox x:Name="inputDeviceComboBox" Margin="0,2"
+                                             SelectionChanged="InputDeviceComboBox_SelectionChanged"/>
+                                    <ComboBox x:Name="loopbackDeviceComboBox" Margin="0,2"
+                                             SelectionChanged="LoopbackDeviceComboBox_SelectionChanged"
+                                             ToolTip="Which playback device to capture. Choose the device your news/video plays on, and send the spoken translation to a DIFFERENT output device to avoid feedback."/>
+                                </StackPanel>
                                 
-                                <!-- Transcription Model -->
-                                <TextBlock Text="Transcription Model:" Grid.Row="3" Grid.Column="0" 
-                                          VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Model used for speech-to-text transcription. gpt-4o-transcribe streams text as you speak. whisper-1 waits for silence."/>
-                                <ComboBox x:Name="transcriptionModelComboBox" Grid.Row="3" Grid.Column="1" 
-                                         Margin="0,5" SelectionChanged="TranscriptionModelComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="gpt-4o-transcribe (recommended)" Tag="gpt-4o-transcribe"/>
-                                    <ComboBoxItem Content="gpt-4o-mini-transcribe (faster, cheaper)" Tag="gpt-4o-mini-transcribe"/>
-                                    <ComboBoxItem Content="whisper-1 (legacy)" Tag="whisper-1"/>
-                                </ComboBox>
-                                
+                                <!-- Transcription Model: locked to gpt-realtime-whisper (latest streaming STT) -->
+
                                 <!-- Source Language -->
                                 <TextBlock Text="Source Language:" Grid.Row="4" Grid.Column="0" 
                                           VerticalAlignment="Center" Margin="0,0,10,0"
@@ -1563,15 +1564,15 @@
                                 </ComboBox>
                                 
                                 <!-- VAD Eagerness -->
-                                <TextBlock Text="Speech Detection:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock x:Name="speechDetectionLabel" Text="Speech Detection:" Grid.Row="6" Grid.Column="0"
                                           VerticalAlignment="Center" Margin="0,0,10,0"
-                                          ToolTip="Controls how eagerly the AI segments speech into chunks. Low = waits longer for speaker to finish. High = segments more aggressively. Uses semantic VAD (AI-based, not silence-based)."/>
-                                <ComboBox x:Name="vadEagernessComboBox" Grid.Row="6" Grid.Column="1" 
+                                          ToolTip="server_vad silence gap before a transcript line is finalized (transcription-only modes). Shorter = snappier but may split sentences; longer = fewer splits but more lag. Ignored by OpenAI Translation mode, which streams continuously."/>
+                                <ComboBox x:Name="vadEagernessComboBox" Grid.Row="6" Grid.Column="1"
                                          Margin="0,5" SelectionChanged="VadEagernessComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="Low (patient, waits for speaker)" Tag="low"/>
-                                    <ComboBoxItem Content="Medium" Tag="medium"/>
-                                    <ComboBoxItem Content="Auto (recommended)" Tag="auto"/>
-                                    <ComboBoxItem Content="High (aggressive chunking)" Tag="high"/>
+                                    <ComboBoxItem Content="Snappy (150 ms)" Tag="150"/>
+                                    <ComboBoxItem Content="Balanced (250 ms, recommended)" Tag="250"/>
+                                    <ComboBoxItem Content="Relaxed (500 ms)" Tag="500"/>
+                                    <ComboBoxItem Content="Patient (800 ms)" Tag="800"/>
                                 </ComboBox>
                                 
                                 <!-- Audio Translation Mode -->
@@ -1618,70 +1619,15 @@
                                         <TextBlock x:Name="outputDeviceLabel" Text="Audio Output Device:" Grid.Row="2" Grid.Column="0" 
                                                   VerticalAlignment="Center" Margin="0,0,10,0"
                                                   ToolTip="Select the speakers or audio output device to use"/>
-                                        <ComboBox x:Name="outputDeviceComboBox" Grid.Row="2" Grid.Column="1" 
+                                        <ComboBox x:Name="outputDeviceComboBox" Grid.Row="2" Grid.Column="1"
                                                  Margin="0,5" SelectionChanged="OutputDeviceComboBox_SelectionChanged"/>
-                                        
-                                        <!-- Voice Selection -->
-                                        <TextBlock Text="AI Voice:" Grid.Row="3" Grid.Column="0" 
-                                                  VerticalAlignment="Center" Margin="0,0,10,0"
-                                                  ToolTip="Select the voice for AI speech output"/>
-                                        <ComboBox x:Name="openAiVoiceComboBox" Grid.Row="3" Grid.Column="1" 
-                                                 Margin="0,5" SelectionChanged="OpenAiVoiceComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Cedar (recommended)" Tag="cedar" ToolTip="High quality, natural sounding"/>
-                                            <ComboBoxItem Content="Marin (recommended)" Tag="marin" ToolTip="High quality, natural sounding"/>
-                                            <ComboBoxItem Content="Echo" Tag="echo" ToolTip="Slightly more energetic, good for faster speech"/>
-                                            <ComboBoxItem Content="Alloy" Tag="alloy" ToolTip="Balanced tone"/>
-                                            <ComboBoxItem Content="Shimmer" Tag="shimmer" ToolTip="Gentle, warm voice"/>
-                                            <ComboBoxItem Content="Ash" Tag="ash" ToolTip="Clear and neutral"/>
-                                            <ComboBoxItem Content="Coral" Tag="coral" ToolTip="Soft and balanced"/>
-                                            <ComboBoxItem Content="Sage" Tag="sage" ToolTip="Warm, mature sounding"/>
-                                            <ComboBoxItem Content="Ballad" Tag="ballad" ToolTip="Mature and expressive"/>
-                                            <ComboBoxItem Content="Verse" Tag="verse" ToolTip="Expressive and dynamic"/>
-                                        </ComboBox>
+
+                                        <!-- gpt-realtime-translate uses dynamic voice adaptation
+                                             (mirrors the source speaker); there is no voice to pick. -->
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                                  Margin="0,8,0,0" Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                                  Text="Voice automatically mirrors each source speaker (gpt-realtime-translate dynamic voice adaptation)."/>
                                     </Grid>
-                                </GroupBox>
-                                
-                                <!-- Listen Mode AI Prompts -->
-                                <GroupBox Header="Listen Mode AI Prompts" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
-                                         Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
-                                    <StackPanel>
-                                        <TextBlock Text="These prompts control the instructions sent to the AI during Listen mode. The language directive shown below is automatically appended."
-                                                 TextWrapping="Wrap" Margin="0,0,0,10" Foreground="Gray"/>
-                                        
-                                        <!-- Text Translation Prompt -->
-                                        <TextBlock Text="Text Translation Prompt (used when spoken translation is off):"
-                                                 FontWeight="SemiBold" Margin="0,0,0,3"/>
-                                        <TextBox x:Name="listenTextPromptTextBox"
-                                            TextWrapping="Wrap" AcceptsReturn="True" Height="60"
-                                            VerticalScrollBarVisibility="Auto"
-                                            LostFocus="ListenTextPromptTextBox_LostFocus"
-                                            ToolTip="Instructions for text-only translation mode"/>
-                                        <Button Content="Reset Default"
-                                            HorizontalAlignment="Left" Margin="0,3,0,10"
-                                            Click="ResetListenTextPromptButton_Click"
-                                            ToolTip="Reset to the default text translation prompt"/>
-                                        
-                                        <!-- Spoken Translation Prompt -->
-                                        <TextBlock Text="Spoken Translation Prompt (used when spoken translation is on):"
-                                                 FontWeight="SemiBold" Margin="0,5,0,3"/>
-                                        <TextBox x:Name="listenSpokenPromptTextBox"
-                                            TextWrapping="Wrap" AcceptsReturn="True" Height="60"
-                                            VerticalScrollBarVisibility="Auto"
-                                            LostFocus="ListenSpokenPromptTextBox_LostFocus"
-                                            ToolTip="Instructions for spoken translation mode — controls how the AI interprets and speaks translations"/>
-                                        <Button Content="Reset Default"
-                                            HorizontalAlignment="Left" Margin="0,3,0,10"
-                                            Click="ResetListenSpokenPromptButton_Click"
-                                            ToolTip="Reset to the default spoken translation prompt"/>
-                                        
-                                        <!-- Auto-generated suffix preview -->
-                                        <TextBlock Text="Auto-appended at runtime:" FontStyle="Italic" Foreground="Gray" Margin="0,5,0,2"/>
-                                        <TextBox x:Name="autoGeneratedPromptPreview"
-                                            IsReadOnly="True" Background="Transparent" BorderThickness="0"
-                                            TextWrapping="Wrap" Foreground="Gray" FontStyle="Italic"
-                                            Text="Translate from [source] to [target]."
-                                            ToolTip="This language directive is automatically appended to whichever prompt is active"/>
-                                    </StackPanel>
                                 </GroupBox>
                             </Grid>
                         </GroupBox>

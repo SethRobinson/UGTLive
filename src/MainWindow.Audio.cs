@@ -357,6 +357,32 @@ namespace UGTLive
             }
         }
 
+        // Update BOTH the original and translated text of an entry by ID.
+        // Used by the streaming translate session so the Japanese source and
+        // the translation grow on the same line simultaneously.
+        public void UpdateEntryInHistory(string id, string newOriginalText, string newTranslatedText)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+
+            try
+            {
+                var entryToUpdate = _translationHistory.FirstOrDefault(entry => entry.Id == id);
+                if (entryToUpdate != null)
+                {
+                    if (!string.IsNullOrEmpty(newOriginalText))
+                        entryToUpdate.OriginalText = newOriginalText;
+                    if (!string.IsNullOrEmpty(newTranslatedText))
+                        entryToUpdate.TranslatedText = newTranslatedText;
+                    entryToUpdate.Timestamp = DateTime.Now;
+                    ChatBoxWindow.Instance?.UpdateChatHistory();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in UpdateEntryInHistory for ID {id}: {ex.Message}");
+            }
+        }
+
         // Handle translation events from Logic
         private void Logic_TranslationCompleted(object? sender, TranslationEventArgs e)
         {

@@ -167,6 +167,11 @@ namespace UGTLive
         // Audio Input Device
         public const string AUDIO_INPUT_DEVICE_INDEX = "audio_input_device_index";
 
+        // Listen capture source: "microphone" (input device) or "loopback"
+        // (WASAPI loopback capture of a specific output/render device).
+        public const string LISTEN_CAPTURE_MODE = "listen_capture_mode";
+        public const string LISTEN_LOOPBACK_DEVICE_ID = "listen_loopback_device_id";
+
         // Whisper specific settings
         public const string WHISPER_SOURCE_LANGUAGE = "whisper_source_language";
 
@@ -177,13 +182,9 @@ namespace UGTLive
         // OpenAI Audio Playback settings
         public const string OPENAI_AUDIO_PLAYBACK_ENABLED = "openai_audio_playback_enabled";
         public const string OPENAI_AUDIO_OUTPUT_DEVICE_INDEX = "openai_audio_output_device_index";
-        public const string OPENAI_LISTEN_TEXT_PROMPT = "openai_listen_text_prompt";
-        public const string OPENAI_LISTEN_SPOKEN_PROMPT = "openai_listen_spoken_prompt";
-        public const string OPENAI_VOICE = "openai_voice";
         public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
-        public const string OPENAI_SEMANTIC_VAD_EAGERNESS = "openai_semantic_vad_eagerness";
-        public const string OPENAI_TRANSCRIPTION_MODEL = "openai_transcription_model";
         public const string OPENAI_NOISE_REDUCTION = "openai_noise_reduction";
+        public const string OPENAI_TRANSLATE_MODEL = "openai_translate_model";
 
         // Monitor Window Override Color Settings
         public const string MONITOR_OVERRIDE_BG_COLOR_ENABLED = "monitor_override_bg_color_enabled";

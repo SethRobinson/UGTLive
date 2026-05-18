@@ -358,11 +358,9 @@ namespace UGTLive
             
             // Audio Input Device default
             _configValues[AUDIO_INPUT_DEVICE_INDEX] = "0"; // Default to device index 0
-            _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // Legacy, kept for backward compat
-            _configValues[OPENAI_SEMANTIC_VAD_EAGERNESS] = "auto";
+            _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // server_vad silence gap (transcription-only modes)
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
-            _configValues[OPENAI_TRANSCRIPTION_MODEL] = "gpt-4o-transcribe";
             _configValues[OPENAI_NOISE_REDUCTION] = "near_field";
             
             // Monitor Window Override Color defaults

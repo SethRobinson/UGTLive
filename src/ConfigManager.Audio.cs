@@ -56,6 +56,32 @@ namespace UGTLive
             return 0; // Default to device 0 if parsing fails or value is negative
         }
 
+        // Listen capture mode: "microphone" or "loopback"
+        public string GetListenCaptureMode()
+        {
+            return GetValue(LISTEN_CAPTURE_MODE, "microphone");
+        }
+
+        public void SetListenCaptureMode(string mode)
+        {
+            _configValues[LISTEN_CAPTURE_MODE] = mode;
+            SaveConfig();
+            Console.WriteLine($"Listen capture mode set to: {mode}");
+        }
+
+        // WASAPI render-device ID to loopback-capture (empty = default device)
+        public string GetListenLoopbackDeviceId()
+        {
+            return GetValue(LISTEN_LOOPBACK_DEVICE_ID, "");
+        }
+
+        public void SetListenLoopbackDeviceId(string deviceId)
+        {
+            _configValues[LISTEN_LOOPBACK_DEVICE_ID] = deviceId ?? "";
+            SaveConfig();
+            Console.WriteLine($"Listen loopback device ID set to: {deviceId}");
+        }
+
         public void SetAudioInputDeviceIndex(int deviceIndex)
         {
             if (deviceIndex >= 0)
@@ -147,75 +173,6 @@ namespace UGTLive
             Console.WriteLine($"OpenAI audio playback enabled set to: {enabled}");
         }
 
-        private const string DEFAULT_LISTEN_TEXT_PROMPT =
-            "You are a real-time translator for dialogue in a video game or movie. " +
-            "Return only the translation, with no extra text.";
-
-        private const string DEFAULT_LISTEN_SPOKEN_PROMPT =
-            "You are a simultaneous interpreter. Speak ONLY the translation. " +
-            "Do NOT respond to the content. " +
-            "Do NOT add commentary, greetings, acknowledgments, or filler words. " +
-            "Do NOT paraphrase or summarize. " +
-            "Translate the exact meaning and speak the translation — nothing else. " +
-            "Speak at a fast pace with expressive delivery.";
-
-        public string GetListenTextPrompt()
-        {
-            return GetValue(OPENAI_LISTEN_TEXT_PROMPT, DEFAULT_LISTEN_TEXT_PROMPT);
-        }
-
-        public void SetListenTextPrompt(string prompt)
-        {
-            _configValues[OPENAI_LISTEN_TEXT_PROMPT] = prompt;
-            SaveConfig();
-            Console.WriteLine("Listen text translation prompt updated");
-        }
-
-        public void ResetListenTextPromptToDefault()
-        {
-            if (_configValues.ContainsKey(OPENAI_LISTEN_TEXT_PROMPT))
-            {
-                _configValues.Remove(OPENAI_LISTEN_TEXT_PROMPT);
-            }
-            SaveConfig();
-            Console.WriteLine("Listen text translation prompt reset to default");
-        }
-
-        public string GetListenSpokenPrompt()
-        {
-            return GetValue(OPENAI_LISTEN_SPOKEN_PROMPT, DEFAULT_LISTEN_SPOKEN_PROMPT);
-        }
-
-        public void SetListenSpokenPrompt(string prompt)
-        {
-            _configValues[OPENAI_LISTEN_SPOKEN_PROMPT] = prompt;
-            SaveConfig();
-            Console.WriteLine("Listen spoken translation prompt updated");
-        }
-
-        public void ResetListenSpokenPromptToDefault()
-        {
-            if (_configValues.ContainsKey(OPENAI_LISTEN_SPOKEN_PROMPT))
-            {
-                _configValues.Remove(OPENAI_LISTEN_SPOKEN_PROMPT);
-            }
-            SaveConfig();
-            Console.WriteLine("Listen spoken translation prompt reset to default");
-        }
-
-        // Get/Set OpenAI voice
-        public string GetOpenAIVoice()
-        {
-            return GetValue(OPENAI_VOICE, "cedar");
-        }
-
-        public void SetOpenAIVoice(string voice)
-        {
-            _configValues[OPENAI_VOICE] = voice;
-            SaveConfig();
-            Console.WriteLine($"OpenAI voice set to: {voice}");
-        }
-
         // Get/Set OpenAI Silence Duration
         public int GetOpenAiSilenceDurationMs()
         {
@@ -241,29 +198,25 @@ namespace UGTLive
             }
         }
 
-        public string GetSemanticVadEagerness()
+        // Get/Set OpenAI Realtime Translation Model (gpt-realtime-translate streaming speech translation)
+        public string GetOpenAITranslateModel()
         {
-            return GetValue(OPENAI_SEMANTIC_VAD_EAGERNESS, "auto");
+            return GetValue(OPENAI_TRANSLATE_MODEL, "gpt-realtime-translate");
         }
 
-        public void SetSemanticVadEagerness(string eagerness)
+        public void SetOpenAITranslateModel(string model)
         {
-            _configValues[OPENAI_SEMANTIC_VAD_EAGERNESS] = eagerness;
+            _configValues[OPENAI_TRANSLATE_MODEL] = model;
             SaveConfig();
-            Console.WriteLine($"Semantic VAD eagerness set to: {eagerness}");
+            Console.WriteLine($"OpenAI translate model set to: {model}");
         }
 
-        // Get/Set OpenAI Transcription Model
+        // Transcription model is locked to gpt-realtime-whisper — the latest
+        // natively-streaming, low-latency STT. The older gpt-4o-transcribe /
+        // whisper-1 models were removed; this is intentionally not configurable.
         public string GetOpenAITranscriptionModel()
         {
-            return GetValue(OPENAI_TRANSCRIPTION_MODEL, "gpt-4o-transcribe");
-        }
-
-        public void SetOpenAITranscriptionModel(string model)
-        {
-            _configValues[OPENAI_TRANSCRIPTION_MODEL] = model;
-            SaveConfig();
-            Console.WriteLine($"OpenAI transcription model set to: {model}");
+            return "gpt-realtime-whisper";
         }
 
         // Get/Set OpenAI Noise Reduction (near_field, far_field, or none)

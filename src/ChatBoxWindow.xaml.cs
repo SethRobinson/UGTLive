@@ -511,50 +511,46 @@ namespace UGTLive
             }
         }
         
-        private void FontIncreaseButton_Click(object sender, RoutedEventArgs e)
+        // Shared font-size adjustment used by the +/- buttons and Ctrl+wheel.
+        private void AdjustChatFontSize(double delta)
         {
             try
             {
-                // Increase font size and update
-                ChatFontSize += 1;
+                double before = ChatFontSize;
+                ChatFontSize += delta;
+                if (ChatFontSize == before) return; // clamped, nothing changed
+
                 UpdateChatHistory();
-                
-                // Save the new font size to config
                 ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, ChatFontSize.ToString(CultureInfo.InvariantCulture));
                 ConfigManager.Instance.SaveConfig();
-                
-                // Create and start the flash animation for visual feedback
-                CreateFlashAnimation(fontIncreaseButton);
-                
-                Console.WriteLine($"Chat font size increased to {ChatFontSize} and saved to config");
+                Console.WriteLine($"Chat font size set to {ChatFontSize} and saved to config");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error increasing font size: {ex.Message}");
+                Console.WriteLine($"Error adjusting font size: {ex.Message}");
             }
         }
-        
+
+        private void FontIncreaseButton_Click(object sender, RoutedEventArgs e)
+        {
+            AdjustChatFontSize(+1);
+            CreateFlashAnimation(fontIncreaseButton);
+        }
+
         private void FontDecreaseButton_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                // Decrease font size and update
-                ChatFontSize -= 1;
-                UpdateChatHistory();
-                
-                // Save the new font size to config
-                ConfigManager.Instance.SetValue(ConfigManager.CHATBOX_FONT_SIZE, ChatFontSize.ToString(CultureInfo.InvariantCulture));
-                ConfigManager.Instance.SaveConfig();
-                
-                // Create and start the flash animation for visual feedback
-                CreateFlashAnimation(fontDecreaseButton);
-                
-                Console.WriteLine($"Chat font size decreased to {ChatFontSize} and saved to config");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error decreasing font size: {ex.Message}");
-            }
+            AdjustChatFontSize(-1);
+            CreateFlashAnimation(fontDecreaseButton);
+        }
+
+        // Ctrl+Mouse wheel resizes the transcript font (common, expected gesture).
+        private void ChatBoxWindow_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0)
+                return;
+
+            AdjustChatFontSize(e.Delta > 0 ? +1 : -1);
+            e.Handled = true; // don't also scroll the transcript while zooming
         }
         
         

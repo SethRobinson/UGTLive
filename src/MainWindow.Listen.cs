@@ -171,9 +171,11 @@ namespace UGTLive
             const string audioPrefix = "🎤 ";
             Dispatcher.Invoke(() =>
             {
+                string originalWithIcon = string.IsNullOrWhiteSpace(originalText) ? string.Empty : audioPrefix + originalText;
                 string translatedWithIcon = string.IsNullOrWhiteSpace(translatedText) ? string.Empty : audioPrefix + translatedText;
-                // Call new method to update the specific entry
-                UpdateTranslationInHistory(lineId, translatedWithIcon);
+                // Update both columns so the source (e.g. Japanese) and the
+                // translation grow on the same line at the same time.
+                UpdateEntryInHistory(lineId, originalWithIcon, translatedWithIcon);
             });
         }
 
