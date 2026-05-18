@@ -1519,17 +1519,20 @@ namespace UGTLive
             // Cancel the close for now
             e.Cancel = true;
 
-            // Skip confirm dialog in batch mode
-            if (!ServerSetupDialog.BatchMode)
+            // Skip confirm dialog in batch mode (keep prior behavior: stop only owned services)
+            if (ServerSetupDialog.BatchMode)
             {
-                var result = System.Windows.MessageBox.Show(
-                    "Are you sure you want to quit UGT Live?",
-                    "Confirm Exit",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                PythonServicesManager.Instance.ExitAction = GpuServiceExitAction.CloseOwned;
+            }
+            else
+            {
+                var exitDialog = new ExitConfirmDialog { Owner = this };
+                exitDialog.ShowDialog();
 
-                if (result != MessageBoxResult.Yes)
-                    return;
+                if (!exitDialog.Confirmed)
+                    return; // user cancelled the exit; e.Cancel is already true
+
+                PythonServicesManager.Instance.ExitAction = exitDialog.SelectedAction;
             }
 
             // Save ChatBox and Monitor window state before closing (if persistence is enabled)

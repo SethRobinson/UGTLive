@@ -157,6 +157,39 @@ namespace UGTLive
                         _focusedTextObjectId = textObjectId;
                         MainWindow.Instance?.SetFocusedTextObjectId(textObjectId);
                     }
+                    else if (kind == "panStart")
+                    {
+                        _overlayPanInProgress = true;
+                        _lastPanActivityUtc = DateTime.UtcNow;
+                    }
+                    else if (kind == "panEnd")
+                    {
+                        _overlayPanInProgress = false;
+                        // Apply whatever overlay update was deferred during the pan.
+                        void Resync() { UpdateOverlayWebView(); }
+                        if (Dispatcher.CheckAccess()) Resync();
+                        else Dispatcher.BeginInvoke((Action)Resync);
+                    }
+                    else if (kind == "pan")
+                    {
+                        _lastPanActivityUtc = DateTime.UtcNow;
+                        // Middle-mouse grab/hand pan: incremental screen-px deltas from
+                        // the overlay JS. Grab feel = content follows the cursor, so we
+                        // move the scroll offset opposite to the drag. ScrollViewer
+                        // clamps offsets, so over-pan is harmless.
+                        double dx = root.TryGetProperty("dx", out System.Text.Json.JsonElement dxP) ? dxP.GetDouble() : 0;
+                        double dy = root.TryGetProperty("dy", out System.Text.Json.JsonElement dyP) ? dyP.GetDouble() : 0;
+                        if (dx != 0 || dy != 0)
+                        {
+                            void ApplyPan()
+                            {
+                                imageScrollViewer.ScrollToHorizontalOffset(imageScrollViewer.HorizontalOffset - dx);
+                                imageScrollViewer.ScrollToVerticalOffset(imageScrollViewer.VerticalOffset - dy);
+                            }
+                            if (Dispatcher.CheckAccess()) ApplyPan();
+                            else Dispatcher.BeginInvoke((Action)ApplyPan);
+                        }
+                    }
                     else if (kind == "tabKey")
                     {
                         HotkeyManager.Instance.TriggerAction("toggle_overlay_mode");

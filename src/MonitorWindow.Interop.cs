@@ -87,6 +87,12 @@ namespace UGTLive
         private IntPtr _mouseHookId = IntPtr.Zero;
         private IntPtr _monitorWindowHandle = IntPtr.Zero;
 
+        // Middle-mouse-button grab/hand panning is implemented in the overlay
+        // WebView2's JavaScript (see GenerateOverlayHtml) which posts 'pan'
+        // messages to OverlayWebView_WebMessageReceived. Doing it there is
+        // deterministic: the WebView2 reliably receives the pointer events,
+        // unlike a low-level mouse hook fighting WebView2 airspace/timing.
+
         // Low-level mouse hook to intercept mouse events before they reach WebView2
         private IntPtr LowLevelMouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
         {

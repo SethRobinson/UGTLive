@@ -73,6 +73,14 @@ namespace UGTLive
         }
         
         private string _lastOverlayHtml = string.Empty;
+
+        // While the user is middle-mouse panning, suppress overlay re-navigation
+        // (NavigateToString reloads the document and would destroy the in-page
+        // pan state / pointer capture, breaking the drag every OCR cycle when
+        // Auto is on). The failsafe time guards against a missed panEnd.
+        private volatile bool _overlayPanInProgress = false;
+        private DateTime _lastPanActivityUtc = DateTime.MinValue;
+        private static readonly TimeSpan _panSuppressFailsafe = TimeSpan.FromSeconds(30);
         
         // Method to force clear the HTML cache (for when settings change)
         public void ClearOverlayCache()
@@ -88,10 +96,19 @@ namespace UGTLive
                 return;
             }
             
+            // Don't reload the document mid-pan; it would kill the JS pan state
+            // and pointer capture. The pending update is applied when the pan
+            // ends (see panEnd handler). Failsafe in case panEnd is missed.
+            if (_overlayPanInProgress &&
+                (DateTime.UtcNow - _lastPanActivityUtc) < _panSuppressFailsafe)
+            {
+                return;
+            }
+
             try
             {
                 string html = GenerateOverlayHtml();
-                
+
                 // Only update if HTML changed
                 if (html == _lastOverlayHtml)
                 {
@@ -619,6 +636,52 @@ namespace UGTLive
             html.AppendLine("    console.error(error);");
             html.AppendLine("  }");
             html.AppendLine("});");
+            html.AppendLine("");
+            // Middle-mouse-button grab/hand panning of the underlying image.
+            // Handled here in the overlay because the WebView2 reliably receives
+            // these pointer events; we preventDefault to kill Chromium's built-in
+            // middle-click autoscroll and post incremental deltas to C# which
+            // scrolls the WPF ScrollViewer.
+            html.AppendLine("let panState = null;");
+            html.AppendLine("window.addEventListener('pointerdown', function(e) {");
+            html.AppendLine("  if (e.button !== 1) return;"); // 1 == middle
+            html.AppendLine("  e.preventDefault();");
+            html.AppendLine("  e.stopPropagation();");
+            html.AppendLine("  panState = { id: e.pointerId, lastX: e.screenX, lastY: e.screenY };");
+            html.AppendLine("  try { document.documentElement.setPointerCapture(e.pointerId); } catch (err) {}");
+            html.AppendLine("  document.documentElement.style.cursor = 'grabbing';");
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify({ kind: 'panStart' }));");
+            html.AppendLine("  }");
+            html.AppendLine("}, true);");
+            html.AppendLine("window.addEventListener('pointermove', function(e) {");
+            html.AppendLine("  if (!panState || e.pointerId !== panState.id) return;");
+            html.AppendLine("  e.preventDefault();");
+            html.AppendLine("  const dx = e.screenX - panState.lastX;");
+            html.AppendLine("  const dy = e.screenY - panState.lastY;");
+            html.AppendLine("  panState.lastX = e.screenX;");
+            html.AppendLine("  panState.lastY = e.screenY;");
+            html.AppendLine("  if ((dx || dy) && window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify({ kind: 'pan', dx: dx, dy: dy }));");
+            html.AppendLine("  }");
+            html.AppendLine("}, true);");
+            html.AppendLine("function endPan(e) {");
+            html.AppendLine("  if (!panState) return;");
+            html.AppendLine("  if (e && e.pointerId !== undefined && e.pointerId !== panState.id) return;");
+            html.AppendLine("  try { document.documentElement.releasePointerCapture(panState.id); } catch (err) {}");
+            html.AppendLine("  panState = null;");
+            html.AppendLine("  document.documentElement.style.cursor = '';");
+            html.AppendLine("  if (window.chrome && window.chrome.webview) {");
+            html.AppendLine("    window.chrome.webview.postMessage(JSON.stringify({ kind: 'panEnd' }));");
+            html.AppendLine("  }");
+            html.AppendLine("}");
+            html.AppendLine("window.addEventListener('pointerup', endPan, true);");
+            html.AppendLine("window.addEventListener('pointercancel', endPan, true);");
+            html.AppendLine("window.addEventListener('lostpointercapture', endPan, true);");
+            // Also swallow the middle-button mousedown/auxclick so Chromium never
+            // enters autoscroll mode (belt-and-suspenders with pointerdown).
+            html.AppendLine("window.addEventListener('mousedown', function(e) { if (e.button === 1) { e.preventDefault(); } }, true);");
+            html.AppendLine("window.addEventListener('auxclick', function(e) { if (e.button === 1) { e.preventDefault(); } }, true);");
             html.AppendLine("");
             html.AppendLine("function updateScrollOffset(offsetX, offsetY, scaleFactor) {");
             html.AppendLine("  const container = document.getElementById('scroll-container');");

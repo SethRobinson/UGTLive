@@ -6,11 +6,31 @@ using System.Threading.Tasks;
 
 namespace UGTLive
 {
+    /// <summary>
+    /// What to do with GPU/Python services when the app exits.
+    /// Chosen by the user in the exit confirmation dialog.
+    /// </summary>
+    public enum GpuServiceExitAction
+    {
+        /// <summary>Stop every running GPU service, including ones already running before we launched.</summary>
+        CloseAll,
+        /// <summary>Stop only the GPU services this app started (default).</summary>
+        CloseOwned,
+        /// <summary>Leave all GPU services running after we exit.</summary>
+        LeaveRunning
+    }
+
     public class PythonServicesManager
     {
         private static PythonServicesManager? _instance;
         private readonly Dictionary<string, PythonService> _services;
         private readonly string[] _ignoredDirectories = { "shared", "util", "localdata" };
+
+        /// <summary>
+        /// The action chosen at exit time for handling GPU services.
+        /// Defaults to closing only services we created.
+        /// </summary>
+        public GpuServiceExitAction ExitAction { get; set; } = GpuServiceExitAction.CloseOwned;
         
         public static PythonServicesManager Instance
         {
@@ -237,8 +257,62 @@ namespace UGTLive
             });
             
             await Task.WhenAll(stopTasks);
-            
+
             Console.WriteLine("All owned services stopped");
+        }
+
+        /// <summary>
+        /// Stops every running GPU service, regardless of whether this app started it.
+        /// Used when the user chooses "Close all GPU Services" on exit.
+        /// </summary>
+        public async Task StopAllRunningServicesAsync()
+        {
+            Console.WriteLine("=== StopAllRunningServicesAsync called ===");
+
+            // Owned services are running even if IsRunning wasn't refreshed; include both.
+            var servicesToStop = _services.Values
+                .Where(s => s.IsRunning || s.IsOwnedByApp)
+                .ToList();
+
+            if (servicesToStop.Count == 0)
+            {
+                Console.WriteLine("No running services to stop");
+                return;
+            }
+
+            Console.WriteLine($"Stopping {servicesToStop.Count} running service(s) in parallel...");
+
+            var stopTasks = servicesToStop.Select(async service =>
+            {
+                Console.WriteLine($"Stopping {service.ServiceName}...");
+                await service.StopAsync();
+            });
+
+            await Task.WhenAll(stopTasks);
+
+            Console.WriteLine("All running services stopped");
+        }
+
+        /// <summary>
+        /// Stops GPU services according to the user's exit choice (<see cref="ExitAction"/>).
+        /// </summary>
+        public async Task StopServicesForExitAsync()
+        {
+            switch (ExitAction)
+            {
+                case GpuServiceExitAction.CloseAll:
+                    Console.WriteLine("Exit action: Close ALL GPU services");
+                    await StopAllRunningServicesAsync();
+                    break;
+                case GpuServiceExitAction.LeaveRunning:
+                    Console.WriteLine("Exit action: Leave GPU services running");
+                    break;
+                case GpuServiceExitAction.CloseOwned:
+                default:
+                    Console.WriteLine("Exit action: Close only GPU services we created");
+                    await StopOwnedServicesAsync();
+                    break;
+            }
         }
         
         /// <summary>

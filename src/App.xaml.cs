@@ -211,11 +211,13 @@ public partial class App : Application
         // Cleanup log window if it exists
         LogWindow.Instance?.cleanup();
         
-        // Stop Python services (if Logic.Finish() wasn't called already)
-        // Use GetAwaiter().GetResult() since OnExit is synchronous
+        // Stop Python services (if Logic.Finish() wasn't called already).
+        // Must respect the user's exit choice (CloseAll / CloseOwned / LeaveRunning) —
+        // do NOT unconditionally stop owned services here, or "Leave running" is ignored.
+        // Use GetAwaiter().GetResult() since OnExit is synchronous.
         try
         {
-            PythonServicesManager.Instance.StopOwnedServicesAsync().GetAwaiter().GetResult();
+            PythonServicesManager.Instance.StopServicesForExitAsync().GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

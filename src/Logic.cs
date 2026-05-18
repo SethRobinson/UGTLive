@@ -1360,8 +1360,8 @@ namespace UGTLive
                 // Note: Audio cache is NOT deleted on shutdown to allow reuse between sessions
                 // Cache can be deleted on startup if the setting is enabled
                 
-                // Stop owned Python services
-                await PythonServicesManager.Instance.StopOwnedServicesAsync();
+                // Stop Python/GPU services according to the user's exit choice
+                await PythonServicesManager.Instance.StopServicesForExitAsync();
                 
                 // Clear all text objects
                 ClearAllTextObjects();
