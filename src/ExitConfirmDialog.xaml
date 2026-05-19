@@ -56,7 +56,7 @@
                      Margin="0,0,0,4">
             <StackPanel>
                 <TextBlock Text="Leave GPU Services running" FontWeight="SemiBold"/>
-                <TextBlock Text="Exit without stopping any GPU service. They keep running in the background."
+                <TextBlock Text="Exit without stopping any GPU service. They keep running in the background, making it faster to start UGT Live again later."
                            FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,0"/>
             </StackPanel>
         </RadioButton>

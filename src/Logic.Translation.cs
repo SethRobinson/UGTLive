@@ -118,19 +118,29 @@ namespace UGTLive
                 ITranslationService translationService = TranslationServiceFactory.CreateService();
                 string currentService = ConfigManager.Instance.GetCurrentTranslationService();
                 int maxRetries = ConfigManager.Instance.GetMaxTranslationRetries() + 1;
+                TranslationErrorPolicy.Reset();
 
                 for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
                     // Call the translation API with the modified prompt if context exists
                     string? translationResponse = await translationService.TranslateAsync(jsonToTranslate, prompt, cancellationToken);
-                    
+
                     // Check if translation was cancelled
                     if (cancellationToken.IsCancellationRequested)
                     {
                         Log("Translation was cancelled");
                         return;
                     }
-                    
+
+                    // A fatal error (bad model slug, bad key, 4xx) will never
+                    // succeed on retry - stop immediately instead of hammering it.
+                    if (TranslationErrorPolicy.AbortRetries)
+                    {
+                        Log($"Translation failed with {currentService} ({TranslationErrorPolicy.Reason}) - not retrying. Check the model/key in Settings.");
+                        OnFinishedThings(true);
+                        return;
+                    }
+
                     if (string.IsNullOrEmpty(translationResponse))
                     {
                         if (attempt < maxRetries)
@@ -221,9 +231,11 @@ namespace UGTLive
                 JsonElement textToProcess;
                 
                 // Different services have different response formats
-                if (currentService == "ChatGPT" || currentService == "llama.cpp")
+                if (currentService == "ChatGPT" || currentService == "llama.cpp"
+                    || currentService == "Anthropic" || currentService == "OpenRouter"
+                    || currentService == "ClaudeCli" || currentService == "CodexCli" || currentService == "GeminiCli")
                 {
-                    // ChatGPT/llama.cpp format: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
+                    // ChatGPT-style envelope: {"translated_text": "...", "original_text": "...", "detected_language": "..."}
                     if (doc.RootElement.TryGetProperty("translated_text", out JsonElement translatedTextElement))
                     {
                         string translatedTextJson = translatedTextElement.GetString() ?? "";

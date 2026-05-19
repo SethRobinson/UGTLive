@@ -33,6 +33,23 @@ namespace UGTLive
         public const string CHATGPT_MODEL = "chatgpt_model";
         public const string CHATGPT_MAX_COMPLETION_TOKENS = "chatgpt_max_completion_tokens";
         public const string CHATGPT_THINKING_ENABLED = "chatgpt_thinking_enabled";
+        // Anthropic Claude (direct API)
+        public const string ANTHROPIC_API_KEY = "anthropic_api_key";
+        public const string ANTHROPIC_MODEL = "anthropic_model";
+        public const string ANTHROPIC_MAX_TOKENS = "anthropic_max_tokens";
+        // OpenRouter (OpenAI-compatible aggregator)
+        public const string OPENROUTER_API_KEY = "openrouter_api_key";
+        public const string OPENROUTER_MODEL = "openrouter_model";
+        // CLI / subscription providers (shell out to installed CLIs, reuse interactive login)
+        public const string CLAUDE_CLI_COMMAND = "claude_cli_command";
+        public const string CLAUDE_CLI_MODEL = "claude_cli_model";
+        public const string CODEX_CLI_COMMAND = "codex_cli_command";
+        public const string CODEX_CLI_MODEL = "codex_cli_model";
+        public const string GEMINI_CLI_COMMAND = "gemini_cli_command";
+        public const string GEMINI_CLI_MODEL = "gemini_cli_model";
+        // Warm-process pool for CLI providers (amortizes Node/agent boot cost)
+        public const string CLI_WARM_POOL_ENABLED = "cli_warm_pool_enabled";
+        public const string CLI_WARM_POOL_SIZE = "cli_warm_pool_size";
         public const string FORCE_CURSOR_VISIBLE = "force_cursor_visible";
         public const string AUTO_SIZE_TEXT_BLOCKS = "auto_size_text_blocks";
         public const string GOOGLE_TRANSLATE_API_KEY = "google_translate_api_key";

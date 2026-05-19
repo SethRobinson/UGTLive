@@ -22,6 +22,11 @@ namespace UGTLive
                 "ChatGPT" => new ChatGptTranslationService(),
                 "Google Translate" => new GoogleTranslateService(),
                 "llama.cpp" => new LlamaCppTranslationService(),
+                "Anthropic" => new AnthropicTranslationService(),
+                "OpenRouter" => new OpenRouterTranslationService(),
+                "ClaudeCli" => new ClaudeCliTranslationService(),
+                "CodexCli" => new CodexCliTranslationService(),
+                "GeminiCli" => new GeminiCliTranslationService(),
                 _ => new GeminiTranslationService() // Default to Gemini if unknown
             };
         }
@@ -40,6 +45,11 @@ namespace UGTLive
                 "ChatGPT" => new ChatGptTranslationService(),
                 "Google Translate" => new GoogleTranslateService(),
                 "llama.cpp" => new LlamaCppTranslationService(),
+                "Anthropic" => new AnthropicTranslationService(),
+                "OpenRouter" => new OpenRouterTranslationService(),
+                "ClaudeCli" => new ClaudeCliTranslationService(),
+                "CodexCli" => new CodexCliTranslationService(),
+                "GeminiCli" => new GeminiCliTranslationService(),
                 _ => throw new ArgumentException($"Unknown translation service: {serviceName}")
             };
         }

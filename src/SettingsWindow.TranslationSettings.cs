@@ -275,6 +275,11 @@ namespace UGTLive
                 bool isChatGptSelected = string.Equals(selectedService, "ChatGPT", StringComparison.OrdinalIgnoreCase);
                 bool isLlamacppSelected = string.Equals(selectedService, "llama.cpp", StringComparison.OrdinalIgnoreCase);
                 bool isGoogleTranslateSelected = string.Equals(selectedService, "Google Translate", StringComparison.OrdinalIgnoreCase);
+                bool isAnthropicSelected = string.Equals(selectedService, "Anthropic", StringComparison.OrdinalIgnoreCase);
+                bool isOpenRouterSelected = string.Equals(selectedService, "OpenRouter", StringComparison.OrdinalIgnoreCase);
+                bool isClaudeCliSelected = string.Equals(selectedService, "ClaudeCli", StringComparison.OrdinalIgnoreCase);
+                bool isCodexCliSelected = string.Equals(selectedService, "CodexCli", StringComparison.OrdinalIgnoreCase);
+                bool isGeminiCliSelected = string.Equals(selectedService, "GeminiCli", StringComparison.OrdinalIgnoreCase);
                 
                 // Don't return early - set visibility for whatever elements are available
                 // This ensures partial initialization doesn't prevent any visibility updates
@@ -348,6 +353,43 @@ namespace UGTLive
                 if (googleTranslateMappingCheckBox != null)
                     googleTranslateMappingCheckBox.Visibility = isGoogleTranslateSelected ? Visibility.Visible : Visibility.Collapsed;
                 
+                // Show/hide Anthropic-specific settings
+                Visibility anthropicVis = isAnthropicSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (anthropicApiKeyLabel != null) anthropicApiKeyLabel.Visibility = anthropicVis;
+                if (anthropicApiKeyGrid != null) anthropicApiKeyGrid.Visibility = anthropicVis;
+                if (anthropicModelLabel != null) anthropicModelLabel.Visibility = anthropicVis;
+                if (anthropicModelGrid != null) anthropicModelGrid.Visibility = anthropicVis;
+                if (anthropicMaxTokensLabel != null) anthropicMaxTokensLabel.Visibility = anthropicVis;
+                if (anthropicMaxTokensTextBox != null) anthropicMaxTokensTextBox.Visibility = anthropicVis;
+
+                // Show/hide OpenRouter-specific settings
+                Visibility openRouterVis = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (openRouterApiKeyLabel != null) openRouterApiKeyLabel.Visibility = openRouterVis;
+                if (openRouterApiKeyGrid != null) openRouterApiKeyGrid.Visibility = openRouterVis;
+                if (openRouterModelLabel != null) openRouterModelLabel.Visibility = openRouterVis;
+                if (openRouterModelGrid != null) openRouterModelGrid.Visibility = openRouterVis;
+
+                // Show/hide Claude CLI-specific settings
+                Visibility claudeCliVis = isClaudeCliSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (claudeCliCommandLabel != null) claudeCliCommandLabel.Visibility = claudeCliVis;
+                if (claudeCliCommandGrid != null) claudeCliCommandGrid.Visibility = claudeCliVis;
+                if (claudeCliModelLabel != null) claudeCliModelLabel.Visibility = claudeCliVis;
+                if (claudeCliModelGrid != null) claudeCliModelGrid.Visibility = claudeCliVis;
+
+                // Show/hide Codex CLI-specific settings
+                Visibility codexCliVis = isCodexCliSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (codexCliCommandLabel != null) codexCliCommandLabel.Visibility = codexCliVis;
+                if (codexCliCommandGrid != null) codexCliCommandGrid.Visibility = codexCliVis;
+                if (codexCliModelLabel != null) codexCliModelLabel.Visibility = codexCliVis;
+                if (codexCliModelGrid != null) codexCliModelGrid.Visibility = codexCliVis;
+
+                // Show/hide Gemini CLI-specific settings
+                Visibility geminiCliVis = isGeminiCliSelected ? Visibility.Visible : Visibility.Collapsed;
+                if (geminiCliCommandLabel != null) geminiCliCommandLabel.Visibility = geminiCliVis;
+                if (geminiCliCommandGrid != null) geminiCliCommandGrid.Visibility = geminiCliVis;
+                if (geminiCliModelLabel != null) geminiCliModelLabel.Visibility = geminiCliVis;
+                if (geminiCliModelGrid != null) geminiCliModelGrid.Visibility = geminiCliVis;
+
                 // Hide prompt template for Google Translate
                 bool showPromptTemplate = !isGoogleTranslateSelected;
                 
@@ -479,11 +521,94 @@ namespace UGTLive
                     if (googleTranslateMappingCheckBox != null)
                         googleTranslateMappingCheckBox.IsChecked = ConfigManager.Instance.GetGoogleTranslateAutoMapLanguages();
                 }
+                else if (isAnthropicSelected)
+                {
+                    if (anthropicApiKeyPasswordBox != null)
+                        anthropicApiKeyPasswordBox.Password = ConfigManager.Instance.GetAnthropicApiKey();
+
+                    string model = ConfigManager.Instance.GetAnthropicModel();
+                    foreach (ComboBoxItem item in anthropicModelComboBox.Items)
+                    {
+                        if (string.Equals(item.Tag?.ToString(), model, StringComparison.OrdinalIgnoreCase))
+                        {
+                            anthropicModelComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+
+                    if (anthropicMaxTokensTextBox != null)
+                        anthropicMaxTokensTextBox.Text = ConfigManager.Instance.GetAnthropicMaxTokens().ToString();
+                }
+                else if (isOpenRouterSelected)
+                {
+                    if (openRouterApiKeyPasswordBox != null)
+                        openRouterApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenRouterApiKey();
+
+                    SelectEditableComboValue(openRouterModelComboBox, ConfigManager.Instance.GetOpenRouterModel(),
+                        OpenRouterModelComboBox_SelectionChanged);
+                }
+                else if (isClaudeCliSelected)
+                {
+                    if (claudeCliCommandTextBox != null)
+                    {
+                        claudeCliCommandTextBox.TextChanged -= ClaudeCliCommandTextBox_TextChanged;
+                        claudeCliCommandTextBox.Text = ConfigManager.Instance.GetClaudeCliCommand();
+                        claudeCliCommandTextBox.TextChanged += ClaudeCliCommandTextBox_TextChanged;
+                    }
+                    SelectEditableComboValue(claudeCliModelComboBox, ConfigManager.Instance.GetClaudeCliModel(),
+                        ClaudeCliModelComboBox_SelectionChanged);
+                }
+                else if (isCodexCliSelected)
+                {
+                    if (codexCliCommandTextBox != null)
+                    {
+                        codexCliCommandTextBox.TextChanged -= CodexCliCommandTextBox_TextChanged;
+                        codexCliCommandTextBox.Text = ConfigManager.Instance.GetCodexCliCommand();
+                        codexCliCommandTextBox.TextChanged += CodexCliCommandTextBox_TextChanged;
+                    }
+                    SelectEditableComboValue(codexCliModelComboBox, ConfigManager.Instance.GetCodexCliModel(),
+                        CodexCliModelComboBox_SelectionChanged);
+                }
+                else if (isGeminiCliSelected)
+                {
+                    if (geminiCliCommandTextBox != null)
+                    {
+                        geminiCliCommandTextBox.TextChanged -= GeminiCliCommandTextBox_TextChanged;
+                        geminiCliCommandTextBox.Text = ConfigManager.Instance.GetGeminiCliCommand();
+                        geminiCliCommandTextBox.TextChanged += GeminiCliCommandTextBox_TextChanged;
+                    }
+                    SelectEditableComboValue(geminiCliModelComboBox, ConfigManager.Instance.GetGeminiCliModel(),
+                        GeminiCliModelComboBox_SelectionChanged);
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating service-specific settings: {ex.Message}");
             }
+        }
+
+        // Select a value in an editable ComboBox without triggering its SelectionChanged save
+        private void SelectEditableComboValue(ComboBox combo, string value, SelectionChangedEventHandler handler)
+        {
+            if (combo == null)
+                return;
+
+            combo.SelectionChanged -= handler;
+            bool found = false;
+            foreach (ComboBoxItem item in combo.Items)
+            {
+                if (string.Equals(item.Content?.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                {
+                    combo.SelectedItem = item;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                combo.Text = value;
+            }
+            combo.SelectionChanged += handler;
         }
         
         // Gemini API Key changed
@@ -1117,6 +1242,180 @@ namespace UGTLive
             }
         }
         
+        // Retrigger a retranslation if the changed provider is the active one
+        private void TriggerRetranslationIfCurrent(string service)
+        {
+            if (ConfigManager.Instance.GetCurrentTranslationService() != service)
+                return;
+
+            Console.WriteLine($"{service} setting changed. Triggering retranslation...");
+            MainWindow.Instance.ClearTranslationHistory();
+            Logic.Instance.ResetHash();
+            Logic.Instance.ClearAllTextObjects();
+            if (MainWindow.Instance.GetIsStarted())
+            {
+                MainWindow.Instance.SetOCRCheckIsWanted(true);
+            }
+        }
+
+        // ===== Anthropic (direct API) =====
+
+        private void AnthropicApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            ConfigManager.Instance.SetAnthropicApiKey(anthropicApiKeyPasswordBox.Password.Trim());
+        }
+
+        private void AnthropicModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            if (anthropicModelComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                string model = selectedItem.Tag?.ToString() ?? "claude-sonnet-4-6";
+                ConfigManager.Instance.SetAnthropicModel(model);
+                TriggerRetranslationIfCurrent("Anthropic");
+            }
+        }
+
+        private void AnthropicMaxTokensTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            if (anthropicMaxTokensTextBox != null && int.TryParse(anthropicMaxTokensTextBox.Text, out int max) && max > 0)
+            {
+                ConfigManager.Instance.SetAnthropicMaxTokens(max);
+            }
+        }
+
+        private void AnthropicApiLink_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://console.anthropic.com/settings/keys");
+        }
+
+        private void ViewAnthropicModelsButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://docs.claude.com/en/docs/about-claude/models/overview");
+        }
+
+        // ===== OpenRouter =====
+
+        private void OpenRouterApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            ConfigManager.Instance.SetOpenRouterApiKey(openRouterApiKeyPasswordBox.Password.Trim());
+        }
+
+        private void OpenRouterModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = (openRouterModelComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                ?? openRouterModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                ConfigManager.Instance.SetOpenRouterModel(model);
+                TriggerRetranslationIfCurrent("OpenRouter");
+            }
+        }
+
+        private void OpenRouterModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = openRouterModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                ConfigManager.Instance.SetOpenRouterModel(model);
+            }
+        }
+
+        private void OpenRouterApiLink_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://openrouter.ai/keys");
+        }
+
+        private void ViewOpenRouterModelsButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://openrouter.ai/models");
+        }
+
+        // ===== CLI / subscription providers =====
+
+        private void ClaudeCliCommandTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || sender != claudeCliCommandTextBox) return;
+            ConfigManager.Instance.SetClaudeCliCommand(claudeCliCommandTextBox.Text.Trim());
+        }
+
+        private void ClaudeCliModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = (claudeCliModelComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                ?? claudeCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                ConfigManager.Instance.SetClaudeCliModel(model);
+                TriggerRetranslationIfCurrent("ClaudeCli");
+            }
+        }
+
+        private void ClaudeCliModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = claudeCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+                ConfigManager.Instance.SetClaudeCliModel(model);
+        }
+
+        private void CodexCliCommandTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || sender != codexCliCommandTextBox) return;
+            ConfigManager.Instance.SetCodexCliCommand(codexCliCommandTextBox.Text.Trim());
+        }
+
+        private void CodexCliModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = (codexCliModelComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                ?? codexCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                ConfigManager.Instance.SetCodexCliModel(model);
+                TriggerRetranslationIfCurrent("CodexCli");
+            }
+        }
+
+        private void CodexCliModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = codexCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+                ConfigManager.Instance.SetCodexCliModel(model);
+        }
+
+        private void GeminiCliCommandTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || sender != geminiCliCommandTextBox) return;
+            ConfigManager.Instance.SetGeminiCliCommand(geminiCliCommandTextBox.Text.Trim());
+        }
+
+        private void GeminiCliModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = (geminiCliModelComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                ?? geminiCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                ConfigManager.Instance.SetGeminiCliModel(model);
+                TriggerRetranslationIfCurrent("GeminiCli");
+            }
+        }
+
+        private void GeminiCliModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing) return;
+            string model = geminiCliModelComboBox.Text?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(model))
+                ConfigManager.Instance.SetGeminiCliModel(model);
+        }
+
         private void OpenUrl(string url)
         {
             try

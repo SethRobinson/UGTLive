@@ -434,3 +434,4 @@ raw_test_output.png
 temp_processing_image.png
 manual_debug.png
 
+.claude/scheduled_tasks.lock

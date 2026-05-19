@@ -11,6 +11,18 @@ namespace UGTLive
         private static bool _isServiceWarningShowing = false;
         private static readonly object _lock = new object();
 
+        // De-dupe / rate-limit state so a retry storm can't stack 50 modal dialogs.
+        private static string _lastSignature = "";
+        private static DateTime _lastShownUtc = DateTime.MinValue;
+        private static int _suppressedCount = 0;
+        private static readonly TimeSpan _cooldown = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// When true (headless/test mode), errors are written to the console
+        /// instead of showing a blocking MessageBox.
+        /// </summary>
+        public static bool SuppressPopups = false;
+
         /// <summary>
         /// Shows an error popup if one is not already showing
         /// </summary>
@@ -18,34 +30,59 @@ namespace UGTLive
         /// <param name="title">The title of the error dialog</param>
         public static void ShowError(string message, string title = "Translation Error")
         {
+            if (SuppressPopups)
+            {
+                Console.WriteLine($"[ERROR] {title}: {message}");
+                return;
+            }
+
+            string signature = title + "\n" + message;
             lock (_lock)
             {
+                // Never stack: if a dialog is already up, just count + log.
                 if (_isPopupShowing)
                 {
-                    // A popup is already showing, just log to console instead
-                    Console.WriteLine($"Suppressed duplicate error popup: {title} - {message}");
+                    _suppressedCount++;
+                    Console.WriteLine($"Suppressed error popup (one already open): {title} - {message}");
+                    return;
+                }
+
+                // De-dupe: identical error within the cooldown window is logged, not shown.
+                if (signature == _lastSignature &&
+                    (DateTime.UtcNow - _lastShownUtc) < _cooldown)
+                {
+                    _suppressedCount++;
+                    Console.WriteLine($"Suppressed repeat error popup (x{_suppressedCount}): {title} - {message}");
                     return;
                 }
 
                 _isPopupShowing = true;
+                _lastSignature = signature;
             }
+
+            int suppressed;
+            lock (_lock) { suppressed = _suppressedCount; _suppressedCount = 0; }
+            string body = message;
+            if (suppressed > 0)
+                body += $"\n\n(plus {suppressed} more similar error(s) suppressed)";
 
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 try
                 {
                     System.Windows.MessageBox.Show(
-                        message,
+                        body,
                         title,
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Error);
                 }
                 finally
                 {
-                    // Reset the flag immediately after the popup is dismissed
+                    // Start the cooldown from dismissal so repeats don't re-pop instantly.
                     lock (_lock)
                     {
                         _isPopupShowing = false;
+                        _lastShownUtc = DateTime.UtcNow;
                     }
                 }
             });

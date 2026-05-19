@@ -176,7 +176,8 @@ namespace UGTLive
         {
             string defaultPrompt = GetDefaultPrompt("");
             
-            string[] services = { "Gemini", "Ollama", "ChatGPT", "llama.cpp" };
+            string[] services = { "Gemini", "Ollama", "ChatGPT", "llama.cpp",
+                "Anthropic", "OpenRouter", "ClaudeCli", "CodexCli", "GeminiCli" };
             foreach (string service in services)
             {
                 SaveServicePrompt(service, defaultPrompt);
@@ -267,6 +268,21 @@ namespace UGTLive
                 case "llama.cpp":
                     filePath = _llamacppConfigFilePath;
                     break;
+                case "Anthropic":
+                    filePath = _anthropicConfigFilePath;
+                    break;
+                case "OpenRouter":
+                    filePath = _openrouterConfigFilePath;
+                    break;
+                case "ClaudeCli":
+                    filePath = _claudeCliConfigFilePath;
+                    break;
+                case "CodexCli":
+                    filePath = _codexCliConfigFilePath;
+                    break;
+                case "GeminiCli":
+                    filePath = _geminiCliConfigFilePath;
+                    break;
                 default:
                     filePath = _geminiConfigFilePath;
                     break;
@@ -353,6 +369,21 @@ Here is the input JSON:";
                     break;
                 case "llama.cpp":
                     filePath = _llamacppConfigFilePath;
+                    break;
+                case "Anthropic":
+                    filePath = _anthropicConfigFilePath;
+                    break;
+                case "OpenRouter":
+                    filePath = _openrouterConfigFilePath;
+                    break;
+                case "ClaudeCli":
+                    filePath = _claudeCliConfigFilePath;
+                    break;
+                case "CodexCli":
+                    filePath = _codexCliConfigFilePath;
+                    break;
+                case "GeminiCli":
+                    filePath = _geminiCliConfigFilePath;
                     break;
                 default:
                     filePath = _geminiConfigFilePath;
@@ -651,6 +682,196 @@ Here is the input JSON:";
             _configValues[GEMINI_THINKING_ENABLED] = enabled.ToString().ToLower();
             SaveConfig();
             Console.WriteLine($"Gemini thinking set to: {enabled}");
+        }
+
+        // Anthropic Claude (direct API) methods
+
+        public string GetAnthropicApiKey()
+        {
+            return GetValue(ANTHROPIC_API_KEY, "");
+        }
+
+        public void SetAnthropicApiKey(string apiKey)
+        {
+            _configValues[ANTHROPIC_API_KEY] = apiKey;
+            SaveConfig();
+            Console.WriteLine("Anthropic API key updated");
+        }
+
+        public string GetAnthropicModel()
+        {
+            return GetValue(ANTHROPIC_MODEL, "claude-sonnet-4-6");
+        }
+
+        public void SetAnthropicModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[ANTHROPIC_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"Anthropic model set to: {model}");
+            }
+        }
+
+        public int GetAnthropicMaxTokens()
+        {
+            string value = GetValue(ANTHROPIC_MAX_TOKENS, "32768");
+            if (int.TryParse(value, out int tokens) && tokens > 0)
+            {
+                return tokens;
+            }
+            return 32768;
+        }
+
+        public void SetAnthropicMaxTokens(int tokens)
+        {
+            if (tokens > 0)
+            {
+                _configValues[ANTHROPIC_MAX_TOKENS] = tokens.ToString();
+                SaveConfig();
+                Console.WriteLine($"Anthropic max tokens set to: {tokens}");
+            }
+        }
+
+        // OpenRouter methods
+
+        public string GetOpenRouterApiKey()
+        {
+            return GetValue(OPENROUTER_API_KEY, "");
+        }
+
+        public void SetOpenRouterApiKey(string apiKey)
+        {
+            _configValues[OPENROUTER_API_KEY] = apiKey;
+            SaveConfig();
+            Console.WriteLine("OpenRouter API key updated");
+        }
+
+        public string GetOpenRouterModel()
+        {
+            return GetValue(OPENROUTER_MODEL, "openai/gpt-5.4-mini");
+        }
+
+        public void SetOpenRouterModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[OPENROUTER_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"OpenRouter model set to: {model}");
+            }
+        }
+
+        // CLI / subscription provider methods (command path + model per provider)
+
+        public string GetClaudeCliCommand()
+        {
+            return GetValue(CLAUDE_CLI_COMMAND, "claude");
+        }
+
+        public void SetClaudeCliCommand(string command)
+        {
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                _configValues[CLAUDE_CLI_COMMAND] = command;
+                SaveConfig();
+            }
+        }
+
+        public string GetClaudeCliModel()
+        {
+            return GetValue(CLAUDE_CLI_MODEL, "sonnet");
+        }
+
+        public void SetClaudeCliModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[CLAUDE_CLI_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"Claude CLI model set to: {model}");
+            }
+        }
+
+        public string GetCodexCliCommand()
+        {
+            return GetValue(CODEX_CLI_COMMAND, "codex");
+        }
+
+        public void SetCodexCliCommand(string command)
+        {
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                _configValues[CODEX_CLI_COMMAND] = command;
+                SaveConfig();
+            }
+        }
+
+        public string GetCodexCliModel()
+        {
+            return GetValue(CODEX_CLI_MODEL, "gpt-5.4");
+        }
+
+        public void SetCodexCliModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[CODEX_CLI_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"Codex CLI model set to: {model}");
+            }
+        }
+
+        public string GetGeminiCliCommand()
+        {
+            return GetValue(GEMINI_CLI_COMMAND, "gemini");
+        }
+
+        public void SetGeminiCliCommand(string command)
+        {
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                _configValues[GEMINI_CLI_COMMAND] = command;
+                SaveConfig();
+            }
+        }
+
+        public bool GetCliWarmPoolEnabled()
+        {
+            return GetValue(CLI_WARM_POOL_ENABLED, "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public void SetCliWarmPoolEnabled(bool enabled)
+        {
+            _configValues[CLI_WARM_POOL_ENABLED] = enabled ? "true" : "false";
+            SaveConfig();
+        }
+
+        public int GetCliWarmPoolSize()
+        {
+            string v = GetValue(CLI_WARM_POOL_SIZE, "1");
+            return int.TryParse(v, out int n) && n >= 1 ? n : 1;
+        }
+
+        public void SetCliWarmPoolSize(int size)
+        {
+            _configValues[CLI_WARM_POOL_SIZE] = Math.Max(1, size).ToString();
+            SaveConfig();
+        }
+
+        public string GetGeminiCliModel()
+        {
+            return GetValue(GEMINI_CLI_MODEL, "gemini-2.5-flash");
+        }
+
+        public void SetGeminiCliModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[GEMINI_CLI_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"Gemini CLI model set to: {model}");
+            }
         }
     }
 }

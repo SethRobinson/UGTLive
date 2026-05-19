@@ -33,6 +33,14 @@ public partial class App : Application
         Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
         Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
 
+        // Headless translation smoke-test mode: run and exit without showing any UI.
+        if (TranslationTestHarness.IsTestModeRequested(e.Args))
+        {
+            int code = TranslationTestHarness.Run(e.Args);
+            Environment.Exit(code);
+            return;
+        }
+
         // Set DPI awareness BEFORE any windows are created
         // This prevents Windows from virtualizing DPI when display scale changes
         try
@@ -68,6 +76,18 @@ public partial class App : Application
             // MainWindow will initialize LogWindow after setting up the console
             _mainWindow = new MainWindow();
             
+            // Configure the CLI warm-process pool from saved settings
+            try
+            {
+                CliWarmPool.Configure(
+                    ConfigManager.Instance.GetCliWarmPoolEnabled(),
+                    ConfigManager.Instance.GetCliWarmPoolSize());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to configure CLI warm pool: {ex.Message}");
+            }
+
             // Parse command-line arguments for batch mode
             _batchPaths = new List<string>();
             var args = e.Args;

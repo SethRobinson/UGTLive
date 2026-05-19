@@ -52,7 +52,8 @@ namespace UGTLive
         {
             // Pro tier models require the Responses API (/v1/responses)
             return model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase) ||
-                   model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase);
+                   model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase);
         }
         
         /// <summary>
@@ -70,14 +71,16 @@ namespace UGTLive
         /// </summary>
         private bool SupportsNoneReasoningEffort(string model)
         {
-            if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
+            if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase) ||
+                model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
 
             return model.StartsWith("gpt-5.1", StringComparison.OrdinalIgnoreCase) ||
                    model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase) ||
-                   model.StartsWith("gpt-5.4", StringComparison.OrdinalIgnoreCase);
+                   model.StartsWith("gpt-5.4", StringComparison.OrdinalIgnoreCase) ||
+                   model.StartsWith("gpt-5.5", StringComparison.OrdinalIgnoreCase);
         }
         
         /// <summary>
@@ -103,7 +106,8 @@ namespace UGTLive
                 // - GPT-5.4-pro supports only medium / high / xhigh (use medium as minimum)
                 // - GPT-5.1, GPT-5.2, GPT-5.4 (non-pro) support 'none'
                 // - Base GPT-5, Mini, Nano support 'low', 'medium', 'high' (not 'none')
-                if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
+                if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase) ||
+                    model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase))
                 {
                     return "medium";
                 }
@@ -292,6 +296,9 @@ namespace UGTLive
                 {
                     Console.WriteLine($"Error calling ChatGPT API: {response.StatusCode}");
                     Console.WriteLine($"Response: {responseContent}");
+
+                    if (TranslationErrorPolicy.IsNonRetryableStatus(response.StatusCode))
+                        TranslationErrorPolicy.SignalNonRetryable($"ChatGPT HTTP {(int)response.StatusCode} ({response.StatusCode})");
                     
                     string errorMessage = $"ChatGPT API error: {response.StatusCode}";
                     string detailedMessage = $"The ChatGPT API returned an error.\n\nStatus: {response.StatusCode}";

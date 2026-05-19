@@ -21,6 +21,11 @@ namespace UGTLive
         private readonly string _chatgptConfigFilePath;
         private readonly string _googleTranslateConfigFilePath;
         private readonly string _llamacppConfigFilePath;
+        private readonly string _anthropicConfigFilePath;
+        private readonly string _openrouterConfigFilePath;
+        private readonly string _claudeCliConfigFilePath;
+        private readonly string _codexCliConfigFilePath;
+        private readonly string _geminiCliConfigFilePath;
         private readonly Dictionary<string, string> _configValues;
         private string _currentTranslationService = "Google Translate"; // Default to Google Translate
         private bool _isNewConfig = false;
@@ -91,7 +96,12 @@ namespace UGTLive
             _chatgptConfigFilePath = Path.Combine(appDirectory, "chatgpt_config.txt");
             _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
             _llamacppConfigFilePath = Path.Combine(appDirectory, "llamacpp_config.txt");
-            
+            _anthropicConfigFilePath = Path.Combine(appDirectory, "anthropic_config.txt");
+            _openrouterConfigFilePath = Path.Combine(appDirectory, "openrouter_config.txt");
+            _claudeCliConfigFilePath = Path.Combine(appDirectory, "claudecli_config.txt");
+            _codexCliConfigFilePath = Path.Combine(appDirectory, "codexcli_config.txt");
+            _geminiCliConfigFilePath = Path.Combine(appDirectory, "geminicli_config.txt");
+
             Console.WriteLine($"Config file path: {_configFilePath}");
             Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
             Console.WriteLine($"Ollama config file path: {_ollamaConfigFilePath}");
@@ -565,7 +575,9 @@ namespace UGTLive
         // Set current translation service
         public void SetTranslationService(string service)
         {
-            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "llama.cpp" || service == "Google Translate")
+            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "llama.cpp" || service == "Google Translate"
+                || service == "Anthropic" || service == "OpenRouter"
+                || service == "ClaudeCli" || service == "CodexCli" || service == "GeminiCli")
             {
                 _currentTranslationService = service;
                 _configValues[TRANSLATION_SERVICE] = service;
@@ -574,7 +586,7 @@ namespace UGTLive
             }
             else
             {
-                Console.WriteLine($"WARNING: Invalid translation service: '{service}'. Valid options are: Gemini, Ollama, ChatGPT, llama.cpp, Google Translate");
+                Console.WriteLine($"WARNING: Invalid translation service: '{service}'. Valid options are: Gemini, Ollama, ChatGPT, llama.cpp, Google Translate, Anthropic, OpenRouter, ClaudeCli, CodexCli, GeminiCli");
             }
         }
         
@@ -675,6 +687,20 @@ namespace UGTLive
                     Console.WriteLine("Created default llama.cpp config file");
                 }
                 
+                // Check and create config files for the new API + CLI providers
+                foreach (string extraPath in new[]
+                {
+                    _anthropicConfigFilePath, _openrouterConfigFilePath,
+                    _claudeCliConfigFilePath, _codexCliConfigFilePath, _geminiCliConfigFilePath
+                })
+                {
+                    if (!File.Exists(extraPath))
+                    {
+                        File.WriteAllText(extraPath, $"<llm_prompt_multi_start>\n{defaultPrompt}\n<llm_prompt_multi_end>");
+                        Console.WriteLine($"Created default config file: {Path.GetFileName(extraPath)}");
+                    }
+                }
+
                 // Google Translate doesn't use prompts, so no need to create config file
             }
             catch (Exception ex)

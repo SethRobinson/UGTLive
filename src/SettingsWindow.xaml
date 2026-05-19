@@ -590,6 +590,11 @@
                                     <ComboBoxItem Content="ChatGPT"/>
                                     <ComboBoxItem Content="llama.cpp"/>
                                     <ComboBoxItem Content="Google Translate"/>
+                                    <ComboBoxItem Content="Anthropic"/>
+                                    <ComboBoxItem Content="OpenRouter"/>
+                                    <ComboBoxItem Content="ClaudeCli"/>
+                                    <ComboBoxItem Content="CodexCli"/>
+                                    <ComboBoxItem Content="GeminiCli"/>
                                 </ComboBox>
                                 
                                 <!-- Gemini API Key - Only visible when Gemini is selected -->
@@ -621,12 +626,12 @@
                                             SelectionChanged="GeminiModelComboBox_SelectionChanged"
                                             LostFocus="GeminiModelComboBox_LostFocus"
                                             IsEditable="True">
+                                        <ComboBoxItem Content="gemini-3.1-pro-preview"/>
+                                        <ComboBoxItem Content="gemini-3-flash-preview"/>
+                                        <ComboBoxItem Content="gemini-3.1-flash-lite"/>
                                         <ComboBoxItem Content="gemini-2.5-pro"/>
                                         <ComboBoxItem Content="gemini-2.5-flash"/>
                                         <ComboBoxItem Content="gemini-2.5-flash-lite"/>
-                                        <ComboBoxItem Content="gemini-3.1-pro-preview"/>
-                                        <ComboBoxItem Content="gemini-3-flash-preview"/>
-                                        <ComboBoxItem Content="gemini-3.1-flash-lite-preview"/>
                                     </ComboBox>
                                     <Button x:Name="viewGeminiModelsButton" Content="View Models" Grid.Column="1"
                                            Margin="5,0,0,0" Padding="5,0" Click="ViewGeminiModelsButton_Click"
@@ -718,11 +723,11 @@
                                     </Grid.ColumnDefinitions>
                                     <ComboBox x:Name="chatGptModelComboBox" Grid.Column="0"
                                             SelectionChanged="ChatGptModelComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="GPT-5.4 Pro (Advanced)" Tag="gpt-5.4-pro"/>
+                                        <ComboBoxItem Content="GPT-5.5" Tag="gpt-5.5"/>
+                                        <ComboBoxItem Content="GPT-5.5 Pro (Advanced)" Tag="gpt-5.5-pro"/>
                                         <ComboBoxItem Content="GPT-5.4" Tag="gpt-5.4"/>
                                         <ComboBoxItem Content="GPT-5.4 Mini" Tag="gpt-5.4-mini"/>
                                         <ComboBoxItem Content="GPT-5.4 Nano" Tag="gpt-5.4-nano"/>
-                                        <ComboBoxItem Content="GPT-4.1 Nano" Tag="gpt-4.1-nano"/>
                                     </ComboBox>
                                     <Button x:Name="viewChatGptModelsButton" Content="View Models" Grid.Column="1"
                                            Margin="5,0,0,0" Padding="5,0" Click="ViewChatGptModelsButton_Click"
@@ -827,8 +832,197 @@
                                          Unchecked="GoogleTranslateMappingCheckBox_CheckedChanged"
                                          ToolTip="OCR and Google Translate use different language codes. This automatically maps between them."/>
                                 
+                                <!-- Anthropic API Key - Only visible when Anthropic is selected -->
+                                <TextBlock x:Name="anthropicApiKeyLabel" Text="Anthropic API Key:" Grid.Row="1" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="anthropicApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="anthropicApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2"
+                                             PasswordChanged="AnthropicApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="AnthropicApiLink_Click">https://console.anthropic.com/settings/keys</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Anthropic Model - Only visible when Anthropic is selected -->
+                                <TextBlock x:Name="anthropicModelLabel" Text="Claude Model:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="The Anthropic model to use for translation"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="anthropicModelGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="anthropicModelComboBox" Grid.Column="0"
+                                            SelectionChanged="AnthropicModelComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Claude Opus 4.7" Tag="claude-opus-4-7"/>
+                                        <ComboBoxItem Content="Claude Sonnet 4.6" Tag="claude-sonnet-4-6"/>
+                                        <ComboBoxItem Content="Claude Haiku 4.5" Tag="claude-haiku-4-5"/>
+                                    </ComboBox>
+                                    <Button x:Name="viewAnthropicModelsButton" Content="View Models" Grid.Column="1"
+                                           Margin="5,0,0,0" Padding="5,0" Click="ViewAnthropicModelsButton_Click"
+                                           ToolTip="Open Anthropic models documentation in browser"/>
+                                </Grid>
+
+                                <!-- Anthropic Max Tokens - Only visible when Anthropic is selected -->
+                                <TextBlock x:Name="anthropicMaxTokensLabel" Text="Max Tokens:" Grid.Row="4" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="Maximum number of tokens in the response (required by the Anthropic API)"/>
+                                <TextBox x:Name="anthropicMaxTokensTextBox" Grid.Row="4" Grid.Column="1"
+                                        Margin="0,5" Visibility="Collapsed"
+                                        TextChanged="AnthropicMaxTokensTextBox_TextChanged"
+                                        ToolTip="Maximum number of tokens in the response (default: 8192)"/>
+
+                                <!-- OpenRouter API Key - Only visible when OpenRouter is selected -->
+                                <TextBlock x:Name="openRouterApiKeyLabel" Text="OpenRouter API Key:" Grid.Row="1" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="openRouterApiKeyGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <PasswordBox x:Name="openRouterApiKeyPasswordBox" Grid.Row="0"
+                                             VerticalAlignment="Top" Margin="0,0,0,2"
+                                             PasswordChanged="OpenRouterApiKeyPasswordBox_PasswordChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11">
+                                        <Run>Get API key from </Run>
+                                        <Hyperlink Click="OpenRouterApiLink_Click">https://openrouter.ai/keys</Hyperlink>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- OpenRouter Model - Only visible when OpenRouter is selected -->
+                                <TextBlock x:Name="openRouterModelLabel" Text="OpenRouter Model:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"
+                                          ToolTip="OpenRouter model slug (editable - paste any slug from openrouter.ai/models)"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="openRouterModelGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="openRouterModelComboBox" Grid.Column="0"
+                                            IsEditable="True"
+                                            SelectionChanged="OpenRouterModelComboBox_SelectionChanged"
+                                            LostFocus="OpenRouterModelComboBox_LostFocus">
+                                        <ComboBoxItem Content="openai/gpt-5.4-mini"/>
+                                        <ComboBoxItem Content="openai/gpt-5.5"/>
+                                        <ComboBoxItem Content="openai/gpt-5.4"/>
+                                        <ComboBoxItem Content="anthropic/claude-opus-4.7"/>
+                                        <ComboBoxItem Content="anthropic/claude-sonnet-4.6"/>
+                                        <ComboBoxItem Content="anthropic/claude-haiku-4.5"/>
+                                        <ComboBoxItem Content="google/gemini-3.1-pro-preview"/>
+                                        <ComboBoxItem Content="google/gemini-2.5-flash"/>
+                                        <ComboBoxItem Content="google/gemini-3.1-flash-lite"/>
+                                        <ComboBoxItem Content="deepseek/deepseek-v3.2"/>
+                                        <ComboBoxItem Content="x-ai/grok-4.3"/>
+                                        <ComboBoxItem Content="moonshotai/kimi-k2.6"/>
+                                        <ComboBoxItem Content="qwen/qwen3-235b-a22b-2507"/>
+                                    </ComboBox>
+                                    <Button x:Name="viewOpenRouterModelsButton" Content="View Models" Grid.Column="1"
+                                           Margin="5,0,0,0" Padding="5,0" Click="ViewOpenRouterModelsButton_Click"
+                                           ToolTip="Open the OpenRouter models list in browser"/>
+                                </Grid>
+
+                                <!-- Claude CLI Command - Only visible when ClaudeCli is selected -->
+                                <TextBlock x:Name="claudeCliCommandLabel" Text="Claude CLI Command:" Grid.Row="1" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="claudeCliCommandGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="claudeCliCommandTextBox" Grid.Row="0"
+                                            VerticalAlignment="Top" Margin="0,0,0,2" Text="claude"
+                                            TextChanged="ClaudeCliCommandTextBox_TextChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" Foreground="Gray">
+                                        Uses your Claude Pro/Max subscription - no API key needed. Requires Claude Code
+                                        installed and logged in once (run `claude` and sign in). Set a full path if not on PATH.
+                                        Note: from June 15, 2026, headless `claude -p` usage on subscription plans draws
+                                        from a separate monthly Agent SDK credit (still subscription-based, not per-token API billing).
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Claude CLI Model - Only visible when ClaudeCli is selected -->
+                                <TextBlock x:Name="claudeCliModelLabel" Text="Claude Model:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="claudeCliModelGrid">
+                                    <ComboBox x:Name="claudeCliModelComboBox" IsEditable="True"
+                                            SelectionChanged="ClaudeCliModelComboBox_SelectionChanged"
+                                            LostFocus="ClaudeCliModelComboBox_LostFocus">
+                                        <ComboBoxItem Content="opus"/>
+                                        <ComboBoxItem Content="sonnet"/>
+                                        <ComboBoxItem Content="haiku"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Codex CLI Command - Only visible when CodexCli is selected -->
+                                <TextBlock x:Name="codexCliCommandLabel" Text="Codex CLI Command:" Grid.Row="1" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="codexCliCommandGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="codexCliCommandTextBox" Grid.Row="0"
+                                            VerticalAlignment="Top" Margin="0,0,0,2" Text="codex"
+                                            TextChanged="CodexCliCommandTextBox_TextChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" Foreground="Gray">
+                                        Uses your ChatGPT subscription - no API key needed. Requires Codex CLI installed
+                                        and logged in once (run `codex login`). Set a full path if not on PATH.
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Codex CLI Model - Only visible when CodexCli is selected -->
+                                <TextBlock x:Name="codexCliModelLabel" Text="Codex Model:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="codexCliModelGrid">
+                                    <ComboBox x:Name="codexCliModelComboBox" IsEditable="True"
+                                            SelectionChanged="CodexCliModelComboBox_SelectionChanged"
+                                            LostFocus="CodexCliModelComboBox_LostFocus">
+                                        <ComboBoxItem Content="gpt-5.5"/>
+                                        <ComboBoxItem Content="gpt-5.4"/>
+                                        <ComboBoxItem Content="gpt-5.4-mini"/>
+                                        <ComboBoxItem Content="gpt-5.4-nano"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Gemini CLI Command - Only visible when GeminiCli is selected -->
+                                <TextBlock x:Name="geminiCliCommandLabel" Text="Gemini CLI Command:" Grid.Row="1" Grid.Column="0"
+                                          VerticalAlignment="Top" Margin="0,8,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Visibility="Collapsed" x:Name="geminiCliCommandGrid" Margin="0,5,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="geminiCliCommandTextBox" Grid.Row="0"
+                                            VerticalAlignment="Top" Margin="0,0,0,2" Text="gemini"
+                                            TextChanged="GeminiCliCommandTextBox_TextChanged"/>
+                                    <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="0,2,0,5" FontSize="11" Foreground="Gray">
+                                        Uses your Google account login - no API key needed. Requires Gemini CLI installed
+                                        and logged in once (run `gemini` and sign in). Set a full path if not on PATH.
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Gemini CLI Model - Only visible when GeminiCli is selected -->
+                                <TextBlock x:Name="geminiCliModelLabel" Text="Gemini Model:" Grid.Row="3" Grid.Column="0"
+                                          VerticalAlignment="Center" Margin="0,5,10,0" Visibility="Collapsed"/>
+                                <Grid Grid.Row="3" Grid.Column="1" Margin="0,5" Visibility="Collapsed" x:Name="geminiCliModelGrid">
+                                    <ComboBox x:Name="geminiCliModelComboBox" IsEditable="True"
+                                            SelectionChanged="GeminiCliModelComboBox_SelectionChanged"
+                                            LostFocus="GeminiCliModelComboBox_LostFocus">
+                                        <ComboBoxItem Content="gemini-3.1-pro-preview"/>
+                                        <ComboBoxItem Content="gemini-2.5-pro"/>
+                                        <ComboBoxItem Content="gemini-2.5-flash"/>
+                                        <ComboBoxItem Content="gemini-3.1-flash-lite"/>
+                                    </ComboBox>
+                                </Grid>
+
                                 <!-- Prompt Label -->
-                                <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="6" Grid.Column="0" 
+                                <TextBlock x:Name="promptLabel" Text="Prompt Template:" Grid.Row="6" Grid.Column="0"
                                           VerticalAlignment="Top" Margin="0,10,10,0"/>
                                 
                                 <!-- Prompt Editor -->

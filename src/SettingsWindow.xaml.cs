@@ -669,6 +669,14 @@ namespace UGTLive
             
             // Initialize unified thinking checkbox
             thinkingEnabledCheckBox.IsChecked = ConfigManager.Instance.GetThinkingEnabled();
+
+            // Initialize new API + CLI provider fields (handlers guard on _isInitializing)
+            anthropicApiKeyPasswordBox.Password = ConfigManager.Instance.GetAnthropicApiKey();
+            anthropicMaxTokensTextBox.Text = ConfigManager.Instance.GetAnthropicMaxTokens().ToString();
+            openRouterApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenRouterApiKey();
+            claudeCliCommandTextBox.Text = ConfigManager.Instance.GetClaudeCliCommand();
+            codexCliCommandTextBox.Text = ConfigManager.Instance.GetCodexCliCommand();
+            geminiCliCommandTextBox.Text = ConfigManager.Instance.GetGeminiCliCommand();
             
             // Initialize Ollama settings
             ollamaUrlTextBox.Text = ConfigManager.Instance.GetOllamaUrl();
