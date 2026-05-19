@@ -43,6 +43,13 @@ namespace UGTLive
         private Func<string, string, string>? _onTranscriptReceived;
         private Action<string, string, string>? _onTranslationUpdate;
         private Action<string>? _onPartialTranscript;
+        // Streaming upsert sink for dual-mode interleave. Args: (lineId, text,
+        // isTranslation) -> lineId. Empty lineId => create a new standalone line
+        // and return its id; non-empty => update that line's text in place (so
+        // the line streams live). isTranslation (false => source/JA, true =>
+        // translation/EN) selects the column/color. Each stream keeps its own
+        // live line id; finalizing clears it so the next delta starts fresh.
+        private Func<string, string, bool, string>? _onListenUpsert;
 
         // Audio playback settings
         private bool _audioPlaybackEnabled = false;
@@ -66,16 +73,35 @@ namespace UGTLive
         private static readonly char[] XL_SENTENCE_ENDERS =
             { '.', '!', '?', '。', '！', '？', '…', '\n' };
 
+        // --- Dual-session state (translationMode == "openai") ---
+        // The /v1/realtime/translations endpoint's embedded Whisper is lossy:
+        // it stays silent on unclear speech while the translation keeps flowing.
+        // So in this mode we run TWO sockets: a dedicated transcription session
+        // (accurate source) and the translation session (translation only), fed
+        // the same audio. The two streams segment on different boundaries (VAD
+        // vs. punctuation), so they are NOT paired onto one row — each finalized
+        // source utterance and each finalized translation segment is emitted as
+        // its own line, in completion order (a robust time-ordered interleave).
+        private bool _dualMode;
+        private readonly StringBuilder _dualTrans = new StringBuilder();   // in-progress translation
+        private readonly object _dualLock = new object();
+        // Live UI line id per stream while it is mid-segment (streams in place);
+        // cleared on finalize so the next delta begins a fresh line.
+        private string _dualSrcLiveId = string.Empty;
+        private string _dualTransLiveId = string.Empty;
+
         public void StartRealtimeAudioService(
             Func<string, string, string> onTranscriptReceived,
             Action<string, string, string> onTranslationUpdate,
             Action<string>? onPartialTranscript,
-            bool useLoopback = false)
+            bool useLoopback = false,
+            Func<string, string, bool, string>? onListenUpsert = null)
         {
             _useLoopback = useLoopback;
             _onTranscriptReceived = onTranscriptReceived;
             _onTranslationUpdate = onTranslationUpdate;
             _onPartialTranscript = onPartialTranscript;
+            _onListenUpsert = onListenUpsert;
 
             Stop();
             _cts = new CancellationTokenSource();
@@ -246,10 +272,20 @@ namespace UGTLive
 
             if (translationMode == "openai")
             {
-                // Single gpt-realtime-translate session: streams source transcript,
-                // translated text AND translated speech simultaneously, keeping pace
-                // with the speaker (no VAD pause). Ideal for fast news playback.
-                await runTranslateSessionAsync(apiKey, token);
+                if (ConfigManager.Instance.IsOpenAIDualSessionEnabled())
+                {
+                    // Experimental dual session: a dedicated transcription
+                    // socket (accurate source) + the translation socket, fed the
+                    // same audio, paired in order. ~2x audio token cost; the
+                    // translation endpoint's own input transcript is too lossy.
+                    await runDualSessionAsync(apiKey, token);
+                }
+                else
+                {
+                    // Single gpt-realtime-translate session: source transcript,
+                    // translated text and translated speech from one socket.
+                    await runTranslateSessionAsync(apiKey, token);
+                }
             }
             else
             {
@@ -327,7 +363,85 @@ namespace UGTLive
             await Task.WhenAll(receiveTask, flushTask);
         }
 
+        // =====================================================================
+        // Dual session (translationMode == "openai")
+        //
+        // Socket A: dedicated transcription session (gpt-realtime, server_vad) —
+        //   accurate source transcript with proper per-utterance .completed.
+        // Socket B: /v1/realtime/translations session — translation text (+audio).
+        // Both are fed the same captured audio. Finalized source utterances and
+        // finalized translation segments are paired FIFO (see onDual* below).
+        // =====================================================================
+        private async Task runDualSessionAsync(string apiKey, CancellationToken token)
+        {
+            string translateModel = ConfigManager.Instance.GetOpenAITranslateModel();
+            string transcriptionModel = ConfigManager.Instance.GetOpenAITranscriptionModel();
+            try
+            {
+                _transcribeWs = new ClientWebSocket();
+                _transcribeWs.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+                await _transcribeWs.ConnectAsync(
+                    new Uri("wss://api.openai.com/v1/realtime?model=gpt-realtime"), token);
+
+                _translateWs = new ClientWebSocket();
+                _translateWs.Options.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+                await _translateWs.ConnectAsync(
+                    new Uri($"wss://api.openai.com/v1/realtime/translations?model={translateModel}"), token);
+
+                _dualMode = true;
+                log($"Connected dual session (transcription: {transcriptionModel}, translation: {translateModel})");
+            }
+            catch (Exception ex)
+            {
+                log($"Failed to connect dual session: {ex.Message}");
+                return;
+            }
+
+            if (_audioPlaybackEnabled)
+            {
+                initializeAudioPlayback();
+            }
+
+            await configureTranscriptionSession(token);
+            await configureTranslateSession(token);
+
+            initializeAudioCapture();
+
+            var transcribeTask = receiveTranscriptionMessages(token, "dual");
+            var translateTask = receiveTranslateSessionMessages(token);
+            var flushTask = translateIdleFlushLoop(token);
+            await Task.WhenAll(transcribeTask, translateTask, flushTask);
+        }
+
         private void resetState()
+        {
+            _currentPartialTranscript = string.Empty;
+            _currentTranslationText = string.Empty;
+            _activeTranscriptForTranslation = string.Empty;
+            _currentTranslationLineId = string.Empty;
+            _recentUtterances.Clear();
+            _dualMode = false;
+            lock (_xlLock)
+            {
+                _xlSource.Clear();
+                _xlTrans.Clear();
+                _xlLineId = string.Empty;
+                _xlLastDeltaUtc = DateTime.MinValue;
+            }
+            lock (_dualLock)
+            {
+                _dualTrans.Clear();
+                _dualSrcLiveId = string.Empty;
+                _dualTransLiveId = string.Empty;
+            }
+        }
+
+        // Drop all in-flight streaming/pairing state WITHOUT stopping the
+        // sockets or leaving the active mode. Called when the user clears the
+        // transcript: the queued source line-ids now point at deleted history
+        // entries, and any buffered translations would otherwise be paired onto
+        // post-clear utterances (making the sync drift worse, not reset).
+        public void ResetStreamingState()
         {
             _currentPartialTranscript = string.Empty;
             _currentTranslationText = string.Empty;
@@ -341,6 +455,13 @@ namespace UGTLive
                 _xlLineId = string.Empty;
                 _xlLastDeltaUtc = DateTime.MinValue;
             }
+            lock (_dualLock)
+            {
+                _dualTrans.Clear();
+                _dualSrcLiveId = string.Empty;
+                _dualTransLiveId = string.Empty;
+            }
+            log("Streaming/pairing state reset (transcript cleared)");
         }
 
         private async Task configureTranscriptionSession(CancellationToken token)
@@ -683,7 +804,13 @@ namespace UGTLive
                                     {
                                         transcriptBuilder.Append(delta);
                                         _currentPartialTranscript = transcriptBuilder.ToString();
-                                        _onPartialTranscript?.Invoke(_currentPartialTranscript);
+                                        // Dual mode streams the partial into its
+                                        // own live source line (in place) rather
+                                        // than the shared partial-caption slot.
+                                        if (_dualMode)
+                                            onDualSourceDelta(_currentPartialTranscript);
+                                        else
+                                            _onPartialTranscript?.Invoke(_currentPartialTranscript);
                                     }
                                 }
                                 break;
@@ -761,6 +888,10 @@ namespace UGTLive
             {
                 case "google":
                     await handleGoogleTranslation(transcript);
+                    break;
+
+                case "dual":
+                    onDualSourceUtterance(transcript);
                     break;
 
                 default:
@@ -843,6 +974,16 @@ namespace UGTLive
 
                         string? messageType = typeProp.GetString();
 
+                        // Diagnostic: the translations endpoint's source-transcript
+                        // events are sparse/undocumented. Log every raw frame when
+                        // extra debug is on so we can see exactly what arrives —
+                        // but never the audio delta's base64 blob (a single
+                        // multi-hundred-KB line that wedges text editors).
+                        if (messageType == "session.output_audio.delta")
+                            logVerbose($"[Translate] {{\"type\":\"session.output_audio.delta\", <audio {messageBuffer.Length} bytes omitted>}}");
+                        else
+                            logVerbose($"[Translate] {json}");
+
                         if (messageType == "error")
                         {
                             string errorMsg = root.TryGetProperty("error", out var errorProp) &&
@@ -867,11 +1008,31 @@ namespace UGTLive
                                 logVerbose($"[Translate] Session event: {messageType}");
                                 break;
 
+                            // Source-language transcript. The translations
+                            // endpoint has been observed to emit the source under
+                            // either the session.* names or the same
+                            // conversation.item.input_audio_transcription.* names
+                            // the plain transcription session uses — and often as
+                            // a single .completed instead of streamed deltas.
+                            // Handle all of them so the source column isn't stuck
+                            // on the "…" placeholder.
                             case "session.input_transcript.delta":
-                                if (root.TryGetProperty("delta", out var inDelta))
+                            case "conversation.item.input_audio_transcription.delta":
+                                // In dual mode the source comes from the dedicated
+                                // transcription socket; ignore this lossy one.
+                                if (!_dualMode && root.TryGetProperty("delta", out var inDelta))
                                 {
                                     var d = inDelta.GetString();
                                     if (!string.IsNullOrEmpty(d)) onTranslateInputDelta(d);
+                                }
+                                break;
+
+                            case "session.input_transcript.completed":
+                            case "conversation.item.input_audio_transcription.completed":
+                                if (!_dualMode && root.TryGetProperty("transcript", out var inDone))
+                                {
+                                    var full = inDone.GetString();
+                                    if (!string.IsNullOrEmpty(full)) onTranslateInputCompleted(full);
                                 }
                                 break;
 
@@ -879,7 +1040,11 @@ namespace UGTLive
                                 if (root.TryGetProperty("delta", out var outDelta))
                                 {
                                     var d = outDelta.GetString();
-                                    if (!string.IsNullOrEmpty(d)) onTranslateOutputDelta(d);
+                                    if (!string.IsNullOrEmpty(d))
+                                    {
+                                        if (_dualMode) onDualTranslationDelta(d);
+                                        else onTranslateOutputDelta(d);
+                                    }
                                 }
                                 break;
 
@@ -976,6 +1141,57 @@ namespace UGTLive
             }
         }
 
+        // Full source-language transcript for an utterance (the translations
+        // endpoint frequently sends only this, with no incremental deltas).
+        // Reconcile it with whatever deltas did arrive: if the buffer is empty
+        // or a prefix of the full text, adopt the full text; otherwise append
+        // the part we don't already have. Then refresh the same way a delta
+        // would so the source column leaves the "…" placeholder.
+        private void onTranslateInputCompleted(string fullText)
+        {
+            string full = fullText.Trim();
+            if (full.Length == 0) return;
+
+            string? partialToShow = null;
+            string? updLineId = null;
+            string updSource = string.Empty;
+            string updTrans = string.Empty;
+            lock (_xlLock)
+            {
+                string cur = _xlSource.ToString();
+                if (cur.Length == 0 || full.StartsWith(cur, StringComparison.Ordinal))
+                {
+                    _xlSource.Clear();
+                    _xlSource.Append(full);
+                }
+                else if (!cur.Contains(full, StringComparison.Ordinal))
+                {
+                    if (cur.Length > 0 && !cur.EndsWith(" ")) _xlSource.Append(' ');
+                    _xlSource.Append(full);
+                }
+                _xlLastDeltaUtc = DateTime.UtcNow;
+
+                if (string.IsNullOrEmpty(_xlLineId))
+                {
+                    partialToShow = _xlSource.ToString();
+                }
+                else
+                {
+                    updLineId = _xlLineId;
+                    updSource = _xlSource.ToString();
+                    updTrans = _xlTrans.ToString();
+                }
+            }
+            if (partialToShow != null)
+            {
+                _onPartialTranscript?.Invoke(partialToShow);
+            }
+            else if (updLineId != null)
+            {
+                _onTranslationUpdate?.Invoke(updLineId, updSource, updTrans);
+            }
+        }
+
         // Translated-text fragment. Lock the line on first fragment (converting
         // the partial source caption into a final line), then keep updating the
         // translation. Commit and start a fresh line on sentence boundaries.
@@ -1017,7 +1233,7 @@ namespace UGTLive
                 updTrans = _xlTrans.ToString();
                 // Don't commit/clear until the line is locked, otherwise a fully
                 // translated short segment could be dropped before it's shown.
-                commit = !string.IsNullOrEmpty(updateLineId) && shouldCommitTranslation(updTrans);
+                commit = !string.IsNullOrEmpty(updateLineId) && shouldCommitSegment(updSource, updTrans);
                 if (commit) commitTranslateSegmentLocked();
             }
 
@@ -1027,17 +1243,37 @@ namespace UGTLive
             }
         }
 
-        private static bool shouldCommitTranslation(string trans)
+        // Whether to finalize the current line. The translated-text stream from
+        // gpt-realtime-translate leads the source (Whisper) transcript: the
+        // translation often completes a sentence a second or more before the
+        // matching source deltas arrive. If we commit on translation punctuation
+        // alone, the line is cleared before the source catches up and freezes at
+        // the "…" placeholder. So a punctuation-based commit additionally
+        // requires the source to have caught up (non-empty AND ending in
+        // sentence-ending punctuation). The hard length cap and the idle-flush
+        // loop (translateIdleFlushLoop) remain unconditional escape hatches so a
+        // never-arriving / unpunctuated source can't wedge the line open.
+        private static bool shouldCommitSegment(string src, string trans)
         {
             string t = trans.TrimEnd();
             if (t.Length == 0) return false;
+
+            // Runaway protection: never let a segment grow without bound even if
+            // the source transcript never catches up.
             if (t.Length >= XL_MAX_SEGMENT_CHARS) return true;
-            if (t.Length >= XL_MIN_SEGMENT_CHARS &&
-                Array.IndexOf(XL_SENTENCE_ENDERS, t[t.Length - 1]) >= 0)
-            {
-                return true;
-            }
-            return false;
+
+            bool transComplete = t.Length >= XL_MIN_SEGMENT_CHARS &&
+                Array.IndexOf(XL_SENTENCE_ENDERS, t[t.Length - 1]) >= 0;
+            if (!transComplete) return false;
+
+            // Translation finished a sentence — only commit if the source has
+            // caught up to a sentence boundary too, so the locked-in line shows
+            // the real source text instead of the "…" placeholder. Otherwise
+            // hold the line open; the source backfill path keeps updating it and
+            // the idle-flush loop will commit once the speaker pauses.
+            string s = (src ?? string.Empty).TrimEnd();
+            if (s.Length == 0) return false;
+            return Array.IndexOf(XL_SENTENCE_ENDERS, s[s.Length - 1]) >= 0;
         }
 
         // Caller must hold _xlLock. Finalizes the current segment so the next
@@ -1056,6 +1292,129 @@ namespace UGTLive
             _xlLineId = string.Empty;
         }
 
+        // =====================================================================
+        // Dual-session interleave
+        //
+        // The transcription and translation sockets segment on different
+        // boundaries (VAD silence vs. text punctuation), so any attempt to pair
+        // them onto one row drifts permanently the first time the segment counts
+        // diverge. Instead each stream owns its own live line: deltas stream
+        // into it in place (low-latency feel), and finalizing ends the segment
+        // so the next delta starts a fresh line. Lines are appended in the
+        // order each segment STARTS, giving a robust time-ordered interleave
+        // with no pairing claim — nothing can be "mismatched".
+        // =====================================================================
+
+        // Source-language deltas from the dedicated transcription socket: stream
+        // the partial transcript live into the current source line.
+        private void onDualSourceDelta(string partial)
+        {
+            dualStream(isTranslation: false, partial, finalize: false);
+        }
+
+        // A source utterance finalized (transcription .completed).
+        private void onDualSourceUtterance(string transcript)
+        {
+            string src = (transcript ?? string.Empty).Trim();
+            if (src.Length == 0)
+            {
+                // Nothing to show; just close any open source line.
+                dualStream(isTranslation: false, string.Empty, finalize: true);
+                return;
+            }
+
+            _recentUtterances.Enqueue((src, string.Empty));
+            while (_recentUtterances.Count > MAX_RECENT_UTTERANCES) _recentUtterances.Dequeue();
+
+            dualStream(isTranslation: false, src, finalize: true);
+        }
+
+        // A translation fragment from the translations socket. Stream it live
+        // into the current translation line, finalizing on sentence/length so
+        // the next delta starts a new line.
+        private void onDualTranslationDelta(string delta)
+        {
+            string running;
+            bool commit;
+            lock (_dualLock)
+            {
+                _dualTrans.Append(delta);
+                _xlLastDeltaUtc = DateTime.UtcNow;
+                running = _dualTrans.ToString();
+                commit = shouldCommitTranslationText(running);
+                if (commit) _dualTrans.Clear();
+            }
+            // Callback marshals to the UI thread — never call it under _dualLock.
+            dualStream(isTranslation: true, running.Trim(), finalize: commit);
+        }
+
+        // Upsert one interleaved line. Empty live id => create the line and
+        // remember its id; otherwise update that line's text in place so it
+        // streams. finalize ends the segment (clears the id so the next delta
+        // begins a new line). The id read/write is the only thing under the
+        // lock — _onListenUpsert marshals to the UI thread and must not run
+        // while holding _dualLock (the UI thread also takes it via Clear).
+        private void dualStream(bool isTranslation, string text, bool finalize)
+        {
+            if (_onListenUpsert == null) return;
+            text = (text ?? string.Empty).Trim();
+
+            string liveId;
+            lock (_dualLock)
+                liveId = isTranslation ? _dualTransLiveId : _dualSrcLiveId;
+
+            // No text yet and nothing open to finalize -> nothing to do.
+            if (text.Length == 0 && !(finalize && liveId.Length > 0)) return;
+
+            string newId = _onListenUpsert(liveId, text, isTranslation) ?? string.Empty;
+
+            lock (_dualLock)
+            {
+                if (finalize)
+                {
+                    if (isTranslation) _dualTransLiveId = string.Empty;
+                    else _dualSrcLiveId = string.Empty;
+                }
+                else if (isTranslation) _dualTransLiveId = newId;
+                else _dualSrcLiveId = newId;
+            }
+        }
+
+        // Translation finalize decision: segment purely on the translation's own
+        // punctuation / length.
+        private static readonly string[] ABBREVIATIONS =
+        {
+            "mr", "mrs", "ms", "dr", "prof", "st", "mt", "jr", "sr",
+            "vs", "etc", "no", "fig", "approx", "dept", "inc", "ltd", "co"
+        };
+
+        private static bool shouldCommitTranslationText(string trans)
+        {
+            string t = trans.TrimEnd();
+            if (t.Length == 0) return false;
+            if (t.Length >= XL_MAX_SEGMENT_CHARS) return true;
+            if (t.Length < XL_MIN_SEGMENT_CHARS) return false;
+
+            char last = t[t.Length - 1];
+            if (Array.IndexOf(XL_SENTENCE_ENDERS, last) < 0) return false;
+
+            // A trailing '.' is frequently NOT a sentence end: titles ("Mr."),
+            // initials ("A."), and decimals ("3.") commit mid-sentence, which
+            // permanently shifts the FIFO pairing against the source stream.
+            // Hold the segment open in those cases; the sentence's real end (or
+            // the idle-flush after a speech pause) commits it correctly.
+            if (last == '.')
+            {
+                int ws = t.LastIndexOf(' ');
+                string lastTok = (ws >= 0 ? t.Substring(ws + 1) : t).TrimEnd('.');
+                if (lastTok.Length == 1 && char.IsLetter(lastTok[0])) return false;     // initial "A."
+                if (lastTok.Length > 0 && lastTok.All(char.IsDigit)) return false;       // number "3."
+                if (Array.IndexOf(ABBREVIATIONS, lastTok.ToLowerInvariant()) >= 0)
+                    return false;                                                        // title "Mr."
+            }
+            return true;
+        }
+
         // The translate stream has no end-of-utterance event; commit a trailing
         // segment once the speaker has paused long enough.
         private async Task translateIdleFlushLoop(CancellationToken token)
@@ -1065,6 +1424,25 @@ namespace UGTLive
                 while (!token.IsCancellationRequested)
                 {
                     await Task.Delay(300, token);
+                    if (_dualMode)
+                    {
+                        // Finalize the trailing translation segment after a pause
+                        // (the translate stream has no end-of-utterance event).
+                        string? finalized = null;
+                        lock (_dualLock)
+                        {
+                            if (_dualTrans.Length > 0 &&
+                                _xlLastDeltaUtc != DateTime.MinValue &&
+                                (DateTime.UtcNow - _xlLastDeltaUtc).TotalMilliseconds >= XL_FLUSH_IDLE_MS)
+                            {
+                                finalized = _dualTrans.ToString().Trim();
+                                _dualTrans.Clear();
+                            }
+                        }
+                        if (!string.IsNullOrEmpty(finalized))
+                            dualStream(isTranslation: true, finalized, finalize: true);
+                        continue;
+                    }
                     lock (_xlLock)
                     {
                         if (_xlTrans.Length > 0 &&
@@ -1212,25 +1590,45 @@ namespace UGTLive
 
                         if (chunkData == null) break;
 
-                        // Send audio to whichever session is active (transcription
-                        // session, or the gpt-realtime-translate session).
-                        var audioWs = _audioWs;
-                        if (audioWs != null && audioWs.State == WebSocketState.Open && !_cts!.IsCancellationRequested)
+                        // Send audio to the active session(s). Single-session
+                        // modes use _audioWs; dual mode feeds BOTH the
+                        // transcription and translation sockets the same chunk.
+                        // The translations session namespaces client events
+                        // under "session." (session.input_audio_buffer.append);
+                        // the regular transcription session does not.
+                        if (_cts!.IsCancellationRequested) break;
+                        string base64Audio = Convert.ToBase64String(chunkData);
+
+                        bool anyOpen = false;
+                        if (_dualMode)
                         {
-                            string base64Audio = Convert.ToBase64String(chunkData);
-                            // The gpt-realtime-translate session namespaces client
-                            // events under "session." (session.input_audio_buffer.append);
-                            // the regular transcription session does not.
-                            string appendType = audioWs == _translateWs
-                                ? "session.input_audio_buffer.append"
-                                : "input_audio_buffer.append";
-                            var audioEvent = new { type = appendType, audio = base64Audio };
-                            await sendJson(audioWs, audioEvent, _cts.Token);
+                            var tws = _transcribeWs;
+                            var xws = _translateWs;
+                            if (tws != null && tws.State == WebSocketState.Open)
+                            {
+                                anyOpen = true;
+                                await sendJson(tws, new { type = "input_audio_buffer.append", audio = base64Audio }, _cts.Token);
+                            }
+                            if (xws != null && xws.State == WebSocketState.Open)
+                            {
+                                anyOpen = true;
+                                await sendJson(xws, new { type = "session.input_audio_buffer.append", audio = base64Audio }, _cts.Token);
+                            }
                         }
                         else
                         {
-                            break;
+                            var audioWs = _audioWs;
+                            if (audioWs != null && audioWs.State == WebSocketState.Open)
+                            {
+                                anyOpen = true;
+                                string appendType = audioWs == _translateWs
+                                    ? "session.input_audio_buffer.append"
+                                    : "input_audio_buffer.append";
+                                await sendJson(audioWs, new { type = appendType, audio = base64Audio }, _cts.Token);
+                            }
                         }
+
+                        if (!anyOpen) break;
                     }
                 }
                 catch (Exception ex)

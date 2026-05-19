@@ -136,6 +136,8 @@ namespace UGTLive
                 openAiAudioPlaybackCheckBox.IsChecked = playbackEnabled;
                 outputDeviceComboBox.IsEnabled = playbackEnabled;
                 outputDeviceLabel.IsEnabled = playbackEnabled;
+
+                openAiDualSessionCheckBox.IsChecked = ConfigManager.Instance.IsOpenAIDualSessionEnabled();
             }
             catch (Exception ex)
             {
@@ -188,6 +190,24 @@ namespace UGTLive
             catch (Exception ex)
             {
                 Console.WriteLine($"Error updating OpenAI audio playback setting: {ex.Message}");
+            }
+        }
+
+        private void OpenAiDualSessionCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing)
+                    return;
+
+                bool isEnabled = openAiDualSessionCheckBox.IsChecked ?? false;
+                ConfigManager.Instance.SetOpenAIDualSessionEnabled(isEnabled);
+                Console.WriteLine($"OpenAI dual-session mode set to: {isEnabled}");
+                restartListenIfActive();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenAI dual-session setting: {ex.Message}");
             }
         }
 

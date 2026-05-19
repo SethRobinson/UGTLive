@@ -231,5 +231,22 @@ namespace UGTLive
             SaveConfig();
             Console.WriteLine($"OpenAI noise reduction set to: {noiseReduction}");
         }
+
+        // Get/Set OpenAI dual-session mode (experimental). When on, Listen +
+        // OpenAI translation runs a separate dedicated transcription session
+        // alongside the translation session for a far more reliable source
+        // transcript — at roughly 2x audio input token cost (the same audio is
+        // sent to two sessions). Off => single translation session.
+        public bool IsOpenAIDualSessionEnabled()
+        {
+            return GetBoolValue(OPENAI_DUAL_SESSION_ENABLED, false);
+        }
+
+        public void SetOpenAIDualSessionEnabled(bool enabled)
+        {
+            _configValues[OPENAI_DUAL_SESSION_ENABLED] = enabled.ToString().ToLower();
+            SaveConfig();
+            Console.WriteLine($"OpenAI dual-session mode set to: {enabled}");
+        }
     }
 }

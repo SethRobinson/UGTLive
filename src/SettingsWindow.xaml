@@ -1779,8 +1779,20 @@
                                     <ComboBoxItem Content="OpenAI Translation" Tag="openai" IsSelected="True"/>
                                 </ComboBox>
                                 
+                                <!-- Experimental: dual-session source transcription -->
+                                <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                                    <CheckBox x:Name="openAiDualSessionCheckBox"
+                                             Content="Experimental: use a separate session for source transcription"
+                                             IsChecked="False"
+                                             Checked="OpenAiDualSessionCheckBox_CheckedChanged"
+                                             Unchecked="OpenAiDualSessionCheckBox_CheckedChanged"
+                                             ToolTip="Only applies to OpenAI Translation mode."/>
+                                    <TextBlock Margin="22,4,0,0" Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+                                             Text="OpenAI's translation session often omits the original-language transcript when speech is unclear (you see the translation but '...' for the source). When this is on, a dedicated transcription session runs alongside the translation for a far more reliable source transcript. Trade-off: the same audio is sent to two sessions, so it uses roughly 2x the audio input tokens. Leave off if you only need the translation."/>
+                                </StackPanel>
+
                                 <!-- Speaking Features Sub-Area -->
-                                <GroupBox Header="Spoken Translation (TTS)" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" 
+                                <GroupBox Header="Spoken Translation (TTS)" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
                                          Margin="0,15,0,0" Padding="10" BorderBrush="DarkGray">
                                     <Grid>
                                         <Grid.ColumnDefinitions>

@@ -41,7 +41,8 @@ namespace UGTLive
                 OnOpenAITranscriptReceived_Initial,
                 OnOpenAITranslationUpdate_WithId,
                 OnOpenAIPartialTranscript,
-                false);
+                false,
+                OnOpenAIListenUpsert);
         }
 
         public void HandleListenButton()
@@ -76,10 +77,11 @@ namespace UGTLive
                     openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
                 
                 openAIRealtimeAudioService.StartRealtimeAudioService(
-                    OnOpenAITranscriptReceived_Initial, 
+                    OnOpenAITranscriptReceived_Initial,
                     OnOpenAITranslationUpdate_WithId,
                     OnOpenAIPartialTranscript,
-                    false); 
+                    false,
+                    OnOpenAIListenUpsert);
             }
         }
 
@@ -115,6 +117,59 @@ namespace UGTLive
             return idToReturn;
         }
         
+        // Dual-mode interleave sink (streaming upsert). Empty id => create a new
+        // standalone line and return its id; non-empty id => update that line's
+        // text in place so it streams live. isTranslation routes the text to the
+        // source or translated column so the ChatBox colors the two streams
+        // differently (and source-only / translated-only display modes work).
+        // Distinct emoji prefixes (not just color) keep the streams separable
+        // for colorblind users: 🎤 = heard source, 🌐 = translation.
+        private string OnOpenAIListenUpsert(string id, string text, bool isTranslation)
+        {
+            const string sourcePrefix = "🎤 ";
+            const string translationPrefix = "🌐 ";
+            string body = (text ?? string.Empty).Trim();
+
+            return Dispatcher.Invoke(() =>
+            {
+                string original = isTranslation ? "" : sourcePrefix + body;
+                string translated = isTranslation ? translationPrefix + body : "";
+
+                if (!string.IsNullOrEmpty(id))
+                {
+                    var existing = _translationHistory.FirstOrDefault(en => en.Id == id);
+                    if (existing != null)
+                    {
+                        if (isTranslation) existing.TranslatedText = translated;
+                        else existing.OriginalText = original;
+                        existing.Timestamp = DateTime.Now;
+                        ChatBoxWindow.Instance?.UpdateChatHistory();
+                        return existing.Id;
+                    }
+                    // Line scrolled out of the capped history while streaming;
+                    // fall through and start a fresh line.
+                }
+
+                var entry = new TranslationEntry
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    OriginalText = original,
+                    TranslatedText = translated,
+                    Timestamp = DateTime.Now
+                };
+                _translationHistory.Add(entry);
+
+                int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
+                while (_translationHistory.Count > maxHistorySize)
+                {
+                    _translationHistory.RemoveAt(0);
+                }
+
+                ChatBoxWindow.Instance?.UpdateChatHistory();
+                return entry.Id;
+            });
+        }
+
         private void OnOpenAIPartialTranscript(string partialText)
         {
             if (string.IsNullOrWhiteSpace(partialText)) return;

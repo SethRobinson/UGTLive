@@ -954,6 +954,15 @@ namespace UGTLive
                         para.Inlines.Add(translatedRun);
                     }
                     
+                    // Skip entries that produced no content for the current
+                    // display mode (e.g. a source-only line while showing
+                    // "translation only", as in dual-mode interleave) —
+                    // otherwise an empty paragraph renders as a blank line.
+                    if (para.Inlines.Count == 0)
+                    {
+                        continue;
+                    }
+
                     // Add the paragraph to the document
                     chatHistoryText.Document.Blocks.Add(para);
                     

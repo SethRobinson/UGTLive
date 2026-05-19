@@ -238,6 +238,10 @@ namespace UGTLive
         public void ClearTranslationHistory()
         {
             _translationHistory.Clear();
+            // Also drop the Listen service's in-flight pairing/streaming state,
+            // otherwise queued source line-ids (now deleted) and buffered
+            // translations would be matched onto post-clear utterances.
+            openAIRealtimeAudioService?.ResetStreamingState();
             Console.WriteLine("Translation history cleared from MainWindow");
         }
 

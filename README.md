@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.26-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.27-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -62,8 +62,7 @@ Features:
 </table>
 
 # History
-
-**V1.26 May 19th, 2026** - Reworked the "Listen" feature to use OpenAI's new real-time Translate stuff, supports system sound with loopback it's actually good now.  Added CLI-based translation backends (Claude, Codex, Gemini), OpenRouter and Anthropic API translation services, middle mouse button can pan the monitor window, Ctrl-mouse wheel can change text size in the Transcript dialog, misc bugfixes.  Note: I'm code signing with a new certificate, it uses my name instead of my company name. It's still me though!
+**V1.27 May 20th, 2026** - Reworked the "Listen" feature to use OpenAI's new real-time Translate stuff, supports system sound with loopback it's actually good now.  Added CLI-based translation backends (Claude, Codex, Gemini), OpenRouter and Anthropic API translation services, middle mouse button can pan the monitor window, Ctrl-mouse wheel can change text size in the Transcript dialog, misc bugfixes.  Note: I'm code signing with a new certificate, it uses my name instead of my company name. It's still me though! Added new experimental "dual mode" for the Listen feature.
 
 **V1.25 April 7th, 2026** - New Batch Converter feature (supports images, PDF, CBZ format), screenshot capture, editable/repositionable text overlays, dynamic hotkey shortcuts in right-click menu, improved hotkey defaults with per-hotkey global toggle, code refactoring
 

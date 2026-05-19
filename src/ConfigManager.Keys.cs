@@ -202,6 +202,7 @@ namespace UGTLive
         public const string OPENAI_SILENCE_DURATION_MS = "openai_silence_duration_ms";
         public const string OPENAI_NOISE_REDUCTION = "openai_noise_reduction";
         public const string OPENAI_TRANSLATE_MODEL = "openai_translate_model";
+        public const string OPENAI_DUAL_SESSION_ENABLED = "openai_dual_session_enabled";
 
         // Monitor Window Override Color Settings
         public const string MONITOR_OVERRIDE_BG_COLOR_ENABLED = "monitor_override_bg_color_enabled";
