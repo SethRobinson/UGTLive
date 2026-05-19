@@ -403,15 +403,9 @@ namespace UGTLive
                 if (googleTranslateApiKeyGrid != null)
                     googleTranslateApiKeyGrid.Visibility = showGoogleTranslateApiKey ? Visibility.Visible : Visibility.Collapsed;
                 
-                // Show/hide prompt template and related controls for Google Translate
-                if (promptLabel != null)
-                    promptLabel.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
-                if (promptTemplateTextBox != null)
-                    promptTemplateTextBox.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
-                if (savePromptButton != null)
-                    savePromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
-                if (restoreDefaultPromptButton != null)
-                    restoreDefaultPromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
+                // Hide the whole prompt GroupBox for Google Translate (it uses no prompt)
+                if (promptTemplateGroupBox != null)
+                    promptTemplateGroupBox.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Load service-specific settings if they're being shown
                 if (isGeminiSelected)

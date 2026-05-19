@@ -59,7 +59,7 @@ namespace UGTLive
         // Listen capture mode: "microphone" or "loopback"
         public string GetListenCaptureMode()
         {
-            return GetValue(LISTEN_CAPTURE_MODE, "microphone");
+            return GetValue(LISTEN_CAPTURE_MODE, "loopback");
         }
 
         public void SetListenCaptureMode(string mode)
@@ -222,7 +222,7 @@ namespace UGTLive
         // Get/Set OpenAI Noise Reduction (near_field, far_field, or none)
         public string GetOpenAINoiseReduction()
         {
-            return GetValue(OPENAI_NOISE_REDUCTION, "near_field");
+            return GetValue(OPENAI_NOISE_REDUCTION, "none");
         }
 
         public void SetOpenAINoiseReduction(string noiseReduction)

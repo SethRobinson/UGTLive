@@ -252,42 +252,8 @@ namespace UGTLive
                 return "";
             }
             
-            string filePath;
-            
-            switch (service)
-            {
-                case "Gemini":
-                    filePath = _geminiConfigFilePath;
-                    break;
-                case "Ollama":
-                    filePath = _ollamaConfigFilePath;
-                    break;
-                case "ChatGPT":
-                    filePath = _chatgptConfigFilePath;
-                    break;
-                case "llama.cpp":
-                    filePath = _llamacppConfigFilePath;
-                    break;
-                case "Anthropic":
-                    filePath = _anthropicConfigFilePath;
-                    break;
-                case "OpenRouter":
-                    filePath = _openrouterConfigFilePath;
-                    break;
-                case "ClaudeCli":
-                    filePath = _claudeCliConfigFilePath;
-                    break;
-                case "CodexCli":
-                    filePath = _codexCliConfigFilePath;
-                    break;
-                case "GeminiCli":
-                    filePath = _geminiCliConfigFilePath;
-                    break;
-                default:
-                    filePath = _geminiConfigFilePath;
-                    break;
-            }
-            
+            string filePath = _llmPromptConfigFilePath;
+
             try
             {
                 if (File.Exists(filePath))
@@ -354,42 +320,8 @@ Here is the input JSON:";
                 return true;
             }
             
-            string filePath;
-            
-            switch (service)
-            {
-                case "Gemini":
-                    filePath = _geminiConfigFilePath;
-                    break;
-                case "Ollama":
-                    filePath = _ollamaConfigFilePath;
-                    break;
-                case "ChatGPT":
-                    filePath = _chatgptConfigFilePath;
-                    break;
-                case "llama.cpp":
-                    filePath = _llamacppConfigFilePath;
-                    break;
-                case "Anthropic":
-                    filePath = _anthropicConfigFilePath;
-                    break;
-                case "OpenRouter":
-                    filePath = _openrouterConfigFilePath;
-                    break;
-                case "ClaudeCli":
-                    filePath = _claudeCliConfigFilePath;
-                    break;
-                case "CodexCli":
-                    filePath = _codexCliConfigFilePath;
-                    break;
-                case "GeminiCli":
-                    filePath = _geminiCliConfigFilePath;
-                    break;
-                default:
-                    filePath = _geminiConfigFilePath;
-                    break;
-            }
-            
+            string filePath = _llmPromptConfigFilePath;
+
             try
             {
                 string content = $"<llm_prompt_multi_start>\n{prompt}\n<llm_prompt_multi_end>";

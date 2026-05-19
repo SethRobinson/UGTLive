@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.25,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: New Batch Converter (supports images, pdf, CBZ), screenshot capture, editable/repositionable text overlays, dynamic hotkey shortcuts in right-click menu, improved hotkey defaults with per-hotkey global toggle"
+    "latest_version":1.26,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Added CLI-based translation backends (Claude, Codex, Gemini), OpenRouter and Anthropic API support, big upgrade to the Listen feature, misc bugfixes"
 }

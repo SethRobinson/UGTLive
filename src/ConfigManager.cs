@@ -16,16 +16,8 @@ namespace UGTLive
     {
         private static ConfigManager? _instance;
         private readonly string _configFilePath;
-        private readonly string _geminiConfigFilePath;
-        private readonly string _ollamaConfigFilePath;
-        private readonly string _chatgptConfigFilePath;
-        private readonly string _googleTranslateConfigFilePath;
-        private readonly string _llamacppConfigFilePath;
-        private readonly string _anthropicConfigFilePath;
-        private readonly string _openrouterConfigFilePath;
-        private readonly string _claudeCliConfigFilePath;
-        private readonly string _codexCliConfigFilePath;
-        private readonly string _geminiCliConfigFilePath;
+        // Single shared LLM translation prompt file, used by every provider.
+        private readonly string _llmPromptConfigFilePath;
         private readonly Dictionary<string, string> _configValues;
         private string _currentTranslationService = "Google Translate"; // Default to Google Translate
         private bool _isNewConfig = false;
@@ -91,23 +83,10 @@ namespace UGTLive
             // Set config file paths to be in the application's directory
             string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
             _configFilePath = Path.Combine(appDirectory, "config.txt");
-            _geminiConfigFilePath = Path.Combine(appDirectory, "gemini_config.txt");
-            _ollamaConfigFilePath = Path.Combine(appDirectory, "ollama_config.txt");
-            _chatgptConfigFilePath = Path.Combine(appDirectory, "chatgpt_config.txt");
-            _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
-            _llamacppConfigFilePath = Path.Combine(appDirectory, "llamacpp_config.txt");
-            _anthropicConfigFilePath = Path.Combine(appDirectory, "anthropic_config.txt");
-            _openrouterConfigFilePath = Path.Combine(appDirectory, "openrouter_config.txt");
-            _claudeCliConfigFilePath = Path.Combine(appDirectory, "claudecli_config.txt");
-            _codexCliConfigFilePath = Path.Combine(appDirectory, "codexcli_config.txt");
-            _geminiCliConfigFilePath = Path.Combine(appDirectory, "geminicli_config.txt");
+            _llmPromptConfigFilePath = Path.Combine(appDirectory, "llm_prompt_config.txt");
 
             Console.WriteLine($"Config file path: {_configFilePath}");
-            Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
-            Console.WriteLine($"Ollama config file path: {_ollamaConfigFilePath}");
-            Console.WriteLine($"ChatGPT config file path: {_chatgptConfigFilePath}");
-            Console.WriteLine($"Google Translate config file path: {_googleTranslateConfigFilePath}");
-            Console.WriteLine($"llama.cpp config file path: {_llamacppConfigFilePath}");
+            Console.WriteLine($"LLM prompt config file path: {_llmPromptConfigFilePath}");
             
             // Load main config values
             LoadConfig();
@@ -371,7 +350,7 @@ namespace UGTLive
             _configValues[OPENAI_SILENCE_DURATION_MS] = "250"; // server_vad silence gap (transcription-only modes)
             // Ensure audio playback starts disabled by default
             _configValues[OPENAI_AUDIO_PLAYBACK_ENABLED] = "false";
-            _configValues[OPENAI_NOISE_REDUCTION] = "near_field";
+            _configValues[OPENAI_NOISE_REDUCTION] = "none";
             
             // Monitor Window Override Color defaults
             _configValues[MONITOR_OVERRIDE_BG_COLOR_ENABLED] = "false";
@@ -642,70 +621,49 @@ namespace UGTLive
         }
         
         
-        // Create service-specific config files if they don't exist
+        // Ensure the single shared LLM prompt file exists.
         private void EnsureServiceConfigFilesExist()
         {
             try
             {
-                // Default prompts for each service
-                string defaultPrompt = GetDefaultPrompt("");
-                
-                string defaultGeminiPrompt = defaultPrompt;
-                string defaultOllamaPrompt = defaultPrompt;
-                string defaultChatGptPrompt = defaultPrompt;
-                string defaultLlamaCppPrompt = defaultPrompt;
-                
-                // Check and create Gemini config file
-                if (!File.Exists(_geminiConfigFilePath))
+                if (File.Exists(_llmPromptConfigFilePath))
                 {
-                    string geminiContent = $"<llm_prompt_multi_start>\n{defaultGeminiPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_geminiConfigFilePath, geminiContent);
-                    Console.WriteLine("Created default Gemini config file");
+                    return;
                 }
-                
-                // Check and create Ollama config file
-                if (!File.Exists(_ollamaConfigFilePath))
+
+                // Migrate: if a legacy per-provider file exists, adopt its contents so any
+                // hand-tuned prompt survives. Otherwise fall back to the default prompt.
+                string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                string[] legacyFileNames =
                 {
-                    string ollamaContent = $"<llm_prompt_multi_start>\n{defaultOllamaPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_ollamaConfigFilePath, ollamaContent);
-                    Console.WriteLine("Created default Ollama config file");
-                }
-                
-                // Check and create ChatGPT config file
-                if (!File.Exists(_chatgptConfigFilePath))
+                    "anthropic_config.txt", "gemini_config.txt", "chatgpt_config.txt",
+                    "ollama_config.txt", "llamacpp_config.txt", "openrouter_config.txt",
+                    "claudecli_config.txt", "codexcli_config.txt", "geminicli_config.txt"
+                };
+
+                string? content = null;
+                foreach (string name in legacyFileNames)
                 {
-                    string chatgptContent = $"<llm_prompt_multi_start>\n{defaultChatGptPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_chatgptConfigFilePath, chatgptContent);
-                    Console.WriteLine("Created default ChatGPT config file");
-                }
-                
-                // Check and create llama.cpp config file
-                if (!File.Exists(_llamacppConfigFilePath))
-                {
-                    string llamacppContent = $"<llm_prompt_multi_start>\n{defaultLlamaCppPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_llamacppConfigFilePath, llamacppContent);
-                    Console.WriteLine("Created default llama.cpp config file");
-                }
-                
-                // Check and create config files for the new API + CLI providers
-                foreach (string extraPath in new[]
-                {
-                    _anthropicConfigFilePath, _openrouterConfigFilePath,
-                    _claudeCliConfigFilePath, _codexCliConfigFilePath, _geminiCliConfigFilePath
-                })
-                {
-                    if (!File.Exists(extraPath))
+                    string legacyPath = Path.Combine(appDirectory, name);
+                    if (File.Exists(legacyPath))
                     {
-                        File.WriteAllText(extraPath, $"<llm_prompt_multi_start>\n{defaultPrompt}\n<llm_prompt_multi_end>");
-                        Console.WriteLine($"Created default config file: {Path.GetFileName(extraPath)}");
+                        content = File.ReadAllText(legacyPath);
+                        Console.WriteLine($"Migrated LLM prompt from legacy file: {name}");
+                        break;
                     }
                 }
 
-                // Google Translate doesn't use prompts, so no need to create config file
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    content = $"<llm_prompt_multi_start>\n{GetDefaultPrompt("")}\n<llm_prompt_multi_end>";
+                }
+
+                File.WriteAllText(_llmPromptConfigFilePath, content);
+                Console.WriteLine("Created shared LLM prompt config file");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error ensuring service config files: {ex.Message}");
+                Console.WriteLine($"Error ensuring LLM prompt config file: {ex.Message}");
             }
         }
 

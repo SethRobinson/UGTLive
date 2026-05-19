@@ -1,6 +1,6 @@
 ## Universal Game Translator Live
 
-[![Version](https://img.shields.io/badge/version-1.25-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
+[![Version](https://img.shields.io/badge/version-1.26-blue.svg)](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip)
 
 ## Video Demonstrations
 
@@ -23,7 +23,6 @@ Video showing live game translation (old version)
 </tr>
 </table>
 
-
 ## Description 
 
 An easy-to-use GUI-based Windows tool that performs "live" translations of anything on the screen using modern machine learning and AI technology.  Also has a "Snapshot" mode for a more traditional system.  Also can do voices and pdf/cbz translations completely locally with a nice video card.  With the "Listen" feature, using an OpenAI API key you can also do realtime subtitling and speech translations.
@@ -33,11 +32,11 @@ Requires **Windows** and an **NVidia RTX 20/30/40/50** series card with 8+ GB VR
 Features:
 
 * Supports 26 languages: Japanese, English, Chinese (Simplified & Traditional), Korean, Spanish, French, Italian, German, Portuguese, Russian, Polish, Dutch, Swedish, Czech, Hungarian, Romanian, Greek, Ukrainian, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, and Persian (Farsi)
-* Built for real-time use, detects changes and translates when things "settle"
-* "Snapshot" feature for non-live use as well
+* Built for real-time use, detects changes and translates when things "settle", or use "Snap" button
 * Can read/render/select/speak vertical Japanese in manga, good for language learning
+* "Listen" mode uses GPT Realtime Translate to subtitle, translate, and even speak translated dialog (requires OpenAI API key)
 * Out of the box you can do local GPU accelerated OCR (Easy OCR, Manga OCR, Paddle OCR, docTR, Windows OCR, Google Cloud Vision)
-* Optional features (translation, speech) enabled locally with llama.cpp, Ollama and Qwen-TTS support.  Or go higher quality using API keys for OpenAI, Gemini, ElevenLabs, Microsoft Speech and Google Translate
+* Optional features (translation, speech) enabled locally with llama.cpp, Ollama and Qwen-TTS support.  Or go higher quality using API keys (or your subscriptions) for OpenAI, Gemini, ElevenLabs, OpenRouter, Microsoft Speech and Google Translate
 * Audio "Page Reading" feature (including a mode for top down, right to left for manga)
 * "Export to HTML" allows you to open the screen in your web browser, good for using plugins to go over Kanji, stuff like that.
 * Flexible interface, adjust the app's rectangle to translate anything on your desktop.  Passthrough checkbox allows you to interact with things under the app during realtime translation
@@ -63,6 +62,8 @@ Features:
 </table>
 
 # History
+
+**V1.26 May 19th, 2026** - Reworked the "Listen" feature to use OpenAI's new real-time Translate stuff, supports system sound with loopback it's actually good now.  Added CLI-based translation backends (Claude, Codex, Gemini), OpenRouter and Anthropic API translation services, middle mouse button can pan the monitor window, Ctrl-mouse wheel can change text size in the Transcript dialog, misc bugfixes.  Note: I'm code signing with a new certificate, it uses my name instead of my company name. It's still me though!
 
 **V1.25 April 7th, 2026** - New Batch Converter feature (supports images, PDF, CBZ format), screenshot capture, editable/repositionable text overlays, dynamic hotkey shortcuts in right-click menu, improved hotkey defaults with per-hotkey global toggle, code refactoring
 
@@ -103,11 +104,8 @@ Also, you can now install/uninstall multiple services at once if you want to liv
 # Download & Install
 
 * Download the latest version [here](https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip) and unzip it somewhere
-
 * Run *UGTLive.exe*
-
 * The GPU Service Console will open.  Click "Install" on the services to install them one by one.  (I suggest all.. uh.. it takes a while) Next, click the "autostart" checkbox on all of them, you should be good to go.
-
 * Drag the main window rectangle around something you want to translate (note:  examples test images found in services/shared/test_images) and click the "Start" button.  Click Settings and you can enable translation, or change the OCR or translation methods.
 
 ## How to update ##
@@ -121,42 +119,41 @@ UGTLive will automatically check for updates when you start it. If a new version
 
 ## Tips
 
- * Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
- * Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
- * For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
- * While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
- * Your RTX Pro 6000 isn't detected?  Uh, my bad.  Let me know, I'll add it
- * AMD GPU support? Sorry not yet.  I don't have one!
- * Can't click on the text overlays on the main window?  Make sure "Passthrough" *is not* checked
- * What's the best settings for translation?  I like gemini-2.5-flash-lite. It's just very fast.
- 
+* Is it doing a bad job?  Try changing the OCR engine in Settings, you can flip back and forth live.
+* Your privacy is important. The only web calls this app makes are to check this GitHub's media/latest_version_checker.json file to see if a new version is available. Be aware that if you use a cloud service for the translation (Gemini is recommended), they will see what you're translating. If you use Ollama, nothing at all is sent out.
+* For just OCR, it's ready to go, for translation/speaking, cloud services are used (you enter your API key, etc.  The settings screen has info on how to do this)
+* While the actual .exe is signed by RTsoft, the .bat files it uses under the hood aren't, so you get ugly "This is dangerous, are you sure you want to run it?" messages the first time.
+* Your RTX Pro 6000 isn't detected?  Uh, my bad.  Let me know, I'll add it
+* AMD GPU support? Sorry not yet.  I don't have one!
+* Can't click on the text overlays on the main window?  Make sure "Passthrough" *is not* checked
+* What's the best settings for translation?  I like gemini-2.5-flash-lite. It's just very fast.
+
  ## How to run it COMPLETELY LOCALLY and free, even the translations
- 
+
  If you don't mind a bit slower speed to translate a screen (depends on a lot of things, but around 6 seconds on a 5090?) then this is for you! It's actually really easy to setup an Ollama or llama.cpp server (optionally) right on the same computer. 
- 
+
  Here's how to setup llama.cpp:
- 
- * Download the one that looks similar to Windows x64 (CUDA 13) from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.  From a command prompt, go into that dir and type "llama-server --list-devices" and see if your GPU is listed, if not, download the "CUDA 13 dlls" zip and put them in that dir and try again.  It should show the GPU.
- 
- * Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM) Or try Gemma4 26b, that works with most languages, including Japanese.  With thinking off, it can do translations in like 3 seconds on a 5090.
+
+* Download the one that looks similar to Windows x64 (CUDA 13) from the latest [releases](https://github.com/ggml-org/llama.cpp/releases/latest), unzip it in a folder somewhere.  From a command prompt, go into that dir and type "llama-server --list-devices" and see if your GPU is listed, if not, download the "CUDA 13 dlls" zip and put them in that dir and try again.  It should show the GPU.
+* Download a model you like that will fit in your GPU's VRAM and put it in the same folder.  ([example of one for Japanese translation](https://huggingface.co/mradermacher/Flux-Japanese-Qwen2.5-32B-Instruct-V1.0-GGUF), the Q2_K version works fine, it will fit with UGTLive's other stuff in under 24GB of VRAM) Or try Gemma4 26b, that works with most languages, including Japanese.  With thinking off, it can do translations in like 3 seconds on a 5090.
 
  Create a text file called run_server.bat in that directory, cut and paste this as the contents:
 
- ```
- @echo off
+```
+@echo off
 
 : Let's launch a web browser now as we can't later, useful for making sure it's working
 
 start "" http://localhost:8080
 
 llama-server ^
-  --models-dir .\ ^
-  --port 8080 ^
-  --jinja ^
-  -ngl 999 ^
-  -c 16392 ^
-  --cache-type-k q8_0 ^
-  --cache-type-v q8_0
+ --models-dir .\ ^
+ --port 8080 ^
+ --jinja ^
+ -ngl 999 ^
+ -c 16392 ^
+ --cache-type-k q8_0 ^
+ --cache-type-v q8_0
 
 pause
 ```
@@ -200,9 +197,10 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 
 ## For developers - How to compile it ##
 
-* Open the solution with Visual Studio 2022 and click compile.  I can't remember if it's going to automatically download the libraries it needs or not.
+* Open the solution with VSCode or Visual Studio, it's a standard C# project. I can't remember if it's going to automatically download the libraries it needs or not.
 
 **Credits and links**
+
 - Written by Seth A. Robinson (seth@rtsoft.com) twitter: @rtsoft - [Codedojo](https://www.codedojo.com), Seth's blog
 - Code contributions from [thanhkeke97](https://github.com/thanhkeke97) and [jeffvli](https://github.com/jeffvli)
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) - GPU-accelerated OCR supporting 80+ languages
@@ -212,9 +210,10 @@ In the future, we can probably send the entire screenshot directly to an LLM and
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) - YOLO framework for object detection
 
  Other open source translator projects you might want to try:
- - [Universal Game Translator](https://github.com/SethRobinson/UGT)
- - [RSTGameTranslation](https://github.com/thanhkeke97/RSTGameTranslation)
- - [LunaTranslator](https://github.com/HIllya51/LunaTranslator)
+
+- [Universal Game Translator](https://github.com/SethRobinson/UGT)
+- [RSTGameTranslation](https://github.com/thanhkeke97/RSTGameTranslation)
+- [LunaTranslator](https://github.com/HIllya51/LunaTranslator)
 
 Plug: Also check out [UGTBrowser](https://chromewebstore.google.com/detail/ugtbrowser/ccpaaggcacbmdbjhclgggndopoekjfkc), a Chrome/Brave extension version I made for inline higher quality LLM-based web translation that won't mess up the images/formatting.
 

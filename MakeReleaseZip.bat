@@ -86,7 +86,8 @@ if %errorlevel% geq 8 (
     echo ========================================
 )
 
-call %RT_PROJECTS%\Signing\sign.bat tempbuild\ugtlive.exe "Universal Game Translator Live"
+call %RT_PROJECTS%\Signing\sign.bat tempbuild\ugtlive.exe "Universal Game Translator Live" "www.rtsoft.com"
+
 if errorlevel 1 (
     echo.
     echo ========================================
