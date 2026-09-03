@@ -45,7 +45,7 @@ if exist "%CONFIG_FILE%" (
 if "!ENV_NAME!"=="" (
     echo ERROR: Could not find venv_name in service_config.txt
     echo ERROR: Could not find venv_name in service_config.txt >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -100,13 +100,13 @@ if not "!GPU_NAME!"=="Unknown" (
     echo GPU Detected: !GPU_NAME! >> "%LOG_FILE%"
     
     REM Check for RTX 50 series
-    echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
+    echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 50" >nul && set "GPU_SERIES=50"
     
     REM Check for RTX 2000/3000/4000 series
     if "!GPU_SERIES!"=="UNSUPPORTED" (
-        echo !GPU_NAME! | find /i "RTX 20" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 20" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 30" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 40" >nul && set "GPU_SERIES=30_40"
     )
     echo GPU Series: !GPU_SERIES! >> "%LOG_FILE%"
 ) else (
@@ -148,7 +148,7 @@ if not exist "!PYTHON_EXE!" (
     echo ERROR: Python !PYTHON_VERSION! not found at !PYTHON_EXE!
     echo ERROR: Python !PYTHON_VERSION! not found >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -165,7 +165,7 @@ if exist "%VENV_DIR%" (
     if exist "%VENV_DIR%" (
         echo ERROR: Failed to remove existing venv directory
         echo ERROR: Failed to remove venv directory >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     echo Removed existing venv >> "%LOG_FILE%"
@@ -186,7 +186,7 @@ if errorlevel 1 (
     echo ERROR: Failed to create virtual environment
     echo ERROR: Failed to create venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment created successfully >> "%LOG_FILE%"
@@ -203,7 +203,7 @@ if errorlevel 1 (
     echo ERROR: Failed to activate virtual environment
     echo ERROR: Failed to activate venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment activated successfully >> "%LOG_FILE%"
@@ -230,7 +230,7 @@ if "!GPU_SERIES!"=="50" (
     call :Install50Series
     if errorlevel 1 (
         echo ERROR: Install50Series failed >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     goto :SetupComplete
@@ -243,7 +243,7 @@ if "!GPU_SERIES!"=="30_40" (
     call :Install30_40Series
     if errorlevel 1 (
         echo ERROR: Install30_40Series failed >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     goto :SetupComplete
@@ -281,7 +281,7 @@ echo   3. Run TestService.bat to test the running service
 echo.
 echo Log file: setup_log.txt
 echo.
-if not "%NOPAUSE%"=="nopause" (
+if /I not "!NOPAUSE!"=="nopause" (
     echo Press any key to exit...
     pause >nul
 )
@@ -306,7 +306,7 @@ echo [Step 1/5] Upgrading pip...
 python -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 (
     echo ERROR: Failed to upgrade pip!
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -316,7 +316,7 @@ python -m pip install --index-url !PYTORCH_CHANNEL! torch==!TORCH_VERSION! torch
 if errorlevel 1 (
     echo ERROR: Failed to install PyTorch!
     echo ERROR: Failed to install PyTorch >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PyTorch installed successfully >> "%LOG_FILE%"
@@ -327,7 +327,7 @@ python -m pip install numpy soundfile certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install core dependencies!
     echo ERROR: Failed to install core dependencies >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Core dependencies installed successfully >> "%LOG_FILE%"
@@ -338,7 +338,7 @@ python -m pip install faster-qwen3-tts fastapi "uvicorn[standard]" >> "%LOG_FILE
 if errorlevel 1 (
     echo ERROR: Failed to install faster-qwen3-tts!
     echo ERROR: Failed to install faster-qwen3-tts >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo faster-qwen3-tts and FastAPI installed successfully >> "%LOG_FILE%"
@@ -366,7 +366,7 @@ python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA Avail
 if errorlevel 1 (
     echo ERROR: PyTorch verification failed!
     echo ERROR: PyTorch verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
@@ -375,7 +375,7 @@ python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE
 if errorlevel 1 (
     echo ERROR: FastAPI verification failed!
     echo ERROR: FastAPI verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo FastAPI verification passed >> "%LOG_FILE%"
@@ -399,7 +399,7 @@ python -m pip install numpy soundfile certifi >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install core dependencies!
     echo ERROR: Failed to install core dependencies >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Core dependencies installed successfully >> "%LOG_FILE%"
@@ -411,7 +411,7 @@ python -m pip install --pre torch torchvision torchaudio --index-url https://dow
 if errorlevel 1 (
     echo ERROR: Failed to install PyTorch nightly!
     echo ERROR: Failed to install PyTorch nightly >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PyTorch nightly installed successfully >> "%LOG_FILE%"
@@ -422,7 +422,7 @@ python -m pip install faster-qwen3-tts >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install faster-qwen3-tts!
     echo ERROR: Failed to install faster-qwen3-tts >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo faster-qwen3-tts installed successfully >> "%LOG_FILE%"
@@ -438,7 +438,7 @@ python -m pip install fastapi "uvicorn[standard]" >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn!
     echo ERROR: Failed to install FastAPI/Uvicorn >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
@@ -466,7 +466,7 @@ python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA Versi
 if errorlevel 1 (
     echo ERROR: PyTorch verification failed!
     echo ERROR: PyTorch verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PyTorch verification passed >> "%LOG_FILE%"
@@ -475,7 +475,7 @@ python -c "import fastapi; print('FastAPI imported successfully')" >> "%LOG_FILE
 if errorlevel 1 (
     echo ERROR: FastAPI verification failed!
     echo ERROR: FastAPI verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo FastAPI verification passed >> "%LOG_FILE%"
@@ -501,5 +501,5 @@ echo please ensure your NVIDIA drivers are installed and up to date.
 echo.
 echo Check setup_log.txt for details.
 echo.
-pause
+if /I not "!NOPAUSE!"=="nopause" pause
 exit /b 1

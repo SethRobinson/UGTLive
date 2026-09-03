@@ -1,5 +1,5 @@
 {
     "name":"Universal Game Translator Live",
-    "latest_version":1.27,
-    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Added CLI-based translation backends (Claude, Codex, Gemini), OpenRouter and Anthropic API support, big upgrade to the Listen feature, misc bugfixes"
+    "latest_version":1.28,
+    "message":"Download V{VERSION_STRING} now from rtsoft.com?\n\nChanged: Fixed GPU service installation and error handling, including RTX 50-series support, EasyOCR model downloads, and stable MangaOCR dependencies"
 }

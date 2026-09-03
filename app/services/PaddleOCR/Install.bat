@@ -45,7 +45,7 @@ if exist "%CONFIG_FILE%" (
 if "!ENV_NAME!"=="" (
     echo ERROR: Could not find venv_name in service_config.txt
     echo ERROR: Could not find venv_name in service_config.txt >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -100,13 +100,13 @@ if not "!GPU_NAME!"=="Unknown" (
     echo GPU Detected: !GPU_NAME! >> "%LOG_FILE%"
     
     REM Check for RTX 50 series
-    echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
+    echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 50" >nul && set "GPU_SERIES=50"
     
     REM Check for RTX 2000/3000/4000 series
     if "!GPU_SERIES!"=="UNSUPPORTED" (
-        echo !GPU_NAME! | find /i "RTX 20" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "RTX 30" >nul && set "GPU_SERIES=30_40"
-        echo !GPU_NAME! | find /i "RTX 40" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 20" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 30" >nul && set "GPU_SERIES=30_40"
+        echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 40" >nul && set "GPU_SERIES=30_40"
     )
     echo GPU Series: !GPU_SERIES! >> "%LOG_FILE%"
 ) else (
@@ -153,7 +153,7 @@ if not exist "!PYTHON_EXE!" (
     echo ERROR: Python !PYTHON_VERSION! not found at !PYTHON_EXE!
     echo ERROR: Python !PYTHON_VERSION! not found >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -170,7 +170,7 @@ if exist "%VENV_DIR%" (
     if exist "%VENV_DIR%" (
         echo ERROR: Failed to remove existing venv directory
         echo ERROR: Failed to remove venv directory >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     echo Removed existing venv >> "%LOG_FILE%"
@@ -191,7 +191,7 @@ if errorlevel 1 (
     echo ERROR: Failed to create virtual environment
     echo ERROR: Failed to create venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment created successfully >> "%LOG_FILE%"
@@ -208,7 +208,7 @@ if errorlevel 1 (
     echo ERROR: Failed to activate virtual environment
     echo ERROR: Failed to activate venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment activated successfully >> "%LOG_FILE%"
@@ -236,7 +236,7 @@ if "!GPU_SERIES!"=="50" (
     call :Install50Series
     if errorlevel 1 (
         echo ERROR: Install50Series failed with error level !errorlevel! >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     echo Install50Series completed successfully >> "%LOG_FILE%"
@@ -251,7 +251,7 @@ if "!GPU_SERIES!"=="30_40" (
     call :Install30_40Series
     if errorlevel 1 (
         echo ERROR: Install30_40Series failed with error level !errorlevel! >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     echo Install30_40Series completed successfully >> "%LOG_FILE%"
@@ -278,7 +278,7 @@ if not "!SERVICE_INSTALL_VERSION!"=="" (
 
 echo.
 echo =============================================================
-echo   SUCCESS! Setup complete for !SERVICE_NAME!
+echo   SUCCESS: Setup complete for !SERVICE_NAME!
 echo   Environment: !ENV_NAME!
 echo   The service is ready to use.
 echo =============================================================
@@ -290,7 +290,7 @@ echo   3. Run TestService.bat to test the running service
 echo.
 echo Log file: setup_log.txt
 echo.
-if not "%NOPAUSE%"=="nopause" (
+if /I not "!NOPAUSE!"=="nopause" (
     echo Press any key to exit...
     pause >nul
 )
@@ -310,7 +310,7 @@ echo [Step 1/5] Upgrading pip...
 python -m pip install --upgrade pip setuptools wheel >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to upgrade pip
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -320,7 +320,7 @@ python -m pip install paddlepaddle-gpu==3.2.1 -i https://www.paddlepaddle.org.cn
 if errorlevel 1 (
     echo ERROR: Failed to install PaddlePaddle
     echo ERROR: Failed to install PaddlePaddle >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PaddlePaddle installed successfully >> "%LOG_FILE%"
@@ -332,7 +332,7 @@ python -m pip install paddleocr>=2.9.1 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install PaddleOCR
     echo ERROR: Failed to install PaddleOCR >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PaddleOCR installed successfully >> "%LOG_FILE%"
@@ -343,7 +343,7 @@ python -m pip install fastapi==0.115.6 "uvicorn[standard]==0.32.1" python-multip
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn
     echo ERROR: Failed to install FastAPI/Uvicorn >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
@@ -354,7 +354,7 @@ python -c "import paddle; print('PaddlePaddle:', paddle.__version__); print('CUD
 if errorlevel 1 (
     echo ERROR: PaddlePaddle verification failed
     echo ERROR: PaddlePaddle verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -362,7 +362,7 @@ python -c "import paddleocr; print('PaddleOCR imported successfully')" >> "%LOG_
 if errorlevel 1 (
     echo ERROR: PaddleOCR verification failed
     echo ERROR: PaddleOCR verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -384,7 +384,7 @@ python -m pip install --upgrade pip setuptools wheel >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to upgrade pip
     echo ERROR: Failed to upgrade pip >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -395,7 +395,7 @@ python -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn
 if errorlevel 1 (
     echo ERROR: Failed to install PaddlePaddle CUDA 12.9
     echo ERROR: Failed to install PaddlePaddle CUDA 12.9 >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PaddlePaddle installed successfully >> "%LOG_FILE%"
@@ -406,7 +406,7 @@ python -m pip install paddleocr>=2.9.1 >> "%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to install PaddleOCR
     echo ERROR: Failed to install PaddleOCR >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo PaddleOCR installed successfully >> "%LOG_FILE%"
@@ -417,7 +417,7 @@ python -m pip install fastapi "uvicorn[standard]" python-multipart certifi >> "%
 if errorlevel 1 (
     echo ERROR: Failed to install FastAPI/Uvicorn
     echo ERROR: Failed to install FastAPI/Uvicorn >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo FastAPI/Uvicorn installed successfully >> "%LOG_FILE%"
@@ -428,7 +428,7 @@ python -c "import paddle; print('PaddlePaddle:', paddle.__version__); print('CUD
 if errorlevel 1 (
     echo ERROR: PaddlePaddle verification failed
     echo ERROR: PaddlePaddle verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -436,7 +436,7 @@ python -c "import paddleocr; print('PaddleOCR imported successfully')" >> "%LOG_
 if errorlevel 1 (
     echo ERROR: PaddleOCR verification failed
     echo ERROR: PaddleOCR verification failed >> "%LOG_FILE%"
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -460,6 +460,6 @@ echo please ensure your NVIDIA drivers are installed and up to date.
 echo.
 echo Check setup_log.txt for details.
 echo.
-pause
+if /I not "!NOPAUSE!"=="nopause" pause
 exit /b 1
 

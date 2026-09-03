@@ -21,8 +21,17 @@ Scope policy: this file holds cross-cutting rules, workflows, and gotchas that m
 - If tests cannot be run or do not exist, state that clearly in the handoff and describe any manual verification performed.
 - Always finish project changes by building the Release configuration: `dotnet build .\UGTLive.sln --configuration Release`.
 - If a running UGTLive process prevents the Release build, capture its executable/command line, stop it, complete the build, and restart it afterward. Do not start UGTLive if it was not running before the build.
+- Service installer regression harness: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-ServiceInstallerScripts.ps1`. It mocks NVIDIA GPU names and Python outcomes, shadows `find` on `PATH`, executes both RTX install branches, and rejects unguarded installer pauses.
+- Real service installer smoke-test runner: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Invoke-ServiceInstallerSmokeTests.ps1 -ServicesRoot <services-dir> -ResultsDirectory <results-dir>`. It reinstalls each requested service and then runs its diagnostic batch file, so use an isolated package tree unless replacing existing venvs is intended.
+- The app launches service `Install.bat` files with `nopause`: guard every prompt on that argument. GPU-name matching must invoke `%SystemRoot%\System32\find.exe` explicitly because Git/MSYS can shadow Windows `find` on `PATH`. EasyOCR model pre-download commands must use Python's UTF-8 mode because redirected progress-bar output otherwise fails on CP1252 systems.
 
 Always add automation/test harnesses to test options/buttons/features as needed. Document them.
+
+## Releases
+
+- Keep the public/app version synchronized in the README badge/history, `src/SplashManager.cs` (`CurrentVersion`), and `media/latest_version_checker.json`.
+- Build the distributable with `MakeReleaseZip.bat`. It deletes and recreates `tempbuild`, publishes/signs `ugtlive.exe`, copies the service assets without installed venvs or logs, and produces `UniversalGameTranslatorLive_Windows.zip` with `UGTLive` as its root folder.
+- Upload the finished ZIP with `UploadReleaseToRTsoft.bat`; the public artifact is `https://www.rtsoft.com/files/UniversalGameTranslatorLive_Windows.zip`. The upload does not publish the version-checker JSON—source changes still need their separately authorized commit/push.
 
 ## Cloud LLM Model Maintenance
 

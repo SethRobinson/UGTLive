@@ -90,7 +90,7 @@ if exist "%SCRIPT_DIR%gpu_check_temp.txt" (
     echo Detected GPU: !GPU_NAME! >> "%LOG_FILE%"
     echo Detected GPU: !GPU_NAME!
     
-    echo !GPU_NAME! | find /i "RTX 50" >nul && set "GPU_SERIES=50"
+    echo(!GPU_NAME! | "%SystemRoot%\System32\find.exe" /i "RTX 50" >nul && set "GPU_SERIES=50"
 ) else (
     echo Using default GPU configuration (RTX 30/40 series)
     echo Using default GPU configuration >> "%LOG_FILE%"
@@ -126,7 +126,7 @@ if not exist "!PYTHON_EXE!" (
     echo ERROR: Python !PYTHON_VERSION! not found at !PYTHON_EXE!
     echo ERROR: Python !PYTHON_VERSION! not found >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 
@@ -143,7 +143,7 @@ if exist "%VENV_DIR%" (
     if exist "%VENV_DIR%" (
         echo ERROR: Failed to remove existing venv directory
         echo ERROR: Failed to remove venv directory >> "%LOG_FILE%"
-        pause
+        if /I not "!NOPAUSE!"=="nopause" pause
         exit /b 1
     )
     echo Removed existing venv >> "%LOG_FILE%"
@@ -164,7 +164,7 @@ if errorlevel 1 (
     echo ERROR: Failed to create virtual environment
     echo ERROR: Failed to create venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment created successfully >> "%LOG_FILE%"
@@ -181,7 +181,7 @@ if errorlevel 1 (
     echo ERROR: Failed to activate virtual environment
     echo ERROR: Failed to activate venv >> "%LOG_FILE%"
     echo.
-    pause
+    if /I not "!NOPAUSE!"=="nopause" pause
     exit /b 1
 )
 echo Virtual environment activated successfully >> "%LOG_FILE%"
@@ -205,9 +205,19 @@ echo Installing dependencies for GPU series: !GPU_SERIES! >> "%LOG_FILE%"
 if "!GPU_SERIES!"=="50" (
     echo Installing for RTX 50 series with PyTorch nightly CUDA 12.8...
     call :Install50Series
+    if errorlevel 1 (
+        echo ERROR: Install50Series failed >> "%LOG_FILE%"
+        if /I not "!NOPAUSE!"=="nopause" pause
+        exit /b 1
+    )
 ) else (
     echo Installing for RTX 30/40 series with PyTorch 2.6 CUDA 11.8...
     call :Install30_40Series
+    if errorlevel 1 (
+        echo ERROR: Install30_40Series failed >> "%LOG_FILE%"
+        if /I not "!NOPAUSE!"=="nopause" pause
+        exit /b 1
+    )
 )
 
 goto :SetupComplete
@@ -233,7 +243,7 @@ if not "!SERVICE_INSTALL_VERSION!"=="" (
 
 echo.
 echo =============================================================
-echo   SUCCESS! Setup complete for !SERVICE_NAME!
+echo   SUCCESS: Setup complete for !SERVICE_NAME!
 echo   Environment: !ENV_NAME!
 echo   The service is ready to use.
 echo =============================================================
@@ -245,7 +255,7 @@ echo   3. Run TestService.bat to test the running service
 echo.
 echo Log file: setup_log.txt
 echo.
-if not "%NOPAUSE%"=="nopause" (
+if /I not "!NOPAUSE!"=="nopause" (
     echo Press any key to exit...
     pause >nul
 )
@@ -259,18 +269,25 @@ echo Installing dependencies...
 
 echo [1/5] Installing PyTorch with CUDA 11.8...
 python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
-python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
+python -m pip install torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 --index-url https://download.pytorch.org/whl/cu118 >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [2/5] Installing core packages...
 python -m pip install numpy pillow opencv-python-headless scipy certifi >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install transformers huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [3/5] Installing Manga OCR and YOLO...
 python -m pip install manga-ocr ultralytics >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [4/5] Installing API server...
 python -m pip install fastapi "uvicorn[standard]" python-multipart pydantic >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [5/5] Installing Scikit-learn (optional)...
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
@@ -279,9 +296,10 @@ echo Initializing Manga OCR...
 REM Set SSL cert for model downloads (certifi is now installed)
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
 python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo Installation completed for RTX 30/40 series
-goto :eof
+exit /b 0
 
 REM -----------------------------------------------------------------
 REM Installation for RTX 50 Series (PyTorch Nightly with CUDA 12.8)
@@ -291,35 +309,47 @@ echo Installing dependencies...
 
 echo [1/7] Installing pip and core packages first...
 python -m pip install --upgrade pip >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install numpy==2.1.3 pillow opencv-python scipy tqdm pyyaml requests certifi >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [2/7] Installing PyTorch nightly with CUDA 12.8...
 python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [3/7] Installing transformers and HuggingFace dependencies...
 python -m pip install transformers==4.47.1 huggingface-hub tokenizers safetensors >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install fugashi unidic_lite >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [4/7] Installing Manga OCR (without deps to preserve torch nightly)...
 python -m pip install manga-ocr --no-deps >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install fire jaconv loguru pyperclip >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [5/7] Installing Ultralytics (without deps to preserve torch nightly)...
 python -m pip install ultralytics --no-deps >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install matplotlib psutil polars ultralytics-thop >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [6/7] Reinstalling PyTorch nightly to ensure correct version...
 python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall --no-deps >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo [7/7] Installing API server and optional packages...
 python -m pip install fastapi "uvicorn[standard]" python-multipart >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 python -m pip install scikit-learn >> "%LOG_FILE%" 2>&1
 
 echo Initializing Manga OCR...
 REM Set SSL cert for model downloads (certifi is now installed)
 for /f "delims=" %%i in ('python -c "import certifi; print(certifi.where())"') do set "SSL_CERT_FILE=%%i"
 python -c "import ssl, certifi; ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where()); from manga_ocr import MangaOcr; MangaOcr()" >> "%LOG_FILE%" 2>&1
+if errorlevel 1 exit /b 1
 
 echo Installation completed for RTX 50 series
-goto :eof
+exit /b 0
 
